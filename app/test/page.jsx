@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 
 import {currentUser} from "@clerk/nextjs/server";
 import {createSupabaseClient} from "@/lib/supabase";
-import { insertUser } from '@/lib/actions/supabase.actions';
+import { addUserDemo } from '@/lib/actions/supabase.actions';
 import { loadinfo } from '@/lib/actions/supabase.actions';
 
 
@@ -24,7 +24,7 @@ const page = async () => {
       <div>{userId}</div>
       
       <div>{user?.id}</div>
-      <form action={insertUser} >
+      <form action={addUserDemo} >
         <input type="text" name="first_name" placeholder="Name" />
          <input type="text" name="last_name" placeholder="Last Name" />
         <input type="email" name="email" placeholder="Email" />
