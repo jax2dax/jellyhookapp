@@ -95,33 +95,50 @@ function sendEvent(event) {
   // =========================
   // PAGE VIEW END
   // =========================
-  window.addEventListener("beforeunload", () => {
+ function sendBeaconEvent(event) {
+  const payload = JSON.stringify([event]);
+  navigator.sendBeacon(API_URL, payload);
+}
+
+// ✅ fires when tab hidden OR closed
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
     const duration = Date.now() - startTime;
 
-        // sendEvent({
-            //   type: "page_view_end",
-            //   visitor_id,
-            //   session_id,
-            //   page_view_id,
-            //   duration,
-            //   scroll_depth: getScrollDepth()
-            // });
-            //replaced with 
-        sendEvent({
-        type: "page_view_end",
-        visitor_id,
-        session_id,
-        page_view_id,
-        duration,
-        scroll_depth: getScrollDepth(),
-        language: navigator.language,
-        user_agent: navigator.userAgent,
-        device_type: /Mobi|Android/i.test(navigator.userAgent)
-            ? "mobile"
-            : "desktop",
-        });
+    sendBeaconEvent({
+      type: "page_view_end",
+      visitor_id,
+      session_id,
+      page_view_id,
+      duration,
+      scroll_depth: getScrollDepth(),
+      language: navigator.language,
+      user_agent: navigator.userAgent,
+      device_type: /Mobi|Android/i.test(navigator.userAgent)
+        ? "mobile"
+        : "desktop",
+    });
+  }
+}); // replaced--/working finalized
+// window.addEventListener("visibilitychange", () => {
+//   if (document.visibilityState === "hidden") {
+//     const duration = Date.now() - startTime;
 
-  });
+//     const payload = JSON.stringify([
+//       {
+//         type: "page_view_end",
+//         visitor_id,
+//         session_id,
+//         page_view_id,
+//         duration,
+//         scroll_depth: getScrollDepth(),
+//       }
+//     ]);
+
+//     navigator.sendBeacon(API_URL, payload);
+//   }
+// });
+//reverse<
 
   function getScrollDepth() {
     const scrolled = window.scrollY;

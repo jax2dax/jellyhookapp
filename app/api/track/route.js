@@ -146,8 +146,19 @@ export async function POST(req) {
     console.log("TRACK HIT");
 
     const supabase = createSupabaseClient();
-
     const apiKey = req.headers.get("x-api-key");
+    // let apiKey = req.headers.get("x-api-key");
+    //       if (!apiKey) {
+    //               try {
+    //                 const body = await req.json();
+    //                 apiKey = body?.[0]?.api_key;
+    //               } catch (e) {}
+    //             } //working v-2
+
+    
+
+
+
     console.log("API KEY:", apiKey);
 
     if (!apiKey) {
@@ -240,33 +251,70 @@ await supabase.from("sessions").upsert({
 // =========================
 // PAGE VIEW START
 // =========================
+// =========================
+// PAGE VIEW START (SAFE INSERT)
+// =========================
 if (event.type === "page_view_start") {
-  const { data, error } = await supabase.from("page_views").insert({
-    page_view_id: event.page_view_id || crypto.randomUUID(),
-    session_id: event.session_id,
-    visitor_id: event.visitor_id,
-    site_id: site.id,
-    page_url: event.page_url || "",
-    page_path: event.page_path || "",
-    page_title: event.page_title || "",
-    entered_at: new Date(),
-  });
+  const { data: existing } = await supabase
+    .from("page_views")
+    .select("id")
+    .eq("page_view_id", event.page_view_id)
+    .single();
 
-  console.log("PAGE VIEW INSERT:", { data, error });
+  if (!existing) {
+    await supabase.from("page_views").insert({
+      page_view_id: event.page_view_id,
+      session_id: event.session_id,
+      visitor_id: event.visitor_id,
+      site_id: site.id,
+      page_url: event.page_url || "",
+      page_path: event.page_path || "",
+      page_title: event.page_title || "",
+      entered_at: new Date(),
+    });
+  }
 }
 
 // =========================
 // PAGE VIEW END
 // =========================
+// =========================
+// PAGE VIEW END (SAFE UPDATE)
+// =========================
 if (event.type === "page_view_end") {
-  await supabase
+  // check if row exists
+  const { data: existing } = await supabase
     .from("page_views")
-    .update({
+    .select("id")
+    .eq("page_view_id", event.page_view_id)
+    .single();
+
+  if (existing) {
+    // ✅ normal update
+    await supabase
+      .from("page_views")
+      .update({
+        time_on_page: event.duration || 0,
+        scroll_depth: event.scroll_depth || 0,
+        left_at: new Date(),
+      })
+      .eq("page_view_id", event.page_view_id);
+  } else {
+    // 🔥 fallback insert (THIS FIXES YOUR NULL PROBLEM)
+    await supabase.from("page_views").insert({
+      page_view_id: event.page_view_id,
+      session_id: event.session_id,
+      visitor_id: event.visitor_id,
+      site_id: site.id,
+      page_url: event.page_url || "",
+      page_path: event.page_path || "",
+      page_title: event.page_title || "",
+      entered_at: new Date(Date.now() - (event.duration || 0)),
+      left_at: new Date(),
       time_on_page: event.duration || 0,
       scroll_depth: event.scroll_depth || 0,
-      left_at: new Date(),
-    })
-    .eq("page_view_id", event.page_view_id);
+    });
+  }
 }
       //deleted bs of causeing error
       // if (error) {
