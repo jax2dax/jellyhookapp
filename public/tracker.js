@@ -1,5 +1,5 @@
 (function () {
-  const API_URL = "%%NEXT_PUBLIC_API_URL%%/api/track";
+  const API_URL = "http://localhost:3000/api/track";
 
   const scriptTag = document.currentScript;
   const apiKey = scriptTag.getAttribute("data-key");
@@ -29,8 +29,8 @@
 
   const visitor_id = getVisitorId();
   const session_id = getSessionId();
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+  // Mutable — resets on every new page view (tab return)
   let page_view_id = crypto.randomUUID();
   let startTime = Date.now();
 
@@ -46,6 +46,7 @@
   function sendExitEvent(event) {
     const payload = [{ ...event, api_key: apiKey }];
     const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+
     let sent = false;
     try {
       fetch(API_URL, {
@@ -56,7 +57,10 @@
       });
       sent = true;
     } catch (e) {}
-    if (!sent) navigator.sendBeacon(API_URL, blob);
+
+    if (!sent) {
+      navigator.sendBeacon(API_URL, blob);
+    }
   }
 
   function firePageViewStart() {
@@ -72,7 +76,6 @@
       language: navigator.language,
       user_agent: navigator.userAgent,
       device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
-      timezone,
     });
   }
 
@@ -85,16 +88,19 @@
       duration: Date.now() - startTime,
       scroll_depth: getScrollDepth(),
       device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
-      timezone,
     });
   }
 
+  // INITIAL PAGE LOAD
   firePageViewStart();
 
+  // TAB VISIBILITY CYCLE
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
+      // User left — close current page_view row
       firePageViewEnd();
     } else if (document.visibilityState === "visible") {
+      // User returned — fresh page_view_id and timer, open new row
       page_view_id = crypto.randomUUID();
       startTime = Date.now();
       firePageViewStart();
