@@ -11,138 +11,100 @@
 
   function getVisitorId() {
     let id = localStorage.getItem("visitor_id");
-    if (!id) {
-      id = crypto.randomUUID();
-      localStorage.setItem("visitor_id", id);
-    }
+    if (!id) { id = crypto.randomUUID(); localStorage.setItem("visitor_id", id); }
     return id;
   }
 
   function getSessionId() {
     let id = sessionStorage.getItem("session_id");
-    if (!id) {
-      id = crypto.randomUUID();
-      sessionStorage.setItem("session_id", id);
-    }
+    if (!id) { id = crypto.randomUUID(); sessionStorage.setItem("session_id", id); }
     return id;
   }
-
-  const visitor_id = getVisitorId();
-  const session_id = getSessionId();
-  const page_view_id = crypto.randomUUID();
-
-  const startTime = Date.now();
-
-//   function sendEvent(event) {
-//     fetch(API_URL, {
-//       method: "POST",
-//       headers: {
-//         "Content-Type": "application/json",
-//         "x-api-key": apiKey
-//       },
-//       body: JSON.stringify([event]) // ✅ MUST BE ARRAY
-//     }).catch((err) => {
-//       console.error("Tracker send failed:", err);
-//     });
-//   }
-//replaced with 
-function sendEvent(event) {
-  fetch(API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey
-    },
-    body: JSON.stringify([event]),
-    keepalive: true // 🔥 CRITICAL for page exit
-  }).catch((err) => {
-    console.error("Tracker send failed:", err);
-  });
-}
-//startPage View
-  // =========================
-  // PAGE VIEW START
-  // =========================
-  
-//   sendEvent({
-        //   type: "page_view_start",
-            //   visitor_id,
-                //   session_id,
-                //   page_view_id,
-                //   page_url: window.location.href,
-            //   page_path: window.location.pathname,
-            //   page_title: document.title,
-            //   referrer: document.referrer,
-        // });
-        //replaced with 
-
-  sendEvent({
-  type: "page_view_start",
-  visitor_id,
-  session_id,
-  page_view_id,
-  page_url: window.location.href,
-  page_path: window.location.pathname,
-  page_title: document.title,
-  referrer: document.referrer,
-  language: navigator.language,
-  user_agent: navigator.userAgent,
-  device_type: /Mobi|Android/i.test(navigator.userAgent)
-    ? "mobile"
-    : "desktop",
-});
-
-  // =========================
-  // PAGE VIEW END
-  // =========================
- function sendBeaconEvent(event) {
-  const payload = JSON.stringify([event]);
-  navigator.sendBeacon(API_URL, payload);
-}
-
-// ✅ fires when tab hidden OR closed
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") {
-    const duration = Date.now() - startTime;
-
-    sendBeaconEvent({
-      type: "page_view_end",
-      visitor_id,
-      session_id,
-      page_view_id,
-      duration,
-      scroll_depth: getScrollDepth(),
-      language: navigator.language,
-      user_agent: navigator.userAgent,
-      device_type: /Mobi|Android/i.test(navigator.userAgent)
-        ? "mobile"
-        : "desktop",
-    });
-  }
-}); // replaced--/working finalized
-// window.addEventListener("visibilitychange", () => {
-//   if (document.visibilityState === "hidden") {
-//     const duration = Date.now() - startTime;
-
-//     const payload = JSON.stringify([
-//       {
-//         type: "page_view_end",
-//         visitor_id,
-//         session_id,
-//         page_view_id,
-//         duration,
-//         scroll_depth: getScrollDepth(),
-//       }
-//     ]);
-
-//     navigator.sendBeacon(API_URL, payload);
-//   }
-// });
-//reverse<
 
   function getScrollDepth() {
     const scrolled = window.scrollY;
     const height = document.body.scrollHeight - window.innerHeight;
-    return height > 0 ? scrolled / height : 0;
+    return height > 0 ? Math.round((scrolled / height) * 100) / 100 : 0;
   }
+
+  const visitor_id = getVisitorId();
+  const session_id = getSessionId();
+
+  // Mutable — resets on every new page view (tab return)
+  let page_view_id = crypto.randomUUID();
+  let startTime = Date.now();
+
+  function sendEvent(event) {
+    fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+      body: JSON.stringify([event]),
+      keepalive: true,
+    }).catch((err) => console.error("Tracker send failed:", err));
+  }
+
+  function sendExitEvent(event) {
+    const payload = [{ ...event, api_key: apiKey }];
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+
+    let sent = false;
+    try {
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      });
+      sent = true;
+    } catch (e) {}
+
+    if (!sent) {
+      navigator.sendBeacon(API_URL, blob);
+    }
+  }
+
+  function firePageViewStart() {
+    sendEvent({
+      type: "page_view_start",
+      visitor_id,
+      session_id,
+      page_view_id,
+      page_url: window.location.href,
+      page_path: window.location.pathname,
+      page_title: document.title,
+      referrer: document.referrer,
+      language: navigator.language,
+      user_agent: navigator.userAgent,
+      device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
+    });
+  }
+
+  function firePageViewEnd() {
+    sendExitEvent({
+      type: "page_view_end",
+      visitor_id,
+      session_id,
+      page_view_id,
+      duration: Date.now() - startTime,
+      scroll_depth: getScrollDepth(),
+      device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
+    });
+  }
+
+  // INITIAL PAGE LOAD
+  firePageViewStart();
+
+  // TAB VISIBILITY CYCLE
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      // User left — close current page_view row
+      firePageViewEnd();
+    } else if (document.visibilityState === "visible") {
+      // User returned — fresh page_view_id and timer, open new row
+      page_view_id = crypto.randomUUID();
+      startTime = Date.now();
+      firePageViewStart();
+    }
+  });
+
 })();
