@@ -323,6 +323,65 @@
 
 })();
 
+// -------------------------------------------------------
+  // PAGE STRUCTURE TRACKING — independent, never breaks analytics or forms
+  // -------------------------------------------------------
+  (function () {
+    const STRUCTURE_API_URL = "http://localhost:3000/api/track-structure"; // 🚀 DEPLOY: replace with production domain
+
+    function capturePageStructure() {
+      try {
+        const headers = document.querySelectorAll("h1, h2, h3");
+        if (headers.length === 0) return;
+
+        const pageHeight = document.body.scrollHeight;
+        const structures = [];
+
+        headers.forEach((h, index) => {
+          const text = h.innerText?.trim();
+          if (!text) return;
+          structures.push({
+            header_index: index,
+            header_text: text,
+            header_tag: h.tagName.toLowerCase(),
+            position_y: Math.round(h.getBoundingClientRect().top + window.scrollY),
+          });
+        });
+
+        if (structures.length === 0) return;
+
+        fetch(STRUCTURE_API_URL, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    api_key: apiKey,
+    visitor_id,
+    page_path: window.location.pathname,
+    page_height: pageHeight,
+    structures,
+  }),
+  credentials: "omit",
+  keepalive: true,
+}).then(() => {
+  console.log("[Tracker] Structure sent:", structures.length, "headers");
+}).catch((err) => {
+  console.error("[Tracker] Structure send error:", err);
+});
+
+      } catch (err) {
+        console.error("[Tracker] Structure capture error:", err);
+      }
+    }
+
+    // Wait for DOM to fully render before scanning headers
+    if (document.readyState === "complete") {
+      capturePageStructure();
+    } else {
+      window.addEventListener("load", capturePageStructure);
+    }
+
+  })();
+
 })();
 
 
