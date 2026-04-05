@@ -1,3 +1,4 @@
+// api/track/route.js
 import { NextResponse } from "next/server";
 import { createSupabaseClient } from "@/lib/supabase";
 
@@ -104,31 +105,195 @@ export async function POST(req) {
       }
 
       // SESSION
-      const { data: existingSession } = await supabase
-        .from("sessions")
-        .select("id")
-        .eq("session_id", event.session_id)
-        .single();
+      // const { data: existingSession } = await supabase
+      //   .from("sessions")
+      //   .select("id")
+      //   .eq("session_id", event.session_id)
+      //   .limit(1).maybeSingle()    //.single();
+      /////////////////////with this 
+      // SESSION (CORRECT — INACTIVITY BASED)
+// ─── SESSION ───────────────────────────────────────────────
+// session_start → insert one row, only fires on first visit
+// session_end   → update that row with ended_at timestamp
+// page_view_*   → update last_activity_at only, never insert
+// This means sessions table has exactly 1 row per site visit
 
-      if (!existingSession) {
-        await supabase.from("sessions").insert({
-          session_id: event.session_id,
-          visitor_id: event.visitor_id,
-          site_id: site.id,
-          started_at: new Date(),
-          last_activity_at: new Date(),
-          referrer: event.referrer || null,
-          country: country || null,
-          timezone: event.timezone || null,
-        });
-      } else {
-        const sessionUpdates = { last_activity_at: new Date() };
-        if (event.type === "page_view_end") sessionUpdates.ended_at = new Date();
-        await supabase
+// if (event.type === "session_start") {
+//   // Check if session already exists (dedup — tracker might retry)
+//   const { data: existing } = await supabase
+//     .from("sessions")
+//     .select("id")
+//     .eq("session_id", event.session_id)
+//     .eq("site_id", site.id)
+//     .maybeSingle();
+
+//   if (!existing) {
+//     const { error } = await supabase.from("sessions").insert({
+//       session_id: event.session_id,
+//       visitor_id: event.visitor_id,
+//       site_id: site.id,
+//       started_at: new Date(),
+//       last_activity_at: new Date(),
+//       referrer: event.referrer || null,
+//       country: country || null,
+//       timezone: event.timezone || null,
+//     });
+//     if (error) console.error("🔴 SESSION INSERT ERROR:", error.message);
+//     else console.log("✅ SESSION CREATED:", event.session_id);
+//   } else {
+//     console.log("🔵 SESSION ALREADY EXISTS (dedup):", event.session_id);
+//   }
+// }   //with this 
+if (event.type === "session_start") {
+  // TIMEOUT = 3 minutes of inactivity = session is considered closed
+  const TIMEOUT_MS = 3 * 60 * 1000;
+  const timeoutThreshold = new Date(Date.now() - TIMEOUT_MS).toISOString();
+
+  // Step 1 — check if THIS exact session_id already exists (same tab, page nav dedup)
+  const { data: exactMatch } = await supabase
+    .from("sessions")
+    .select("id, last_activity_at, ended_at")
+    .eq("session_id", event.session_id)
+    .eq("site_id", site.id)
+    .maybeSingle();
+
+  if (exactMatch) {
+    // Same session_id already in DB — this is a dedup (tracker retried or reloaded)
+    // Just refresh last_activity_at and clear ended_at if it was closed
+    const { error } = await supabase
+      .from("sessions")
+      .update({ last_activity_at: new Date(), ended_at: null })
+      .eq("id", exactMatch.id);
+    if (error) console.error("🔴 SESSION REFRESH ERROR:", error.message);
+    else console.log("🔵 SESSION REFRESHED (same session_id):", event.session_id);
+    // Skip to page view processing
+  } else {
+    // Step 2 — no exact match, check if visitor has an OPEN session within timeout window
+    // An open session = ended_at is null AND last_activity_at is within 3 minutes
+    const { data: openSession } = await supabase
+      .from("sessions")
+      .select("id, session_id, last_activity_at")
+      .eq("visitor_id", event.visitor_id)
+      .eq("site_id", site.id)
+      .is("ended_at", null)
+      .gte("last_activity_at", timeoutThreshold)
+      .order("last_activity_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (openSession) {
+      // Visitor came back within 3 min — close old session, open new one
+      // We close the old one because the session_id changed (new sessionStorage)
+      // meaning the user opened a new tab or cleared storage
+      const { error: closeError } = await supabase
+        .from("sessions")
+        .update({ ended_at: new Date(), last_activity_at: new Date() })
+        .eq("id", openSession.id);
+      if (closeError) console.error("🔴 OLD SESSION CLOSE ERROR:", closeError.message);
+      else console.log("🟡 OLD SESSION CLOSED (new tab detected):", openSession.session_id);
+    } else {
+      // Step 3 — check if there's a stale open session older than timeout, close it
+      const { data: staleSession } = await supabase
+        .from("sessions")
+        .select("id, session_id")
+        .eq("visitor_id", event.visitor_id)
+        .eq("site_id", site.id)
+        .is("ended_at", null)
+        .lt("last_activity_at", timeoutThreshold)
+        .order("last_activity_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (staleSession) {
+        // Lazy close — visitor was gone longer than 3 min, close the old session
+        const { error: staleError } = await supabase
           .from("sessions")
-          .update(sessionUpdates)
-          .eq("id", existingSession.id);
+          .update({ ended_at: new Date(Date.now() - TIMEOUT_MS) })
+          .eq("id", staleSession.id);
+        if (staleError) console.error("🔴 STALE SESSION CLOSE ERROR:", staleError.message);
+        else console.log("🟡 STALE SESSION LAZILY CLOSED:", staleSession.session_id);
       }
+    }
+
+    // Step 4 — insert fresh session
+    const { error: insertError } = await supabase.from("sessions").insert({
+      session_id: event.session_id,
+      visitor_id: event.visitor_id,
+      site_id: site.id,
+      started_at: new Date(),
+      last_activity_at: new Date(),
+      referrer: event.referrer || null,
+      country: country || null,
+      timezone: event.timezone || null,
+    });
+    if (insertError) console.error("🔴 SESSION INSERT ERROR:", insertError.message);
+    else console.log("✅ SESSION CREATED:", event.session_id);
+  }
+}
+//////////////////////////////////////////////////////////////IK THIS Is a lo t 
+if (event.type === "session_end") {
+  // Guard: never close a session that started less than 5 seconds ago
+  // This prevents beforeunload firing on the same page that just created the session
+  // (happens on full page reloads, 404s, and some Next.js navigation edge cases)
+  const { data: sessionToClose } = await supabase
+    .from("sessions")
+    .select("id, started_at")
+    .eq("session_id", event.session_id)
+    .eq("site_id", site.id)
+    .maybeSingle();
+
+  if (!sessionToClose) {
+    console.log("🟡 SESSION END: session not found, skipping:", event.session_id);
+  } else {
+    const ageMs = Date.now() - new Date(sessionToClose.started_at).getTime();
+    if (ageMs < 5000) {
+      // Session is younger than 5 seconds — this is a false close from beforeunload
+      // firing immediately after session_start on the same page load
+      console.log("🟡 SESSION END IGNORED (too young, age=" + ageMs + "ms):", event.session_id);
+    } else {
+      const { error } = await supabase
+        .from("sessions")
+        .update({
+          ended_at: new Date(),
+          last_activity_at: new Date(),
+        })
+        .eq("id", sessionToClose.id);
+      if (error) console.error("🔴 SESSION END ERROR:", error.message);
+      else console.log("✅ SESSION CLOSED (age=" + ageMs + "ms):", event.session_id);
+    }
+  }
+}
+
+if (event.type === "page_view_start" || event.type === "page_view_end") {
+  // Page navigation — just keep last_activity_at fresh, never insert
+  await supabase
+    .from("sessions")
+    .update({ last_activity_at: new Date() })
+    .eq("session_id", event.session_id)
+    .eq("site_id", site.id);
+}
+// ───────────────────────────────────────────────────────────
+//////////////////////////////////////////////////////////////
+
+      // if (!existingSession) {
+      //   await supabase.from("sessions").insert({
+      //     session_id: event.session_id,
+      //     visitor_id: event.visitor_id,
+      //     site_id: site.id,
+      //     started_at: new Date(),
+      //     last_activity_at: new Date(),
+      //     referrer: event.referrer || null,
+      //     country: country || null,
+      //     timezone: event.timezone || null,
+      //   });
+      // } else {
+      //   const sessionUpdates = { last_activity_at: new Date() };
+      //   if (event.type === "page_view_end") sessionUpdates.ended_at = new Date();
+      //   await supabase
+      //     .from("sessions")
+      //     .update(sessionUpdates)
+      //     .eq("id", existingSession.id);
+      // } //replaced with above
 
       // PAGE VIEW START
       if (event.type === "page_view_start") {

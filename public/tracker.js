@@ -1,3 +1,4 @@
+// /public/tracker.js
 (function () {
   const API_URL = "http://localhost:3000/api/track";
 
@@ -15,11 +16,25 @@
     return id;
   }
 
-  function getSessionId() {
-    let id = sessionStorage.getItem("session_id");
-    if (!id) { id = crypto.randomUUID(); sessionStorage.setItem("session_id", id); }
-    return id;
+  // function getSessionId() {
+  //   let id = sessionStorage.getItem("session_id");
+  //   if (!id) { id = crypto.randomUUID(); sessionStorage.setItem("session_id", id); }
+  //   return id;
+  // } //with this (originally this block doesnt work/logic)
+  // Session lives in sessionStorage — same tab/window = same session
+// sessionStorage is cleared automatically when the browser tab is closed
+// This means one session = one continuous site visit, never resets on page nav
+function getSessionId() {
+  let id = sessionStorage.getItem("jh_session_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem("jh_session_id", id);
+    console.log("🟢 NEW SESSION CREATED:", id);
+  } else {
+    console.log("🔵 EXISTING SESSION:", id);
   }
+  return id;
+}
 
   function getScrollDepth() {
     const scrolled = window.scrollY;
@@ -28,8 +43,64 @@
   }
 
   const visitor_id = getVisitorId();
-  const session_id = getSessionId();
+ 
 
+  // -------------------------------
+// SESSION LIFECYCLE (NEW - ISOLATED)
+// -------------------------------
+
+// SESSION LIFECYCLE
+// session_start fires ONCE on first visit to the site (when sessionStorage has no id yet)
+// session_end fires ONCE when the user closes/leaves the site entirely
+// Neither fires on page navigation — session_id stays the same across all pages
+// isNewSession MUST be checked BEFORE getSessionId() writes to sessionStorage
+const isNewSession = !sessionStorage.getItem("jh_session_id");
+const session_id = getSessionId();
+
+function fireSessionStart() {
+  // Only send if this is a brand new session — not a page navigation
+  if (!isNewSession) return;
+  console.log("🟢 SESSION START FIRING:", session_id);
+  sendEvent({
+    type: "session_start",
+    visitor_id,
+    session_id,
+    referrer: document.referrer || null,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+    user_agent: navigator.userAgent,
+  });
+}
+
+function fireSessionEnd() {
+  // Fires on tab close / browser navigation away from site
+  // Uses sendExitEvent (keepalive fetch) so it survives page unload
+  console.log("🔴 SESSION END FIRING:", session_id);
+  const payload = [{
+    type: "session_end",
+    visitor_id,
+    session_id,
+    api_key: apiKey,
+  }];
+  const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+  // keepalive fetch first, sendBeacon fallback
+  try {
+    fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
+  } catch (e) {
+    navigator.sendBeacon(API_URL, blob);
+  }
+}
+
+// Fire start only on new sessions, fire end on every unload
+fireSessionStart();
+window.addEventListener("beforeunload", fireSessionEnd);
+
+
+  /////////////////////////////////////////////
   // Mutable — resets on every new page view (tab return)
   let page_view_id = crypto.randomUUID();
   let startTime = Date.now();
@@ -38,30 +109,50 @@
     fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-      body: JSON.stringify([event]),
+     body: JSON.stringify([event]), //, working version(session row not adding so ,)
       keepalive: true,
     }).catch((err) => console.error("Tracker send failed:", err));
   }
 
+  // function sendExitEvent(event) {
+  //   const payload = [{ ...event, api_key: apiKey }];
+  //   const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+
+  //   try {
+  //     fetch(API_URL, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+  //       body: JSON.stringify(payload),
+  //       keepalive: true,
+  //     });
+  //     sent = true;
+  //   } catch (e) {}
+
+  //   if (!sent) {
+  //     navigator.sendBeacon(API_URL, blob);
+  //   }
+  // } //was replaced with this
   function sendExitEvent(event) {
-    const payload = [{ ...event, api_key: apiKey }];
-    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+  // keepalive fetch survives page unload — sendBeacon is fallback only
+  const payload = [{ ...event, api_key: apiKey }];
+  const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+  let sent = false;
 
-    let sent = false;
-    try {
-      fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      });
-      sent = true;
-    } catch (e) {}
+  try {
+    fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
+    sent = true;
+  } catch (e) {}
 
-    if (!sent) {
-      navigator.sendBeacon(API_URL, blob);
-    }
+  if (!sent) {
+    navigator.sendBeacon(API_URL, blob);
   }
+}
+
 
   function firePageViewStart() {
     sendEvent({
@@ -361,7 +452,7 @@
     structures,
   }),
   credentials: "omit",
-  keepalive: true,
+  keepalive: true
 }).then(() => {
   console.log("[Tracker] Structure sent:", structures.length, "headers");
 }).catch((err) => {

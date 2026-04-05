@@ -4,8 +4,8 @@ import { redirect } from 'next/navigation'
 
 import {currentUser} from "@clerk/nextjs/server";
 import {createSupabaseClient} from "@/lib/supabase";
-import { addUserDemo } from '@/lib/actions/supabase.actions';
-import { loadinfo } from '@/lib/actions/supabase.actions';
+import { addUserDemo } from '@/zbefore/demofetch';
+import { loadinfo } from '@/zbefore/demofetch';
 
 
 
@@ -17,7 +17,7 @@ const userData = await loadinfo();
 const page = async () => {
     const { userId } = await auth();
   const user = await currentUser();
-  if (!userId) { redirect('/sign-in')}
+ // if (!userId) { redirect('/sign-in')}
   return (
     <div>
       test page
