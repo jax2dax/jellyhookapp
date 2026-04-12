@@ -1,6 +1,7 @@
 // /public/tracker.js
 (function () {
   const API_URL = "http://localhost:3000/api/track";
+  const _originalFetch = window.fetch;
 
   const scriptTag = document.currentScript;
   const apiKey = scriptTag.getAttribute("data-key");
@@ -204,10 +205,15 @@ window.addEventListener("beforeunload", fireSessionEnd);
   // if this entire block throws, analytics above is unaffected
   // -------------------------------------------------------
   // -------------------------------------------------------
+// -------------------------------------------------------
+// FORM CAPTURE — fully independent, never affects analytics
+// -------------------------------------------------------
+// -------------------------------------------------------
 // FORM CAPTURE — fully independent, never affects analytics
 // -------------------------------------------------------
 (function () {
   const FORM_API_URL = "http://localhost:3000/api/track-form"; // 🚀 DEPLOY: replace with production domain
+  const SITE_CONFIG_URL = "http://localhost:3000/api/site-config"; // 🚀 DEPLOY: replace with production domain
 
   const NAME_KEYS = ["name", "full_name", "fullname", "first_name", "firstname", "your_name", "contact_name", "fname", "full name", "fullname"];
   const EMAIL_KEYS = ["email", "email_address", "emailaddress", "your_email", "contact_email", "mail", "e-mail"];
@@ -217,13 +223,10 @@ window.addEventListener("beforeunload", fireSessionEnd);
     return (str || "").toLowerCase().replace(/[-\s]/g, "_");
   }
 
-  // Read actual current value from input — works for React controlled inputs
-  // React stores value in input.value even for controlled components
   function getInputValue(input) {
     return input.value || "";
   }
 
-  // Get ALL inputs from form including React-controlled ones
   function getAllInputs(form) {
     return Array.from(form.querySelectorAll(
       "input:not([type='hidden']):not([type='submit']):not([type='button']):not([type='checkbox']):not([type='radio']), textarea, select"
@@ -231,57 +234,44 @@ window.addEventListener("beforeunload", fireSessionEnd);
   }
 
   function extractEmail(form) {
-    // Priority 1: type="email" — most reliable signal
     const emailInputs = form.querySelectorAll('input[type="email"]');
     for (const el of emailInputs) {
       const val = getInputValue(el);
       if (val && val.includes("@") && val.includes(".")) return val.trim();
     }
-
-    // Priority 2: data-track attribute
     const tracked = form.querySelector('[data-track="email"]');
     if (tracked) {
       const val = getInputValue(tracked);
       if (val && val.includes("@")) return val.trim();
     }
-
-    // Priority 3: placeholder/name/id contains email keyword
     const allInputs = getAllInputs(form);
     for (const input of allInputs) {
       const signals = [
         input.name, input.id, input.placeholder,
         input.getAttribute("aria-label"), input.getAttribute("autocomplete")
       ].map(s => normalize(s || ""));
-
       const isEmailField = signals.some(s => EMAIL_KEYS.some(k => s.includes(normalize(k))));
       if (isEmailField) {
         const val = getInputValue(input);
         if (val && val.includes("@")) return val.trim();
       }
     }
-
-    // Priority 4: any input whose current value looks like an email
     for (const input of allInputs) {
       const val = getInputValue(input);
       if (val && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return val.trim();
     }
-
     return null;
   }
 
   function extractName(form) {
-    // Priority 1: data-track
     const tracked = form.querySelector('[data-track="name"]');
     if (tracked && getInputValue(tracked)) return getInputValue(tracked).trim();
-
-    // Priority 2: placeholder/name/id/autocomplete signals
     const allInputs = getAllInputs(form);
     for (const input of allInputs) {
       const signals = [
         input.name, input.id, input.placeholder,
         input.getAttribute("aria-label"), input.getAttribute("autocomplete")
       ].map(s => normalize(s || ""));
-
       const isNameField = signals.some(s => NAME_KEYS.some(k => s.includes(normalize(k))));
       if (isNameField) {
         const val = getInputValue(input);
@@ -292,19 +282,13 @@ window.addEventListener("beforeunload", fireSessionEnd);
   }
 
   function extractPhone(form) {
-    // Priority 1: type="tel"
     const telInput = form.querySelector('input[type="tel"]');
     if (telInput && getInputValue(telInput)) return getInputValue(telInput).trim();
-
-    // Priority 2: data-track
     const tracked = form.querySelector('[data-track="phone"]');
     if (tracked && getInputValue(tracked)) return getInputValue(tracked).trim();
-
-    // Priority 3: signals
     const allInputs = getAllInputs(form);
     for (const input of allInputs) {
-      const signals = [input.name, input.id, input.placeholder]
-        .map(s => normalize(s || ""));
+      const signals = [input.name, input.id, input.placeholder].map(s => normalize(s || ""));
       const isPhoneField = signals.some(s => PHONE_KEYS.some(k => s.includes(normalize(k))));
       if (isPhoneField) {
         const val = getInputValue(input);
@@ -320,7 +304,6 @@ window.addEventListener("beforeunload", fireSessionEnd);
     for (const input of allInputs) {
       const key = input.name || input.id || input.placeholder || "field_" + Math.random().toString(36).slice(2, 6);
       const val = getInputValue(input);
-      // Never store passwords
       if (normalize(key).includes("password") || normalize(key).includes("passwd")) continue;
       if (val) raw[key] = val;
     }
@@ -336,11 +319,56 @@ window.addEventListener("beforeunload", fireSessionEnd);
     return false;
   }
 
+  // ─────────────────────────────────────────────────────────────────────
+  // CONFIG STATE
+  //
+  // configLoaded: false until the /api/site-config fetch completes.
+  //   All form submissions that arrive BEFORE config loads are queued
+  //   in pendingForms and replayed once config is known.
+  //
+  // specifyFormMode:
+  //   false → capture ALL forms that pass shouldSkip() (original behavior)
+  //   true  → ONLY capture forms with data-conversion="true" attribute
+  // ─────────────────────────────────────────────────────────────────────
+  let configLoaded = false;
+  let specifyFormMode = false; // safe default until fetch resolves
+
+  // Queue: stores { form, submittedViaFetch } objects that arrived before config loaded
+  const pendingForms = [];
+
+  // ─────────────────────────────────────────────────────────────────────
+  // CORE GATE — called after config is known
+  // Returns true if this form should be captured, false if it should be ignored
+  // ─────────────────────────────────────────────────────────────────────
+  function isConversionForm(form) {
+    if (!specifyFormMode) {
+      // Global mode: capture everything that passes shouldSkip
+      return true;
+    }
+    // Specify mode: ONLY forms with data-conversion="true"
+    const hasAttr = form.getAttribute("data-conversion") === "true";
+    if (!hasAttr) {
+      console.log("[Tracker] IGNORED — form missing data-conversion='true':", form);
+    }
+    return hasAttr;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // SEND — fires the actual capture after all gates pass
+  // ─────────────────────────────────────────────────────────────────────
   function sendFormCapture(form) {
     try {
-      if (!form || form.tagName !== "FORM") return;
+      if (!form || form.tagName !== "FORM") {
+        console.warn("[Tracker] sendFormCapture called with non-form element:", form);
+        return;
+      }
+
+      // Gate 1: conversion form check (respects specifyFormMode)
+      if (!isConversionForm(form)) return;
+
+      // Gate 2: skip password forms, search forms, single-field non-email forms
       if (shouldSkip(form)) {
-        console.log("[Tracker] Form skipped:", form);
+        console.log("[Tracker] Form skipped by shouldSkip:", form);
         return;
       }
 
@@ -349,7 +377,7 @@ window.addEventListener("beforeunload", fireSessionEnd);
       const phone = extractPhone(form);
       const raw = buildRawData(form);
 
-      console.log("[Tracker] Form captured:", { name, email, phone, raw });
+      console.log("[Tracker] ✅ Form captured:", { name, email, phone, raw });
 
       const payload = {
         api_key: apiKey,
@@ -362,10 +390,9 @@ window.addEventListener("beforeunload", fireSessionEnd);
         phone: phone || null,
         confidence: email ? "high" : "low",
         raw_data: raw,
+        is_labelled_conversion: form.getAttribute("data-conversion") === "true",
       };
 
-      // fetch with credentials: omit — required for cross-origin with wildcard CORS
-      // keepalive: true — survives page navigation just like sendBeacon
       _originalFetch(FORM_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -373,46 +400,118 @@ window.addEventListener("beforeunload", fireSessionEnd);
         credentials: "omit",
         keepalive: true,
       }).then(() => {
-        console.log("[Tracker] Form payload sent successfully");
+        console.log("[Tracker] ✅ Form payload sent successfully");
       }).catch((err) => {
-        console.error("[Tracker] Form send error:", err);
+        console.error("[Tracker] ❌ Form send error:", err);
       });
 
     } catch (err) {
-      console.error("[Tracker] Form capture error:", err);
+      console.error("[Tracker] ❌ Form capture error:", err);
     }
   }
 
-  // METHOD 1: Native submit event — capture phase fires before React handlers
+  // ─────────────────────────────────────────────────────────────────────
+  // QUEUE PROCESSOR — replays any forms that submitted before config loaded
+  // ─────────────────────────────────────────────────────────────────────
+  function processPendingForms() {
+    if (pendingForms.length === 0) return;
+    console.log("[Tracker] Processing", pendingForms.length, "queued form submission(s) now that config is loaded");
+    for (const { form } of pendingForms) {
+      sendFormCapture(form);
+    }
+    pendingForms.length = 0; // clear the queue
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // CONFIG FETCH — runs ONCE on page load, non-blocking
+  //
+  // IMPORTANT: intercept is set up IMMEDIATELY (before fetch resolves)
+  // so no submissions are missed. Submissions arriving before config
+  // loads go into pendingForms and are replayed after.
+  // ─────────────────────────────────────────────────────────────────────
+  _originalFetch(`${SITE_CONFIG_URL}?key=${encodeURIComponent(apiKey)}`, {
+    credentials: "omit",
+  })
+    .then(function(r) {
+      if (!r.ok) {
+        throw new Error("site-config HTTP " + r.status);
+      }
+      return r.json();
+    })
+    .then(function(config) {
+      specifyFormMode = config.specify_form === true;
+      configLoaded = true;
+
+      if (specifyFormMode) {
+        console.log("[Tracker] ✅ specify_form=TRUE — ONLY forms with data-conversion='true' will be captured");
+      } else {
+        console.log("[Tracker] ✅ specify_form=FALSE — ALL forms will be captured (global mode)");
+      }
+
+      // Replay any submissions that queued up before config loaded
+      processPendingForms();
+    })
+    .catch(function(err) {
+      // Config fetch failed — default to GLOBAL mode so no conversions are silently lost
+      console.warn("[Tracker] ⚠️ site-config fetch failed, defaulting to global mode:", err.message);
+      specifyFormMode = false;
+      configLoaded = true;
+      processPendingForms();
+    });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // METHOD 1: Native submit event (capture phase — fires before React handlers)
+  //
+  // If config is not loaded yet: queue the form, process after config arrives.
+  // If config is loaded: process immediately.
+  // ─────────────────────────────────────────────────────────────────────
   document.addEventListener("submit", function (e) {
     console.log("[Tracker] Submit event fired on:", e.target);
+    if (!configLoaded) {
+      console.log("[Tracker] Config not yet loaded — queuing submission");
+      pendingForms.push({ form: e.target });
+      return;
+    }
     sendFormCapture(e.target);
   }, true);
 
-  // METHOD 2: Intercept fetch — catches WaitlistForm which submits via fetch
-  // without ever firing a DOM submit (calls e.preventDefault then fetch directly)
-  const _originalFetch = window.fetch;
+  // ─────────────────────────────────────────────────────────────────────
+  // METHOD 2: Fetch interceptor
+  // Catches React forms that call fetch() directly without a DOM submit event.
+  //
+  // Same queue logic: if config isn't loaded yet, queue and replay later.
+  // ─────────────────────────────────────────────────────────────────────
+  //const _originalFetch = window.fetch;              //moved this to the top
   window.fetch = function (...args) {
     try {
-      // Find if any form on page has filled email — this fetch is likely a form submit
       const forms = document.querySelectorAll("form");
       for (const form of forms) {
         if (shouldSkip(form)) continue;
+
+        // In specify mode, skip non-labelled forms immediately (no email scan needed)
+        if (configLoaded && specifyFormMode && form.getAttribute("data-conversion") !== "true") continue;
+
         const email = extractEmail(form);
-        // Only capture if there's an email — avoids capturing unrelated fetches
         if (email) {
-          console.log("[Tracker] Fetch intercepted with form data:", form);
-          sendFormCapture(form);
-          break;
+          console.log("[Tracker] Fetch intercepted — found form with email:", form);
+          if (!configLoaded) {
+            console.log("[Tracker] Config not yet loaded — queuing fetch-intercepted submission");
+            pendingForms.push({ form });
+          } else {
+            sendFormCapture(form);
+          }
+          break; // only capture the first matching form per fetch call
         }
       }
     } catch (err) {
-      console.error("[Tracker] Fetch intercept error:", err);
+      console.error("[Tracker] ❌ Fetch intercept error:", err);
     }
     return _originalFetch.apply(this, args);
   };
 
 })();
+
+//////////////////////////////////////////
 
 // -------------------------------------------------------
   // PAGE STRUCTURE TRACKING — independent, never breaks analytics or forms

@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
-
+import { ConversionPathsChart } from "@/components/charts/lineConversionPath"
+import { ConversionRateChart } from "@/components/charts/conversionRate"
 export default function Dashboard() {
   const { user } = useUser();
   const [data, setData] = useState([]);
@@ -55,14 +56,94 @@ export default function Dashboard() {
     fontWeight: "bold",
     borderBottom: "1px solid #333",
     background: "#111",
-    color: "#aaa",
+    color: "#32CD32",
   };
 
   const rowStyle = {
     padding: "6px 8px",
     borderBottom: "1px solid #1a1a1a",
-    color: "#ddd",
+    color: "#32CD32",
   };
+  const DEMO_DATA= {
+  globalMinX: -360,
+  globalMaxX: 30,
+  uniquePagePaths: ['/', '/pricing', '/signup', '/docs', '/contact', '/checkout', '/about'],
+  leads: [
+    {
+      leadId: 'demo1',
+      leadName: 'Alice',
+      leadEmail: 'alice@example.com',
+      conversionTime: new Date('2026-04-05T10:00:00Z'),
+      session: {},
+      pageViews: [
+        { relativeTimeSec: -240, pagePath: '/', enteredAt: new Date() },
+        { relativeTimeSec: -180, pagePath: '/pricing', enteredAt: new Date() },
+        { relativeTimeSec: -120, pagePath: '/signup', enteredAt: new Date() },
+        { relativeTimeSec: -30, pagePath: '/pricing', enteredAt: new Date() },
+        { relativeTimeSec: 0, pagePath: '/signup', enteredAt: new Date() },
+      ],
+    },
+    {
+      leadId: 'demo2',
+      leadName: 'Bob',
+      leadEmail: 'bob@example.com',
+      conversionTime: new Date('2026-04-05T11:30:00Z'),
+      session: {},
+      pageViews: [
+        { relativeTimeSec: -60, pagePath: '/', enteredAt: new Date() },
+        { relativeTimeSec: -45, pagePath: '/docs', enteredAt: new Date() },
+        { relativeTimeSec: -20, pagePath: '/signup', enteredAt: new Date() },
+        { relativeTimeSec: 0, pagePath: '/signup', enteredAt: new Date() },
+      ],
+    },
+    {
+      leadId: 'demo3',
+      leadName: 'Charlie',
+      leadEmail: 'charlie@example.com',
+      conversionTime: new Date('2026-04-05T09:15:00Z'),
+      session: {},
+      pageViews: [
+        { relativeTimeSec: -300, pagePath: '/', enteredAt: new Date() },
+        { relativeTimeSec: -250, pagePath: '/contact', enteredAt: new Date() },
+        { relativeTimeSec: -200, pagePath: '/pricing', enteredAt: new Date() },
+        { relativeTimeSec: -150, pagePath: '/docs', enteredAt: new Date() },
+        { relativeTimeSec: -80, pagePath: '/pricing', enteredAt: new Date() },
+        { relativeTimeSec: -10, pagePath: '/signup', enteredAt: new Date() },
+        { relativeTimeSec: 0, pagePath: '/signup', enteredAt: new Date() },
+      ],
+    },
+    {
+      leadId: 'demo4',
+      leadName: 'Diana',
+      leadEmail: 'diana@example.com',
+      conversionTime: new Date('2026-04-05T12:05:00Z'),
+      session: {},
+      pageViews: [
+        { relativeTimeSec: -180, pagePath: '/', enteredAt: new Date() },
+        { relativeTimeSec: -150, pagePath: '/about', enteredAt: new Date() },
+        { relativeTimeSec: -100, pagePath: '/pricing', enteredAt: new Date() },
+        { relativeTimeSec: -50, pagePath: '/signup', enteredAt: new Date() },
+        { relativeTimeSec: 0, pagePath: '/signup', enteredAt: new Date() },
+      ],
+    },
+    {
+      leadId: 'demo5',
+      leadName: 'Ethan',
+      leadEmail: 'ethan@example.com',
+      conversionTime: new Date('2026-04-05T08:45:00Z'),
+      session: {},
+      pageViews: [
+        { relativeTimeSec: -360, pagePath: '/', enteredAt: new Date() },
+        { relativeTimeSec: -300, pagePath: '/pricing', enteredAt: new Date() },
+        { relativeTimeSec: -240, pagePath: '/docs', enteredAt: new Date() },
+        { relativeTimeSec: -180, pagePath: '/about', enteredAt: new Date() },
+        { relativeTimeSec: -120, pagePath: '/pricing', enteredAt: new Date() },
+        { relativeTimeSec: -60, pagePath: '/checkout', enteredAt: new Date() },
+        { relativeTimeSec: 0, pagePath: '/signup', enteredAt: new Date() },
+      ],
+    },
+  ],
+}
 
   return (
     <div
@@ -97,6 +178,14 @@ export default function Dashboard() {
           {devMode ? "DEV MODE" : "USER MODE"}
         </button>
       </div>
+      <div className="my-2 mx-1" >
+      <ConversionPathsChart siteId="1a6d1c5c-7a6a-4d39-b221-9f3dbb64c3b1" useDemo={false} permission={2} />  {/*//i removed leads={}*/}
+         </div>
+         <div className="my-2 mt-4 mx-1" >
+          <ConversionRateChart siteId={"1a6d1c5c-7a6a-4d39-b221-9f3dbb64c3b1"} /></div>  {/*<ConversionRateChart siteId={site.id} planLevel={planLevel} />*/}
+
+
+
 
       {/* ---- SITE INFO ---- */}
       <h2 style={{ marginBottom: 8, color: "#fff" }}>

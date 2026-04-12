@@ -1,3 +1,4 @@
+// api/track-form/route.js
 import { NextResponse } from "next/server";
 import { createSupabaseClient } from "@/lib/supabase";
 
@@ -6,14 +7,13 @@ function corsHeaders() {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, x-api-key",
-    // NO Access-Control-Allow-Credentials header — omitting it is correct
-    // credentials: omit on client + no allow-credentials on server = works with wildcard *
   };
 }
 
 export async function OPTIONS() {
   return new Response(null, { status: 200, headers: corsHeaders() });
 }
+
 export async function POST(req) {
   try {
     const supabase = createSupabaseClient();
@@ -34,9 +34,12 @@ export async function POST(req) {
       return NextResponse.json({ error: "No API key" }, { status: 400, headers: corsHeaders() });
     }
 
+    // ── Fetch site — now also selecting specify_form ──────────────────────
+    // specify_form = true  → only accept submissions where is_labelled_conversion = true
+    // specify_form = false → accept all submissions (original global behavior)
     const { data: site, error: siteError } = await supabase
       .from("sites")
-      .select("id, is_active")
+      .select("id, is_active, specify_form") // ← NEW: specify_form added
       .eq("api_key", apiKey)
       .single();
 
@@ -52,7 +55,25 @@ export async function POST(req) {
       return NextResponse.json({ success: true }, { headers: corsHeaders() });
     }
 
-    // Dedup check
+    // ── NEW: specify_form server-side guard ───────────────────────────────
+    // Even if a misbehaving tracker sends a non-labelled form submission,
+    // the server enforces the rule: when specify_form is true, only labelled
+    // conversion forms (is_labelled_conversion = true) are accepted.
+    //
+    // is_labelled_conversion is sent by the tracker as:
+    //   form.getAttribute("data-conversion") === "true"
+    //
+    // When specify_form is false this block is skipped entirely — no change
+    // to original global capture behavior.
+    if (site.specify_form === true) {
+      if (payload.is_labelled_conversion !== true) {
+        console.log("FORM: specify_form=true but submission is not a labelled conversion form — dropped");
+        return NextResponse.json({ success: true }, { headers: corsHeaders() });
+      }
+      console.log("FORM: specify_form=true and is_labelled_conversion=true — proceeding");
+    }
+
+    // Dedup check — unchanged
     if (payload.email) {
       const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
       const { data: dupe } = await supabase
