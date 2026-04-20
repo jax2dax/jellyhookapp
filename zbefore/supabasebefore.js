@@ -21,294 +21,34 @@ import { createSupabaseClient } from "@/lib/supabase";
 // createSite — inserts a new site for the current user
 // Returns: site object with api_key
 // Params: { name: string, domain: string, specify_form: boolean }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// createSite — UPDATED
-//
-// Before inserting, checks if a site with this domain already exists.
-//
-// Case A — domain not registered yet:
-//   Creates the site normally, inserts user as 'owner' in site_members.
-//
-// Case B — domain already registered AND user's email domain matches site domain
-//   (e.g. user is jane@acme.com trying to register acme.com):
-//   Auto-joins them as 'member'. Returns the existing site. No duplicate created.
-//
-// Case C — domain already registered but email domain does NOT match:
-//   Returns { alreadyExists: true, site: existingSite } so the UI can show
-//   "This domain is already registered. Contact the owner to be invited."
-//   Does NOT auto-join — prevents random people from claiming access.
-//
-// Returns:
-//   { site, joined: false }  — new site created, user is owner
-//   { site, joined: true  }  — existing site, user auto-joined as member
-//   { site, alreadyExists: true } — existing site, user's email doesn't match domain
-// ─────────────────────────────────────────────────────────────────────────────
 export async function createSite({ name, domain, specify_form = false }) {
   const { userId } = await auth();
-  const supabase = await createSupabaseClient();
-
-  // Normalise domain — strip protocol, www, trailing slash
-  const cleanDomain = domain
-    .replace(/^https?:\/\//, "")
-    .replace(/^www\./, "")
-    .replace(/\/$/, "")
-    .toLowerCase()
-    .trim();
-
-  // ── Check if this domain is already registered ───────────────────────────
-  const { data: existingSite } = await supabase
-    .from("sites")
-    .select("id, domain, user_id, api_key, plan, is_active, specify_form")
-    .ilike("domain", cleanDomain)   // case-insensitive match
-    .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
-
-  if (existingSite) {
-    // Domain is already registered — check if this user is already a member
-    const { data: existingMember } = await supabase
-      .from("site_members")
-      .select("id, role")
-      .eq("site_id", existingSite.id)
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (existingMember) {
-      // Already a member — just return the site, nothing to do
-      console.log(`[createSite] User ${userId} already member of site ${existingSite.id}`);
-      return { site: existingSite, joined: false, alreadyMember: true };
-    }
-
-    // Get the current user's email from Clerk to check domain match
-    const { data: clerkData } = await supabase.auth.getUser().catch(() => ({ data: null }));
-    // We can't call Clerk directly in a server action easily, so we rely on
-    // the calling page to pass userEmail — but as a fallback we use auth()
-    const { sessionClaims } = await auth();
-    const userEmail = sessionClaims?.email || "";
-    const userEmailDomain = userEmail.split("@")[1]?.toLowerCase() || "";
-
-    // Auto-join only if email domain matches site domain
-    // e.g. jane@acme.com can auto-join acme.com or app.acme.com
-    const siteBaseDomain = cleanDomain.split(".").slice(-2).join("."); // acme.com from app.acme.com
-    const emailMatchesDomain =
-      userEmailDomain === cleanDomain ||
-      userEmailDomain === siteBaseDomain ||
-      cleanDomain.endsWith(userEmailDomain);
-
-    if (emailMatchesDomain) {
-      // Auto-join — email proves they're affiliated with this domain
-      const { error: joinError } = await supabase.from("site_members").insert({
-        site_id: existingSite.id,
-        user_id: userId,
-        user_email: userEmail,
-        role: "member",
-        invited_by: null, // self-joined via domain match
-      });
-
-      if (joinError) {
-        console.error("[createSite] Auto-join insert error:", joinError.message);
-        // Even if insert fails, return the site — they can still be shown the data
-      } else {
-        console.log(`[createSite] Auto-joined userId=${userId} to siteId=${existingSite.id} via domain match`);
-      }
-
-      return { site: existingSite, joined: true };
-    }
-
-    // Email domain does NOT match — don't auto-join, return flag for UI
-    console.log(`[createSite] Domain exists but email ${userEmail} doesn't match ${cleanDomain} — blocking auto-join`);
-    return { site: existingSite, alreadyExists: true };
-  }
-
-  // ── Domain not registered — create fresh site ────────────────────────────
+  const supabase = createSupabaseClient();
   const api_key = crypto.randomUUID();
 
-  const { data: newSite, error: createError } = await supabase
+  const { data, error } = await supabase
     .from("sites")
     .insert({
-      name: name || cleanDomain,
-      domain: cleanDomain,
+      name,
+      domain,
       api_key,
       user_id: userId,
       plan: "free",
       monthly_event_limit: 10000,
-      specify_form: specify_form ?? false,
-      is_active: true,
+      specify_form: specify_form ?? false, // ← NEW: store the user's choice
     })
     .select()
     .single();
 
-  if (createError) {
-    console.error("[createSite] Insert error:", createError.message);
-    throw createError;
-  }
-
-  // Insert creator as 'owner' in site_members
-  // This is the source of truth for "who can access this site"
-  const { sessionClaims } = await auth();
-  const userEmail = sessionClaims?.email || "";
-
-  const { error: memberError } = await supabase.from("site_members").insert({
-    site_id: newSite.id,
-    user_id: userId,
-    user_email: userEmail,
-    role: "owner",
-    invited_by: null,
-  });
-
-  if (memberError) {
-    console.error("[createSite] Owner member insert error:", memberError.message);
-    // Non-fatal — site was created, member row failed. Log and continue.
-  }
-
-  console.log(`[createSite] Created siteId=${newSite.id} domain=${cleanDomain} userId=${userId}`);
-  return { site: newSite, joined: false };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// getUserSite — UPDATED
-//
-// Now checks site_members first, then falls back to direct ownership.
-// This means: any user who is a member of a site (owner OR member) gets
-// that site returned, using the shared site_id and api_key.
-//
-// Priority: most recently created membership → newest site first
-// ─────────────────────────────────────────────────────────────────────────────
-export async function getUserSite(userId) {
-  console.log(`[getUserSite] userId=${userId}`);
-  const supabase = await createSupabaseClient();
-
-  // Look up membership first — this covers both owners and members
-  const { data: membership, error: memberError } = await supabase
-    .from("site_members")
-    .select(`
-      role,
-      sites (
-        id, plan, domain, api_key, is_active, monthly_event_limit, created_at, specify_form, name
-      )
-    `)
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (memberError) {
-    console.error("[getUserSite] Member lookup error:", memberError.message);
-  }
-
-  if (membership?.sites && membership.sites.is_active) {
-    const site = membership.sites;
-    console.log(`[getUserSite] Found via site_members: siteId=${site.id} role=${membership.role}`);
-    return site;
-  }
-
-  // Fallback: direct ownership check (for sites created before site_members existed)
-  const { data, error } = await supabase
-    .from("sites")
-    .select("id, plan, domain, api_key, is_active, monthly_event_limit, created_at, specify_form, name")
-    .eq("user_id", userId)
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
   if (error) {
-    console.error("[getUserSite] Direct ownership fallback error:", error.message);
-    return null;
+    console.error("[supabase] createSite error:", error.message);
+    throw error;
   }
 
-  if (data) {
-    console.log(`[getUserSite] Found via direct ownership fallback: siteId=${data.id}`);
-    // Backfill site_members so this user is covered going forward
-    await supabase.from("site_members").insert({
-      site_id: data.id,
-      user_id: userId,
-      user_email: "",
-      role: "owner",
-    }).then(() => {
-      console.log(`[getUserSite] Backfilled owner membership for siteId=${data.id}`);
-    }).catch(() => {}); // ignore duplicate error
-  }
-
-  return data ?? null;
+  console.log(`[supabase] createSite: created siteId=${data.id} domain=${domain} specify_form=${specify_form}`);
+  return data;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// requireSite — unchanged in logic, updated to use new getUserSite
-// ─────────────────────────────────────────────────────────────────────────────
-export async function requireSite(userId) {
-  const site = await getUserSite(userId);
-  if (!site) {
-    console.log("[requireSite] No active site — redirecting to /platform/create-site");
-    redirect("/platform/create-site");
-  }
-  return site;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// getSiteMembers — NEW
-// Returns all members of a site. Use on a settings/team page.
-// ─────────────────────────────────────────────────────────────────────────────
-export async function getSiteMembers(siteId) {
-  console.log(`[getSiteMembers] siteId=${siteId}`);
-  const supabase = await createSupabaseClient();
-
-  const { data, error } = await supabase
-    .from("site_members")
-    .select("id, user_id, user_email, role, invited_by, created_at")
-    .eq("site_id", siteId)
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    console.error("[getSiteMembers] Error:", error.message);
-    return [];
-  }
-
-  return data || [];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// inviteMember — NEW
-// Owner manually invites a coworker by email. No email-domain check needed
-// since the owner is explicitly vouching for them.
-// The invitee will get the site on their next login via getUserSite.
-// ─────────────────────────────────────────────────────────────────────────────
-export async function inviteMember({ siteId, inviteeEmail }) {
-  const { userId } = await auth();
-  const supabase = await createSupabaseClient();
-
-  // Verify caller is owner or member of this site
-  const { data: callerMembership } = await supabase
-    .from("site_members")
-    .select("role")
-    .eq("site_id", siteId)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (!callerMembership) {
-    throw new Error("You are not a member of this site");
-  }
-
-  // We don't have their Clerk user_id yet (they might not have signed up).
-  // Store their email — getUserSite will match them when they first log in.
-  // Use a placeholder user_id of "pending:{email}" that getUserSite resolves.
-  const { error } = await supabase.from("site_members").insert({
-    site_id: siteId,
-    user_id: `pending:${inviteeEmail.toLowerCase()}`,
-    user_email: inviteeEmail.toLowerCase(),
-    role: "member",
-    invited_by: userId,
-  });
-
-  if (error && !error.message.includes("duplicate")) {
-    console.error("[inviteMember] Error:", error.message);
-    throw new Error("Failed to invite member");
-  }
-
-  console.log(`[inviteMember] Invited ${inviteeEmail} to siteId=${siteId}`);
-  return { success: true };
-}
 // getSiteSettings — full site row for settings page
 // Returns: site object | null
 // Params: userId (string) — Clerk userId

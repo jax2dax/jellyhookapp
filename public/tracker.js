@@ -184,7 +184,18 @@ window.addEventListener("beforeunload", fireSessionEnd);
   }
 
   // INITIAL PAGE LOAD
-  firePageViewStart();
+  // firePageViewStart();               //fixing null closes
+  // INITIAL PAGE LOAD
+  // Guard: only fire if tab is visible right now.
+  // If the page loaded in a background tab, visibilitychange → "visible" will fire it.
+  // Without this guard, pages loading while hidden fire once here AND once on visibilitychange,
+  // creating a duplicate row.
+  if (document.visibilityState !== "hidden") {
+    firePageViewStart();
+    console.log("[Tracker] ✅ Initial page_view_start fired (tab visible):", page_view_id);
+  } else {
+    console.log("[Tracker] ⏳ Tab hidden on load — waiting for visibilitychange to fire page_view_start");
+  }
 
   // TAB VISIBILITY CYCLE
   document.addEventListener("visibilitychange", () => {
@@ -198,7 +209,68 @@ window.addEventListener("beforeunload", fireSessionEnd);
       firePageViewStart();
     }
   });
+// ─────────────────────────────────────────────────────────────────────────
+  // NEXT.JS CLIENT-SIDE NAVIGATION HANDLER
+  //
+  // Next.js uses history.pushState for all client-side route changes.
+  // This never triggers visibilitychange or beforeunload, so the old
+  // page_view row stays open forever (null left_at, null time_on_page).
+  //
+  // Fix: intercept pushState and replaceState to:
+  //   1. Close the current page_view (firePageViewEnd)
+  //   2. Open a new page_view for the new route (firePageViewStart)
+  //
+  // popstate handles browser back/forward buttons.
+  // ─────────────────────────────────────────────────────────────────────────
+  (function () {
+    const _origPushState = history.pushState.bind(history);
+    const _origReplaceState = history.replaceState.bind(history);
 
+    function handleRouteChange(newUrl) {
+      // Don't fire if the URL path didn't actually change (hash-only changes, etc.)
+      const newPath = typeof newUrl === "string"
+        ? newUrl.replace(/^https?:\/\/[^/]+/, "").split("?")[0]
+        : window.location.pathname;
+
+      if (newPath === window.location.pathname && typeof newUrl === "string" && newUrl.includes("#")) {
+        console.log("[Tracker] Hash-only change, skipping route handler");
+        return;
+      }
+
+      console.log("[Tracker] 🔀 Route change detected → closing page_view:", page_view_id);
+
+      // Step 1: close the current page_view with accurate duration + scroll
+      firePageViewEnd();
+
+      // Step 2: after a brief tick so window.location has updated, open new page_view
+      setTimeout(function () {
+        page_view_id = crypto.randomUUID();
+        startTime = Date.now();
+        firePageViewStart();
+        console.log("[Tracker] ✅ New page_view_start after route change:", page_view_id, window.location.pathname);
+      }, 50);
+    }
+
+    history.pushState = function (state, title, url) {
+      _origPushState(state, title, url);
+      handleRouteChange(url);
+    };
+
+    history.replaceState = function (state, title, url) {
+      _origReplaceState(state, title, url);
+      // replaceState is used by Next.js scroll restoration — only handle if path changes
+      const newPath = typeof url === "string" ? url.split("?")[0] : window.location.pathname;
+      if (newPath !== window.location.pathname) {
+        handleRouteChange(url);
+      }
+    };
+
+    window.addEventListener("popstate", function () {
+      handleRouteChange(window.location.pathname);
+    });
+
+    console.log("[Tracker] ✅ Next.js pushState route handler active");
+  })();
 
 // -------------------------------------------------------
   // FORM CAPTURE — fully independent, never affects analytics
@@ -457,6 +529,7 @@ window.addEventListener("beforeunload", fireSessionEnd);
       specifyFormMode = false;
       configLoaded = true;
       processPendingForms();
+      console.log();
     });
 
   // ─────────────────────────────────────────────────────────────────────
@@ -571,7 +644,359 @@ window.addEventListener("beforeunload", fireSessionEnd);
     }
 
   })();
+    //hubbb
 
+    // -------------------------------------------------------
+  // HUBSPOT FORM CAPTURE — fully independent
+  // Works with embedded HubSpot forms (non-iframe and postMessage iframe)
+  // Respects specify_form mode: if ON, only captures HubSpot forms
+  // whose nearest container has data-conversion="true"
+  // If this entire block throws, nothing else in tracker is affected
+  // -------------------------------------------------------
+  (function () {
+
+    const HS_FORM_API_URL = "http://localhost:3000/api/track-form"; // 🚀 DEPLOY: replace domain
+
+    // ─────────────────────────────────────────────────────────
+    // DEDUP GUARD
+    // HubSpot fires onFormSubmit AND onFormSubmitted for the same
+    // submission. We track form_id + a short timestamp window so
+    // we never double-send the same form.
+    // ─────────────────────────────────────────────────────────
+    const _recentlySentForms = new Map(); // form_id → timestamp
+    const DEDUP_WINDOW_MS = 5000; // 5 seconds
+
+    function isDuplicate(formId) {
+      const last = _recentlySentForms.get(formId);
+      if (!last) return false;
+      return Date.now() - last < DEDUP_WINDOW_MS;
+    }
+
+    function markSent(formId) {
+      _recentlySentForms.set(formId, Date.now());
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // SPECIFY_FORM CHECK FOR HUBSPOT
+    //
+    // HubSpot renders its own DOM so you can't put data-conversion
+    // on the <form> element directly. Instead, the business wraps
+    // their HubSpot embed div with data-conversion="true":
+    //
+    //   <div data-conversion="true">
+    //     <script charset="utf-8" type="text/javascript" src="//js.hsforms.net/forms/..."></script>
+    //   </div>
+    //
+    // For postMessage events (iframe HubSpot), we check if ANY
+    // element on the page with data-conversion="true" contains
+    // a HubSpot embed (hbspt or hs-form class). If yes = allowed.
+    // If the page has no such wrapper = blocked in specify mode.
+    //
+    // For direct DOM HubSpot forms (non-iframe), we walk up the
+    // DOM from the form element itself to find the wrapper.
+    // ─────────────────────────────────────────────────────────
+    function isHubSpotConversionAllowed(formEl) {
+      // specifyFormMode is defined in the outer FORM CAPTURE IIFE scope
+      // and is accessible here because this IIFE is inside the same outer IIFE
+      if (typeof specifyFormMode === "undefined" || !specifyFormMode) {
+        // Global mode — always allow
+        return true;
+      }
+
+      // Specify mode — need data-conversion="true" on a parent container
+      if (formEl) {
+        // Walk up the DOM from the actual form element
+        let el = formEl;
+        while (el && el !== document.body) {
+          if (el.getAttribute && el.getAttribute("data-conversion") === "true") {
+            console.log("[Tracker][HubSpot] ✅ Found data-conversion='true' wrapper:", el);
+            return true;
+          }
+          el = el.parentElement;
+        }
+        console.log("[Tracker][HubSpot] IGNORED — no data-conversion='true' parent found for form:", formEl);
+        return false;
+      }
+
+      // postMessage path — no form element reference available
+      // Check if the page has ANY HubSpot embed wrapped in data-conversion="true"
+      const conversionWrappers = document.querySelectorAll("[data-conversion='true']");
+      for (const wrapper of conversionWrappers) {
+        // HubSpot embed containers have class "hbspt-form" or children with "hs-form"
+        if (
+          wrapper.querySelector(".hbspt-form") ||
+          wrapper.querySelector(".hs-form") ||
+          wrapper.querySelector("[id^='hsForm_']") ||
+          wrapper.classList.contains("hbspt-form")
+        ) {
+          console.log("[Tracker][HubSpot] ✅ Found data-conversion wrapper containing HubSpot embed:", wrapper);
+          return true;
+        }
+      }
+
+      console.log("[Tracker][HubSpot] IGNORED — specify_form=true but no HubSpot form inside a data-conversion='true' wrapper");
+      return false;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // FIELD NORMALISER
+    // HubSpot sends fields as an array of {name, value} objects
+    // from onFormSubmit, or as a flat key:value object from
+    // onFormSubmitted.submissionValues. Handle both shapes.
+    // ─────────────────────────────────────────────────────────
+    function normaliseFields(raw) {
+      if (!raw) return {};
+
+      // Array shape: [{name: "email", value: "..."}, ...]
+      if (Array.isArray(raw)) {
+        const out = {};
+        for (const field of raw) {
+          if (field && field.name) out[field.name] = field.value || "";
+        }
+        return out;
+      }
+
+      // Object shape: {email: "...", firstname: "..."}
+      if (typeof raw === "object") return { ...raw };
+
+      return {};
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // EXTRACT CONTACT INFO from normalised fields
+    // ─────────────────────────────────────────────────────────
+    function extractContactFromFields(fields) {
+      const email =
+        fields.email ||
+        fields.email_address ||
+        fields.mail ||
+        null;
+
+      const name =
+        fields.name ||
+        fields.full_name ||
+        fields.fullname ||
+        (fields.firstname && fields.lastname
+          ? `${fields.firstname} ${fields.lastname}`.trim()
+          : fields.firstname || fields.lastname || null);
+
+      const phone =
+        fields.phone ||
+        fields.phone_number ||
+        fields.mobilephone ||
+        fields.tel ||
+        null;
+
+      return { email, name, phone };
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // SEND to /api/track-form
+    // Uses _originalFetch (captured at the very top of tracker.js)
+    // so it bypasses the fetch interceptor and avoids infinite loops
+    // ─────────────────────────────────────────────────────────
+    function sendHubSpotCapture({ formId, fields, formEl, eventName }) {
+      try {
+        // Dedup check — HubSpot fires multiple events per submission
+        if (isDuplicate(formId)) {
+          console.log("[Tracker][HubSpot] Dedup — already sent formId:", formId);
+          return;
+        }
+
+        // Specify form mode gate
+        if (!isHubSpotConversionAllowed(formEl || null)) return;
+
+        const { email, name, phone } = extractContactFromFields(fields);
+
+        console.log("[Tracker][HubSpot] ✅ Capturing submission:", {
+          formId,
+          eventName,
+          email,
+          name,
+          phone,
+          rawFields: fields,
+        });
+
+        markSent(formId);
+
+        const payload = {
+          api_key: apiKey,           // from outer tracker scope
+          visitor_id,                // from outer tracker scope
+          session_id,                // from outer tracker scope
+          page_url: window.location.href,
+          page_path: window.location.pathname,
+          name: name || null,
+          email: email || null,
+          phone: phone || null,
+          confidence: email ? "high" : "low",
+          raw_data: {
+            ...fields,
+            _source: "hubspot",
+            _form_id: formId,
+            _event: eventName,
+          },
+          is_labelled_conversion: true, // HubSpot forms that pass the gate are always conversions
+        };
+
+        _originalFetch(HS_FORM_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          credentials: "omit",
+          keepalive: true,
+        })
+          .then(function () {
+            console.log("[Tracker][HubSpot] ✅ Payload sent for formId:", formId);
+          })
+          .catch(function (err) {
+            console.error("[Tracker][HubSpot] ❌ Send error:", err);
+          });
+
+      } catch (err) {
+        console.error("[Tracker][HubSpot] ❌ sendHubSpotCapture error:", err);
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // METHOD A: postMessage listener
+    //
+    // HubSpot's embedded forms (and iframe forms) fire window messages
+    // with type "hsFormCallback". This catches ALL HubSpot forms on
+    // the page regardless of how they're embedded.
+    //
+    // We listen to TWO events:
+    //   onFormSubmit     — fires BEFORE submit, has fields array
+    //                      Use this as primary capture
+    //   onFormSubmitted  — fires AFTER confirmed submit, has submissionValues
+    //                      Use as fallback/confirmation if onFormSubmit missed
+    //
+    // Attach listener IMMEDIATELY (before HubSpot loads) so we never miss it.
+    // ─────────────────────────────────────────────────────────
+    window.addEventListener("message", function (event) {
+      try {
+        const msg = event.data;
+
+        // Guard: must be a HubSpot form callback message
+        if (!msg || msg.type !== "hsFormCallback") return;
+
+        const eventName = msg.eventName;
+        const formId = msg.id || msg.formId || "unknown";
+
+        console.log("[Tracker][HubSpot] postMessage event:", eventName, "formId:", formId);
+
+        if (eventName === "onFormSubmit") {
+          // msg.data is an array of {name, value} field objects
+          const fields = normaliseFields(msg.data);
+          console.log("[Tracker][HubSpot] onFormSubmit fields:", fields);
+          sendHubSpotCapture({ formId, fields, formEl: null, eventName });
+        }
+
+        if (eventName === "onFormSubmitted") {
+          // msg.data.submissionValues is a flat key:value object
+          const fields = normaliseFields(
+            msg.data && msg.data.submissionValues ? msg.data.submissionValues : msg.data
+          );
+          console.log("[Tracker][HubSpot] onFormSubmitted fields:", fields);
+          sendHubSpotCapture({ formId, fields, formEl: null, eventName });
+        }
+
+      } catch (err) {
+        console.error("[Tracker][HubSpot] ❌ postMessage handler error:", err);
+      }
+    });
+
+    // ─────────────────────────────────────────────────────────
+    // METHOD B: Direct DOM HubSpot form submit listener
+    //
+    // Some HubSpot setups render the form directly in the page DOM
+    // (not in an iframe). These forms have class "hs-form".
+    // We catch their native submit event as a fallback.
+    //
+    // Uses MutationObserver to handle lazy-loaded HubSpot forms
+    // that aren't in the DOM when the tracker runs.
+    // ─────────────────────────────────────────────────────────
+    const _attachedHsForms = new WeakSet(); // track which forms we've already bound
+
+    function attachToHsForm(form) {
+      if (_attachedHsForms.has(form)) return; // already attached
+      _attachedHsForms.add(form);
+
+      console.log("[Tracker][HubSpot] Attaching submit listener to direct DOM hs-form:", form);
+
+      form.addEventListener("submit", function (e) {
+        try {
+          const formId =
+            form.getAttribute("id") ||
+            form.querySelector("[name='hs_form_id']")?.value ||
+            form.action ||
+            "hs-direct-" + Date.now();
+
+          // Build fields from DOM inputs
+          const rawFields = {};
+          const inputs = form.querySelectorAll("input, select, textarea");
+          for (const input of inputs) {
+            const key = input.name || input.id;
+            if (!key) continue;
+            if (key.toLowerCase().includes("password")) continue;
+            rawFields[key] = input.value || "";
+          }
+
+          console.log("[Tracker][HubSpot] Direct DOM form submit, fields:", rawFields);
+          sendHubSpotCapture({ formId, fields: rawFields, formEl: form, eventName: "directDOMSubmit" });
+        } catch (err) {
+          console.error("[Tracker][HubSpot] ❌ Direct DOM submit handler error:", err);
+        }
+      }, true); // capture phase
+    }
+
+    // Scan existing DOM for any hs-form elements already present
+    function scanForHsForms() {
+      const hsForms = document.querySelectorAll("form.hs-form, form[id^='hsForm_']");
+      console.log("[Tracker][HubSpot] DOM scan found", hsForms.length, "HubSpot form(s)");
+      for (const form of hsForms) {
+        attachToHsForm(form);
+      }
+    }
+
+    // MutationObserver — catches HubSpot forms that render AFTER page load
+    // (lazy load, React component mount, single-page app navigation)
+    const _hsObserver = new MutationObserver(function (mutations) {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType !== 1) continue; // skip non-elements
+
+          // Check if the added node itself is a HubSpot form
+          if (
+            node.tagName === "FORM" &&
+            (node.classList.contains("hs-form") || (node.id && node.id.startsWith("hsForm_")))
+          ) {
+            attachToHsForm(node);
+          }
+
+          // Check descendants — HubSpot often adds a wrapper div containing the form
+          const nested = node.querySelectorAll
+            ? node.querySelectorAll("form.hs-form, form[id^='hsForm_']")
+            : [];
+          for (const form of nested) {
+            attachToHsForm(form);
+          }
+        }
+      }
+    });
+
+    _hsObserver.observe(document.body, { childList: true, subtree: true });
+
+    // Initial scan in case HubSpot already rendered before tracker ran
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", scanForHsForms);
+    } else {
+      scanForHsForms();
+    }
+
+    console.log("[Tracker][HubSpot] ✅ HubSpot capture initialised — postMessage + DOM observer active");
+
+  })(); // END HUBSPOT CAPTURE IIFE
+  
 })();
 
 

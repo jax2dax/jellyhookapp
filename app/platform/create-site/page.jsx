@@ -1,36 +1,178 @@
-// platform/create-site/page.jsx
+// app/platform/create-site/page.jsx
+// ✅ FIXED: imports createSite from site-management.actions, NOT supabase.actions
+// supabase.actions.js still has the old broken createSite with supabase.auth.getUser()
 "use client";
 
 import { useState } from "react";
-import { createSite } from "@/lib/actions/supabase.actions";
+import { createSite } from "@/lib/actions/site-management.actions"; // ← CORRECT import
 
 export default function CreateSitePage() {
   const [domain, setDomain] = useState("");
-  const [specifyForm, setSpecifyForm] = useState(false); // false = global mode (default)
-  const [script, setScript] = useState("");
-  const [attributeSnippet, setAttributeSnippet] = useState("");
+  const [specifyForm, setSpecifyForm] = useState(false);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleSubmit = async () => {
-    // Pass specify_form into createSite — add this field to your createSite action
-    const site = await createSite({
-      name: domain,
-      domain,
-      specify_form: specifyForm,
-    });
+    if (!domain.trim()) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
 
-    const trackerScript = `<script src="http://localhost:3000/tracker.js" data-key="${site.api_key}"></script>`; // 🚀 DEPLOY: replace domain
-
-    setScript(trackerScript);
-
-    // Only show the form attribute snippet when specify_form mode is on
-    if (specifyForm) {
-      setAttributeSnippet(`data-conversion="true"`);
+    try {
+      const res = await createSite({
+        name: domain.trim(),
+        domain: domain.trim(),
+        specify_form: specifyForm,
+      });
+      setResult(res);
+    } catch (err) {
+      setError(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
     }
   };
 
+  // ── Case: domain exists, user has no access ─────────────────────────────
+  if (result?.alreadyExists) {
+    return (
+      <div className="p-6 max-w-xl space-y-4">
+        <h1 className="text-xl font-bold">Domain Already Registered</h1>
+        <div className="p-4 border border-amber-300 bg-amber-50 rounded-lg text-sm space-y-2">
+          <p className="font-semibold text-amber-800">
+            <strong>{result.site.domain}</strong> is already registered on this platform.
+          </p>
+          <p className="text-amber-700">
+            Your email doesn't match this domain automatically. Ask the site owner to invite
+            you from their Settings page.
+          </p>
+        </div>
+        <button
+          onClick={() => { setResult(null); setDomain(""); }}
+          className="text-sm underline text-muted-foreground"
+        >
+          Try a different domain
+        </button>
+      </div>
+    );
+  }
+
+  // ── Case: auto-joined via business email domain match ───────────────────
+  if (result?.joined) {
+    const script = `<script src="http://localhost:3000/tracker.js" data-key="${result.site.api_key}"></script>`; // 🚀 DEPLOY
+    return (
+      <div className="p-6 max-w-xl space-y-4">
+        <h1 className="text-xl font-bold">Joined Existing Site</h1>
+        <div className="p-4 border border-emerald-300 bg-emerald-50 rounded-lg text-sm space-y-2">
+          <p className="font-semibold text-emerald-800">
+            ✅ Your email matched <strong>{result.site.domain}</strong> — you've been added automatically.
+          </p>
+          <p className="text-emerald-700">
+            The tracker script is already installed. You don't need to add it again.
+          </p>
+        </div>
+        <p className="text-sm text-muted-foreground">Existing script (if you need it):</p>
+        <pre className="p-3 border bg-muted rounded text-xs overflow-x-auto">{script}</pre>
+        <a href="/platform" className="block text-sm underline text-primary">Go to dashboard →</a>
+      </div>
+    );
+  }
+
+  // ── Case: already a member / already owner trying again ─────────────────
+  // ✅ FIXED: now shows the script so they can re-install if needed
+  if (result?.alreadyMember) {
+    const script = result.site?.api_key
+      ? `<script src="http://localhost:3000/tracker.js" data-key="${result.site.api_key}"></script>` // 🚀 DEPLOY
+      : null;
+    return (
+      <div className="p-6 max-w-xl space-y-4">
+        <h1 className="text-xl font-bold">You Already Have Access</h1>
+        <div className="p-4 border rounded-lg text-sm space-y-1">
+          <p>You already have access to <strong>{result.site.domain}</strong>.</p>
+          <p className="text-muted-foreground text-xs">
+            Your site data and settings are unchanged.
+          </p>
+        </div>
+        {script && (
+          <div>
+            <p className="text-sm font-medium mb-1">Your tracker script:</p>
+            <pre className="p-3 border bg-muted rounded text-xs overflow-x-auto">{script}</pre>
+          </div>
+        )}
+        <a href="/platform" className="block text-sm underline text-primary">Go to dashboard →</a>
+      </div>
+    );
+  }
+
+  // ── Case: domain was registered before but script never installed ────────
+  // verified=false means the tracker never sent data — owner is reclaiming
+  if (result?.reclaimed) {
+    const script = `<script src="http://localhost:3000/tracker.js" data-key="${result.site.api_key}"></script>`; // 🚀 DEPLOY
+    return (
+      <div className="p-6 max-w-xl space-y-6">
+        <h1 className="text-xl font-bold">Site Reclaimed</h1>
+        <div className="p-4 border border-emerald-300 bg-emerald-50 rounded-lg text-sm">
+          <p className="font-semibold text-emerald-800">
+            ✅ You previously registered <strong>{result.site.domain}</strong> but never installed
+            the script. Here it is again — your site and API key are unchanged.
+          </p>
+        </div>
+        <div>
+          <p className="text-sm font-medium mb-1">
+            Paste this before your closing <code className="bg-muted px-1 rounded">&lt;/body&gt;</code> tag:
+          </p>
+          <pre className="p-3 border bg-muted rounded text-xs overflow-x-auto">{script}</pre>
+        </div>
+        {result.site.specify_form && (
+          <div>
+            <p className="text-sm font-medium mb-1">Add to your conversion form:</p>
+            <pre className="p-3 border bg-muted rounded text-xs overflow-x-auto">
+              {`<form data-conversion="true">\n  ...\n</form>`}
+            </pre>
+          </div>
+        )}
+        <a href="/platform" className="block text-sm underline text-primary">Go to dashboard →</a>
+      </div>
+    );
+  }
+
+  // ── Case: new site created ───────────────────────────────────────────────
+  if (result?.site && !result.joined) {
+    const script = `<script src="http://localhost:3000/tracker.js" data-key="${result.site.api_key}"></script>`; // 🚀 DEPLOY
+    return (
+      <div className="p-6 max-w-xl space-y-6">
+        <h1 className="text-xl font-bold">Tracker Created</h1>
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm font-medium mb-1">
+              Step 1 — Paste this before your closing{" "}
+              <code className="bg-muted px-1 rounded">&lt;/body&gt;</code> tag:
+            </p>
+            <pre className="p-3 border bg-muted rounded text-xs overflow-x-auto">{script}</pre>
+          </div>
+          {specifyForm && (
+            <div>
+              <p className="text-sm font-medium mb-1">
+                Step 2 — Add this attribute to your conversion form:
+              </p>
+              <pre className="p-3 border bg-muted rounded text-xs overflow-x-auto">
+                {`<form data-conversion="true">\n  ...\n</form>`}
+              </pre>
+              <p className="text-xs text-muted-foreground mt-1">
+                Only this form will be counted as a conversion.
+              </p>
+            </div>
+          )}
+        </div>
+        <a href="/platform" className="block text-sm underline text-primary">Go to dashboard →</a>
+      </div>
+    );
+  }
+
+  // ── Default: the registration form ──────────────────────────────────────
   return (
     <div className="p-6 max-w-xl space-y-6">
-      <h1 className="text-xl font-bold">Create Tracker</h1>
+      <h1 className="text-xl font-bold">Add Your Site</h1>
 
       <div className="space-y-1">
         <label className="text-sm font-medium">Your domain</label>
@@ -40,18 +182,16 @@ export default function CreateSitePage() {
           onChange={(e) => setDomain(e.target.value)}
           className="border p-2 w-full rounded"
         />
+        <p className="text-xs text-muted-foreground">
+          Without https:// or www
+        </p>
       </div>
 
-      {/* ── Onboarding question for specify_form ─────────────────────── */}
       <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
-        <p className="text-sm font-medium">
-          Do you have a specific form you consider a conversion?
-        </p>
+        <p className="text-sm font-medium">Do you have a specific conversion form?</p>
         <p className="text-xs text-muted-foreground">
-          For example: a contact form, a demo request, or a sign-up form — but
-          NOT a newsletter or search bar.
+          A contact form, demo request, or sign-up — not a search bar or newsletter.
         </p>
-
         <div className="flex gap-3">
           <button
             onClick={() => setSpecifyForm(false)}
@@ -71,62 +211,20 @@ export default function CreateSitePage() {
                 : "bg-background text-foreground border-border hover:bg-muted"
             }`}
           >
-            Yes — I'll label my conversion form
+            Yes — I'll label my form
           </button>
         </div>
-
-        {specifyForm && (
-          <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 space-y-1">
-            <p className="font-semibold">You chose: label your conversion form</p>
-            <p>
-              After generating your script, add{" "}
-              <code className="bg-amber-100 px-1 rounded font-mono">
-                data-conversion=&quot;true&quot;
-              </code>{" "}
-              to the{" "}
-              <code className="bg-amber-100 px-1 rounded font-mono">&lt;form&gt;</code>{" "}
-              element you want tracked as a conversion.
-              All other forms on your site will be ignored.
-            </p>
-          </div>
-        )}
       </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <button
         onClick={handleSubmit}
-        className="border px-4 py-2 rounded bg-primary text-primary-foreground"
+        disabled={loading || !domain.trim()}
+        className="border px-4 py-2 rounded bg-primary text-primary-foreground disabled:opacity-50"
       >
-        Generate Script
+        {loading ? "Checking..." : "Continue"}
       </button>
-
-      {script && (
-        <div className="space-y-4 mt-4">
-          {/* Step 1 — paste script tag */}
-          <div>
-            <p className="text-sm font-medium mb-1">
-              Step 1 — Paste this before your closing{" "}
-              <code className="bg-muted px-1 rounded">&lt;/body&gt;</code> tag:
-            </p>
-            <pre className="p-3 border bg-muted rounded text-xs overflow-x-auto">{script}</pre>
-          </div>
-
-          {/* Step 2 — only shown in specify_form mode */}
-          {specifyForm && attributeSnippet && (
-            <div>
-              <p className="text-sm font-medium mb-1">
-                Step 2 — Add this attribute to your conversion{" "}
-                <code className="bg-muted px-1 rounded">&lt;form&gt;</code>:
-              </p>
-              <pre className="p-3 border bg-muted rounded text-xs overflow-x-auto">
-                {`<form ${attributeSnippet}>\n  ...\n</form>`}
-              </pre>
-              <p className="text-xs text-muted-foreground mt-1">
-                Only this form will be counted as a conversion. All others will be ignored.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
