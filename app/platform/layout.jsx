@@ -12,7 +12,7 @@ export default async function PlatformLayout({ children }) {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
-      <PlatformSidebar userPlan={site?.plan || "free"} />
+      <PlatformSidebar userPlan={site?.plan || "free"} siteVerified={site?.verified ?? false} />
       <main style={{ flex: 1, overflow: "auto" }}>
         {children}
       </main>

@@ -3,7 +3,8 @@
 // Uses getUserSite (not getSiteSettings) so site_members backfill runs on first load
 
 import { getAuthUser } from "@/lib/actions/permission.actions";
-import { getUserSite } from "@/lib/actions/site-management.actions";
+// import { getUserSite } from "@/lib/actions/site-management.actions";
+import { getUserSite } from "@/lib/actions/permission.actions";
 import { getMembers } from "@/lib/actions/settings.actions";
 import SettingsClient from "./SettingsClients";
 import {

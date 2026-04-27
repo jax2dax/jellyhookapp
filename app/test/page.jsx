@@ -1,41 +1,33 @@
-import React from 'react'
-import { auth } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
+// app/platform/test-selector/page.jsx
+// Temporary test page — delete after confirming SiteSelector works
+import { getAuthUser, getAllUserSites, getUserSite } from "@/lib/actions/permission.actions";
+import SiteSelector from "@/components/SiteSelector";
 
-import {currentUser} from "@clerk/nextjs/server";
-import {createSupabaseClient} from "@/lib/supabase";
-import { addUserDemo } from '@/zbefore/demofetch';
-import { loadinfo } from '@/zbefore/demofetch';
+export default async function TestSelectorPage() {
+  const user = await getAuthUser();
 
+  const [allSites, currentSite] = await Promise.all([
+    getAllUserSites(user.id),
+    getUserSite(user.id),
+  ]);
 
+  console.log("[test-selector] allSites:", allSites?.length, "currentSiteId:", currentSite?.id);
 
-
-const userData = await loadinfo();
-
-
-
-const page = async () => {
-    const { userId } = await auth();
-  const user = await currentUser();
- // if (!userId) { redirect('/sign-in')}
   return (
-    <div>
-      test page
-      <div>{userId}</div>
-      
-      <div>{user?.id}</div>
-      <form action={addUserDemo} >
-        <input type="text" name="first_name" placeholder="Name" />
-         <input type="text" name="last_name" placeholder="Last Name" />
-        <input type="email" name="email" placeholder="Email" />
-        <button type="submit">Submit</button>
-      </form>
-      fetched 
-      <div>{userData?.first_name}</div>
-        <div>{userData?.last_name}</div>
-        <div>{userData?.email}</div>
-    </div>
-  )
-}
+    <div style={{
+      padding: 40,
+      background: "#0a0a0a",
+      minHeight: "100vh",
+      fontFamily: "monospace",
+    }}>
+      <div style={{ color: "#555", fontSize: 11, marginBottom: 24 }}>
+        DEBUG — allSites: {allSites?.length ?? 0} | currentSiteId: {currentSite?.id ?? "null"}
+      </div>
 
-export default page
+      <SiteSelector
+        sites={allSites ?? []}
+        currentSiteId={currentSite?.id ?? null}
+      />
+    </div>
+  );
+}

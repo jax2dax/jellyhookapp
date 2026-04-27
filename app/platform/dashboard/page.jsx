@@ -7,7 +7,7 @@ import {
   getTopPages,
   getRecentActivity,
 } from "@/lib/actions/supabase.actions";
-
+import SiteSelector from "@/components/SiteSelector";
 export default async function OverviewPage() {
   // Auth + site required for this page
   const user = await getAuthUser();
@@ -45,7 +45,7 @@ export default async function OverviewPage() {
           </div>
         ))}
       </div>
-
+          <SiteSelector />
       {/* TOP PAGES */}
       <h2 style={{ fontSize: 13, color: "#888", marginBottom: 12 }}>Top Pages (7d)</h2>
       <div style={{ border: "1px solid #1a1a1a", borderRadius: 6, overflow: "hidden", marginBottom: 32 }}>
