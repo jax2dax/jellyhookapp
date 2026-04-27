@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import { ConversionPathsChart } from "@/components/charts/lineConversionPath"
 import { ConversionRateChart } from "@/components/charts/conversionRate"
+import { ModeToggle } from "@/components/DarkButton"
 export default function Dashboard() {
   const { user } = useUser();
   const [data, setData] = useState([]);
@@ -150,6 +151,7 @@ export default function Dashboard() {
       ref={containerRef}
       style={{ padding: 16, fontSize: 12, fontFamily: "monospace", background: "#0a0a0a", minHeight: "100vh", color: "#ddd" }}
     >
+      <ModeToggle />
 
       {/* ---- HEADER ---- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>

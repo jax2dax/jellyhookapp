@@ -263,14 +263,14 @@ export function ConversionRateChart({
                   />
                   <XAxis
                     dataKey="label"
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                    tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
                     axisLine={{ stroke: 'hsl(var(--border))' }}
                     tickLine={false}
                     interval="preserveStartEnd"
                   />
                   <YAxis
                     allowDecimals={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                    tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                     width={28}
@@ -284,11 +284,8 @@ export function ConversionRateChart({
                       <Cell
                         key={`cell-${index}`}
                         // Highlight the most-recent bar slightly
-                        fill={
-                          entry.isLast
-                            ? 'hsl(var(--primary))'
-                            : 'hsl(var(--primary) / 0.55)'
-                        }
+                        fill="var(--primary)"
+                        opacity={entry.isLast ? 1 : 0.55}
                       />
                     ))}
                   </Bar>
