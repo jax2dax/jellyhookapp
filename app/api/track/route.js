@@ -326,14 +326,27 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
           .single();
 
         if (existing) {
+          // Build update — max_scroll_depth and max_scroll_reached_at are new columns
+          // Only set them if the tracker sent them (guards against old tracker versions)
+          const updatePayload = {
+            time_on_page: event.duration || 0,
+            scroll_depth: event.scroll_depth || 0,
+            left_at: new Date(),
+          };
+
+          if (event.max_scroll_depth != null) {
+            updatePayload.max_scroll_depth = event.max_scroll_depth;
+            console.log(`[track] page_view_end max_scroll_depth=${event.max_scroll_depth} for page_view_id=${event.page_view_id}`);
+          }
+          if (event.max_scroll_reached_at != null) {
+            updatePayload.max_scroll_reached_at = new Date(event.max_scroll_reached_at);
+          }
+
           await supabase
             .from("page_views")
-            .update({
-              time_on_page: event.duration || 0,
-              scroll_depth: event.scroll_depth || 0,
-              left_at: new Date(),
-            })
+            .update(updatePayload)
             .eq("page_view_id", event.page_view_id);
+            ///////////
         } else {
           await supabase.from("page_views").insert({
             page_view_id: event.page_view_id,
@@ -347,6 +360,8 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
             left_at: new Date(),
             time_on_page: event.duration || 0,
             scroll_depth: event.scroll_depth || 0,
+            max_scroll_depth: event.max_scroll_depth ?? null,
+            max_scroll_reached_at: event.max_scroll_reached_at ? new Date(event.max_scroll_reached_at) : null,
           });
         }
       }

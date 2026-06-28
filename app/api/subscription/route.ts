@@ -12,14 +12,13 @@ export async function GET() {
     }
 
     // 2. Fetch subscriptions from Clerk Billing
-    const subscriptions = await clerkClient.billing.getSubscriptions({
-      userId,
-    });
+   const client = await clerkClient(); // ✅ clerkClient is a function — must be called
+    const subscription = await client.billing.getUserBillingSubscription(userId); // ✅ correct method name, takes userId directly
 
     // 3. Return data
     return NextResponse.json({
       success: true,
-      subscriptions,
+      subscription,
     });
   } catch (err) {
     console.error("Subscription fetch error:", err);

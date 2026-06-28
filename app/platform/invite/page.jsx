@@ -15,7 +15,10 @@ export default async function InvitePage() {
   if (!invite) {
     // No pending invite — already accepted, declined, or never existed
     // Redirect to platform (getUserSite will pick up their site normally)
-    redirect("/platform");
+    //redirect("/platform");
+    return(<div className="flex min-h-screen items-center justify-center p-6 bg-background">
+      Empty Invite
+    </div>)
   }
 
   return (

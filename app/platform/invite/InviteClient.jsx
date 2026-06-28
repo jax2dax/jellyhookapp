@@ -8,7 +8,7 @@ export default function InviteClient({ invite }) {
   const [loading, setLoading] = useState(null); // "accept" | "decline" | null
   const [error, setError] = useState(null);
   const [done, setDone] = useState(null); // "accepted" | "declined"
-
+ 
   async function handleAccept() {
     setLoading("accept");
     setError(null);

@@ -105,7 +105,13 @@ window.addEventListener("beforeunload", fireSessionEnd);
   // Mutable — resets on every new page view (tab return)
   let page_view_id = crypto.randomUUID();
   let startTime = Date.now();
-
+// ── MAX SCROLL TRACKING ──
+  // These reset on every new page view alongside page_view_id and startTime
+  // maxScrollDepth: highest scroll fraction (0–1) reached on this page view
+  // maxScrollReachedAt: ISO timestamp of when that deepest point was first reached
+  let maxScrollDepth = 0;
+  let maxScrollReachedAt = null;
+  //////////
   function sendEvent(event) {
     fetch(API_URL, {
       method: "POST",
@@ -155,30 +161,77 @@ window.addEventListener("beforeunload", fireSessionEnd);
 }
 
 
-  function firePageViewStart() {
-    sendEvent({
-      type: "page_view_start",
-      visitor_id,
-      session_id,
-      page_view_id,
-      page_url: window.location.href,
-      page_path: window.location.pathname,
-      page_title: document.title,
-      referrer: document.referrer,
-      language: navigator.language,
-      user_agent: navigator.userAgent,
-      device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
-    });
+  // ── PAGE HEIGHT TRACKER ──────────────────────────────────────────────────
+// Reads page height at start time. Throttled: only sends if height changed
+// OR more than PAGE_HEIGHT_UPDATE_INTERVAL_MS has passed since last send.
+// Stored in sessionStorage so it persists across page navigations in same tab.
+const PAGE_HEIGHT_UPDATE_INTERVAL_MS = 6 * 60 * 1000; // 6 minutes
+
+function getPageHeightPayload() {
+  try {
+    const currentHeight = document.documentElement.scrollHeight || document.body.scrollHeight || 0;
+    const storageKey = "jh_ph_" + window.location.pathname;
+    const stored = sessionStorage.getItem(storageKey);
+    const now = Date.now();
+
+    if (stored) {
+      const { height: lastHeight, ts: lastTs } = JSON.parse(stored);
+      const timeSinceLast = now - lastTs;
+      const heightChanged = Math.abs(currentHeight - lastHeight) > 50; // 50px threshold
+
+      // Within 6 min AND height unchanged → skip sending page_height
+      if (timeSinceLast < PAGE_HEIGHT_UPDATE_INTERVAL_MS && !heightChanged) {
+        return null; // don't include page_height in this event
+      }
+    }
+
+    // Either enough time passed OR height changed — update storage and include height
+    sessionStorage.setItem(storageKey, JSON.stringify({ height: currentHeight, ts: now }));
+    return currentHeight;
+  } catch (err) {
+    console.error("[Tracker] page height error:", err);
+    return null;
   }
+}
+
+function firePageViewStart() {
+  const pageHeight = getPageHeightPayload();
+  const event = {
+    type: "page_view_start",
+    visitor_id,
+    session_id,
+    page_view_id,
+    page_url: window.location.href,
+    page_path: window.location.pathname,
+    page_title: document.title,
+    referrer: document.referrer,
+    language: navigator.language,
+    user_agent: navigator.userAgent,
+    device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
+  };
+  // Only attach page_height when throttle allows
+  if (pageHeight !== null) {
+    event.page_height = pageHeight;
+    console.log("[Tracker] 📐 Sending page_height:", pageHeight, "for", window.location.pathname);
+  }
+  sendEvent(event);
+}
 
   function firePageViewEnd() {
+    // scroll_depth: position when leaving (existing column, keep for backward compat)
+    // max_scroll_depth: deepest point ever reached during this page view
+    // max_scroll_reached_at: when that deepest point was first hit
+    const exitScroll = getScrollDepth();
+    console.log("[Tracker] 📜 page_view_end scroll summary — exit:", exitScroll.toFixed(3), "| max:", maxScrollDepth.toFixed(3), "| max_at:", maxScrollReachedAt);
     sendExitEvent({
       type: "page_view_end",
       visitor_id,
       session_id,
       page_view_id,
       duration: Date.now() - startTime,
-      scroll_depth: getScrollDepth(),
+      scroll_depth: exitScroll,
+      max_scroll_depth: maxScrollDepth,
+      max_scroll_reached_at: maxScrollReachedAt,
       device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
     });
   }
@@ -206,6 +259,8 @@ window.addEventListener("beforeunload", fireSessionEnd);
       // User returned — fresh page_view_id and timer, open new row
       page_view_id = crypto.randomUUID();
       startTime = Date.now();
+      maxScrollDepth = 0;        // ← reset max scroll for new page view
+      maxScrollReachedAt = null;
       firePageViewStart();
     }
   });
@@ -246,6 +301,8 @@ window.addEventListener("beforeunload", fireSessionEnd);
       setTimeout(function () {
         page_view_id = crypto.randomUUID();
         startTime = Date.now();
+        maxScrollDepth = 0;        // ← reset max scroll for new route
+        maxScrollReachedAt = null;
         firePageViewStart();
         console.log("[Tracker] ✅ New page_view_start after route change:", page_view_id, window.location.pathname);
       }, 50);
@@ -271,7 +328,46 @@ window.addEventListener("beforeunload", fireSessionEnd);
 
     console.log("[Tracker] ✅ Next.js pushState route handler active");
   })();
+// ─────────────────────────────────────────────────────────────────────────
+  // MAX SCROLL DEPTH TRACKER — fully independent, never affects other sections
+  // Tracks the deepest scroll position reached during a page view.
+  // Only writes to DB at page_view_end — zero extra network requests.
+  // Updates maxScrollDepth and maxScrollReachedAt in the outer scope.
+  // ─────────────────────────────────────────────────────────────────────────
+  (function () {
+    // Throttle scroll events — we only need to check ~4x per second max
+    // Avoids performance issues on long/fast scrolls
+    var _scrollThrottleTimer = null;
+    var SCROLL_THROTTLE_MS = 250;
 
+    function onScroll() {
+      if (_scrollThrottleTimer) return; // already scheduled
+      _scrollThrottleTimer = setTimeout(function () {
+        _scrollThrottleTimer = null;
+        try {
+          var scrolled = window.scrollY;
+          var height = document.body.scrollHeight - window.innerHeight;
+          if (height <= 0) return; // page not tall enough to scroll
+
+          var currentDepth = Math.round((scrolled / height) * 100) / 100;
+          // Clamp to 0–1 range (some browsers give slightly negative or >1)
+          currentDepth = Math.min(1, Math.max(0, currentDepth));
+
+          if (currentDepth > maxScrollDepth) {
+            maxScrollDepth = currentDepth;
+            maxScrollReachedAt = new Date().toISOString();
+            console.log("[Tracker] 📜 New max scroll depth:", maxScrollDepth.toFixed(3), "at", maxScrollReachedAt);
+          }
+        } catch (err) {
+          console.error("[Tracker] ❌ Max scroll tracking error:", err);
+        }
+      }, SCROLL_THROTTLE_MS);
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    console.log("[Tracker] ✅ Max scroll depth tracker active (throttle=" + SCROLL_THROTTLE_MS + "ms)");
+  })();
+  // ─────────────────────────────────────────────────────────────────────────
 // -------------------------------------------------------
   // FORM CAPTURE — fully independent, never affects analytics
   // if this entire block throws, analytics above is unaffected

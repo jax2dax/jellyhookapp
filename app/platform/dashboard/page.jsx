@@ -8,11 +8,13 @@ import {
   getRecentActivity,
 } from "@/lib/actions/supabase.actions";
 import SiteSelector from "@/components/SiteSelector";
+import { ConversionPathsChart } from "@/components/charts/lineConversionPath"
+import { ConversionRateChart } from "@/components/charts/conversionRate"
 export default async function OverviewPage() {
   // Auth + site required for this page
   const user = await getAuthUser();
   const site = await requireSite(user.id);
-
+if(!site) reurn (<div>no site</div>)
   // Fetch all overview data in parallel
   const [activeNow, pageViews24h, totalSessions, topPages, recentActivity] =
     await Promise.all([
@@ -46,6 +48,17 @@ export default async function OverviewPage() {
         ))}
       </div>
           <SiteSelector />
+          <div className="my-2 mx-1" >
+
+
+      <ConversionPathsChart siteId={site} useDemo={false} permission={2} />  {/*//i removed leads={}*/}
+         </div>
+          <div className="my-2 mt-4 mx-1" >
+            
+          </div>
+
+
+
       {/* TOP PAGES */}
       <h2 style={{ fontSize: 13, color: "#888", marginBottom: 12 }}>Top Pages (7d)</h2>
       <div style={{ border: "1px solid #1a1a1a", borderRadius: 6, overflow: "hidden", marginBottom: 32 }}>
