@@ -14,7 +14,7 @@ export default async function OverviewPage() {
   // Auth + site required for this page
   const user = await getAuthUser();
   const site = await requireSite(user.id);
-if(!site) reurn (<div>no site</div>)
+
   // Fetch all overview data in parallel
   const [activeNow, pageViews24h, totalSessions, topPages, recentActivity] =
     await Promise.all([
@@ -55,7 +55,7 @@ if(!site) reurn (<div>no site</div>)
          </div>
           <div className="my-2 mt-4 mx-1" >
             
-          </div>
+          <ConversionRateChart siteId={site} /></div>
 
 
 

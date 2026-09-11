@@ -5,7 +5,9 @@ import { useUser } from "@clerk/nextjs";
 import { ConversionPathsChart } from "@/components/charts/lineConversionPath"
 import { ConversionRateChart } from "@/components/charts/conversionRate"
 import { ModeToggle } from "@/components/DarkButton"
+import { redirect } from "next/navigation";
 export default function Dashboard() {
+   redirect('/platform/dashboard');
   const { user } = useUser();
   const [data, setData] = useState([]);
   const [leads, setLeads] = useState([]);
