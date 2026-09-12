@@ -1,16 +1,17 @@
 // /public/tracker.js
 (function () {
-  const API_URL = "http://localhost:3000/api/track";
   const _originalFetch = window.fetch;
 
   const scriptTag = document.currentScript;
   const apiKey = scriptTag.getAttribute("data-key");
+  const API_BASE = new URL(scriptTag.src).origin;
+
+  const API_URL = `${API_BASE}/api/track`;
 
   if (!apiKey) {
     console.error("Tracker: Missing data-key");
     return;
   }
-
   function getVisitorId() {
     let id = localStorage.getItem("visitor_id");
     if (!id) { id = crypto.randomUUID(); localStorage.setItem("visitor_id", id); }
@@ -380,8 +381,8 @@ function firePageViewStart() {
 // FORM CAPTURE — fully independent, never affects analytics
 // -------------------------------------------------------
 (function () {
-  const FORM_API_URL = "http://localhost:3000/api/track-form"; // 🚀 DEPLOY: replace with production domain
-  const SITE_CONFIG_URL = "http://localhost:3000/api/site-config"; // 🚀 DEPLOY: replace with production domain
+  const FORM_API_URL = `${API_BASE}/api/track-form`;
+  const SITE_CONFIG_URL = `${API_BASE}/api/site-config`;
 
   const NAME_KEYS = ["name", "full_name", "fullname", "first_name", "firstname", "your_name", "contact_name", "fname", "full name", "fullname"];
   const EMAIL_KEYS = ["email", "email_address", "emailaddress", "your_email", "contact_email", "mail", "e-mail"];
@@ -685,8 +686,8 @@ function firePageViewStart() {
 // -------------------------------------------------------
   // PAGE STRUCTURE TRACKING — independent, never breaks analytics or forms
   // -------------------------------------------------------
-  (function () {
-    const STRUCTURE_API_URL = "http://localhost:3000/api/track-structure"; // 🚀 DEPLOY: replace with production domain
+ (function () {
+    const STRUCTURE_API_URL = `${API_BASE}/api/track-structure`;
 
     function capturePageStructure() {
       try {
@@ -749,10 +750,9 @@ function firePageViewStart() {
   // whose nearest container has data-conversion="true"
   // If this entire block throws, nothing else in tracker is affected
   // -------------------------------------------------------
-  (function () {
+ (function () {
 
-    const HS_FORM_API_URL = "http://localhost:3000/api/track-form"; // 🚀 DEPLOY: replace domain
-
+    const HS_FORM_API_URL = `${API_BASE}/api/track-form`;
     // ─────────────────────────────────────────────────────────
     // DEDUP GUARD
     // HubSpot fires onFormSubmit AND onFormSubmitted for the same
