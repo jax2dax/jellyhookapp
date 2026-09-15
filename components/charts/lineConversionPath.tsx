@@ -1,15 +1,19 @@
+/**components/lineConversionPath.tsx */
 'use client';
 import * as React from 'react';
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
-  Line,
-  LineChart,
   XAxis,
   YAxis,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
 } from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -49,6 +53,16 @@ interface ConversionPathsResult {
   uniquePagePaths: string[];
   leads: LeadPathData[];
 }
+
+// ------------------------------------------------------------------
+// Chart theming — required by shadcn ChartContainer
+// ------------------------------------------------------------------
+const pathChartConfig = {
+  percent: {
+    label: 'Leads Converted',
+    color: 'var(--chart-1)',
+  },
+} satisfies ChartConfig;
 
 // ------------------------------------------------------------------
 // Demo data
@@ -447,7 +461,7 @@ const pathFrequency = React.useMemo(() => {
         </div>
 
         {/* Control panel */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 p-4 bg-muted/20 rounded-lg">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 p-4 bg-muted/20 rounded-lg">
           <div className="space-y-2">
             <label className="text-sm font-medium">Before conversion (seconds)</label>
             <Slider
@@ -472,160 +486,60 @@ const pathFrequency = React.useMemo(() => {
             />
             <p className="text-xs text-muted-foreground">{afterSeconds}s after conversion</p>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">X‑axis tick interval (seconds)</label>
-            <Slider
-              value={[intervalSeconds]}
-              min={5}
-              max={120}
-              step={5}
-              onValueChange={handleIntervalChange}
-              disabled={isLocked}
-            />
-            <p className="text-xs text-muted-foreground">Every {intervalSeconds}s</p>
-          </div>
+          
         </div>
 
-        {/* Lead selection table */}
-        <div className="mt-6 border rounded-md">
-          <div className="p-3 border-b bg-muted/30 flex items-center gap-2">
-            <Checkbox
-              checked={allSeries.length > 0 && selectedLeadIds.size === allSeries.length}
-              onCheckedChange={handleSelectAll}
-              id="select-all"
-            />
-            <label htmlFor="select-all" className="text-sm font-medium">
-              Select All
-            </label>
-          </div>
-          <div className="max-h-64 overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">Show</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {allSeries.map((series) => (
-                  <TableRow key={series.leadId}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedLeadIds.has(series.leadId)}
-                        onCheckedChange={() => handleLeadToggle(series.leadId)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">{series.leadName}</TableCell>
-                    <TableCell>{series.leadEmail || '—'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+
       </CardHeader>
 
       <CardContent>
-        <div className="h-[500px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            {/*
-              FIX 1: data={mergedChartData} goes on LineChart, NOT on each <Line>.
-              Recharts needs a single dataset here to correctly compute the X axis scale.
-              Without this, every line collapses to a single point.
-            */}
-            <LineChart
-              data={mergedChartData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-            >
-              <CartesianGrid
-                stroke="hsl(var(--border))"
-                strokeOpacity={0.5}
-                strokeDasharray="3 3"
-                vertical={false}
-              />
-
-              {/*
-                FIX 2: domain is explicit [xMin, xMax] so the axis doesn't collapse.
-                ticks is our pre-computed array so spacing is correct.
-              */}
-              <XAxis
-                dataKey="x"
-                type="number"
-                domain={[xMin, xMax]}
-                ticks={xTicks}
-                tickFormatter={formatXAxis}
-                label={{ value: 'Time (relative to conversion)', position: 'bottom', offset: 0 }}
-                stroke="hsl(var(--border))"
-                axisLine={{ stroke: 'hsl(var(--border))' }}
-                tickLine={{ stroke: 'hsl(var(--border))' }}
-                tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
-              />
-
-              {/*
-                FIX 3: domain is [0, uniquePagePaths.length - 1] so ALL page paths
-                get their own Y slot. Previously only "/" showed because the domain
-                wasn't covering all indices.
-              */}
-              <YAxis
-                type="number"
-                domain={[0, chartData.uniquePagePaths.length - 1]}
-                ticks={yAxisTicks}
-                tickFormatter={yAxisTickFormatter}
-                width={120}
-                label={{ value: 'Page', angle: -90, position: 'insideLeft' }}
-                stroke="hsl(var(--border))"
-                axisLine={{ stroke: 'hsl(var(--border))' }}
-                tickLine={{ stroke: 'hsl(var(--border))' }}
-                tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
-              />
-
-              <Tooltip
-                content={(props) => (
-                  <CustomTooltip
-                    {...props}
-                    formatXAxis={formatXAxis}
-                    uniquePagePaths={chartData.uniquePagePaths}
-                  />
-                )}
-              />
-              <Legend
-                wrapperStyle={{ fontSize: '12px' }}
-                formatter={(value: string) => <span className="text-xs">{value}</span>}
-              />
-
-              {/*
-                FIX 4: dataKey={series.leadId} — each Line reads its own column
-                from mergedChartData (e.g. "demo1", "demo2").
-                Previously all lines used dataKey="y" which doesn't exist in
-                the merged row format, so nothing rendered.
-
-                connectNulls={true} draws through gaps (when a lead has no data
-                at a given X tick).
-                type="monotone" with the stepped pre-processing gives clean lines.
-              */}
-              {seriesData.map((series, idx) => (
-                <Line
-                  key={series.leadId}
-                  dataKey={series.leadId}
-                  name={series.leadName}
-                  stroke={`hsl(${(idx * 137) % 360}, 70%, 50%)`}
-                  strokeWidth={strokeWidth}
-                  strokeOpacity={strokeOpacity}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                  type="linear"
-                  connectNulls={true}
-                  isAnimationActive={false}
+        <div className="h-[400px] w-full">
+          {pathFrequency.length > 0 ? (
+            <ChartContainer config={pathChartConfig} className="h-full w-full">
+              <BarChart
+                data={pathFrequency}
+                layout="vertical"
+                margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+              >
+                <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                <XAxis
+                  type="number"
+                  dataKey="percent"
+                  unit="%"
+                  tickLine={false}
+                  axisLine={false}
                 />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+                <YAxis
+                  type="category"
+                  dataKey="path"
+                  width={220}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fontSize: 11 }}
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value, _name, item) => [
+                        `${value}% (${item.payload.frequency} leads)`,
+                        'Converted via this path',
+                      ]}
+                    />
+                  }
+                />
+                <Bar dataKey="percent" fill="var(--color-percent)" radius={4} />
+              </BarChart>
+            </ChartContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              Not enough conversions yet to show top paths.
+            </div>
+          )}
         </div>
 
         <p className="text-xs text-muted-foreground text-center mt-4">
-          {seriesData.length} lead{seriesData.length !== 1 ? 's' : ''} displayed.
-          Stroke width: {strokeWidth}px, opacity: {strokeOpacity.toFixed(2)}.
+          Top {pathFrequency.length} page sequence{pathFrequency.length !== 1 ? 's' : ''} leading to
+          conversion, out of {chartData.leads.length} total lead{chartData.leads.length !== 1 ? 's' : ''}.
         </p>
 
         {/* PATH FREQUENCY MATRIX */}
