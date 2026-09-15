@@ -4,22 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs"
 
-import {getPlanLabel} from "@/lib/actions/permission.actions" 
 
-const planlabel = getPlanLabel();
 
 //const planlabel = getPlanLabel();
 // NAV ITEMS — change plan here to adjust gating globally
 const NAV = [
-  { href: "/platform/dashboard",    label: "Overview",              plan: planlabel  },
- // { href: "/platform/visitors",     label: "Visitor Journeys",      plan: "pro"   },
- // { href: "/platform/intent",       label: "Intent Signals 🔥",     plan: "elite" },
-  { href: "/platform/leads",        label: "Leads",                 plan: planlabel   },
-  { href: "/platform/invite",        label: "Invite",                 plan: planlabel   },
-  { href: "/test",        label: "My Sites",                 plan: planlabel   },
- // { href: "/platform/conversions",  label: "Conversion Paths",      plan: "pro"   },
- // { href: "/platform/acquisition",  label: "Acquisition",           plan: "pro"   },
-  { href: "/platform/settings",     label: "Settings",              plan: planlabel  },
+  { href: "/platform/dashboard", label: "Overview", plan: "free" },
+  { href: "/platform/leads",     label: "Leads",     plan: "free" },
+  { href: "/platform/invite",    label: "Invite",    plan: "free" },
+  { href: "/test",               label: "My Sites",  plan: "free" },
+  { href: "/platform/settings",  label: "Settings",  plan: "free" },
 ];
 
 const TIER = { free: 0, pro: 1, elite: 2 };
