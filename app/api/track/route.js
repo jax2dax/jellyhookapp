@@ -72,7 +72,17 @@ export async function POST(req) {
     if (!site || siteError) {
       return NextResponse.json({ error: "Invalid site" }, { status: 403, headers: corsHeaders() });
     }
-
+    if (!site.verified) {
+      const { error: verifyError } = await supabase
+        .from("sites")
+        .update({ verified: true })
+        .eq("id", site.id);
+      if (verifyError) {
+        console.error("🔴 SITE VERIFY ERROR:", verifyError.message);
+      } else {
+        console.log("✅ SITE VERIFIED on first tracker hit:", site.id);
+      }
+    }
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 
     // Resolve country once per request
