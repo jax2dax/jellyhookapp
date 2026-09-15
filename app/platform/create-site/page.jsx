@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { createSite, cancelVerification } from "@/lib/actions/site-management.actions";
 import { useSearchParams } from "next/navigation";
+import { createSite, cancelVerification, getSiteVerifiedStatus } from "@/lib/actions/site-management.actions";
 
 export default function CreateSitePage() {
   const searchParams = useSearchParams();
@@ -273,6 +274,17 @@ export default function CreateSitePage() {
 // ─────────────────────────────────────────────────────────────────────────────
 function PendingUI({ domain, siteId, apiKey, specifyForm, onCancel, cancelling, cancelError }) {
   const trackerBase = process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000";
+  useEffect(() => {
+    if (!siteId) return;
+    const interval = setInterval(async () => {
+      const verified = await getSiteVerifiedStatus(siteId);
+      if (verified) {
+        clearInterval(interval);
+        window.location.href = "/platform/dashboard";
+      }
+    }, 3000); // check every 3 seconds
+    return () => clearInterval(interval);
+  }, [siteId]);
   const script = apiKey
     ? `<script src="${trackerBase}/tracker.js" data-key="${apiKey}"></script>`
     : null;
