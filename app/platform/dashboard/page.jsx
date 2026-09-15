@@ -51,11 +51,11 @@ export default async function OverviewPage() {
           <div className="my-2 mx-1" >
 
 
-      <ConversionPathsChart siteId={site} useDemo={false} permission={2} />  {/*//i removed leads={}*/}
+      <ConversionPathsChart siteId={site.id} useDemo={false} permission={2} />  {/*//i removed leads={}*/}
          </div>
           <div className="my-2 mt-4 mx-1" >
             
-          <ConversionRateChart siteId={site} /></div>
+          <ConversionRateChart siteId={site.id} /></div>
 
 
 
