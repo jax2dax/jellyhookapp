@@ -2,10 +2,11 @@ import { getAuthUser, requireSite, getPlanLabel } from "@/lib/actions/permission
 import { getLeads } from "@/lib/actions/supabase.actions";
 import PlanGate from "@/components/PlanGate";
 
-const userPlan = await getPlanLabel(); // ← "free" | "pro" | "elite"
+
 import Link from "next/link";
 
 export default async function LeadsPage() {
+  const userPlan = await getPlanLabel(); // ← "free" | "pro" | "elite"
   const user = await getAuthUser();
   const site = await requireSite(user.id);
   const leads = await getLeads(site.id);
