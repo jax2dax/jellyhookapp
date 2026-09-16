@@ -1,17 +1,24 @@
-import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
+import { getAuthUser, requireSite, getPlanLabel } from "@/lib/actions/permission.actions";
 import { getLeads } from "@/lib/actions/supabase.actions";
 import PlanGate from "@/components/PlanGate";
+
+const userPlan = await getPlanLabel(); // ← "free" | "pro" | "elite"
 import Link from "next/link";
 
 export default async function LeadsPage() {
   const user = await getAuthUser();
   const site = await requireSite(user.id);
   const leads = await getLeads(site.id);
+  console.log("site Plan/from leads" + site.plan)
+  console.log("USERPLAN  " )
+  console.log(userPlan)
+
 
   return (
     <div style={{ padding: 24, fontFamily: "monospace", color: "#ddd", background: "#0a0a0a", minHeight: "100vh" }}>
       <h1 style={{ color: "#fff", fontSize: 18, marginBottom: 24 }}>Leads</h1>
-      <PlanGate userPlan={site.plan} required="pro">
+      <PlanGate userPlan={userPlan} required="pro">
+    
         {leads.length === 0 && (
           <div style={{ color: "#333", padding: 16 }}>No leads yet. Leads appear when visitors submit forms on your site.</div>
         )}

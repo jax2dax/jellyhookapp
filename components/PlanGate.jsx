@@ -11,7 +11,8 @@ import Link from "next/link";
 
 const TIER = { free: 0, pro: 1, elite: 2 };
 
-export default function PlanGate({ required = "free", userPlan = "free", children }) {
+export default function PlanGate({ required = "free", userPlan = "elite", children }) {
+  
   const hasAccess = (TIER[userPlan] ?? 0) >= (TIER[required] ?? 0);
 
   if (hasAccess) return <>{children}</>;
@@ -34,7 +35,8 @@ export default function PlanGate({ required = "free", userPlan = "free", childre
         gap: 12,
       }}>
         <div style={{ fontSize: 13, color: "#fff", fontFamily: "monospace" }}>
-          🔒 {required.charAt(0).toUpperCase() + required.slice(1)} plan required
+          🔒 {required.charAt(0).toUpperCase() + required.slice(1)} plan required 
+          userPlan: {userPlan}
         </div>
         <Link
           href="/platform/subscription"

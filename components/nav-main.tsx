@@ -1,3 +1,4 @@
+/**components/nav-main.tsx */
 "use client"
 
 import {
@@ -36,10 +37,11 @@ export function NavMain({
     <SidebarGroup>
       <SidebarGroupLabel>Platform</SidebarGroupLabel>
       <SidebarMenu>
+        {/**nav itmes */}
         {items.map((item) => (
           <Collapsible key={item.title} asChild defaultOpen={item.isActive}>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip={item.title}>
+              <SidebarMenuButton  asChild   className=" my-1  ">  
                 <a href={item.url}>
                   {item.icon}
                   <span>{item.title}</span>
@@ -57,8 +59,8 @@ export function NavMain({
                   <CollapsibleContent>
                     <SidebarMenuSub>
                       {item.items?.map((subItem) => (
-                        <SidebarMenuSubItem key={subItem.title}>
-                          <SidebarMenuSubButton asChild>
+                        <SidebarMenuSubItem key={subItem.title} className="pl-8 my-2 ">
+                          <SidebarMenuSubButton asChild  className="pl-8 my-2 ">
                             <a href={subItem.url}>
                               <span>{subItem.title}</span>
                             </a>

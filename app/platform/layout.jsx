@@ -1,21 +1,22 @@
-// platform/layout.jsx
-import { getAuthUser, getUserSite } from "@/lib/actions/permission.actions";
-import { redirect } from "next/navigation";
-import PlatformSidebar from "@/components/PlatformSidebar";
+// app/platform/layout.jsx
+import { getAuthUser, getUserSite, getAllUserSites, getPlanLabel } from "@/lib/actions/permission.actions";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
 
 export default async function PlatformLayout({ children }) {
-  // Auth check — redirects to /sign-in if not logged in
   const user = await getAuthUser();
-
-  // Get their site — null if none created yet
   const site = await getUserSite(user.id);
+  const userPlan = await getPlanLabel();
+  const allSites = await getAllUserSites(user.id);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      <PlatformSidebar userPlan={site?.plan || "free"} siteVerified={site?.verified ?? false} />
-      <main style={{ flex: 1, overflow: "auto" }}>
-        {children}
-      </main>
-    </div>
+    <SidebarProvider>
+      <AppSidebar
+        userPlan={userPlan}
+        sites={allSites ?? []}
+        currentSiteId={site?.id ?? null}
+      />
+      <SidebarInset>{children}</SidebarInset>
+    </SidebarProvider>
   );
 }
