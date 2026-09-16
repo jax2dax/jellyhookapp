@@ -1,3 +1,4 @@
+/**components/nav-user.tsx   */
 "use client"
 
 import {
@@ -20,8 +21,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, SparklesIcon, BadgeCheckIcon, CreditCardIcon, BellIcon, LogOutIcon } from "lucide-react"
-
+import { ChevronsUpDownIcon, SparklesIcon, BadgeCheckIcon, CreditCardIcon, BellIcon, Settings ,LogOutIcon } from "lucide-react"
+import { useUser } from "@clerk/nextjs"
 export function NavUser({
   user,
 }: {
@@ -76,25 +77,34 @@ export function NavUser({
               <DropdownMenuItem>
                 <SparklesIcon
                 />
-                Upgrade to Pro
+                <a href="/platform/subscription">Upgrade</a>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
+            <DropdownMenuItem></DropdownMenuItem>
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheckIcon
+
+              
+              {/* <DropdownMenuItem>
+                 <BadgeCheckIcon
                 />
-                Account
+                Account 
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <CreditCardIcon
+                 <CreditCardIcon />
+                
+                billing 
+              </DropdownMenuItem> */}
+              
+              <DropdownMenuItem>
+                <Settings
                 />
-                Billing
+                Settings
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <BellIcon
                 />
-                Notifications
+                <a href="/platform/network">Notifications</a>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
