@@ -30,11 +30,11 @@ interface NavItem {
 // locked items still show but route to /platform/subscription
 const NAV_ITEMS = [
   { title: "Overview",          url: "/platform/dashboard",     icon: LayoutDashboard, plan: "free"  },
-  { title: "Visitor Journeys",  url: "/platform/visitors",      icon: Users,           plan: "pro"   },
-  { title: "Intent Signals",    url: "/platform/intent",        icon: Flame,           plan: "elite" },
-  { title: "Leads",             url: "/platform/leads",         icon: UserCheck,       plan: "pro"   },
-  { title: "Conversion Paths",  url: "/platform/conversions",   icon: GitFork,         plan: "pro"   },
-  { title: "Acquisition",       url: "/platform/acquisition",   icon: Globe,           plan: "pro"   },
+  { title: "Visitor Journeys",  url: "/platform/visitors",      icon: Users,           plan: "free"   },
+  { title: "Intent Signals",    url: "/platform/intent",        icon: Flame,           plan: "free" },
+  { title: "Leads",             url: "/platform/leads",         icon: UserCheck,       plan: "free"   },
+  { title: "Conversion Paths",  url: "/platform/conversions",   icon: GitFork,         plan: "free"   },
+  { title: "Acquisition",       url: "/platform/acquisition",   icon: Globe,           plan: "free"   },
   { title: "Settings",          url: "/platform/settings",      icon: Settings,        plan: "free"  },
   { title: "Subscription",      url: "/platform/subscription",  icon: CreditCard,      plan: "free"  },
    { title: "Network",           url: "/platform/network",      icon: Network,         plan: "free"  },
@@ -68,7 +68,7 @@ export function AppSidebar({ userPlan = "free", siteDomain, sites, currentSiteId
   })
 
   return (
-    <Sidebar variant="inset" {...props}>
+    <Sidebar variant="inset" collapsible="icon" {...props}>
       <SidebarHeader>
         <span className="truncate font-medium">JellyHook</span>
         <SidebarMenu>

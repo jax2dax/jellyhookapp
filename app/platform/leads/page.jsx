@@ -18,8 +18,7 @@ export default async function LeadsPage() {
   return (
     <div style={{ padding: 24, fontFamily: "monospace", color: "#ddd", background: "#0a0a0a", minHeight: "100vh" }}>
       <h1 style={{ color: "#fff", fontSize: 18, marginBottom: 24 }}>Leads</h1>
-      <PlanGate userPlan={userPlan} required="pro">
-    
+       <PlanGate userPlan={user.plan} sitePlan={site.plan} required="pro">
         {leads.length === 0 && (
           <div style={{ color: "#333", padding: 16 }}>No leads yet. Leads appear when visitors submit forms on your site.</div>
         )}
@@ -46,8 +45,11 @@ export default async function LeadsPage() {
               </div>
             </Link>
           ))}
+          non free
         </div>
       </PlanGate>
+
+      free part
     </div>
   );
 }

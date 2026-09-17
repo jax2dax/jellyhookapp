@@ -8,12 +8,19 @@
 //   children: React.ReactNode
 
 import Link from "next/link";
-
 const TIER = { free: 0, pro: 1, elite: 2 };
+const LABEL_BY_TIER = ["free", "pro", "elite"];
 
-export default function PlanGate({ required = "free", userPlan = "elite", children }) {
-  
-  const hasAccess = (TIER[userPlan] ?? 0) >= (TIER[required] ?? 0);
+export default function PlanGate({ required = "free", userPlan = "free", sitePlan = "free", children }) {
+
+  // Effective access = whichever is HIGHER: the person's own Clerk subscription,
+  // or the plan the site itself is on. Either one being high enough unlocks it.
+  const userTier = TIER[userPlan] ?? 0;
+  const siteTier = TIER[sitePlan] ?? 0;
+  const effectiveTier = Math.max(userTier, siteTier);
+  const effectivePlan = LABEL_BY_TIER[effectiveTier] ?? "free";
+
+  const hasAccess = effectiveTier >= (TIER[required] ?? 0);
 
   if (hasAccess) return <>{children}</>;
 
@@ -34,9 +41,11 @@ export default function PlanGate({ required = "free", userPlan = "elite", childr
         borderRadius: 8,
         gap: 12,
       }}>
-        <div style={{ fontSize: 13, color: "#fff", fontFamily: "monospace" }}>
-          🔒 {required.charAt(0).toUpperCase() + required.slice(1)} plan required 
-          userPlan: {userPlan}
+                <div style={{ fontSize: 13, color: "#fff", fontFamily: "monospace" }}>
+          🔒 {required.charAt(0).toUpperCase() + required.slice(1)} plan required
+          <div style={{ fontSize: 10, color: "#888", marginTop: 4 }}>
+            your plan: {effectivePlan} (user: {userPlan}, site: {sitePlan})
+          </div>
         </div>
         <Link
           href="/platform/subscription"

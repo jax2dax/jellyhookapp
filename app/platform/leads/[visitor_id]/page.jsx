@@ -13,7 +13,7 @@ export default async function LeadTimelinePage({ params }) {
       <h1 style={{ color: "#fff", fontSize: 18, marginBottom: 8 }}>Lead Timeline</h1>
       <div style={{ color: "#555", fontSize: 11, marginBottom: 24 }}>visitor: {params.visitor_id}</div>
 
-      <PlanGate userPlan={site.plan} required="elite">
+            <PlanGate userPlan={user.plan} sitePlan={site.plan} required="pro">
         <div style={{ marginBottom: 16, padding: 16, background: "#111", border: "1px solid #1a1a1a", borderRadius: 8 }}>
           <span style={{ color: "#555" }}>Lead Score: </span>
           <span style={{ color: score > 30 ? "#4ade80" : "#fb923c", fontSize: 20, fontWeight: "bold" }}>{score}</span>
