@@ -4,14 +4,18 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { calculateAndGetScore } from "@/lib/algorithms/pageAnalysis.server";
 
-const COLOR_MAP = {
-  red: "var(--destructive)",
-  orange: "var(--warning)",
-  yellow: "var(--warning)",
-  green: "var(--primary)",
+// Maps a page-insight status to the design system's status classes — no
+// hardcoded hex here, only the tokens declared in app/globals.css.
+const STATUS_CLASSES = {
+  red: { text: "text-destructive", bg: "bg-destructive/15", border: "border-destructive/40", fill: "bg-destructive" },
+  orange: { text: "text-warning", bg: "bg-warning/15", border: "border-warning/40", fill: "bg-warning" },
+  yellow: { text: "text-warning", bg: "bg-warning/15", border: "border-warning/40", fill: "bg-warning" },
+  green: { text: "text-primary", bg: "bg-primary/15", border: "border-primary/40", fill: "bg-primary" },
 };
+const DEFAULT_STATUS = { text: "text-muted-foreground", bg: "bg-muted", border: "border-border", fill: "bg-muted-foreground" };
 
 export default function ScoreButton({ siteId, pagePath, onResult }) {
   const [loading, setLoading] = useState(false);
@@ -32,112 +36,52 @@ export default function ScoreButton({ siteId, pagePath, onResult }) {
     }
   };
 
-  const labelColor = result?.color ? COLOR_MAP[result.color] : "hsl(var(--muted-foreground))";
+  const status = result?.color ? STATUS_CLASSES[result.color] ?? DEFAULT_STATUS : DEFAULT_STATUS;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div className="flex flex-col gap-2">
       <button
         onClick={handleCalculate}
         disabled={loading}
-        style={{
-          padding: "7px 16px",
-          background: loading ? "hsl(var(--muted))" : "hsl(var(--primary))",
-          color: "hsl(var(--primary-foreground))",
-          border: "none",
-          borderRadius: 6,
-          fontSize: 12,
-          fontFamily: "monospace",
-          cursor: loading ? "wait" : "pointer",
-          opacity: loading ? 0.7 : 1,
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-        }}
+        className={`flex items-center gap-1.5 rounded-md px-4 py-1.5 text-xs font-medium text-primary-foreground ${loading ? "cursor-wait bg-muted-foreground" : "cursor-pointer bg-primary"} disabled:opacity-70`}
       >
-        {loading && (
-          <span style={{
-            width: 10, height: 10, borderRadius: "50%",
-            border: "2px solid hsl(var(--primary-foreground))",
-            borderTopColor: "transparent",
-            display: "inline-block",
-            animation: "spin 0.6s linear infinite",
-          }} />
-        )}
+        {loading && <Loader2 className="h-3 w-3 animate-spin" />}
         {loading ? "Calculating..." : result?.fromCache ? "↺ Recalculate" : "Calculate Scores"}
       </button>
 
       {result && (
-        <div style={{
-          padding: "10px 12px",
-          background: "hsl(var(--card))",
-          border: `1px solid ${labelColor}40`,
-          borderRadius: 6,
-          display: "flex",
-          flexDirection: "column",
-          gap: 5,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-            <span style={{
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-              color: labelColor,
-              background: labelColor + "20",
-              border: `1px solid ${labelColor}40`,
-              borderRadius: 99, padding: "2px 8px",
-            }}>
+        <div className={`flex flex-col gap-1.5 rounded-md border bg-card p-3 ${status.border}`}>
+          <div className="mb-0.5 flex items-center gap-2">
+            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide ${status.text} ${status.bg} ${status.border}`}>
               {result.label?.toUpperCase() ?? "—"}
             </span>
-            {result.fromCache && (
-              <span style={{ fontSize: 9, color: "hsl(var(--muted-foreground))" }}>cached</span>
-            )}
+            {result.fromCache && <span className="text-[9px] text-muted-foreground">cached</span>}
           </div>
 
           {[
             { label: "Retention", value: result.retentionScore },
             { label: "Conversion", value: result.conversionScore },
             { label: "Spotlight", value: result.spotlightScore },
-          ].map(({ label, value }) => (
-            value != null && (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", width: 70 }}>
-                  {label}
-                </span>
-                <div style={{
-                  flex: 1, height: 4,
-                  background: "hsl(var(--muted))",
-                  borderRadius: 2, overflow: "hidden",
-                }}>
-                  <div style={{
-                    width: `${Math.round(value * 100)}%`,
-                    height: "100%",
-                    background: labelColor,
-                    borderRadius: 2,
-                    transition: "width 0.4s ease",
-                  }} />
+          ].map(
+            ({ label, value }) =>
+              value != null && (
+                <div key={label} className="flex items-center gap-2">
+                  <span className="w-18 text-[11px] text-muted-foreground">{label}</span>
+                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                    <div className={`h-full rounded-full transition-[width] duration-300 ${status.fill}`} style={{ width: `${Math.round(value * 100)}%` }} />
+                  </div>
+                  <span className="w-8 text-right text-[11px] text-foreground">{Math.round(value * 100)}%</span>
                 </div>
-                <span style={{ fontSize: 11, color: "hsl(var(--foreground))", width: 32, textAlign: "right" }}>
-                  {Math.round(value * 100)}%
-                </span>
-              </div>
-            )
-          ))}
+              )
+          )}
 
           {result.last_calculated_at && (
-            <div style={{ fontSize: 9, color: "hsl(var(--muted-foreground))", marginTop: 2 }}>
-              Last updated: {new Date(result.last_calculated_at).toLocaleTimeString()}
-            </div>
+            <div className="mt-0.5 text-[9px] text-muted-foreground">Last updated: {new Date(result.last_calculated_at).toLocaleTimeString()}</div>
           )}
         </div>
       )}
 
-      {error && (
-        <div style={{ fontSize: 11, color: "hsl(var(--destructive))" }}>
-          Error: {error}
-        </div>
-      )}
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
+      {error && <div className="text-[11px] text-destructive">Error: {error}</div>}
     </div>
   );
 }

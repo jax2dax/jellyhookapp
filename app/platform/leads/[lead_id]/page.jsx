@@ -6,27 +6,12 @@ import { buildLeadProfile } from "@/lib/algorithms/leadProfile";
 import PlanGate from "@/components/PlanGate";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { LeadTimeBar } from "@/components/charts/leadTimeBar";
 import { LeadEngagementRadial } from "@/components/charts/leadEngagementRadial";
 import { LeadSessionHistory } from "@/components/leads/LeadSessionHistory";
+import { StatTile } from "@/components/StatTile";
 import { formatDate, formatDateTime, formatDuration, formatRelativeTime } from "@/lib/leadFormat";
-
-function StatTile({ icon: Icon, label, value, sub }) {
-  return (
-    <Card>
-      <CardHeader className="pb-1 pt-4 px-4">
-        <CardDescription className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide">
-          <Icon className="h-3 w-3" /> {label}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="px-4 pb-4">
-        <p className="text-2xl font-bold">{value}</p>
-        {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
-      </CardContent>
-    </Card>
-  );
-}
 
 export default async function LeadProfilePage({ params }) {
   const { lead_id } = await params;
@@ -84,11 +69,7 @@ function LeadProfileBody({ profile }) {
       <Card>
         <CardContent className="flex flex-col gap-4 pt-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
-            <Avatar size="lg" className="h-14 w-14">
-              <AvatarFallback className="bg-primary text-lg font-semibold text-primary-foreground">
-                {identity.initials}
-              </AvatarFallback>
-            </Avatar>
+            <InitialsAvatar label={identity.name || identity.email} size="lg" className="h-14 w-14 text-lg" />
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-lg font-semibold text-foreground">{identity.name || "Unnamed visitor"}</h1>

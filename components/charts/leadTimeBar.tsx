@@ -63,7 +63,7 @@ export function LeadTimeBar({ data }: { data: LeadTimeBarDatum[] }) {
             axisLine={false}
             tickLine={false}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
           <Bar dataKey="timeMs" radius={[0, 4, 4, 0]} maxBarSize={18}>
             {chartData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill="var(--primary)" opacity={entry.highlight ? 1 : 0.45} />

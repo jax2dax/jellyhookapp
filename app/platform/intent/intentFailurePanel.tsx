@@ -27,17 +27,14 @@ function formatDuration(ms: number): string {
 function pct(v: number) { return `${Math.round(v * 100)}%` }
 
 function scoreColor(s: number) {
-  if (s >= 0.75) return 'hsl(var(--destructive))'
-  if (s >= 0.50) return '#f97316'
-  if (s >= 0.30) return '#eab308'
-  return '#22c55e'
+  if (s >= 0.75) return 'var(--destructive)'
+  if (s >= 0.50) return 'var(--severity-high)'
+  if (s >= 0.30) return 'var(--warning)'
+  return 'var(--primary)'
 }
 
 function scoreBg(s: number) {
-  if (s >= 0.75) return 'rgba(239,68,68,0.07)'
-  if (s >= 0.50) return 'rgba(249,115,22,0.07)'
-  if (s >= 0.30) return 'rgba(234,179,8,0.07)'
-  return 'rgba(34,197,94,0.07)'
+  return `color-mix(in oklch, ${scoreColor(s)} 8%, transparent)`
 }
 
 function severityLabel(s: number) {
@@ -53,7 +50,7 @@ function severityLabel(s: number) {
 
 function Bar({ value, color, height = 5 }: { value: number; color: string; height?: number }) {
   return (
-    <div style={{ width: '100%', height, background: 'hsl(var(--muted))', borderRadius: height, overflow: 'hidden' }}>
+    <div style={{ width: '100%', height, background: 'var(--muted)', borderRadius: height, overflow: 'hidden' }}>
       <div style={{ width: `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`, height: '100%', background: color, borderRadius: height, transition: 'width 0.4s ease' }} />
     </div>
   )
@@ -61,10 +58,10 @@ function Bar({ value, color, height = 5 }: { value: number; color: string; heigh
 
 function MetricCard({ label, value, desc, color }: { label: string; value: string; desc: string; color?: string }) {
   return (
-    <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px 13px' }}>
-      <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: '0 0 3px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</p>
-      <p style={{ fontSize: 20, fontWeight: 700, color: color ?? 'hsl(var(--foreground))', margin: '0 0 2px' }}>{value}</p>
-      <p style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', margin: 0 }}>{desc}</p>
+    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 13px' }}>
+      <p style={{ fontSize: 11, color: 'var(--muted-foreground)', margin: '0 0 3px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</p>
+      <p style={{ fontSize: 20, fontWeight: 700, color: color ?? 'var(--foreground)', margin: '0 0 2px' }}>{value}</p>
+      <p style={{ fontSize: 10, color: 'var(--muted-foreground)', margin: 0 }}>{desc}</p>
     </div>
   )
 }
@@ -77,25 +74,25 @@ function ThresholdControl({ adaptive, value, onChange }: {
   adaptive: number; value: number; onChange: (v: number) => void
 }) {
   return (
-    <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, padding: '14px 18px', background: 'hsl(var(--card))', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '14px 18px', background: 'var(--card)', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <p style={{ fontSize: 13, fontWeight: 600, margin: '0 0 2px', color: 'hsl(var(--foreground))' }}>Sensitivity Threshold</p>
-          <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, margin: '0 0 2px', color: 'var(--foreground)' }}>Sensitivity Threshold</p>
+          <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: 0 }}>
             Pages above this score are flagged as needing attention. Auto-suggested: <strong>{pct(adaptive)}</strong>
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 20, fontWeight: 700, color: scoreColor(value) }}>{pct(value)}</span>
           {Math.abs(value - adaptive) > 0.01 && (
-            <button onClick={() => onChange(adaptive)} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, border: '1px solid hsl(var(--border))', background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))', cursor: 'pointer' }}>
+            <button onClick={() => onChange(adaptive)} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--muted)', color: 'var(--muted-foreground)', cursor: 'pointer' }}>
               Reset
             </button>
           )}
         </div>
       </div>
       <input type="range" min={0} max={100} step={1} value={Math.round(value * 100)} onChange={e => onChange(Number(e.target.value) / 100)} style={{ width: '100%', accentColor: scoreColor(value) }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--muted-foreground)' }}>
         <span>Flag everything</span>
         <span>Flag nothing</span>
       </div>
@@ -110,51 +107,51 @@ function ThresholdControl({ adaptive, value, onChange }: {
 function HeaderVisibilityTable({ headers }: { headers: FullPageAnalysis['headers'] }) {
   if (!headers || headers.length === 0) {
     return (
-      <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>
+      <p style={{ fontSize: 12, color: 'var(--muted-foreground)', fontStyle: 'italic' }}>
         No page structure data yet — the tracker will capture this on the next page load.
       </p>
     )
   }
 
   return (
-    <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, overflow: 'hidden' }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
         <thead>
-          <tr style={{ background: 'hsl(var(--muted)/0.5)' }}>
+          <tr style={{ background: 'color-mix(in oklch, var(--muted) 50%, transparent)' }}>
             {['Level', 'Section heading', 'Position', 'Visitors who saw it', 'Re-visited'].map(h => (
-              <th key={h} style={{ padding: '7px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid hsl(var(--border))', whiteSpace: 'nowrap' }}>{h}</th>
+              <th key={h} style={{ padding: '7px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {headers.map((h, i) => (
-            <tr key={i} style={{ borderBottom: i < headers.length - 1 ? '1px solid hsl(var(--border))' : 'none' }}>
+            <tr key={i} style={{ borderBottom: i < headers.length - 1 ? '1px solid var(--border)' : 'none' }}>
               <td style={{ padding: '7px 12px' }}>
                 <span style={{
-                  fontSize: 10, fontWeight: 700, fontFamily: 'monospace',
-                  color: h.header_tag === 'h1' ? '#6366f1' : h.header_tag === 'h2' ? '#0ea5e9' : 'hsl(var(--muted-foreground))',
-                  background: h.header_tag === 'h1' ? 'rgba(99,102,241,0.1)' : h.header_tag === 'h2' ? 'rgba(14,165,233,0.1)' : 'hsl(var(--muted))',
+                  fontSize: 10, fontWeight: 700,
+                  color: h.header_tag === 'h1' ? 'var(--foreground)' : 'var(--muted-foreground)',
+                  background: h.header_tag === 'h1' ? 'color-mix(in oklch, var(--foreground) 8%, transparent)' : 'var(--muted)',
                   padding: '2px 6px', borderRadius: 4,
                 }}>
                   {h.header_tag.toUpperCase()}
                 </span>
               </td>
-              <td style={{ padding: '7px 12px', color: 'hsl(var(--foreground))' }}>{h.header_text}</td>
-              <td style={{ padding: '7px 12px', color: 'hsl(var(--muted-foreground))' }}>{pct(h.header_ratio)} down page</td>
+              <td style={{ padding: '7px 12px', color: 'var(--foreground)' }}>{h.header_text}</td>
+              <td style={{ padding: '7px 12px', color: 'var(--muted-foreground)' }}>{pct(h.header_ratio)} down page</td>
               <td style={{ padding: '7px 12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 60 }}>
-                    <Bar value={h.viewed_rate} color={h.viewed_rate > 0.5 ? '#22c55e' : h.viewed_rate > 0.25 ? '#eab308' : 'hsl(var(--destructive))'} height={4} />
+                    <Bar value={h.viewed_rate} color={h.viewed_rate > 0.5 ? 'var(--primary)' : h.viewed_rate > 0.25 ? 'var(--warning)' : 'var(--destructive)'} height={4} />
                   </div>
-                  <span style={{ fontWeight: 600, color: h.viewed_rate > 0.5 ? '#22c55e' : h.viewed_rate > 0.25 ? '#eab308' : 'hsl(var(--destructive))' }}>
+                  <span style={{ fontWeight: 600, color: h.viewed_rate > 0.5 ? 'var(--primary)' : h.viewed_rate > 0.25 ? 'var(--warning)' : 'var(--destructive)' }}>
                     {pct(h.viewed_rate)}
                   </span>
                 </div>
               </td>
               <td style={{ padding: '7px 12px' }}>
                 {h.inBacktrackZone
-                  ? <span style={{ fontSize: 10, color: '#f97316', background: 'rgba(249,115,22,0.1)', padding: '2px 6px', borderRadius: 4 }}>Yes — users scrolled back here</span>
-                  : <span style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>—</span>
+                  ? <span style={{ fontSize: 10, color: 'var(--severity-high)', background: 'color-mix(in oklch, var(--severity-high) 10%, transparent)', padding: '2px 6px', borderRadius: 4 }}>Yes — users scrolled back here</span>
+                  : <span style={{ fontSize: 10, color: 'var(--muted-foreground)' }}>—</span>
                 }
               </td>
             </tr>
@@ -181,7 +178,7 @@ function FailureRow({ page, rank, threshold }: { page: FullPageAnalysis; rank: n
     ?? page.page_path
 
   return (
-    <div style={{ border: `1px solid ${isFailing ? color + '50' : 'hsl(var(--border))'}`, borderRadius: 10, overflow: 'hidden', marginBottom: 10, background: 'hsl(var(--card))' }}>
+    <div style={{ border: `1px solid ${isFailing ? color + '50' : 'var(--border)'}`, borderRadius: 10, overflow: 'hidden', marginBottom: 10, background: 'var(--card)' }}>
       {/* Collapsed row */}
       <button
         onClick={() => setExpanded(e => !e)}
@@ -193,22 +190,22 @@ function FailureRow({ page, rank, threshold }: { page: FullPageAnalysis; rank: n
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--foreground))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {intentLabel}
             </span>
-            <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontFamily: 'monospace', background: 'hsl(var(--muted))', padding: '1px 6px', borderRadius: 4, flexShrink: 0 }}>
+            <span style={{ fontSize: 11, color: 'var(--muted-foreground)', fontFamily: 'var(--font-mono)', background: 'var(--muted)', padding: '1px 6px', borderRadius: 4, flexShrink: 0 }}>
               {page.page_path}
             </span>
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color, background: bg, padding: '2px 6px', borderRadius: 4, flexShrink: 0 }}>
               {severityLabel(page.intentFailureScore)}
             </span>
             {isFailing && (
-              <span style={{ fontSize: 10, fontWeight: 600, color: 'hsl(var(--destructive))', background: 'rgba(239,68,68,0.1)', padding: '2px 7px', borderRadius: 4, flexShrink: 0 }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--destructive)', background: 'color-mix(in oklch, var(--destructive) 10%, transparent)', padding: '2px 7px', borderRadius: 4, flexShrink: 0 }}>
                 NEEDS ATTENTION
               </span>
             )}
             {!page.isStatisticallyMeaningful && (
-              <span style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--muted))', padding: '2px 7px', borderRadius: 4, flexShrink: 0 }}>
+              <span style={{ fontSize: 10, color: 'var(--muted-foreground)', background: 'var(--muted)', padding: '2px 7px', borderRadius: 4, flexShrink: 0 }}>
                 Low data
               </span>
             )}
@@ -222,26 +219,26 @@ function FailureRow({ page, rank, threshold }: { page: FullPageAnalysis; rank: n
         </div>
 
         <svg width={15} height={15} viewBox="0 0 16 16" fill="none"
-          style={{ color: 'hsl(var(--muted-foreground))', transform: expanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s', flexShrink: 0 }}>
+          style={{ color: 'var(--muted-foreground)', transform: expanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s', flexShrink: 0 }}>
           <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 
       {/* Expanded detail */}
       {expanded && (
-        <div style={{ borderTop: '1px solid hsl(var(--border))', padding: '16px 18px', background: bg, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div style={{ borderTop: '1px solid var(--border)', padding: '16px 18px', background: bg, display: 'flex', flexDirection: 'column', gap: 18 }}>
 
           {/* Insight sentence — business language always */}
-          <div style={{ padding: '10px 14px', border: `1px solid ${color}30`, borderLeft: `3px solid ${color}`, borderRadius: 6, background: 'hsl(var(--card))' }}>
+          <div style={{ padding: '10px 14px', border: `1px solid ${color}30`, borderLeft: `3px solid ${color}`, borderRadius: 6, background: 'var(--card)' }}>
             <p style={{ fontSize: 11, fontWeight: 600, color, margin: '0 0 4px' }}>What we found</p>
-            <p style={{ fontSize: 13, color: 'hsl(var(--foreground))', lineHeight: 1.6, margin: 0 }}>{page.insightSentence}</p>
+            <p style={{ fontSize: 13, color: 'var(--foreground)', lineHeight: 1.6, margin: 0 }}>{page.insightSentence}</p>
           </div>
 
           {/* Confusion reason if meaningful */}
           {page.confusion.combined > 0.2 && (
-            <div style={{ padding: '9px 13px', border: '1px solid hsl(var(--border))', borderRadius: 6, background: 'hsl(var(--card))' }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: 'hsl(var(--muted-foreground))', margin: '0 0 3px' }}>Visitor behaviour pattern</p>
-              <p style={{ fontSize: 12, color: 'hsl(var(--foreground))', margin: 0, lineHeight: 1.5 }}>{page.confusion.reason}</p>
+            <div style={{ padding: '9px 13px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--card)' }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted-foreground)', margin: '0 0 3px' }}>Visitor behaviour pattern</p>
+              <p style={{ fontSize: 12, color: 'var(--foreground)', margin: 0, lineHeight: 1.5 }}>{page.confusion.reason}</p>
             </div>
           )}
 
@@ -264,56 +261,56 @@ function FailureRow({ page, rank, threshold }: { page: FullPageAnalysis; rank: n
               label="Exit rate"
               value={pct(page.retention.exitRate)}
               desc="left the site from this page"
-              color={page.retention.exitRate > 0.7 ? 'hsl(var(--destructive))' : undefined}
+              color={page.retention.exitRate > 0.7 ? 'var(--destructive)' : undefined}
             />
             <MetricCard
               label="Return visits"
               value={pct(page.retention.crossSessionRepeatRate)}
               desc="came back on a different day"
-              color={page.retention.crossSessionRepeatRate > 0.3 ? '#f97316' : undefined}
+              color={page.retention.crossSessionRepeatRate > 0.3 ? 'var(--severity-high)' : undefined}
             />
             <MetricCard
               label="In-session revisits"
               value={pct(page.retention.withinSessionRepeatRate)}
               desc="circled back same visit"
-              color={page.retention.withinSessionRepeatRate > 0.3 ? '#eab308' : undefined}
+              color={page.retention.withinSessionRepeatRate > 0.3 ? 'var(--warning)' : undefined}
             />
             {page.readingPace.hasSignificantBacktrack && (
               <MetricCard
                 label="Scroll-back rate"
                 value={pct(page.readingPace.scrollBackFraction)}
                 desc="scrolled back up after reading"
-                color="#f97316"
+                color="var(--severity-high)"
               />
             )}
             <MetricCard
               label="Conversion signal"
               value={pct(page.conversion.conversionScore)}
               desc="sessions that led to a form submit"
-              color={page.conversion.conversionScore > 0.1 ? '#22c55e' : undefined}
+              color={page.conversion.conversionScore > 0.1 ? 'var(--primary)' : undefined}
             />
           </div>
 
           {/* Reading behaviour */}
           {(page.readingPace.hasSignificantBacktrack || page.readingPace.postPeakTimeRatio > 0.4) && (
-            <div style={{ padding: '10px 13px', background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }}>
-              <p style={{ fontSize: 11, fontWeight: 600, color: 'hsl(var(--muted-foreground))', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Reading behaviour</p>
+            <div style={{ padding: '10px 13px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8 }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted-foreground)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Reading behaviour</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {page.readingPace.hasSignificantBacktrack && (
-                  <div style={{ fontSize: 12, color: 'hsl(var(--foreground))', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: '#f97316' }}>↑</span>
+                  <div style={{ fontSize: 12, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: 'var(--severity-high)' }}>↑</span>
                     Visitors scrolled back up {pct(page.readingPace.scrollBackFraction)} of the page on average — they were looking for something they passed
                   </div>
                 )}
                 {page.readingPace.postPeakTimeRatio > 0.4 && (
-                  <div style={{ fontSize: 12, color: 'hsl(var(--foreground))', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: '#eab308' }}>⏱</span>
+                  <div style={{ fontSize: 12, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: 'var(--warning)' }}>⏱</span>
                     {pct(page.readingPace.postPeakTimeRatio)} of time was spent after reaching the deepest scroll point — visitors lingered without a clear next step
                   </div>
                 )}
                 {!page.readingPace.isPlausibleReading && page.readingPace.scrollPxPerSec > 200 && (
-                  <div style={{ fontSize: 12, color: 'hsl(var(--foreground))', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: '#eab308' }}>⚡</span>
+                  <div style={{ fontSize: 12, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: 'var(--warning)' }}>⚡</span>
                     Visitors scrolled very fast ({Math.round(page.readingPace.scrollPxPerSec)}px/sec) — they may have been skimming rather than reading
                   </div>
                 )}
@@ -323,7 +320,7 @@ function FailureRow({ page, rank, threshold }: { page: FullPageAnalysis; rank: n
 
           {/* Score signal breakdown */}
           <div>
-            <p style={{ fontSize: 11, fontWeight: 600, color: 'hsl(var(--muted-foreground))', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted-foreground)', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               Signal Breakdown
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -360,26 +357,26 @@ function FailureRow({ page, rank, threshold }: { page: FullPageAnalysis; rank: n
                 },
               ].map(sig => (
                 <div key={sig.label} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', width: 120, flexShrink: 0 }}>{sig.label}</span>
+                  <span style={{ fontSize: 12, color: 'var(--muted-foreground)', width: 120, flexShrink: 0 }}>{sig.label}</span>
                   <div style={{ flex: 1, minWidth: 80 }}>
                     <Bar value={sig.value} color={scoreColor(sig.value)} height={5} />
                   </div>
-                  <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', flexShrink: 0 }}>{sig.note}</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted-foreground)', flexShrink: 0 }}>{sig.note}</span>
                 </div>
               ))}
 
               {page.scoreBreakdown.crossSessionMultiplier > 1 && (
-                <div style={{ fontSize: 11, color: '#f97316', background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.25)', borderRadius: 5, padding: '5px 10px', marginTop: 3 }}>
+                <div style={{ fontSize: 11, color: 'var(--severity-high)', background: 'color-mix(in oklch, var(--severity-high) 8%, transparent)', border: '1px solid color-mix(in oklch, var(--severity-high) 25%, transparent)', borderRadius: 5, padding: '5px 10px', marginTop: 3 }}>
                   {pct(page.retention.crossSessionRepeatRate)} of visitors returned on separate days without converting — this amplifies the urgency score
                 </div>
               )}
               {page.scoreBreakdown.withinSessionMultiplier > 1 && (
-                <div style={{ fontSize: 11, color: '#eab308', background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.25)', borderRadius: 5, padding: '5px 10px', marginTop: 3 }}>
+                <div style={{ fontSize: 11, color: 'var(--warning)', background: 'color-mix(in oklch, var(--warning) 8%, transparent)', border: '1px solid color-mix(in oklch, var(--warning) 25%, transparent)', borderRadius: 5, padding: '5px 10px', marginTop: 3 }}>
                   {pct(page.retention.withinSessionRepeatRate)} of sessions came back to this page in the same visit — likely circling due to confusion
                 </div>
               )}
               {page.scoreBreakdown.densityAdjustment < 1 && (
-                <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--muted))', border: '1px solid hsl(var(--border))', borderRadius: 5, padding: '5px 10px', marginTop: 3 }}>
+                <div style={{ fontSize: 11, color: 'var(--muted-foreground)', background: 'var(--muted)', border: '1px solid var(--border)', borderRadius: 5, padding: '5px 10px', marginTop: 3 }}>
                   This is a short page so expectations are adjusted accordingly
                 </div>
               )}
@@ -388,7 +385,7 @@ function FailureRow({ page, rank, threshold }: { page: FullPageAnalysis; rank: n
 
           {/* Header visibility */}
           <div>
-            <p style={{ fontSize: 11, fontWeight: 600, color: 'hsl(var(--muted-foreground))', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted-foreground)', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               What visitors actually read
             </p>
             <HeaderVisibilityTable headers={page.headers} />
@@ -405,37 +402,37 @@ function FailureRow({ page, rank, threshold }: { page: FullPageAnalysis; rank: n
 
 function SummaryTable({ summary }: { summary: UniquePageSummary[] }) {
   return (
-    <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 10, overflow: 'hidden', background: 'hsl(var(--card))', marginBottom: 24 }}>
-      <div style={{ padding: '13px 18px', borderBottom: '1px solid hsl(var(--border))' }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 2px', color: 'hsl(var(--foreground))' }}>All Pages — Traffic Overview</h3>
-        <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', margin: 0 }}>Every tracked page sorted by number of visits</p>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--card)', marginBottom: 24 }}>
+      <div style={{ padding: '13px 18px', borderBottom: '1px solid var(--border)' }}>
+        <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 2px', color: 'var(--foreground)' }}>All Pages — Traffic Overview</h3>
+        <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: 0 }}>Every tracked page sorted by number of visits</p>
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
-            <tr style={{ background: 'hsl(var(--muted)/0.4)' }}>
+            <tr style={{ background: 'color-mix(in oklch, var(--muted) 40%, transparent)' }}>
               {['Page', 'Visits', 'Visitors', 'Avg time', 'Scroll coverage', 'Exit rate'].map(h => (
-                <th key={h} style={{ padding: '8px 13px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid hsl(var(--border))', whiteSpace: 'nowrap' }}>{h}</th>
+                <th key={h} style={{ padding: '8px 13px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {summary.map((row, i) => (
-              <tr key={row.page_path} style={{ borderBottom: i < summary.length - 1 ? '1px solid hsl(var(--border))' : 'none', background: i % 2 === 0 ? 'transparent' : 'hsl(var(--muted)/0.15)' }}>
-                <td style={{ padding: '8px 13px', fontFamily: 'monospace', fontSize: 11, color: 'hsl(var(--foreground))' }}>{row.page_path}</td>
-                <td style={{ padding: '8px 13px', fontWeight: 600, color: 'hsl(var(--foreground))' }}>{row.total_views.toLocaleString()}</td>
-                <td style={{ padding: '8px 13px', color: 'hsl(var(--muted-foreground))' }}>{row.unique_visitors.toLocaleString()}</td>
-                <td style={{ padding: '8px 13px', color: 'hsl(var(--muted-foreground))' }}>{formatDuration(row.avg_time_ms)}</td>
+              <tr key={row.page_path} style={{ borderBottom: i < summary.length - 1 ? '1px solid var(--border)' : 'none', background: i % 2 === 0 ? 'transparent' : 'color-mix(in oklch, var(--muted) 15%, transparent)' }}>
+                <td style={{ padding: '8px 13px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--foreground)' }}>{row.page_path}</td>
+                <td style={{ padding: '8px 13px', fontWeight: 600, color: 'var(--foreground)' }}>{row.total_views.toLocaleString()}</td>
+                <td style={{ padding: '8px 13px', color: 'var(--muted-foreground)' }}>{row.unique_visitors.toLocaleString()}</td>
+                <td style={{ padding: '8px 13px', color: 'var(--muted-foreground)' }}>{formatDuration(row.avg_time_ms)}</td>
                 <td style={{ padding: '8px 13px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <div style={{ width: 44, height: 4, background: 'hsl(var(--muted))', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ width: `${Math.round(row.avg_scroll * 100)}%`, height: '100%', background: 'hsl(var(--foreground)/0.35)', borderRadius: 2 }} />
+                    <div style={{ width: 44, height: 4, background: 'var(--muted)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ width: `${Math.round(row.avg_scroll * 100)}%`, height: '100%', background: 'color-mix(in oklch, var(--foreground) 35%, transparent)', borderRadius: 2 }} />
                     </div>
-                    <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{pct(row.avg_scroll)}</span>
+                    <span style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>{pct(row.avg_scroll)}</span>
                   </div>
                 </td>
                 <td style={{ padding: '8px 13px' }}>
-                  <span style={{ fontSize: 11, fontWeight: row.exit_rate > 0.7 ? 600 : 400, color: row.exit_rate > 0.7 ? 'hsl(var(--destructive))' : row.exit_rate > 0.5 ? '#f97316' : 'hsl(var(--muted-foreground))' }}>
+                  <span style={{ fontSize: 11, fontWeight: row.exit_rate > 0.7 ? 600 : 400, color: row.exit_rate > 0.7 ? 'var(--destructive)' : row.exit_rate > 0.5 ? 'var(--severity-high)' : 'var(--muted-foreground)' }}>
                     {pct(row.exit_rate)}
                   </span>
                 </td>
@@ -461,11 +458,11 @@ export default function IntentFailurePanel({ data }: { data: IntentFailureResult
   }, [data, threshold])
 
   if (!data) {
-    return <div style={{ padding: 40, textAlign: 'center', color: 'hsl(var(--muted-foreground))', fontSize: 14 }}>Unable to load analysis.</div>
+    return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted-foreground)', fontSize: 14 }}>Unable to load analysis.</div>
   }
 
   if (data.pages.length === 0) {
-    return <div style={{ padding: 40, textAlign: 'center', color: 'hsl(var(--muted-foreground))', fontSize: 14 }}>No page data yet. Install the tracker and wait for your first visitors.</div>
+    return <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted-foreground)', fontSize: 14 }}>No page data yet. Install the tracker and wait for your first visitors.</div>
   }
 
   const activeThreshold = threshold ?? data.adaptive_threshold
@@ -484,26 +481,26 @@ export default function IntentFailurePanel({ data }: { data: IntentFailureResult
   const avgScore = data.pages.reduce((a, b) => a + b.intentFailureScore, 0) / data.pages.length
 
   const filterBtns = [
-    { key: 'all' as const, label: 'All pages', count: data.pages.length, color: 'hsl(var(--foreground))' },
-    { key: 'failing' as const, label: 'Needs attention', count: failingCount, color: 'hsl(var(--destructive))' },
-    { key: 'critical' as const, label: 'Critical', count: data.pages.filter(p => p.intentFailureScore >= 0.75).length, color: 'hsl(var(--destructive))' },
-    { key: 'high' as const, label: 'High', count: data.pages.filter(p => p.intentFailureScore >= 0.50 && p.intentFailureScore < 0.75).length, color: '#f97316' },
-    { key: 'medium' as const, label: 'Medium', count: data.pages.filter(p => p.intentFailureScore >= 0.30 && p.intentFailureScore < 0.50).length, color: '#eab308' },
-    { key: 'low' as const, label: 'Good', count: data.pages.filter(p => p.intentFailureScore < 0.30).length, color: '#22c55e' },
+    { key: 'all' as const, label: 'All pages', count: data.pages.length, color: 'var(--foreground)' },
+    { key: 'failing' as const, label: 'Needs attention', count: failingCount, color: 'var(--destructive)' },
+    { key: 'critical' as const, label: 'Critical', count: data.pages.filter(p => p.intentFailureScore >= 0.75).length, color: 'var(--destructive)' },
+    { key: 'high' as const, label: 'High', count: data.pages.filter(p => p.intentFailureScore >= 0.50 && p.intentFailureScore < 0.75).length, color: 'var(--severity-high)' },
+    { key: 'medium' as const, label: 'Medium', count: data.pages.filter(p => p.intentFailureScore >= 0.30 && p.intentFailureScore < 0.50).length, color: 'var(--warning)' },
+    { key: 'low' as const, label: 'Good', count: data.pages.filter(p => p.intentFailureScore < 0.30).length, color: 'var(--primary)' },
   ]
 
   return (
     <div style={{ maxWidth: 940 }}>
       <div style={{ marginBottom: 22 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px', color: 'hsl(var(--foreground))' }}>Visitor Intent Analysis</h2>
-        <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px', color: 'var(--foreground)' }}>Visitor Intent Analysis</h2>
+        <p style={{ fontSize: 13, color: 'var(--muted-foreground)', margin: 0 }}>
           Pages where visitors couldn't find what they were looking for — ranked by urgency. Last updated {new Date(data.computedAt).toLocaleTimeString()}.
         </p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: 11, marginBottom: 24 }}>
         <MetricCard label="Pages tracked" value={String(data.pages.length)} desc="unique page paths with data" />
-        <MetricCard label="Need attention" value={String(failingCount)} desc="pages with issues detected" color={failingCount > 0 ? 'hsl(var(--destructive))' : undefined} />
+        <MetricCard label="Need attention" value={String(failingCount)} desc="pages with issues detected" color={failingCount > 0 ? 'var(--destructive)' : undefined} />
         <MetricCard label="Avg health score" value={pct(1 - avgScore)} desc="higher is better" color={scoreColor(avgScore)} />
         <MetricCard label="Auto sensitivity" value={pct(data.adaptive_threshold)} desc="calibrated to your site's data" />
       </div>
@@ -513,7 +510,7 @@ export default function IntentFailurePanel({ data }: { data: IntentFailureResult
       <SummaryTable summary={data.summary} />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13, flexWrap: 'wrap', gap: 10 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0, color: 'hsl(var(--foreground))' }}>Page-by-Page Analysis</h3>
+        <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0, color: 'var(--foreground)' }}>Page-by-Page Analysis</h3>
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {filterBtns.map(btn => (
             <button
@@ -521,15 +518,15 @@ export default function IntentFailurePanel({ data }: { data: IntentFailureResult
               onClick={() => setFilter(btn.key)}
               style={{
                 padding: '4px 10px', borderRadius: 20,
-                border: `1px solid ${filter === btn.key ? btn.color : 'hsl(var(--border))'}`,
+                border: `1px solid ${filter === btn.key ? btn.color : 'var(--border)'}`,
                 background: filter === btn.key ? `${btn.color}15` : 'transparent',
-                color: filter === btn.key ? btn.color : 'hsl(var(--muted-foreground))',
+                color: filter === btn.key ? btn.color : 'var(--muted-foreground)',
                 fontSize: 11, fontWeight: filter === btn.key ? 600 : 400, cursor: 'pointer', transition: 'all 0.15s',
               }}
             >
               {btn.label}
               {btn.count > 0 && (
-                <span style={{ marginLeft: 5, background: filter === btn.key ? `${btn.color}20` : 'hsl(var(--muted))', borderRadius: 10, padding: '1px 5px', fontSize: 10 }}>
+                <span style={{ marginLeft: 5, background: filter === btn.key ? `${btn.color}20` : 'var(--muted)', borderRadius: 10, padding: '1px 5px', fontSize: 10 }}>
                   {btn.count}
                 </span>
               )}
@@ -539,7 +536,7 @@ export default function IntentFailurePanel({ data }: { data: IntentFailureResult
       </div>
 
       {filteredPages.length === 0 ? (
-        <div style={{ padding: 32, textAlign: 'center', color: 'hsl(var(--muted-foreground))', border: '1px dashed hsl(var(--border))', borderRadius: 10, fontSize: 13 }}>
+        <div style={{ padding: 32, textAlign: 'center', color: 'var(--muted-foreground)', border: '1px dashed var(--border)', borderRadius: 10, fontSize: 13 }}>
           No pages in this category.
         </div>
       ) : (

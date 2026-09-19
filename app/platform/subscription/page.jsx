@@ -2,10 +2,8 @@ import { PricingTable } from "@clerk/nextjs";
 
 export default function SubscriptionPage() {
   return (
-    <div style={{ padding: 24, background: "#0a0a0a", minHeight: "100vh" }}>
-      <h1 style={{ color: "#fff", fontFamily: "monospace", fontSize: 18, marginBottom: 24 }}>
-        Upgrade Your Plan
-      </h1>
+    <div className="min-h-screen bg-background p-6">
+      <h1 className="mb-6 text-lg font-semibold text-foreground">Upgrade Your Plan</h1>
       <PricingTable />
     </div>
   );

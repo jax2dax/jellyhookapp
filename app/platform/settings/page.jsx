@@ -44,24 +44,15 @@ export default async function SettingsPage() {
       </header>
 
       <div className="flex flex-1 flex-col gap-4 p-6 pt-2">
-        <div style={{ color: "#fff", fontSize: 16, fontFamily: "monospace", marginBottom: 8 }}>
-          Site Settings
-        </div>
+        <div className="mb-2 text-base font-semibold text-foreground">Site Settings</div>
 
         {!site ? (
-          <div style={{
-            padding: 24, background: "#111", border: "1px solid #1a1a1a",
-            borderRadius: 8, fontFamily: "monospace",
-          }}>
-            <div style={{ color: "#555", fontSize: 13, marginBottom: 12 }}>
-              No site connected.
-            </div>
-            <a href="/platform/create-site" style={{
-              display: "inline-block", padding: "8px 20px",
-              background: "#4ade80", color: "#000",
-              borderRadius: 6, fontSize: 12, fontWeight: "bold",
-              textDecoration: "none",
-            }}>
+          <div className="rounded-lg border bg-card p-6">
+            <div className="mb-3 text-sm text-muted-foreground">No site connected.</div>
+            <a
+              href="/platform/create-site"
+              className="inline-block rounded-md bg-primary px-5 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90"
+            >
               Create a site →
             </a>
           </div>

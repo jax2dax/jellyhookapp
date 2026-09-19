@@ -258,13 +258,13 @@ export function ConversionRateChart({
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
-                    stroke="hsl(var(--border))"
+                    stroke="var(--border)"
                     strokeOpacity={0.6}
                   />
                   <XAxis
                     dataKey="label"
                     tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
-                    axisLine={{ stroke: 'hsl(var(--border))' }}
+                    axisLine={{ stroke: 'var(--border)' }}
                     tickLine={false}
                     interval="preserveStartEnd"
                   />
@@ -277,7 +277,7 @@ export function ConversionRateChart({
                   />
                   <Tooltip
                     content={<CustomTooltip />}
-                    cursor={{ fill: 'hsl(var(--muted))', opacity: 0.5 }}
+                    cursor={{ fill: 'var(--muted)', opacity: 0.5 }}
                   />
                   <Bar dataKey="conversions" radius={[4, 4, 0, 0]}>
                     {chartBuckets.map((entry, index) => (

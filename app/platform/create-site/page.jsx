@@ -4,11 +4,15 @@
 import { useState, useEffect } from "react";
 import { createSite, cancelVerification } from "@/lib/actions/site-management.actions";
 import { useSearchParams } from "next/navigation";
-import { /*createSite, cancelVerification,*/ getSiteVerifiedStatus } from "@/lib/actions/site-management.actions";
+import { getSiteVerifiedStatus } from "@/lib/actions/site-management.actions";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 export default function CreateSitePage() {
   const searchParams = useSearchParams();
-  
+
   // pending?status=pending&siteId=xxx&domain=xxx comes from verification gate redirect
   const statusParam = searchParams.get("status");
   const siteIdParam = searchParams.get("siteId");
@@ -66,62 +70,60 @@ export default function CreateSitePage() {
   // ── PENDING STATE (redirected from verification gate) ────────────────────
   if (showPendingFromParam) {
     return (
-      <div style={containerStyle}>
-        <PendingUI
-          domain={domainParam}
-          siteId={siteIdParam}
-          onCancel={handleCancelVerification}
-          cancelling={cancelling}
-          cancelError={cancelError}
-        />
-      </div>
+      <PageShell>
+        <PendingUI domain={domainParam} siteId={siteIdParam} onCancel={handleCancelVerification} cancelling={cancelling} cancelError={cancelError} />
+      </PageShell>
     );
   }
 
   // ── PLAN LIMIT REACHED ───────────────────────────────────────────────────
   if (result?.planLimitReached) {
     return (
-      <div style={containerStyle}>
-        <div style={cardStyle}>
-          <div style={{ color: "#f59e0b", fontSize: 28, marginBottom: 12 }}>⚠</div>
-          <h2 style={headingStyle}>Site Limit Reached</h2>
-          <p style={bodyStyle}>
-            Your current plan only allows <strong>1 site</strong>. Upgrade to{" "}
-            <strong>Elite</strong> to manage multiple sites.
-          </p>
-          <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-            <a href="/platform/billing" style={primaryBtnStyle}>
-              Upgrade to Elite
-            </a>
-            <a href="/platform" style={secondaryBtnStyle}>
-              Back to Dashboard
-            </a>
-          </div>
-        </div>
-      </div>
+      <PageShell>
+        <Card className="w-full max-w-lg">
+          <CardContent>
+            <div className="mb-3 text-2xl text-warning">⚠</div>
+            <h2 className="mb-3 text-xl font-bold text-foreground">Site Limit Reached</h2>
+            <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
+              Your current plan only allows <strong>1 site</strong>. Upgrade to <strong>Elite</strong> to manage multiple sites.
+            </p>
+            <div className="flex gap-2.5">
+              <Button asChild>
+                <a href="/platform/billing">Upgrade to Elite</a>
+              </Button>
+              <Button variant="outline" asChild>
+                <a href="/platform">Back to Dashboard</a>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </PageShell>
     );
   }
 
   // ── DOMAIN ALREADY EXISTS (no access) ───────────────────────────────────
   if (result?.alreadyExists) {
     return (
-      <div style={containerStyle}>
-        <div style={cardStyle}>
-          <div style={{ color: "#f59e0b", fontSize: 28, marginBottom: 12 }}>⚠</div>
-          <h2 style={headingStyle}>Domain Already Registered</h2>
-          <p style={bodyStyle}>
-            <strong>{result.site.domain}</strong> is already registered. Your email
-            doesn't match this domain. Ask the site owner to invite you from their
-            Settings page.
-          </p>
-          <button
-            onClick={() => { setResult(null); setDomain(""); }}
-            style={secondaryBtnStyle}
-          >
-            Try a different domain
-          </button>
-        </div>
-      </div>
+      <PageShell>
+        <Card className="w-full max-w-lg">
+          <CardContent>
+            <div className="mb-3 text-2xl text-warning">⚠</div>
+            <h2 className="mb-3 text-xl font-bold text-foreground">Domain Already Registered</h2>
+            <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
+              <strong>{result.site.domain}</strong> is already registered. Your email doesn&apos;t match this domain. Ask the site owner to invite you from their Settings page.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setResult(null);
+                setDomain("");
+              }}
+            >
+              Try a different domain
+            </Button>
+          </CardContent>
+        </Card>
+      </PageShell>
     );
   }
 
@@ -129,38 +131,43 @@ export default function CreateSitePage() {
   if (result?.joined) {
     const script = `<script src="${process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000"}/tracker.js" data-key="${result.site.api_key}"></script>`;
     return (
-      <div style={containerStyle}>
-        <div style={cardStyle}>
-          <div style={{ color: "#4ade80", fontSize: 28, marginBottom: 12 }}>✅</div>
-          <h2 style={headingStyle}>Joined Existing Site</h2>
-          <p style={bodyStyle}>
-            Your email matched <strong>{result.site.domain}</strong> — you've been
-            added automatically. The tracker is already installed.
-          </p>
-          <pre style={preStyle}>{script}</pre>
-          <a href="/platform" style={primaryBtnStyle}>Go to Dashboard →</a>
-        </div>
-      </div>
+      <PageShell>
+        <Card className="w-full max-w-lg">
+          <CardContent>
+            <div className="mb-3 text-2xl text-primary">✅</div>
+            <h2 className="mb-3 text-xl font-bold text-foreground">Joined Existing Site</h2>
+            <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
+              Your email matched <strong>{result.site.domain}</strong> — you&apos;ve been added automatically. The tracker is already installed.
+            </p>
+            <ScriptBlock script={script} />
+            <Button asChild>
+              <a href="/platform">Go to Dashboard →</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </PageShell>
     );
   }
 
   // ── ALREADY A MEMBER ─────────────────────────────────────────────────────
   if (result?.alreadyMember) {
-    const script = result.site?.api_key
-      ? `<script src="${process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000"}/tracker.js" data-key="${result.site.api_key}"></script>`
-      : null;
+    const script = result.site?.api_key ? `<script src="${process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000"}/tracker.js" data-key="${result.site.api_key}"></script>` : null;
     return (
-      <div style={containerStyle}>
-        <div style={cardStyle}>
-          <div style={{ color: "#60a5fa", fontSize: 28, marginBottom: 12 }}>ℹ</div>
-          <h2 style={headingStyle}>You Already Have Access</h2>
-          <p style={bodyStyle}>
-            You already have access to <strong>{result.site.domain}</strong>.
-          </p>
-          {script && <pre style={preStyle}>{script}</pre>}
-          <a href="/platform" style={primaryBtnStyle}>Go to Dashboard →</a>
-        </div>
-      </div>
+      <PageShell>
+        <Card className="w-full max-w-lg">
+          <CardContent>
+            <div className="mb-3 text-2xl text-muted-foreground">ℹ</div>
+            <h2 className="mb-3 text-xl font-bold text-foreground">You Already Have Access</h2>
+            <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
+              You already have access to <strong>{result.site.domain}</strong>.
+            </p>
+            {script && <ScriptBlock script={script} />}
+            <Button asChild>
+              <a href="/platform">Go to Dashboard →</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </PageShell>
     );
   }
 
@@ -168,34 +175,37 @@ export default function CreateSitePage() {
   if (result?.reclaimed) {
     const script = `<script src="${process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000"}/tracker.js" data-key="${result.site.api_key}"></script>`;
     return (
-      <div style={containerStyle}>
-        <div style={cardStyle}>
-          <div style={{ color: "#4ade80", fontSize: 28, marginBottom: 12 }}>✅</div>
-          <h2 style={headingStyle}>Site Reclaimed</h2>
-          <p style={bodyStyle}>
-            You previously registered <strong>{result.site.domain}</strong> but never
-            installed the script. Your API key is unchanged.
-          </p>
-          <p style={labelStyle}>
-            Paste before your closing <code style={codeStyle}>&lt;/body&gt;</code>:
-          </p>
-          <pre style={preStyle}>{script}</pre>
-          {result.site.specify_form && (
-            <>
-              <p style={labelStyle}>Add to your conversion form:</p>
-              <pre style={preStyle}>{`<form data-conversion="true">\n  ...\n</form>`}</pre>
-            </>
-          )}
-          <a href="/platform" style={primaryBtnStyle}>Go to Dashboard →</a>
-        </div>
-      </div>
+      <PageShell>
+        <Card className="w-full max-w-lg">
+          <CardContent>
+            <div className="mb-3 text-2xl text-primary">✅</div>
+            <h2 className="mb-3 text-xl font-bold text-foreground">Site Reclaimed</h2>
+            <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
+              You previously registered <strong>{result.site.domain}</strong> but never installed the script. Your API key is unchanged.
+            </p>
+            <p className="mb-2 block text-xs text-muted-foreground">
+              Paste before your closing <code className="rounded bg-muted px-1.5 py-0.5 text-xs">&lt;/body&gt;</code>:
+            </p>
+            <ScriptBlock script={script} />
+            {result.site.specify_form && (
+              <>
+                <p className="mb-2 block text-xs text-muted-foreground">Add to your conversion form:</p>
+                <ScriptBlock script={`<form data-conversion="true">\n  ...\n</form>`} />
+              </>
+            )}
+            <Button asChild>
+              <a href="/platform">Go to Dashboard →</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </PageShell>
     );
   }
 
   // ── NEW SITE CREATED — show pending verification UI ──────────────────────
   if (result?.site && !result.joined) {
     return (
-      <div style={containerStyle}>
+      <PageShell>
         <PendingUI
           domain={result.site.domain}
           siteId={result.site.id}
@@ -205,66 +215,44 @@ export default function CreateSitePage() {
           cancelling={cancelling}
           cancelError={cancelError}
         />
-      </div>
+      </PageShell>
     );
   }
 
   // ── DEFAULT: Registration form ───────────────────────────────────────────
   return (
-    <div style={containerStyle}>
-      <div style={cardStyle}>
-        <h1 style={headingStyle}>Add Your Site</h1>
+    <PageShell>
+      <Card className="w-full max-w-lg">
+        <CardContent>
+          <h1 className="mb-5 text-xl font-bold text-foreground">Add Your Site</h1>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={labelStyle}>Your domain</label>
-          <input
-            placeholder="yourdomain.com"
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-            style={inputStyle}
-          />
-          <p style={{ color: "#555", fontSize: 11, marginTop: 4 }}>
-            Without https:// or www
-          </p>
-        </div>
-
-        <div style={sectionBoxStyle}>
-          <p style={{ ...labelStyle, marginBottom: 4 }}>
-            Do you have a specific conversion form?
-          </p>
-          <p style={{ color: "#555", fontSize: 11, marginBottom: 12 }}>
-            A contact form, demo request, or sign-up — not a search bar or newsletter.
-          </p>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button
-              onClick={() => setSpecifyForm(false)}
-              style={!specifyForm ? activePillStyle : pillStyle}
-            >
-              No — track all forms
-            </button>
-            <button
-              onClick={() => setSpecifyForm(true)}
-              style={specifyForm ? activePillStyle : pillStyle}
-            >
-              Yes — I'll label my form
-            </button>
+          <div className="mb-5">
+            <label className="mb-2 block text-xs text-muted-foreground">Your domain</label>
+            <Input placeholder="yourdomain.com" value={domain} onChange={(e) => setDomain(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
+            <p className="mt-1 text-xs text-muted-foreground">Without https:// or www</p>
           </div>
-        </div>
 
-        {error && (
-          <p style={{ color: "#f87171", fontSize: 12, marginBottom: 12 }}>{error}</p>
-        )}
+          <div className="mb-5 rounded-lg border bg-muted/30 p-4">
+            <p className="mb-1 text-xs text-muted-foreground">Do you have a specific conversion form?</p>
+            <p className="mb-3 text-xs text-muted-foreground">A contact form, demo request, or sign-up — not a search bar or newsletter.</p>
+            <div className="flex gap-2.5">
+              <Button size="sm" variant={!specifyForm ? "default" : "outline"} onClick={() => setSpecifyForm(false)}>
+                No — track all forms
+              </Button>
+              <Button size="sm" variant={specifyForm ? "default" : "outline"} onClick={() => setSpecifyForm(true)}>
+                Yes — I&apos;ll label my form
+              </Button>
+            </div>
+          </div>
 
-        <button
-          onClick={handleSubmit}
-          disabled={loading || !domain.trim()}
-          style={{ ...primaryBtnStyle, opacity: loading || !domain.trim() ? 0.5 : 1 }}
-        >
-          {loading ? "Checking..." : "Continue"}
-        </button>
-      </div>
-    </div>
+          {error && <p className="mb-3 text-xs text-destructive">{error}</p>}
+
+          <Button onClick={handleSubmit} disabled={loading || !domain.trim()}>
+            {loading ? "Checking..." : "Continue"}
+          </Button>
+        </CardContent>
+      </Card>
+    </PageShell>
   );
 }
 
@@ -285,243 +273,66 @@ function PendingUI({ domain, siteId, apiKey, specifyForm, onCancel, cancelling, 
     }, 3000); // check every 3 seconds
     return () => clearInterval(interval);
   }, [siteId]);
-  const script = apiKey
-    ? `<script src="${trackerBase}/tracker.js" data-key="${apiKey}"></script>`
-    : null;
+  const script = apiKey ? `<script src="${trackerBase}/tracker.js" data-key="${apiKey}"></script>` : null;
 
   return (
-    <div style={cardStyle}>
-      {/* Status badge */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-        <span style={pendingBadgeStyle}>● PENDING VERIFICATION</span>
-      </div>
-
-      <h2 style={headingStyle}>{domain}</h2>
-      <p style={bodyStyle}>
-        Waiting for the first tracker hit from your site. Once the script loads on your
-        site, your dashboard will activate automatically.
-      </p>
-
-      {/* Animated waiting indicator */}
-      <div style={waitingBoxStyle}>
-        <div style={{ color: "#555", fontSize: 12, marginBottom: 8 }}>
-          Listening for connection...
+    <Card className="w-full max-w-lg">
+      <CardContent>
+        <div className="mb-5 flex items-center gap-2.5">
+          <Badge variant="outline" className="border-warning/40 text-warning">
+            ● PENDING VERIFICATION
+          </Badge>
         </div>
-        <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              style={{
-                width: 6, height: 6, borderRadius: "50%",
-                background: "#4ade80",
-                animation: `pulse 1.4s ease-in-out ${i * 0.2}s infinite`,
-              }}
-            />
-          ))}
-        </div>
-      </div>
 
-      {/* Script install instructions */}
-      {script && (
-        <div style={{ marginTop: 20 }}>
-          <p style={labelStyle}>
-            Step 1 — Paste before your closing{" "}
-            <code style={codeStyle}>&lt;/body&gt;</code> tag:
-          </p>
-          <pre style={preStyle}>{script}</pre>
-        </div>
-      )}
-
-      {specifyForm && (
-        <div style={{ marginTop: 16 }}>
-          <p style={labelStyle}>Step 2 — Add to your conversion form:</p>
-          <pre style={preStyle}>{`<form data-conversion="true">\n  ...\n</form>`}</pre>
-        </div>
-      )}
-
-      {/* Cancel option */}
-      <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid #1a1a1a" }}>
-        <p style={{ color: "#444", fontSize: 11, marginBottom: 12 }}>
-          Registered the wrong domain? You can cancel and start over.
+        <h2 className="mb-3 text-xl font-bold text-foreground">{domain}</h2>
+        <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
+          Waiting for the first tracker hit from your site. Once the script loads on your site, your dashboard will activate automatically.
         </p>
-        {cancelError && (
-          <p style={{ color: "#f87171", fontSize: 11, marginBottom: 8 }}>{cancelError}</p>
-        )}
-        <button
-          onClick={() => onCancel(siteId)}
-          disabled={cancelling}
-          style={{
-            ...secondaryBtnStyle,
-            borderColor: "#7f1d1d",
-            color: "#f87171",
-            opacity: cancelling ? 0.5 : 1,
-          }}
-        >
-          {cancelling ? "Cancelling..." : "Cancel & Start Over"}
-        </button>
-      </div>
 
-      <style>{`
-        @keyframes pulse {
-          0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
-          40% { opacity: 1; transform: scale(1); }
-        }
-      `}</style>
-    </div>
+        {/* Animated waiting indicator */}
+        <div className="mb-1 rounded-lg border bg-muted/30 p-4 text-center">
+          <div className="mb-2 text-xs text-muted-foreground">Listening for connection...</div>
+          <div className="flex justify-center gap-1.5">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" style={{ animationDelay: `${i * 0.2}s` }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Script install instructions */}
+        {script && (
+          <div className="mt-5">
+            <p className="mb-2 block text-xs text-muted-foreground">
+              Step 1 — Paste before your closing <code className="rounded bg-muted px-1.5 py-0.5 text-xs">&lt;/body&gt;</code> tag:
+            </p>
+            <ScriptBlock script={script} />
+          </div>
+        )}
+
+        {specifyForm && (
+          <div className="mt-4">
+            <p className="mb-2 block text-xs text-muted-foreground">Step 2 — Add to your conversion form:</p>
+            <ScriptBlock script={`<form data-conversion="true">\n  ...\n</form>`} />
+          </div>
+        )}
+
+        {/* Cancel option */}
+        <div className="mt-6 border-t pt-5">
+          <p className="mb-3 text-xs text-muted-foreground">Registered the wrong domain? You can cancel and start over.</p>
+          {cancelError && <p className="mb-2 text-xs text-destructive">{cancelError}</p>}
+          <Button variant="destructive" onClick={() => onCancel(siteId)} disabled={cancelling}>
+            {cancelling ? "Cancelling..." : "Cancel & Start Over"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles
-// ─────────────────────────────────────────────────────────────────────────────
-const containerStyle = {
-  minHeight: "100vh",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 24,
-  background: "#0a0a0a",
-};
+function ScriptBlock({ script }) {
+  return <pre className="mb-4 overflow-x-auto rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-wrap break-all text-primary">{script}</pre>;
+}
 
-const cardStyle = {
-  background: "#111",
-  border: "1px solid #1a1a1a",
-  borderRadius: 12,
-  padding: 32,
-  maxWidth: 480,
-  width: "100%",
-  fontFamily: "monospace",
-};
-
-const headingStyle = {
-  color: "#fff",
-  fontSize: 20,
-  fontWeight: "bold",
-  marginBottom: 12,
-  margin: 0,
-  marginBottom: 12,
-};
-
-const bodyStyle = {
-  color: "#888",
-  fontSize: 13,
-  lineHeight: 1.6,
-  marginBottom: 20,
-};
-
-const labelStyle = {
-  color: "#aaa",
-  fontSize: 12,
-  marginBottom: 8,
-  display: "block",
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "10px 12px",
-  background: "#0a0a0a",
-  border: "1px solid #2a2a2a",
-  borderRadius: 6,
-  color: "#fff",
-  fontSize: 13,
-  fontFamily: "monospace",
-  boxSizing: "border-box",
-};
-
-const preStyle = {
-  background: "#0a0a0a",
-  border: "1px solid #1a1a1a",
-  borderRadius: 6,
-  padding: "12px 14px",
-  fontSize: 11,
-  color: "#4ade80",
-  overflowX: "auto",
-  whiteSpace: "pre-wrap",
-  wordBreak: "break-all",
-  marginBottom: 16,
-};
-
-const codeStyle = {
-  background: "#1a1a1a",
-  padding: "1px 5px",
-  borderRadius: 3,
-  fontSize: 11,
-};
-
-const primaryBtnStyle = {
-  display: "inline-block",
-  padding: "10px 20px",
-  background: "#4ade80",
-  color: "#000",
-  border: "none",
-  borderRadius: 6,
-  fontSize: 13,
-  fontWeight: "bold",
-  cursor: "pointer",
-  textDecoration: "none",
-  fontFamily: "monospace",
-};
-
-const secondaryBtnStyle = {
-  display: "inline-block",
-  padding: "10px 20px",
-  background: "transparent",
-  color: "#888",
-  border: "1px solid #2a2a2a",
-  borderRadius: 6,
-  fontSize: 13,
-  cursor: "pointer",
-  textDecoration: "none",
-  fontFamily: "monospace",
-};
-
-const activePillStyle = {
-  padding: "8px 16px",
-  background: "#4ade80",
-  color: "#000",
-  border: "1px solid #4ade80",
-  borderRadius: 6,
-  fontSize: 12,
-  cursor: "pointer",
-  fontFamily: "monospace",
-  fontWeight: "bold",
-};
-
-const pillStyle = {
-  padding: "8px 16px",
-  background: "transparent",
-  color: "#888",
-  border: "1px solid #2a2a2a",
-  borderRadius: 6,
-  fontSize: 12,
-  cursor: "pointer",
-  fontFamily: "monospace",
-};
-
-const sectionBoxStyle = {
-  background: "#0a0a0a",
-  border: "1px solid #1a1a1a",
-  borderRadius: 8,
-  padding: "16px",
-  marginBottom: 20,
-};
-
-const pendingBadgeStyle = {
-  background: "#f59e0b20",
-  color: "#f59e0b",
-  border: "1px solid #f59e0b40",
-  borderRadius: 99,
-  padding: "3px 12px",
-  fontSize: 10,
-  fontWeight: "bold",
-  letterSpacing: 1,
-};
-
-const waitingBoxStyle = {
-  background: "#0a0a0a",
-  border: "1px solid #1a1a1a",
-  borderRadius: 8,
-  padding: 16,
-  textAlign: "center",
-  marginBottom: 4,
-};
+function PageShell({ children }) {
+  return <div className="flex min-h-screen items-center justify-center bg-background p-6">{children}</div>;
+}

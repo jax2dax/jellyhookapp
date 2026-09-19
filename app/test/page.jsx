@@ -14,13 +14,8 @@ export default async function TestSelectorPage() {
   console.log("[test-selector] allSites:", allSites?.length, "currentSiteId:", currentSite?.id);
 
   return (
-    <div style={{
-      padding: 40,
-      background: "#0a0a0a",
-      minHeight: "100vh",
-      fontFamily: "monospace",
-    }}>
-      <div style={{ color: "#555", fontSize: 11, marginBottom: 24 }}>
+    <div className="min-h-screen bg-background p-10">
+      <div className="mb-6 text-xs text-muted-foreground">
         DEBUG — allSites: {allSites?.length ?? 0} | currentSiteId: {currentSite?.id ?? "null"}
       </div>
 

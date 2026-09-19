@@ -11,16 +11,16 @@ export default async function IntentDebugPage() {
   const data = await getIntentFailureAnalysis((site as { id: string }).id)
 
   if (!data || data.pages.length === 0) {
-    return <div style={{ padding: 40, fontFamily: 'monospace' }}>No data yet.</div>
+    return <div className="p-10 text-sm text-muted-foreground">No data yet.</div>
   }
 
   const topPage = data.pages[0]
 
   return (
-    <div style={{ padding: 40, fontFamily: 'monospace', maxWidth: 800 }}>
-      <h2 style={{ marginBottom: 24 }}>Intent Debug — {data.pages.length} pages</h2>
+    <div className="max-w-3xl p-10 text-sm text-foreground">
+      <h2 className="mb-6 text-lg font-semibold">Intent Debug — {data.pages.length} pages</h2>
 
-      <div style={{ marginBottom: 32 }}>
+      <div className="mb-8 space-y-0.5">
         <strong>Top failing page:</strong> {topPage.page_path}<br />
         <strong>Intent failure score:</strong> {(topPage.intentFailureScore * 100).toFixed(1)}%<br />
         <strong>Label:</strong> {topPage.label}<br />
@@ -37,11 +37,11 @@ export default async function IntentDebugPage() {
         <strong>Insight:</strong> {topPage.insightSentence}
       </div>
 
-      <div style={{ marginBottom: 24 }}>
+      <div className="mb-6">
         <strong>Score Button test:</strong>
-        <div style={{ marginTop: 12 }}>
+        <div className="mt-3">
           {/*//@ts-ignore */}
-          <ScoreButton 
+          <ScoreButton
             siteId={(site as { id: string }).id}
             pagePath={topPage.page_path}
           />
@@ -49,15 +49,15 @@ export default async function IntentDebugPage() {
       </div>
 
       <details>
-        <summary style={{ cursor: 'pointer', marginBottom: 12 }}>Full breakdown JSON</summary>
-        <pre style={{ fontSize: 11, overflow: 'auto', background: 'hsl(var(--muted))', padding: 16, borderRadius: 8 }}>
+        <summary className="mb-3 cursor-pointer">Full breakdown JSON</summary>
+        <pre className="overflow-auto rounded-lg bg-muted p-4 text-xs">
           {JSON.stringify(topPage.scoreBreakdown, null, 2)}
         </pre>
       </details>
 
       <details>
-        <summary style={{ cursor: 'pointer', marginTop: 16 }}>All pages summary</summary>
-        <pre style={{ fontSize: 10, overflow: 'auto', background: 'hsl(var(--muted))', padding: 16, borderRadius: 8 }}>
+        <summary className="mt-4 cursor-pointer">All pages summary</summary>
+        <pre className="overflow-auto rounded-lg bg-muted p-4 text-xs">
           {data.pages.map(p =>
             `${p.page_path.padEnd(30)} score=${(p.intentFailureScore*100).toFixed(1).padStart(5)}% label=${p.label} views=${p.totalViews}`
           ).join('\n')}

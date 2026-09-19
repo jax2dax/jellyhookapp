@@ -8,11 +8,12 @@
 //   children: React.ReactNode
 
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+
 const TIER = { free: 0, pro: 1, elite: 2 };
 const LABEL_BY_TIER = ["free", "pro", "elite"];
 
 export default function PlanGate({ required = "free", userPlan = "free", sitePlan = "free", children }) {
-
   // Effective access = whichever is HIGHER: the person's own Clerk subscription,
   // or the plan the site itself is on. Either one being high enough unlocks it.
   const userTier = TIER[userPlan] ?? 0;
@@ -26,42 +27,19 @@ export default function PlanGate({ required = "free", userPlan = "free", sitePla
 
   // Locked — blur children and show upgrade banner on top
   return (
-    <div style={{ position: "relative", borderRadius: 8, overflow: "hidden" }}>
-      {/* Blurred content — still renders but not readable */}
-      <div style={{ filter: "blur(6px)", pointerEvents: "none", userSelect: "none" }}>
-        {children}
-      </div>
+    <div className="relative overflow-hidden rounded-lg">
+      <div className="pointer-events-none blur-md select-none">{children}</div>
 
-      {/* Upgrade overlay — centered on top of blurred content */}
-      <div style={{
-        position: "absolute", inset: 0,
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        background: "rgba(0,0,0,0.55)",
-        borderRadius: 8,
-        gap: 12,
-      }}>
-                <div style={{ fontSize: 13, color: "#fff", fontFamily: "monospace" }}>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-lg bg-background/70">
+        <div className="text-center text-sm text-foreground">
           🔒 {required.charAt(0).toUpperCase() + required.slice(1)} plan required
-          <div style={{ fontSize: 10, color: "#888", marginTop: 4 }}>
+          <div className="mt-1 text-xs text-muted-foreground">
             your plan: {effectivePlan} (user: {userPlan}, site: {sitePlan})
           </div>
         </div>
-        <Link
-          href="/platform/subscription"
-          style={{
-            padding: "8px 20px",
-            background: "#4ade80",
-            color: "#000",
-            borderRadius: 6,
-            fontSize: 12,
-            fontFamily: "monospace",
-            fontWeight: "bold",
-            textDecoration: "none",
-          }}
-        >
-          Upgrade →
-        </Link>
+        <Button asChild>
+          <Link href="/platform/subscription">Upgrade →</Link>
+        </Button>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Merienda:wght@300..900&family=Nabla&family=Saira:ital,wght@0,100..900;1,100..900&family=Varela+Round&display=swap');
 @import "tailwindcss";
 /* @import "tw-animate-css";
 @import "shadcn/tailwind.css"; */
@@ -7,7 +8,13 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  /* --font-sans: var(--font-sans); */
+   --font-sans: "Varela Round", sans-serif;
+  
+  /* If you also want to bring in Merienda or Nabla from your embed code: */
+  --font-display: "Merienda", cursive;
+  --font-accent: "Nabla", system-ui;
+  /**/
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -29,6 +36,7 @@
   --color-destructive: var(--destructive);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-severity-high: var(--severity-high);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -68,6 +76,7 @@
   --destructive: oklch(0.577 0.245 27.325);
   --warning: oklch(0.75 0.15 85);
   --warning-foreground: oklch(0.145 0 0);
+  --severity-high: oklch(0.68 0.19 45);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -105,6 +114,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --warning: oklch(0.78 0.15 85);
   --warning-foreground: oklch(0.145 0 0);
+  --severity-high: oklch(0.7 0.19 45);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);

@@ -56,23 +56,20 @@ function formatDuration(ms: number): string {
 
 function getPageStatusIcon(score: number) {
   if (score >= 0.7) return <XCircle className="h-4 w-4 text-destructive" />
-  if (score >= 0.5) return <AlertTriangle className="h-4 w-4 text-orange-500" />
-  if (score >= 0.3) return <Minus className="h-4 w-4 text-yellow-500" />
-  return <CheckCircle className="h-4 w-4 text-green-500" />
+  if (score >= 0.5) return <AlertTriangle className="h-4 w-4 text-severity-high" />
+  if (score >= 0.3) return <Minus className="h-4 w-4 text-warning" />
+  return <CheckCircle className="h-4 w-4 text-primary" />
 }
 
 function getPageStatusColor(score: number): string {
-  if (score >= 0.7) return 'hsl(var(--destructive))'
-  if (score >= 0.5) return '#f97316'
-  if (score >= 0.3) return '#eab308'
-  return '#22c55e'
+  if (score >= 0.7) return 'var(--destructive)'
+  if (score >= 0.5) return 'var(--severity-high)'
+  if (score >= 0.3) return 'var(--warning)'
+  return 'var(--primary)'
 }
 
 function getPageStatusBg(score: number): string {
-  if (score >= 0.7) return 'rgba(239,68,68,0.08)'
-  if (score >= 0.5) return 'rgba(249,115,22,0.08)'
-  if (score >= 0.3) return 'rgba(234,179,8,0.08)'
-  return 'rgba(34,197,94,0.08)'
+  return `color-mix(in oklch, ${getPageStatusColor(score)} 8%, transparent)`
 }
 
 function getPageStatusLabel(score: number): string {
@@ -238,9 +235,9 @@ function TimeDistributionChart({ page }: { page: FullPageAnalysis }) {
   const maxCount = Math.max(...dist.buckets.map(b => b.count), 1)
 
   const zoneColors = {
-    red: 'hsl(var(--destructive))',
-    green: '#22c55e',
-    yellow: '#eab308',
+    red: 'var(--destructive)',
+    green: 'var(--primary)',
+    yellow: 'var(--warning)',
   }
 
   return (
@@ -360,7 +357,7 @@ function PageDetailPanel({ page, goals, devMode }: { page: FullPageAnalysis; goa
               </p>
             )}
             {page.functionIII.rowsWithoutMaxScroll > 0 && devMode && (
-              <p className="text-xs text-yellow-500 mt-1">
+              <p className="text-xs text-warning mt-1">
                 ⚠ {page.functionIII.rowsWithoutMaxScroll} rows missing max_scroll_reached_at (old tracker data)
               </p>
             )}
@@ -373,7 +370,7 @@ function PageDetailPanel({ page, goals, devMode }: { page: FullPageAnalysis; goa
         <Card>
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4 text-orange-500" />
+              <ArrowLeft className="h-4 w-4 text-severity-high" />
               Visitors kept coming back to one section
             </CardTitle>
           </CardHeader>
@@ -454,13 +451,13 @@ function PageDetailPanel({ page, goals, devMode }: { page: FullPageAnalysis; goa
               strokeWidth={16}
               label={pct(1 - page.retention.exitRate)}
               segments={[
-                { value: stayedCount, color: '#22c55e', label: 'Stayed' },
-                { value: exitedCount, color: 'hsl(var(--destructive))', label: 'Left' },
+                { value: stayedCount, color: 'var(--primary)', label: 'Stayed' },
+                { value: exitedCount, color: 'var(--destructive)', label: 'Left' },
               ]}
             />
             <div className="space-y-1.5 text-sm">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-sm bg-green-500 flex-shrink-0" />
+                <span className="w-2.5 h-2.5 rounded-sm bg-primary flex-shrink-0" />
                 <span className="text-foreground">{stayedCount} continued browsing</span>
               </div>
               <div className="flex items-center gap-2">
@@ -523,9 +520,7 @@ function PageDetailPanel({ page, goals, devMode }: { page: FullPageAnalysis; goa
               {page.headers.map((h, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${
-                    h.header_tag === 'h1' ? 'bg-indigo-500/10 text-indigo-400' :
-                    h.header_tag === 'h2' ? 'bg-sky-500/10 text-sky-400' :
-                    'bg-muted text-muted-foreground'
+                    h.header_tag === 'h1' ? 'bg-foreground/10 text-foreground' : 'bg-muted text-muted-foreground'
                   }`}>
                     {h.header_tag.toUpperCase()}
                   </span>
@@ -536,7 +531,7 @@ function PageDetailPanel({ page, goals, devMode }: { page: FullPageAnalysis; goa
                         style={{
                           width: `${Math.round(h.viewed_rate * 100)}%`,
                           height: '100%',
-                          background: h.viewed_rate > 0.5 ? '#22c55e' : h.viewed_rate > 0.25 ? '#eab308' : 'hsl(var(--destructive))',
+                          background: h.viewed_rate > 0.5 ? 'var(--primary)' : h.viewed_rate > 0.25 ? 'var(--warning)' : 'var(--destructive)',
                           borderRadius: 99,
                         }}
                       />
@@ -546,7 +541,7 @@ function PageDetailPanel({ page, goals, devMode }: { page: FullPageAnalysis; goa
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger>
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-orange-500/40 text-orange-400">revisited</Badge>
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-severity-high/40 text-severity-high">revisited</Badge>
                           </TooltipTrigger>
                           <TooltipContent className="text-xs max-w-xs">
                             A significant portion of visitors who saw this section scrolled back up to read it again — suggesting it needs clarification.
@@ -622,8 +617,8 @@ function PageCard({
     <button
       onClick={onClick}
       style={{
-        background: isSelected ? bg : 'hsl(var(--card))',
-        border: `1.5px solid ${isSelected ? color : 'hsl(var(--border))'}`,
+        background: isSelected ? bg : 'var(--card)',
+        border: `1.5px solid ${isSelected ? color : 'var(--border)'}`,
         borderRadius: 10,
         padding: '12px 14px',
         textAlign: 'left',
@@ -650,14 +645,14 @@ function PageCard({
         </p>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <div style={{ flex: 1, height: 3, background: 'hsl(var(--muted))', borderRadius: 99, overflow: 'hidden' }}>
+        <div style={{ flex: 1, height: 3, background: 'var(--muted)', borderRadius: 99, overflow: 'hidden' }}>
           <div style={{ width: `${Math.round(page.intentFailureScore * 100)}%`, height: '100%', background: color, borderRadius: 99 }} />
         </div>
         <span className="text-[10px] font-bold" style={{ color }}>
           {pct(page.intentFailureScore)}
         </span>
       </div>
-      <div style={{ display: 'flex', gap: 8, fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>
+      <div style={{ display: 'flex', gap: 8, fontSize: 10, color: 'var(--muted-foreground)' }}>
         <span className="flex items-center gap-0.5">
           <Eye className="h-2.5 w-2.5" />{page.totalViews}
         </span>
