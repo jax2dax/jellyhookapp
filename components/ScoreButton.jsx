@@ -7,10 +7,10 @@ import { useState } from "react";
 import { calculateAndGetScore } from "@/lib/algorithms/pageAnalysis.server";
 
 const COLOR_MAP = {
-  red: "hsl(var(--destructive))",
-  orange: "#f97316",
-  yellow: "#eab308",
-  green: "hsl(var(--chart-2, #22c55e))",
+  red: "var(--destructive)",
+  orange: "var(--warning)",
+  yellow: "var(--warning)",
+  green: "var(--primary)",
 };
 
 export default function ScoreButton({ siteId, pagePath, onResult }) {

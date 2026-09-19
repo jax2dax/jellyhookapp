@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { createSupabaseClient } from "@/lib/supabase";
 import { auth } from "@clerk/nextjs/server";

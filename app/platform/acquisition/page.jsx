@@ -1,6 +1,8 @@
 import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
 import { getAcquisitionSources } from "@/lib/actions/supabase.actions";
 import PlanGate from "@/components/PlanGate";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default async function AcquisitionPage() {
   const user = await getAuthUser();
@@ -8,27 +10,37 @@ export default async function AcquisitionPage() {
   const sources = await getAcquisitionSources(site.id);
 
   return (
-    <div style={{ padding: 24, fontFamily: "monospace", color: "#ddd", background: "#0a0a0a", minHeight: "100vh" }}>
-      <h1 style={{ color: "#fff", fontSize: 18, marginBottom: 24 }}>Acquisition Intelligence</h1>
+    <div className="min-h-screen bg-background p-6">
+      <h1 className="mb-6 text-lg font-semibold text-foreground">Acquisition Intelligence</h1>
       <PlanGate userPlan={site.plan} required="pro">
-        <div style={{ border: "1px solid #1a1a1a", borderRadius: 6, overflow: "hidden" }}>
-          <div style={{
-            display: "grid", gridTemplateColumns: "2fr 1fr",
-            padding: "6px 16px", background: "#111", color: "#555", fontSize: 11,
-            borderBottom: "1px solid #1a1a1a",
-          }}>
-            <div>Source</div><div>Sessions</div>
-          </div>
-          {sources.map((s) => (
-            <div key={s.source} style={{
-              display: "grid", gridTemplateColumns: "2fr 1fr",
-              padding: "8px 16px", borderBottom: "1px solid #111", fontSize: 12,
-            }}>
-              <span style={{ color: "#7dd3fc" }}>{s.source}</span>
-              <span>{s.sessions}</span>
-            </div>
-          ))}
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Where sessions come from</CardTitle>
+            <CardDescription>Sessions grouped by referrer.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {sources.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">No sessions recorded yet.</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Source</TableHead>
+                    <TableHead className="text-right">Sessions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sources.map((s) => (
+                    <TableRow key={s.source}>
+                      <TableCell className="text-foreground">{s.source}</TableCell>
+                      <TableCell className="text-right">{s.sessions}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </PlanGate>
     </div>
   );

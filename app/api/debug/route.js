@@ -1,3 +1,4 @@
+/**api/debug/route.js */
 import { NextResponse } from "next/server";
 import { createSupabaseClient } from "@/lib/supabase";
 

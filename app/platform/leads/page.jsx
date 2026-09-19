@@ -1,55 +1,61 @@
-import { getAuthUser, requireSite, getPlanLabel } from "@/lib/actions/permission.actions";
+import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
 import { getLeads } from "@/lib/actions/supabase.actions";
 import PlanGate from "@/components/PlanGate";
-
-
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import Link from "next/link";
 
 export default async function LeadsPage() {
-  const userPlan = await getPlanLabel(); // ← "free" | "pro" | "elite"
   const user = await getAuthUser();
   const site = await requireSite(user.id);
   const leads = await getLeads(site.id);
-  console.log("site Plan/from leads" + site.plan)
-  console.log("USERPLAN  " )
-  console.log(userPlan)
-
 
   return (
-    <div style={{ padding: 24, fontFamily: "monospace", color: "#ddd", background: "#0a0a0a", minHeight: "100vh" }}>
-      <h1 style={{ color: "#fff", fontSize: 18, marginBottom: 24 }}>Leads</h1>
-       <PlanGate userPlan={user.plan} sitePlan={site.plan} required="pro">
-        {leads.length === 0 && (
-          <div style={{ color: "#333", padding: 16 }}>No leads yet. Leads appear when visitors submit forms on your site.</div>
-        )}
-        <div style={{ border: "1px solid #1a1a1a", borderRadius: 6, overflow: "hidden" }}>
-          <div style={{
-            display: "grid", gridTemplateColumns: "1fr 1.5fr 1fr 1fr 0.7fr",
-            padding: "6px 16px", background: "#111", color: "#555", fontSize: 11,
-            borderBottom: "1px solid #1a1a1a",
-          }}>
-            <div>Name</div><div>Email</div><div>Page</div><div>Submitted</div><div>Score</div>
-          </div>
-          {leads.map((lead) => (
-            <Link key={lead.id} href={`/platform/leads/${lead.visitor_id}`} style={{ textDecoration: "none" }}>
-              <div style={{
-                display: "grid", gridTemplateColumns: "1fr 1.5fr 1fr 1fr 0.7fr",
-                padding: "8px 16px", borderBottom: "1px solid #111",
-                fontSize: 12, cursor: "pointer",
-              }}>
-                <span style={{ color: "#fff" }}>{lead.name || "—"}</span>
-                <span style={{ color: "#7dd3fc" }}>{lead.email || "—"}</span>
-                <span style={{ color: "#aaa" }}>{lead.page_path || "—"}</span>
-                <span>{lead.submitted_at ? new Date(lead.submitted_at).toLocaleDateString() : "—"}</span>
-                <span style={{ color: lead.confidence === "high" ? "#4ade80" : "#fb923c" }}>{lead.confidence}</span>
-              </div>
-            </Link>
-          ))}
-          non free
-        </div>
+    <div className="min-h-screen bg-background p-6">
+      <h1 className="mb-6 text-lg font-semibold text-foreground">Leads</h1>
+      <PlanGate userPlan={user.plan} sitePlan={site.plan} required="pro">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">All leads</CardTitle>
+            <CardDescription>Every form submitted on your site, newest first.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {leads.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">No leads yet. Leads appear when visitors submit forms on your site.</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Page</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead className="text-right">Confidence</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {leads.map((lead) => (
+                    <TableRow key={lead.id}>
+                      <TableCell className="font-medium">
+                        <Link href={`/platform/leads/${lead.id}`} className="text-foreground hover:text-primary hover:underline">
+                          {lead.name || "—"}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{lead.email || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{lead.page_path || "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{lead.submitted_at ? new Date(lead.submitted_at).toLocaleDateString() : "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={lead.confidence === "high" ? "default" : "outline"}>{lead.confidence || "unknown"}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </PlanGate>
-
-      free part
     </div>
   );
 }
