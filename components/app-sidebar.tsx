@@ -30,8 +30,8 @@ interface NavItem {
 // locked items still show but route to /platform/subscription
 const NAV_ITEMS = [
   { title: "Overview",          url: "/platform/dashboard",     icon: LayoutDashboard, plan: "free"  },
-  { title: "Visitor Journeys",  url: "/platform/visitors",      icon: Users,           plan: "free"   },
-  { title: "Intent Signals",    url: "/platform/intent",        icon: Flame,           plan: "free" },
+  // { title: "Visitor Journeys",  url: "/platform/visitors",      icon: Users,           plan: "free"   },
+  // { title: "Intent Signals",    url: "/platform/intent",        icon: Flame,           plan: "free" },
   { title: "Leads",             url: "/platform/leads",         icon: UserCheck,       plan: "free"   },
   { title: "Conversion Paths",  url: "/platform/conversions",   icon: GitFork,         plan: "free"   },
   { title: "Acquisition",       url: "/platform/acquisition",   icon: Globe,           plan: "free"   },
