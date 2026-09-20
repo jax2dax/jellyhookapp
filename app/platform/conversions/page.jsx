@@ -14,7 +14,7 @@ export default async function ConversionsPage() {
   return (
     <div className="min-h-screen bg-background p-6">
       <h1 className="mb-6 text-lg font-semibold text-foreground">Conversion Paths</h1>
-      <PlanGate userPlan={site.plan} required="pro">
+     
         <div className="mb-6">
           <ConversionPathsChart siteId={site.id} useDemo={false} permission={2} />
         </div>
@@ -37,7 +37,7 @@ export default async function ConversionsPage() {
             ))}
           </CardContent>
         </Card>
-      </PlanGate>
+      
     </div>
   );
 }

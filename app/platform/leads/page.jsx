@@ -14,7 +14,7 @@ export default async function LeadsPage() {
   return (
     <div className="min-h-screen bg-background p-6">
       <h1 className="mb-6 text-lg font-semibold text-foreground">Leads</h1>
-      <PlanGate userPlan={user.plan} sitePlan={site.plan} required="pro">
+      <PlanGate userPlan={user.plan} sitePlan={site.plan} required="free">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">All leads</CardTitle>
