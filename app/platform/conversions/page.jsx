@@ -1,6 +1,8 @@
 import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
 import { getConversionPaths } from "@/lib/actions/supabase.actions";
 import PlanGate from "@/components/PlanGate";
+import { ConversionPathsChart } from "@/components/charts/lineConversionPath";
+import { ConversionRateChart } from "@/components/charts/conversionRate";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -13,6 +15,13 @@ export default async function ConversionsPage() {
     <div className="min-h-screen bg-background p-6">
       <h1 className="mb-6 text-lg font-semibold text-foreground">Conversion Paths</h1>
       <PlanGate userPlan={site.plan} required="pro">
+        <div className="mb-6">
+          <ConversionPathsChart siteId={site.id} useDemo={false} permission={2} />
+        </div>
+        <div className="mb-6">
+          <ConversionRateChart siteId={site.id} />
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Top paths to conversion</CardTitle>

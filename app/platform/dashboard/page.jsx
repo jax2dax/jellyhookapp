@@ -7,8 +7,6 @@ import {
   getTopPages,
   getRecentActivity,
 } from "@/lib/actions/supabase.actions";
-import { ConversionPathsChart } from "@/components/charts/lineConversionPath";
-import { ConversionRateChart } from "@/components/charts/conversionRate";
 import { StatTile } from "@/components/StatTile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -33,13 +31,6 @@ export default async function OverviewPage() {
         <StatTile icon={Activity} label="Active Now" value={activeNow} sub="visitors on site right now" />
         <StatTile icon={Eye} label="Page Views (24h)" value={pageViews24h} sub="in the last day" />
         <StatTile icon={Users} label="Total Sessions" value={totalSessions} sub="all time" />
-      </div>
-
-      <div className="mb-6">
-        <ConversionPathsChart siteId={site.id} useDemo={false} permission={2} />
-      </div>
-      <div className="mb-6">
-        <ConversionRateChart siteId={site.id} />
       </div>
 
       <Card className="mb-6">
