@@ -282,18 +282,35 @@ function firePageViewStart() {
     const _origPushState = history.pushState.bind(history);
     const _origReplaceState = history.replaceState.bind(history);
 
-    function handleRouteChange(newUrl) {
-      // Don't fire if the URL path didn't actually change (hash-only changes, etc.)
-      const newPath = typeof newUrl === "string"
-        ? newUrl.replace(/^https?:\/\/[^/]+/, "").split("?")[0]
-        : window.location.pathname;
+    // Tracks the path we last opened a page_view for. This is compared
+    // against the path BEFORE each pushState/replaceState call runs — never
+    // against window.location AFTER the call, because by then location has
+    // already been updated to match the incoming url, making any
+    // before/after comparison at that point trivially true and blind to
+    // whether a real navigation happened.
+    //
+    // Next.js's own router calls history.pushState/replaceState internally
+    // for router-cache bookkeeping and streaming hydration — not just for
+    // real navigations — so without this guard, every one of those internal
+    // calls was closing and reopening a page_view for a page the visitor
+    // never actually left, inflating page view counts on a single page load.
+    let lastTrackedPath = window.location.pathname;
 
-      if (newPath === window.location.pathname && typeof newUrl === "string" && newUrl.includes("#")) {
-        console.log("[Tracker] Hash-only change, skipping route handler");
+    function resolvePath(url) {
+      if (typeof url !== "string") return window.location.pathname;
+      return url.replace(/^https?:\/\/[^/]+/, "").split("?")[0].split("#")[0];
+    }
+
+    function handleRouteChange(newUrl, oldPath) {
+      const newPath = resolvePath(newUrl);
+
+      if (newPath === oldPath) {
+        console.log("[Tracker] Path unchanged (internal history call, not a real navigation) — skipping:", newPath);
         return;
       }
 
-      console.log("[Tracker] 🔀 Route change detected → closing page_view:", page_view_id);
+      lastTrackedPath = newPath;
+      console.log("[Tracker] 🔀 Route change detected →", oldPath, "→", newPath, "— closing page_view:", page_view_id);
 
       // Step 1: close the current page_view with accurate duration + scroll
       firePageViewEnd();
@@ -310,21 +327,21 @@ function firePageViewStart() {
     }
 
     history.pushState = function (state, title, url) {
+      const oldPath = lastTrackedPath;
       _origPushState(state, title, url);
-      handleRouteChange(url);
+      handleRouteChange(url, oldPath);
     };
 
     history.replaceState = function (state, title, url) {
+      const oldPath = lastTrackedPath;
       _origReplaceState(state, title, url);
-      // replaceState is used by Next.js scroll restoration — only handle if path changes
-      const newPath = typeof url === "string" ? url.split("?")[0] : window.location.pathname;
-      if (newPath !== window.location.pathname) {
-        handleRouteChange(url);
-      }
+      // replaceState is used by Next.js scroll restoration and internal
+      // router bookkeeping — only handle it if the path actually changed.
+      handleRouteChange(url, oldPath);
     };
 
     window.addEventListener("popstate", function () {
-      handleRouteChange(window.location.pathname);
+      handleRouteChange(window.location.pathname, lastTrackedPath);
     });
 
     console.log("[Tracker] ✅ Next.js pushState route handler active");
