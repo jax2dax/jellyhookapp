@@ -21,19 +21,25 @@ export async function getCurrentSubscription() {
   const { userId } = await auth()
   if (!userId) return null
 
+  // .order + .limit(1) instead of .maybeSingle(): older webhook events could
+  // have left more than one row per user (see app/api/webhooks/clerk/route.ts) —
+  // .maybeSingle() throws on >1 rows, which would take down the whole billing
+  // page. This always returns the most recently updated row for the user.
   const { data, error } = await supabaseAdmin
     .from('subscriptions')
     .select('*')
     .eq('user_id', userId)
-    .maybeSingle()
+    .order('updated_at', { ascending: false })
+    .limit(1)
 
   if (error) {
     console.error('[billing.getCurrentSubscription] error:', error.message)
     return null
   }
 
-  console.log(`[billing.getCurrentSubscription] userId=${userId} plan=${data?.plan ?? 'none'} status=${data?.status ?? 'none'}`)
-  return data
+  const row = data?.[0] ?? null
+  console.log(`[billing.getCurrentSubscription] userId=${userId} plan=${row?.plan ?? 'none'} status=${row?.status ?? 'none'}`)
+  return row
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

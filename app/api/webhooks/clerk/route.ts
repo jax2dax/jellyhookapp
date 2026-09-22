@@ -10,6 +10,90 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Clerk Billing payload helpers
+//
+// The previous version of this file read `sub.user_id`/`sub.plan_id` off the
+// event payload directly — those fields don't exist on Clerk Billing events.
+// Per Clerk's docs, the payer lives at `evt.data.payer.user_id` (or
+// `.organization_id`), and the plan lives at `evt.data.items[i].plan.slug`
+// for `subscription.*` events, or `evt.data.plan.slug` directly for
+// `subscriptionItem.*` events (an item has no back-reference to its parent
+// subscription id). Reading the wrong fields meant `userId` was always null
+// (silently hitting the "missing_user_id" guard) or `plan` was always
+// "unknown" — the mirror table never actually synced with real upgrades.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getUserId(data: any): string | null {
+  return data?.payer?.user_id ?? data?.user_id ?? data?.userId ?? null
+}
+
+function getPlanSlug(data: any): string {
+  return data?.plan?.slug ?? data?.items?.[0]?.plan?.slug ?? data?.plan_id ?? data?.plan_slug ?? 'unknown'
+}
+
+function toIso(unixSeconds: number | null | undefined): string | null {
+  return unixSeconds ? new Date(unixSeconds * 1000).toISOString() : null
+}
+
+// Upserts the ONE current-plan row for a user. Deliberately keyed by
+// user_id (read-then-write) instead of `ON CONFLICT (id)` — Clerk's
+// subscription id and subscriptionItem id are different values for the same
+// user, so conflicting on `id` would leave multiple rows per user and
+// getCurrentSubscription()'s single-row read would only ever see whichever
+// happened to be inserted, unpredictably.
+async function upsertUserSubscription(
+  userId: string,
+  fields: {
+    plan: string
+    status: string
+    current_period_start: string | null
+    current_period_end: string | null
+    cancel_at_period_end: boolean
+    cancelled_at: string | null
+  },
+  sourceId: string,
+) {
+  const { data: existing, error: findError } = await supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (findError) {
+    console.error('[webhook] subscriptions lookup error:', findError.message)
+  }
+
+  const payload = { user_id: userId, ...fields, updated_at: new Date().toISOString() }
+
+  if (existing) {
+    return supabase.from('subscriptions').update(payload).eq('id', existing.id)
+  }
+  return supabase.from('subscriptions').insert({ id: sourceId, ...payload })
+}
+
+async function logBillingEvent(userId: string, eventType: string, data: any, plan: string, status: string, subId: string) {
+  const { error } = await supabase.from('billing_events').insert({
+    user_id: userId,
+    event_type: eventType,
+    plan,
+    status,
+    amount_cents: data.amount_cents ?? null,
+    currency: data.currency ?? 'usd',
+    subscription_id: subId,
+    period_start: toIso(data.current_period_start),
+    period_end: toIso(data.current_period_end),
+    raw_payload: data,
+  })
+  if (error) {
+    console.error(`[webhook] ${eventType} — billing_events insert error:`, error.message)
+  } else {
+    console.log(`[webhook] ✅ ${eventType} — billing_event logged for userId=${userId}`)
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const evt = await verifyWebhook(req)
@@ -17,7 +101,7 @@ export async function POST(req: NextRequest) {
     console.log(`[webhook] Received event: ${eventType}`)
 
     // ─────────────────────────────────────────────────────────────────────
-    // USER CREATED — unchanged from your original
+    // USER CREATED
     // ─────────────────────────────────────────────────────────────────────
     if (eventType === 'user.created') {
       const user = evt.data as any
@@ -37,199 +121,100 @@ export async function POST(req: NextRequest) {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // SUBSCRIPTION CREATED
-    // Fires when a user subscribes to a plan for the first time
+    // SUBSCRIPTION-LEVEL EVENTS — created / updated / active / pastDue
+    // Fires on the top-level Subscription container. Plan comes from the
+    // first line item (`items[0].plan.slug`).
     // ─────────────────────────────────────────────────────────────────────
-    if (eventType === 'subscription.created') {
+    if (eventType === 'subscription.created' || eventType === 'subscription.updated' || eventType === 'subscription.active' || eventType === 'subscription.pastDue') {
       const sub = evt.data as any
-      console.log(`[webhook] subscription.created raw:`, JSON.stringify(sub, null, 2))
+      console.log(`[webhook] ${eventType} raw:`, JSON.stringify(sub, null, 2))
 
-      const userId    = sub.user_id ?? sub.userId ?? null
-      const subId     = sub.id
-      const plan      = sub.plan_id ?? sub.plan ?? sub.plan_slug ?? 'unknown'
-      const status    = sub.status ?? 'active'
-      const periodStart = sub.current_period_start
-        ? new Date(sub.current_period_start * 1000).toISOString()
-        : null
-      const periodEnd = sub.current_period_end
-        ? new Date(sub.current_period_end * 1000).toISOString()
-        : null
-
+      const userId = getUserId(sub)
       if (!userId) {
-        console.error('[webhook] subscription.created — missing user_id in payload')
-        return new Response('missing_user_id', { status: 400 })
+        // Org-owned subscription, or a payload shape we don't recognize — nothing to mirror.
+        console.warn(`[webhook] ${eventType} — no payer.user_id on payload, skipping`)
+        return new Response('ok')
       }
 
-      // Upsert subscription row
-      const { error: subError } = await supabase.from('subscriptions').upsert({
-        id: subId,
-        user_id: userId,
-        plan,
-        status,
-        current_period_start: periodStart,
-        current_period_end: periodEnd,
-        cancel_at_period_end: sub.cancel_at_period_end ?? false,
-        cancelled_at: null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'id' })
-
-      if (subError) {
-        console.error('[webhook] subscription.created — subscriptions upsert error:', subError.message)
-      } else {
-        console.log(`[webhook] ✅ subscription.created — upserted subId=${subId} userId=${userId} plan=${plan} status=${status}`)
-      }
-
-      // Insert billing event for full history
-      const { error: evtError } = await supabase.from('billing_events').insert({
-        user_id: userId,
-        event_type: 'subscription.created',
-        plan,
-        status,
-        amount_cents: sub.amount_cents ?? null,
-        currency: sub.currency ?? 'usd',
-        subscription_id: subId,
-        period_start: periodStart,
-        period_end: periodEnd,
-        raw_payload: sub,
-      })
-
-      if (evtError) {
-        console.error('[webhook] subscription.created — billing_events insert error:', evtError.message)
-      } else {
-        console.log(`[webhook] ✅ subscription.created — billing_event logged for userId=${userId}`)
-      }
-
-      return new Response('ok')
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // SUBSCRIPTION UPDATED
-    // Fires on: plan change, status change (active→past_due, etc.),
-    // renewal (period rollover), cancel toggle, reactivation
-    // ─────────────────────────────────────────────────────────────────────
-    if (eventType === 'subscription.updated') {
-      const sub = evt.data as any
-      console.log(`[webhook] subscription.updated raw:`, JSON.stringify(sub, null, 2))
-
-      const userId    = sub.user_id ?? sub.userId ?? null
-      const subId     = sub.id
-      const plan      = sub.plan_id ?? sub.plan ?? sub.plan_slug ?? 'unknown'
-      const status    = sub.status ?? 'active'
-      const periodStart = sub.current_period_start
-        ? new Date(sub.current_period_start * 1000).toISOString()
-        : null
-      const periodEnd = sub.current_period_end
-        ? new Date(sub.current_period_end * 1000).toISOString()
-        : null
+      const plan = getPlanSlug(sub)
+      const status = sub.status ?? (eventType === 'subscription.pastDue' ? 'past_due' : 'active')
       const cancelAtPeriodEnd = sub.cancel_at_period_end ?? false
+      const cancelledAt = status === 'canceled' || cancelAtPeriodEnd ? toIso(sub.cancelled_at) ?? new Date().toISOString() : null
 
-      // Determine if this is a cancellation toggle
-      const cancelledAt = (status === 'canceled' || cancelAtPeriodEnd)
-        ? (sub.cancelled_at ? new Date(sub.cancelled_at * 1000).toISOString() : new Date().toISOString())
-        : null
-
-      if (!userId) {
-        console.error('[webhook] subscription.updated — missing user_id in payload')
-        return new Response('missing_user_id', { status: 400 })
-      }
-
-      const { error: subError } = await supabase.from('subscriptions').upsert({
-        id: subId,
-        user_id: userId,
-        plan,
-        status,
-        current_period_start: periodStart,
-        current_period_end: periodEnd,
-        cancel_at_period_end: cancelAtPeriodEnd,
-        cancelled_at: cancelledAt,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'id' })
+      const { error: subError } = await upsertUserSubscription(
+        userId,
+        {
+          plan,
+          status,
+          current_period_start: toIso(sub.current_period_start),
+          current_period_end: toIso(sub.current_period_end),
+          cancel_at_period_end: cancelAtPeriodEnd,
+          cancelled_at: cancelledAt,
+        },
+        sub.id,
+      )
 
       if (subError) {
-        console.error('[webhook] subscription.updated — subscriptions upsert error:', subError.message)
+        console.error(`[webhook] ${eventType} — subscriptions upsert error:`, subError.message)
       } else {
-        console.log(`[webhook] ✅ subscription.updated — upserted subId=${subId} userId=${userId} plan=${plan} status=${status} cancelAtEnd=${cancelAtPeriodEnd}`)
+        console.log(`[webhook] ✅ ${eventType} — synced userId=${userId} plan=${plan} status=${status}`)
       }
 
-      // Determine a human-readable event type for billing history
-      let billingEventType = 'subscription.updated'
-      if (status === 'past_due')  billingEventType = 'subscription.past_due'
-      if (status === 'canceled')  billingEventType = 'subscription.canceled'
-      if (cancelAtPeriodEnd)      billingEventType = 'subscription.cancel_scheduled'
+      let billingEventType: string = eventType
+      if (status === 'past_due') billingEventType = 'subscription.past_due'
+      if (cancelAtPeriodEnd) billingEventType = 'subscription.cancel_scheduled'
 
-      const { error: evtError } = await supabase.from('billing_events').insert({
-        user_id: userId,
-        event_type: billingEventType,
-        plan,
-        status,
-        amount_cents: sub.amount_cents ?? null,
-        currency: sub.currency ?? 'usd',
-        subscription_id: subId,
-        period_start: periodStart,
-        period_end: periodEnd,
-        raw_payload: sub,
-      })
-
-      if (evtError) {
-        console.error('[webhook] subscription.updated — billing_events insert error:', evtError.message)
-      } else {
-        console.log(`[webhook] ✅ subscription.updated — billing_event '${billingEventType}' logged for userId=${userId}`)
-      }
-
+      await logBillingEvent(userId, billingEventType, sub, plan, status, sub.id)
       return new Response('ok')
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // SUBSCRIPTION DELETED
-    // Fires when the subscription is fully removed (not just cancelled)
+    // SUBSCRIPTION-ITEM EVENTS — active / updated / canceled / pastDue
+    // Clerk Billing has no `subscription.canceled` — cancellation is an
+    // item-level event. Items carry their own `plan.slug` directly (no
+    // back-reference to the parent subscription id).
     // ─────────────────────────────────────────────────────────────────────
-    // if (eventType === 'subscription.deleted') {
-    //   const sub = evt.data as any
-    //   console.log(`[webhook] subscription.deleted raw:`, JSON.stringify(sub, null, 2))
+    if (
+      eventType === 'subscriptionItem.active' ||
+      eventType === 'subscriptionItem.updated' ||
+      eventType === 'subscriptionItem.canceled' ||
+      eventType === 'subscriptionItem.pastDue'
+    ) {
+      const item = evt.data as any
+      console.log(`[webhook] ${eventType} raw:`, JSON.stringify(item, null, 2))
 
-    //   const userId = sub.user_id ?? sub.userId ?? null
-    //   const subId  = sub.id
+      const userId = getUserId(item)
+      if (!userId) {
+        console.warn(`[webhook] ${eventType} — no payer.user_id on payload, skipping`)
+        return new Response('ok')
+      }
 
-    //   if (!userId) {
-    //     console.error('[webhook] subscription.deleted — missing user_id in payload')
-    //     return new Response('missing_user_id', { status: 400 })
-    //   }
+      const plan = getPlanSlug(item)
+      const status = eventType === 'subscriptionItem.canceled' ? 'canceled' : eventType === 'subscriptionItem.pastDue' ? 'past_due' : item.status ?? 'active'
+      const cancelledAt = status === 'canceled' ? toIso(item.canceled_at) ?? new Date().toISOString() : null
 
-    //   const { error: subError } = await supabase.from('subscriptions').upsert({
-    //     id: subId,
-    //     user_id: userId,
-    //     plan: sub.plan_id ?? sub.plan ?? 'unknown',
-    //     status: 'canceled',
-    //     cancel_at_period_end: false,
-    //     cancelled_at: new Date().toISOString(),
-    //     updated_at: new Date().toISOString(),
-    //   }, { onConflict: 'id' })
+      const { error: itemError } = await upsertUserSubscription(
+        userId,
+        {
+          plan,
+          status,
+          current_period_start: toIso(item.current_period_start),
+          current_period_end: toIso(item.current_period_end),
+          cancel_at_period_end: status === 'canceled',
+          cancelled_at: cancelledAt,
+        },
+        item.id,
+      )
 
-    //   if (subError) {
-    //     console.error('[webhook] subscription.deleted — subscriptions upsert error:', subError.message)
-    //   } else {
-    //     console.log(`[webhook] ✅ subscription.deleted — marked canceled subId=${subId} userId=${userId}`)
-    //   }
+      if (itemError) {
+        console.error(`[webhook] ${eventType} — subscriptions upsert error:`, itemError.message)
+      } else {
+        console.log(`[webhook] ✅ ${eventType} — synced userId=${userId} plan=${plan} status=${status}`)
+      }
 
-    //   const { error: evtError } = await supabase.from('billing_events').insert({
-    //     user_id: userId,
-    //     event_type: 'subscription.deleted',
-    //     plan: sub.plan_id ?? sub.plan ?? 'unknown',
-    //     status: 'canceled',
-    //     subscription_id: subId,
-    //     raw_payload: sub,
-    //   })
-
-    //   if (evtError) {
-    //     console.error('[webhook] subscription.deleted — billing_events insert error:', evtError.message)
-    //   } else {
-    //     console.log(`[webhook] ✅ subscription.deleted — billing_event logged for userId=${userId}`)
-    //   }
-
-    //   return new Response('ok')
-    // }
-
-    //end
+      await logBillingEvent(userId, eventType, item, plan, status, item.id)
+      return new Response('ok')
+    }
 
     // Unhandled event — log and return ok so Clerk doesn't retry
     console.log(`[webhook] Unhandled event type: ${eventType} — ignored`)
@@ -240,35 +225,3 @@ export async function POST(req: NextRequest) {
     return new Response('error', { status: 400 })
   }
 }
-
-
-/*import { verifyWebhook } from '@clerk/nextjs/webhooks'
-import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-export async function POST(req: NextRequest) {
-    
-  try {
-    const evt = await verifyWebhook(req)
-
-    if (evt.type === 'user.created') {
-      const user = evt.data
-
-      await supabase.from('users').insert({
-        id: user.id,
-        email: user.email_addresses[0]?.email_address,
-      })
-      console.log('Webhook event payload:', evt)
-    }
-
-    return new Response('ok')
-  } catch (err) {
-    console.error('Webhook error:', err)
-    return new Response('error', { status: 400 })
-  }
-}*///working version
