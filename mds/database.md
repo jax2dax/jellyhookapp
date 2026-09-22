@@ -209,3 +209,16 @@ create index if not exists billing_events_user_id_idx on public.billing_events u
 create index if not exists billing_events_subscription_id_idx on public.billing_events using btree (subscription_id);
 ```
 References a `users` table not otherwise documented here (Clerk-synced, presumably via `app/api/webhooks/clerk/route.ts`).
+
+
+
+create table public.users (
+  id text not null,
+  created_at timestamp with time zone not null default now(),
+  email text null,
+  pfp text null,
+  phone bigint null,
+  first_name text null,
+  last_name text null,
+  constraint users_pkey primary key (id)
+) TABLESPACE pg_default;

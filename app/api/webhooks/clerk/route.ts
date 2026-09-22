@@ -102,13 +102,24 @@ export async function POST(req: NextRequest) {
 
     // ─────────────────────────────────────────────────────────────────────
     // USER CREATED
+    // Seeds first_name/last_name/pfp from Clerk as a starting default — the
+    // person can then rename themselves for this site from Settings without
+    // that edit ever being overwritten (see user.updated below, which
+    // deliberately never touches name fields).
     // ─────────────────────────────────────────────────────────────────────
     if (eventType === 'user.created') {
       const user = evt.data as any
+      const primaryEmail =
+        user.email_addresses?.find((e: any) => e.id === user.primary_email_address_id)?.email_address ??
+        user.email_addresses?.[0]?.email_address ??
+        null
 
       const { error } = await supabase.from('users').insert({
         id: user.id,
-        email: user.email_addresses?.[0]?.email_address ?? null,
+        email: primaryEmail,
+        first_name: user.first_name ?? null,
+        last_name: user.last_name ?? null,
+        pfp: user.image_url ?? null,
       })
 
       if (error) {
@@ -117,6 +128,36 @@ export async function POST(req: NextRequest) {
       }
 
       console.log(`[webhook] ✅ user.created — inserted userId=${user.id}`)
+      return new Response('ok')
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // USER UPDATED
+    // Keeps email/avatar in sync with Clerk. Deliberately does NOT touch
+    // first_name/last_name — once someone has set a display name for this
+    // site (via Settings), a Clerk-side profile edit must never clobber it.
+    // ─────────────────────────────────────────────────────────────────────
+    if (eventType === 'user.updated') {
+      const user = evt.data as any
+      const primaryEmail =
+        user.email_addresses?.find((e: any) => e.id === user.primary_email_address_id)?.email_address ??
+        user.email_addresses?.[0]?.email_address ??
+        null
+
+      // upsert (not update) — covers a user.updated arriving for someone who
+      // signed up before this webhook was wired up and has no row yet.
+      // Only email/pfp are in the payload, so an existing row's
+      // first_name/last_name are left untouched on conflict.
+      const { error } = await supabase
+        .from('users')
+        .upsert({ id: user.id, email: primaryEmail, pfp: user.image_url ?? null }, { onConflict: 'id' })
+
+      if (error) {
+        console.error('[webhook] user.updated — DB update error:', error.message)
+        return new Response('db_error', { status: 500 })
+      }
+
+      console.log(`[webhook] ✅ user.updated — synced userId=${user.id}`)
       return new Response('ok')
     }
 
