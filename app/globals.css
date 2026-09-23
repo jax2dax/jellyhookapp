@@ -94,6 +94,18 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* ── FramePlate (framePlate/) — kept as its own token set, not aliased to
+     the tokens above, so the chart stays portable to other projects that
+     don't share this app's color system. Adjust these to restyle the
+     chart for light/dark without touching framePlate's own source. */
+  --fp-canvas: #f5f5f5;
+  --fp-plate: #f5f5f5;
+  --fp-plate-border: #c18b8b;
+  --fp-text: #1a1a1a;
+  --fp-text-muted: #6b6b6b;
+  --fp-ribbon: #999999;
+  --fp-frame-exited: #b5b5b5;
 }
 
 .dark {
@@ -131,6 +143,15 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* ── FramePlate dark mode — see :root above for the light values and why these are their own token set. */
+  --fp-canvas: #0a0a0a;
+  --fp-plate: #111111;
+  --fp-plate-border: #3a3a3a;
+  --fp-text: #e6e6e6;
+  --fp-text-muted: #bdbdbd;
+  --fp-ribbon: #c9c9c9;
+  --fp-frame-exited: #1c1c1c;
 }
 
 @layer base {
