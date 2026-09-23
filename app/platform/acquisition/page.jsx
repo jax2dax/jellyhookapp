@@ -1,4 +1,4 @@
-import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
+import { getAuthUser, requireSite, getPlanLabel } from "@/lib/actions/permission.actions";
 import { getAcquisitionSources } from "@/lib/actions/supabase.actions";
 import PlanGate from "@/components/PlanGate";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,11 +8,16 @@ export default async function AcquisitionPage() {
   const user = await getAuthUser();
   const site = await requireSite(user.id);
   const sources = await getAcquisitionSources(site.id);
+  // getPlanLabel() reads Clerk's own has({plan}) check — Clerk is the system
+  // of record for billing, not the sites/users tables (site.plan is never
+  // set to anything but "free" at creation and user.plan doesn't exist on
+  // Clerk's user object at all — both were silently gating everyone to free).
+  const userPlan = await getPlanLabel();
 
   return (
     <div className="min-h-screen bg-background p-6">
       <h1 className="mb-6 text-lg font-semibold text-foreground">Acquisition Intelligence</h1>
-      <PlanGate userPlan={site.plan} required="pro">
+      <PlanGate userPlan={userPlan} required="pro">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Where sessions come from</CardTitle>

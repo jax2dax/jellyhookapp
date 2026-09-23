@@ -323,6 +323,14 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
             page_path: event.page_path || "",
             page_title: event.page_title || "",
             entered_at: new Date(),
+            // page_height was already being measured and sent by tracker.js
+            // (document.documentElement.scrollHeight — real content height,
+            // not viewport) but silently dropped here; now persisted.
+            page_height: event.page_height ?? null,
+            // Never assume the visitor entered at the top of the page — a
+            // page_view_start can fire mid-scroll (tab regains focus without
+            // reloading the DOM).
+            entry_scroll_depth: event.entry_scroll ?? null,
           });
         }
       }
@@ -351,6 +359,12 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
           if (event.max_scroll_reached_at != null) {
             updatePayload.max_scroll_reached_at = new Date(event.max_scroll_reached_at);
           }
+          // revisit_start_scroll is only present once the visitor has
+          // backtracked at all — null (never sent as undefined) means "never
+          // revisited," which is a real, meaningful value, not a missing one.
+          if (event.revisit_start_scroll !== undefined) {
+            updatePayload.revisit_start_scroll_depth = event.revisit_start_scroll;
+          }
 
           await supabase
             .from("page_views")
@@ -372,6 +386,7 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
             scroll_depth: event.scroll_depth || 0,
             max_scroll_depth: event.max_scroll_depth ?? null,
             max_scroll_reached_at: event.max_scroll_reached_at ? new Date(event.max_scroll_reached_at) : null,
+            revisit_start_scroll_depth: event.revisit_start_scroll ?? null,
           });
         }
       }

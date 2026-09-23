@@ -13,27 +13,59 @@ const supabase = createClient(
 // ─────────────────────────────────────────────────────────────────────────────
 // Clerk Billing payload helpers
 //
-// The previous version of this file read `sub.user_id`/`sub.plan_id` off the
-// event payload directly — those fields don't exist on Clerk Billing events.
-// Per Clerk's docs, the payer lives at `evt.data.payer.user_id` (or
-// `.organization_id`), and the plan lives at `evt.data.items[i].plan.slug`
-// for `subscription.*` events, or `evt.data.plan.slug` directly for
-// `subscriptionItem.*` events (an item has no back-reference to its parent
-// subscription id). Reading the wrong fields meant `userId` was always null
-// (silently hitting the "missing_user_id" guard) or `plan` was always
-// "unknown" — the mirror table never actually synced with real upgrades.
+// Field names below were re-derived from an ACTUAL captured payload, not just
+// the docs — a subscription.updated event for a real test account. The
+// previous version had three separate bugs, all silently producing nulls or
+// the wrong plan on every event:
+//   1. Reading `data.current_period_start`/`current_period_end` — the real
+//      field names are `period_start`/`period_end`, and they only exist on
+//      an ITEM, never on the subscription container itself.
+//   2. Passing those (nonexistent) values through `toIso()` as if they were
+//      unix SECONDS (`* 1000`) — Clerk's timestamps are already unix
+//      MILLISECONDS, so even a correctly-named field would have come out
+//      multiplied by 1000 again and landed decades in the future.
+//   3. `getPlanSlug` on a subscription-level event just took `items[0]`
+//      unconditionally. A Clerk commerce_subscription can hold several items
+//      at once in different lifecycle states as a user changes plans over
+//      time (upcoming / active / canceled / abandoned / ended) — items[0]
+//      is whatever Clerk happens to return first, not necessarily anything
+//      currently in effect. See pickCurrentDisplayItem below.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getUserId(data: any): string | null {
   return data?.payer?.user_id ?? data?.user_id ?? data?.userId ?? null
 }
 
-function getPlanSlug(data: any): string {
-  return data?.plan?.slug ?? data?.items?.[0]?.plan?.slug ?? data?.plan_id ?? data?.plan_slug ?? 'unknown'
+// Clerk's timestamps on subscriptions/items (created_at, updated_at,
+// period_start, period_end, canceled_at, ...) are already unix milliseconds —
+// do not multiply by 1000.
+function toIso(unixMs: number | null | undefined): string | null {
+  return unixMs ? new Date(unixMs).toISOString() : null
 }
 
-function toIso(unixSeconds: number | null | undefined): string | null {
-  return unixSeconds ? new Date(unixSeconds * 1000).toISOString() : null
+const PLAN_RANK: Record<string, number> = { elite: 2, pro: 1, basic: 0, free_user: 0, free: 0 }
+
+// Picks whichever item in a subscription's `items[]` should currently be
+// treated as "the plan" for display/access purposes:
+//   - "upcoming" items haven't started yet — excluded.
+//   - "abandoned" items were never actually paid for — excluded.
+//   - "active" or "canceled" items whose period_end is still in the future
+//     (or has no period_end at all) are still in effect RIGHT NOW — a
+//     canceled item means "won't renew," not "access already revoked."
+//     This is what makes "downgraded from elite to free, but still elite
+//     until the period ends" work: the elite item stays picked here until
+//     its period_end genuinely passes, even though its status flipped to
+//     canceled the moment the downgrade was requested.
+//   - If more than one item still qualifies, the highest-tier one wins.
+function pickCurrentDisplayItem(items: any[] | undefined): any | null {
+  const now = Date.now()
+  const inWindow = (items || []).filter((it) => {
+    if (!it || it.status === 'upcoming' || it.status === 'abandoned') return false
+    if (it.period_end && it.period_end < now) return false
+    return it.status === 'active' || it.status === 'canceled'
+  })
+  if (inWindow.length === 0) return null
+  return inWindow.sort((a, b) => (PLAN_RANK[b?.plan?.slug] ?? 0) - (PLAN_RANK[a?.plan?.slug] ?? 0))[0]
 }
 
 // Upserts the ONE current-plan row for a user. Deliberately keyed by
@@ -42,6 +74,11 @@ function toIso(unixSeconds: number | null | undefined): string | null {
 // user, so conflicting on `id` would leave multiple rows per user and
 // getCurrentSubscription()'s single-row read would only ever see whichever
 // happened to be inserted, unpredictably.
+//
+// Only called from subscription-level events (see below) — never from lone
+// subscriptionItem events, which only ever see ONE item and have no way to
+// know whether some OTHER item is the one that should actually be displayed
+// right now. Computing the effective plan needs the full items[] list.
 async function upsertUserSubscription(
   userId: string,
   fields: {
@@ -56,7 +93,7 @@ async function upsertUserSubscription(
 ) {
   const { data: existing, error: findError } = await supabase
     .from('subscriptions')
-    .select('id')
+    .select('id, plan, plan_started_at')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
     .limit(1)
@@ -66,26 +103,47 @@ async function upsertUserSubscription(
     console.error('[webhook] subscriptions lookup error:', findError.message)
   }
 
-  const payload = { user_id: userId, ...fields, updated_at: new Date().toISOString() }
+  const now = new Date().toISOString()
+  // plan_started_at tracks "since when has this user been on THIS plan" —
+  // only bumped when the plan actually changes, left alone on same-plan
+  // updates (renewals, status refreshes) so it doesn't reset every event.
+  const planChanged = !existing || existing.plan !== fields.plan
+  const payload = {
+    user_id: userId,
+    ...fields,
+    updated_at: now,
+    ...(planChanged ? { plan_started_at: now } : {}),
+  }
 
   if (existing) {
     return supabase.from('subscriptions').update(payload).eq('id', existing.id)
   }
-  return supabase.from('subscriptions').insert({ id: sourceId, ...payload })
+  return supabase.from('subscriptions').insert({ id: sourceId, plan_started_at: now, ...payload })
 }
 
-async function logBillingEvent(userId: string, eventType: string, data: any, plan: string, status: string, subId: string) {
+async function logBillingEvent(
+  userId: string,
+  eventType: string,
+  plan: string,
+  status: string,
+  subId: string,
+  amountCents: number | null,
+  currency: string | null,
+  periodStart: string | null,
+  periodEnd: string | null,
+  rawPayload: any,
+) {
   const { error } = await supabase.from('billing_events').insert({
     user_id: userId,
     event_type: eventType,
     plan,
     status,
-    amount_cents: data.amount_cents ?? null,
-    currency: data.currency ?? 'usd',
+    amount_cents: amountCents,
+    currency: currency ?? 'usd',
     subscription_id: subId,
-    period_start: toIso(data.current_period_start),
-    period_end: toIso(data.current_period_end),
-    raw_payload: data,
+    period_start: periodStart,
+    period_end: periodEnd,
+    raw_payload: rawPayload,
   })
   if (error) {
     console.error(`[webhook] ${eventType} — billing_events insert error:`, error.message)
@@ -163,8 +221,13 @@ export async function POST(req: NextRequest) {
 
     // ─────────────────────────────────────────────────────────────────────
     // SUBSCRIPTION-LEVEL EVENTS — created / updated / active / pastDue
-    // Fires on the top-level Subscription container. Plan comes from the
-    // first line item (`items[0].plan.slug`).
+    // Fires on the top-level Subscription container, which carries the FULL
+    // items[] list — the only place we can correctly compute which item is
+    // actually in effect right now (see pickCurrentDisplayItem). This is the
+    // sole writer of the `subscriptions` mirror row; subscriptionItem.*
+    // events below only log to billing_events, never write here (a lone
+    // item has no visibility into its siblings, so it can't safely decide
+    // what the "current" plan should be — see that block for why).
     // ─────────────────────────────────────────────────────────────────────
     if (eventType === 'subscription.created' || eventType === 'subscription.updated' || eventType === 'subscription.active' || eventType === 'subscription.pastDue') {
       const sub = evt.data as any
@@ -177,18 +240,21 @@ export async function POST(req: NextRequest) {
         return new Response('ok')
       }
 
-      const plan = getPlanSlug(sub)
-      const status = sub.status ?? (eventType === 'subscription.pastDue' ? 'past_due' : 'active')
-      const cancelAtPeriodEnd = sub.cancel_at_period_end ?? false
-      const cancelledAt = status === 'canceled' || cancelAtPeriodEnd ? toIso(sub.cancelled_at) ?? new Date().toISOString() : null
+      const displayItem = pickCurrentDisplayItem(sub.items)
+      const plan = displayItem?.plan?.slug ?? 'free'
+      const status = displayItem?.status ?? (eventType === 'subscription.pastDue' ? 'past_due' : sub.status ?? 'active')
+      const periodStart = toIso(displayItem?.period_start)
+      const periodEnd = toIso(displayItem?.period_end)
+      const cancelAtPeriodEnd = displayItem?.status === 'canceled'
+      const cancelledAt = cancelAtPeriodEnd ? toIso(sub.canceled_at) ?? new Date().toISOString() : null
 
       const { error: subError } = await upsertUserSubscription(
         userId,
         {
           plan,
           status,
-          current_period_start: toIso(sub.current_period_start),
-          current_period_end: toIso(sub.current_period_end),
+          current_period_start: periodStart,
+          current_period_end: periodEnd,
           cancel_at_period_end: cancelAtPeriodEnd,
           cancelled_at: cancelledAt,
         },
@@ -198,22 +264,45 @@ export async function POST(req: NextRequest) {
       if (subError) {
         console.error(`[webhook] ${eventType} — subscriptions upsert error:`, subError.message)
       } else {
-        console.log(`[webhook] ✅ ${eventType} — synced userId=${userId} plan=${plan} status=${status}`)
+        console.log(`[webhook] ✅ ${eventType} — synced userId=${userId} plan=${plan} status=${status}${cancelAtPeriodEnd ? ` (cancels ${periodEnd})` : ''}`)
       }
 
       let billingEventType: string = eventType
       if (status === 'past_due') billingEventType = 'subscription.past_due'
       if (cancelAtPeriodEnd) billingEventType = 'subscription.cancel_scheduled'
 
-      await logBillingEvent(userId, billingEventType, sub, plan, status, sub.id)
+      await logBillingEvent(
+        userId,
+        billingEventType,
+        plan,
+        status,
+        sub.id,
+        displayItem?.plan?.amount ?? null,
+        displayItem?.plan?.currency ?? null,
+        periodStart,
+        periodEnd,
+        sub,
+      )
       return new Response('ok')
     }
 
     // ─────────────────────────────────────────────────────────────────────
     // SUBSCRIPTION-ITEM EVENTS — active / updated / canceled / pastDue
     // Clerk Billing has no `subscription.canceled` — cancellation is an
-    // item-level event. Items carry their own `plan.slug` directly (no
-    // back-reference to the parent subscription id).
+    // item-level event. Items carry their own `plan.slug`/`period_start`/
+    // `period_end`/`plan.amount`/`plan.currency` directly.
+    //
+    // These are audit-log only (billing_events) — they do NOT write to the
+    // `subscriptions` display row. A lone item has no idea whether some
+    // OTHER item (e.g. an elite plan still inside its paid period) should
+    // still be the one shown as "current." Writing here unconditionally was
+    // exactly what caused "downgrade to free instantly marks elite
+    // canceled" — whichever item's event happened to arrive/process last
+    // won, regardless of which one was actually still in effect. The
+    // subscription.* handler above always re-derives the correct display
+    // row from the complete items[] list, and Clerk fires a subscription.*
+    // event alongside every item change, so nothing is lost — just decided
+    // by the handler that can actually see the whole picture.
     // ─────────────────────────────────────────────────────────────────────
     if (
       eventType === 'subscriptionItem.active' ||
@@ -230,30 +319,21 @@ export async function POST(req: NextRequest) {
         return new Response('ok')
       }
 
-      const plan = getPlanSlug(item)
+      const plan = item?.plan?.slug ?? 'unknown'
       const status = eventType === 'subscriptionItem.canceled' ? 'canceled' : eventType === 'subscriptionItem.pastDue' ? 'past_due' : item.status ?? 'active'
-      const cancelledAt = status === 'canceled' ? toIso(item.canceled_at) ?? new Date().toISOString() : null
 
-      const { error: itemError } = await upsertUserSubscription(
+      await logBillingEvent(
         userId,
-        {
-          plan,
-          status,
-          current_period_start: toIso(item.current_period_start),
-          current_period_end: toIso(item.current_period_end),
-          cancel_at_period_end: status === 'canceled',
-          cancelled_at: cancelledAt,
-        },
+        eventType,
+        plan,
+        status,
         item.id,
+        item?.plan?.amount ?? null,
+        item?.plan?.currency ?? null,
+        toIso(item.period_start),
+        toIso(item.period_end),
+        item,
       )
-
-      if (itemError) {
-        console.error(`[webhook] ${eventType} — subscriptions upsert error:`, itemError.message)
-      } else {
-        console.log(`[webhook] ✅ ${eventType} — synced userId=${userId} plan=${plan} status=${status}`)
-      }
-
-      await logBillingEvent(userId, eventType, item, plan, status, item.id)
       return new Response('ok')
     }
 

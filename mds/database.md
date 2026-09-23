@@ -116,12 +116,21 @@ create table public.page_views (
   left_at timestamp without time zone null,
   max_scroll_depth real null,
   max_scroll_reached_at timestamp without time zone null,
+  -- added 2026-09-23 — see "Scroll geometry" note below
+  page_height integer null,
+  entry_scroll_depth real null,
+  revisit_start_scroll_depth real null,
   constraint page_views_pkey primary key (id),
   constraint page_views_page_view_id_key unique (page_view_id)
 );
 create index if not exists page_views_session_id_idx on public.page_views using btree (session_id);
 create index if not exists page_views_site_id_idx on public.page_views using btree (site_id);
 ```
+**Scroll geometry** (all 0-1 fractions of `page_height`, except `page_height` itself which is real px — `document.documentElement.scrollHeight`, the page's actual content height, not viewport height):
+- `entry_scroll_depth` — where the visitor's viewport was when this page_view opened. Never assume 0 — a page_view can open mid-scroll (tab regains focus without reloading the DOM). `max_scroll_depth` is seeded from this same measurement (not from 0) for the same reason: seeding at 0 would make scrolling *up* from a mid-page entry look like "reaching a new deepest point" the instant it dipped below the entry depth.
+- `max_scroll_depth` / `max_scroll_reached_at` — the deepest point ever reached and when.
+- `revisit_start_scroll_depth` — null if the visitor never backtracked below their deepest point; otherwise the shallowest point they climbed back up to after reaching `max_scroll_depth`. Only ever decreases, and is never reset once set — including when a later, deeper `max_scroll_depth` is reached — so it tracks the global minimum reached after the first backtrack, correctly spanning multiple separate descend/backtrack phases in one visit. `[revisit_start_scroll_depth, max_scroll_depth]` was necessarily crossed at least twice (once descending, once climbing back up), regardless of how much bouncing happened in between — this is what FramePlate's "seen more than once" (dark green) band renders directly, no derivation needed.
+- `scroll_depth` — where they were when they left (existing column).
 
 ## form_submissions
 ```sql
@@ -208,6 +217,40 @@ create table public.billing_events (
 create index if not exists billing_events_user_id_idx on public.billing_events using btree (user_id);
 create index if not exists billing_events_subscription_id_idx on public.billing_events using btree (subscription_id);
 ```
+Append-only audit log — one row per Clerk Billing webhook event. Never read
+for access-gating (see `subscriptions` below and the note on `PlanGate`).
+
+## subscriptions
+```sql
+-- Not previously documented here even though app/api/webhooks/clerk/route.ts
+-- and lib/actions/billing.actions.ts have depended on it since the billing
+-- feature was built. Columns below are the ones the webhook actually writes;
+-- run this ALTER if plan_started_at doesn't exist yet (added 2026-09-23):
+alter table public.subscriptions
+  add column if not exists plan_started_at timestamp with time zone null;
+```
+One row per Clerk user — the CURRENT-plan mirror, upserted only by
+`subscription.*` webhook events (never by `subscriptionItem.*` — see the long
+comment in the webhook route for why a lone item can't safely decide this).
+Columns: `id, user_id, plan, status, current_period_start, current_period_end,
+cancel_at_period_end, cancelled_at, plan_started_at, updated_at`.
+
+**This table is NOT what gates plan-restricted UI.** `PlanGate` reads
+Clerk's own live entitlement check (`auth().has({ plan })`, via
+`getPlanLabel()`/`isProOrHigher()`/`isElite()` in
+`lib/actions/permission.actions.js`) — Clerk is the system of record for
+billing, this table is a display/audit mirror for the Billing page (current
+plan, renewal/cancellation date, history). `sites.plan` is unrelated to
+either of these — it's set to `'free'` at site creation and never updated
+again; nothing currently overrides it per-site.
+
+Cancelling a plan does not revoke access immediately: Clerk marks the old
+subscription item `status: 'canceled'` right away but access should persist
+until its `period_end`. The webhook's `pickCurrentDisplayItem()` treats a
+canceled item as still "current" as long as `period_end` hasn't passed yet,
+so this table (and the Billing page's "cancels on X" messaging) reflect that
+correctly. Real access is governed by Clerk's own `has({ plan })`, which is
+expected to implement the same grace period on Clerk's end.
 References a `users` table not otherwise documented here (Clerk-synced, presumably via `app/api/webhooks/clerk/route.ts`).
 
 

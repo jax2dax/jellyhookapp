@@ -108,10 +108,24 @@ window.addEventListener("beforeunload", fireSessionEnd);
   let startTime = Date.now();
 // ── MAX SCROLL TRACKING ──
   // These reset on every new page view alongside page_view_id and startTime
-  // maxScrollDepth: highest scroll fraction (0–1) reached on this page view
-  // maxScrollReachedAt: ISO timestamp of when that deepest point was first reached
-  let maxScrollDepth = 0;
+  // maxScrollDepth: highest scroll fraction (0–1) reached on this page view.
+  // Initialized to the real entry point (set right after firePageViewStart
+  // measures it), never to 0 — a page_view can open mid-scroll, and seeding
+  // this at 0 would make scrolling UP from a mid-page entry look like it
+  // "reached a new deepest point" the moment it dipped below the entry depth.
+  let maxScrollDepth = getScrollDepth();
   let maxScrollReachedAt = null;
+  // revisitStartDepth: the shallowest (topmost) scroll fraction reached while
+  // backtracking below the current maxScrollDepth. Only ever decreases —
+  // never reset, including when a new deepest point is reached — so it ends
+  // up tracking the global minimum reached after the first backtrack, across
+  // however many separate descend/backtrack phases happen in the visit.
+  // Together with maxScrollDepth this marks the "seen more than once" band:
+  // [revisitStartDepth, maxScrollDepth] was necessarily crossed at least
+  // twice — once descending to maxScrollDepth, once climbing back up to
+  // revisitStartDepth — regardless of how much bouncing happened in between,
+  // including multiple distinct deepening phases.
+  let revisitStartDepth = null;
   //////////
   function sendEvent(event) {
     fetch(API_URL, {
@@ -197,6 +211,11 @@ function getPageHeightPayload() {
 
 function firePageViewStart() {
   const pageHeight = getPageHeightPayload();
+  // Never assume the visitor entered at the top — they might be returning
+  // to a tab that was already scrolled partway down (visibilitychange
+  // re-fires a page_view_start without reloading the page/DOM). Measure the
+  // real scroll position at this exact moment instead.
+  const entryScroll = getScrollDepth();
   const event = {
     type: "page_view_start",
     visitor_id,
@@ -209,12 +228,14 @@ function firePageViewStart() {
     language: navigator.language,
     user_agent: navigator.userAgent,
     device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
+    entry_scroll: entryScroll,
   };
   // Only attach page_height when throttle allows
   if (pageHeight !== null) {
     event.page_height = pageHeight;
     console.log("[Tracker] 📐 Sending page_height:", pageHeight, "for", window.location.pathname);
   }
+  console.log("[Tracker] 🚩 entry_scroll:", entryScroll.toFixed(3), "for", window.location.pathname);
   sendEvent(event);
 }
 
@@ -222,8 +243,19 @@ function firePageViewStart() {
     // scroll_depth: position when leaving (existing column, keep for backward compat)
     // max_scroll_depth: deepest point ever reached during this page view
     // max_scroll_reached_at: when that deepest point was first hit
+    // revisit_start_scroll: null if never backtracked; otherwise the top of
+    // the "seen more than once" band (see revisitStartDepth comment above)
     const exitScroll = getScrollDepth();
-    console.log("[Tracker] 📜 page_view_end scroll summary — exit:", exitScroll.toFixed(3), "| max:", maxScrollDepth.toFixed(3), "| max_at:", maxScrollReachedAt);
+    console.log(
+      "[Tracker] 📜 page_view_end scroll summary — exit:",
+      exitScroll.toFixed(3),
+      "| max:",
+      maxScrollDepth.toFixed(3),
+      "| max_at:",
+      maxScrollReachedAt,
+      "| revisit_start:",
+      revisitStartDepth === null ? "none" : revisitStartDepth.toFixed(3)
+    );
     sendExitEvent({
       type: "page_view_end",
       visitor_id,
@@ -233,6 +265,7 @@ function firePageViewStart() {
       scroll_depth: exitScroll,
       max_scroll_depth: maxScrollDepth,
       max_scroll_reached_at: maxScrollReachedAt,
+      revisit_start_scroll: revisitStartDepth,
       device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
     });
   }
@@ -260,8 +293,9 @@ function firePageViewStart() {
       // User returned — fresh page_view_id and timer, open new row
       page_view_id = crypto.randomUUID();
       startTime = Date.now();
-      maxScrollDepth = 0;        // ← reset max scroll for new page view
+      maxScrollDepth = getScrollDepth(); // ← seed at entry point, not 0
       maxScrollReachedAt = null;
+      revisitStartDepth = null;
       firePageViewStart();
     }
   });
@@ -319,8 +353,9 @@ function firePageViewStart() {
       setTimeout(function () {
         page_view_id = crypto.randomUUID();
         startTime = Date.now();
-        maxScrollDepth = 0;        // ← reset max scroll for new route
+        maxScrollDepth = getScrollDepth(); // ← seed at entry point, not 0
         maxScrollReachedAt = null;
+        revisitStartDepth = null;
         firePageViewStart();
         console.log("[Tracker] ✅ New page_view_start after route change:", page_view_id, window.location.pathname);
       }, 50);
@@ -372,9 +407,20 @@ function firePageViewStart() {
           currentDepth = Math.min(1, Math.max(0, currentDepth));
 
           if (currentDepth > maxScrollDepth) {
+            // New deepest point. revisitStartDepth is intentionally left
+            // alone here — it's a running global minimum, not scoped to
+            // "since the current max," so an earlier backtrack stays on
+            // record even after the visitor descends past their old max.
             maxScrollDepth = currentDepth;
             maxScrollReachedAt = new Date().toISOString();
             console.log("[Tracker] 📜 New max scroll depth:", maxScrollDepth.toFixed(3), "at", maxScrollReachedAt);
+          } else if (revisitStartDepth === null || currentDepth < revisitStartDepth) {
+            // Not a new deepest point — climbing back up (or already at a
+            // new high point of this backtrack). Only updates when they go
+            // HIGHER than any point already seen during this backtrack;
+            // scrolling back down without exceeding that doesn't move it.
+            revisitStartDepth = currentDepth;
+            console.log("[Tracker] 🔁 New revisit-start depth:", revisitStartDepth.toFixed(3));
           }
         } catch (err) {
           console.error("[Tracker] ❌ Max scroll tracking error:", err);
@@ -523,6 +569,20 @@ function firePageViewStart() {
   const pendingForms = [];
 
   // ─────────────────────────────────────────────────────────────────────
+  // DEDUPE — a single real submission can trigger BOTH capture methods
+  // below: the native "submit" event (capture phase, fires even when the
+  // page's own handler calls preventDefault() afterward) AND the fetch
+  // interceptor (when that same handler then calls fetch() to actually
+  // submit). Both call sendFormCapture() for the same form a few ms apart,
+  // which without this guard inserts two identical form_submissions rows.
+  // Keyed on the captured field values (not the form element) since the
+  // two call sites can observe the form at slightly different DOM states.
+  // ─────────────────────────────────────────────────────────────────────
+  let lastCaptureSignature = null;
+  let lastCaptureAt = 0;
+  const CAPTURE_DEDUPE_WINDOW_MS = 3000;
+
+  // ─────────────────────────────────────────────────────────────────────
   // CORE GATE — called after config is known
   // Returns true if this form should be captured, false if it should be ignored
   // ─────────────────────────────────────────────────────────────────────
@@ -562,6 +622,16 @@ function firePageViewStart() {
       const name = extractName(form);
       const phone = extractPhone(form);
       const raw = buildRawData(form);
+
+      // Gate 3: dedupe — see the CAPTURE_DEDUPE_WINDOW_MS comment above.
+      const signature = JSON.stringify([email, name, phone, window.location.pathname]);
+      const now = Date.now();
+      if (signature === lastCaptureSignature && now - lastCaptureAt < CAPTURE_DEDUPE_WINDOW_MS) {
+        console.log("[Tracker] Duplicate form capture suppressed (submit event + fetch interceptor both fired):", signature);
+        return;
+      }
+      lastCaptureSignature = signature;
+      lastCaptureAt = now;
 
       console.log("[Tracker] ✅ Form captured:", { name, email, phone, raw });
 

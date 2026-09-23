@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Clock, Eye, Mail, MousePointerClick, Phone, Repeat, Sparkles, Timer } from "lucide-react";
-import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
+import { getAuthUser, requireSite, getPlanLabel } from "@/lib/actions/permission.actions";
 import { getLeadProfileByLeadId } from "@/lib/actions/leadProfile.actions";
 import { buildLeadProfile } from "@/lib/algorithms/leadProfile";
 import PlanGate from "@/components/PlanGate";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { LeadTimeBar } from "@/components/charts/leadTimeBar";
 import { LeadEngagementRadial } from "@/components/charts/leadEngagementRadial";
-import { LeadSessionHistory } from "@/components/leads/LeadSessionHistory";
+import { LeadSessionExplorer } from "@/components/leads/LeadSessionExplorer";
 import { StatTile } from "@/components/StatTile";
 import { formatDate, formatDateTime, formatDuration, formatRelativeTime } from "@/lib/leadFormat";
 
@@ -18,6 +18,9 @@ export default async function LeadProfilePage({ params }) {
   const user = await getAuthUser();
   const site = await requireSite(user.id);
   const raw = await getLeadProfileByLeadId(site.id, lead_id);
+  // See app/platform/acquisition/page.jsx — user.plan/site.plan are never
+  // populated from Clerk Billing; getPlanLabel() is the real source of truth.
+  const userPlan = await getPlanLabel();
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -32,15 +35,15 @@ export default async function LeadProfilePage({ params }) {
           </CardContent>
         </Card>
       ) : (
-        <PlanGate userPlan={user.plan} sitePlan={site.plan} required="pro">
-          <LeadProfileBody profile={buildLeadProfile({ ...raw, focusSubmission: raw.focusSubmission })} />
+        <PlanGate userPlan={userPlan} required="pro">
+          <LeadProfileBody profile={buildLeadProfile({ ...raw, focusSubmission: raw.focusSubmission })} raw={raw} siteId={site.id} />
         </PlanGate>
       )}
     </div>
   );
 }
 
-function LeadProfileBody({ profile }) {
+function LeadProfileBody({ profile, raw, siteId }) {
   const {
     identity,
     lastActivity,
@@ -56,7 +59,6 @@ function LeadProfileBody({ profile }) {
     engagementScore,
     conversions,
     primaryConversion,
-    sessions,
     preConversionPath,
   } = profile;
 
@@ -217,11 +219,18 @@ function LeadProfileBody({ profile }) {
         <CardHeader>
           <CardTitle className="text-base">Session History</CardTitle>
           <CardDescription>
-            Every visit made from this browser, including sessions where they left without converting. Click a row to see the pages viewed.
+            Every visit made from this browser, including sessions where they left without converting. Click a row to see the exact browsing session.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <LeadSessionHistory sessions={sessions} />
+          <LeadSessionExplorer
+            siteId={siteId}
+            visitorId={raw.focusSubmission?.visitor_id || ""}
+            deviceType={raw.visitor?.device_type}
+            initialSessionRows={raw.sessions}
+            initialPageViewRows={raw.pageViews}
+            initialSubmissionRows={raw.submissions}
+          />
         </CardContent>
       </Card>
     </div>
