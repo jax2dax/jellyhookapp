@@ -26,7 +26,7 @@
 "use client";
 
 import * as React from "react";
-import { RefreshCw, Radio } from "lucide-react";
+import { RefreshCw, Radio, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -84,6 +84,12 @@ interface RawRows {
   submissions: SubmissionRow[];
 }
 
+// A visitor with a long history otherwise renders one ever-growing table —
+// this caps a page at 10 rows and pages back in time from there. sessionsRaw
+// is ascending (oldest first, per buildSessionsRaw), so "page 1" is a slice
+// off the END of that array, not the start — see visibleSessions below.
+const SESSIONS_PAGE_SIZE = 10;
+
 interface LeadSessionExplorerProps {
   siteId: string;
   visitorId: string;
@@ -121,6 +127,11 @@ export function LeadSessionExplorer({
   // with anything on every render.
   const [pageStructureRows, setPageStructureRows] = React.useState<PageStructureRow[]>(() => readInitialPageStructureCache(siteId));
   const [selectedSessionId, setSelectedSessionId] = React.useState<string | null>(null);
+  // 1 = the most recent SESSIONS_PAGE_SIZE sessions (a slice off the END of
+  // the ascending array); 2 = the SESSIONS_PAGE_SIZE before that, etc. This
+  // way "page 1" always means "latest" regardless of how many more sessions
+  // arrive later — no reset-on-new-session logic needed.
+  const [sessionsPage, setSessionsPage] = React.useState(1);
   const [refreshing, setRefreshing] = React.useState(false);
   // null = "not refreshed from the client yet, still showing the server-rendered load" —
   // avoids calling Date.now() during render just to seed this.
@@ -131,6 +142,16 @@ export function LeadSessionExplorer({
   }, [rawRows, pageStructureRows]);
 
   const hasLiveSession = sessionsRaw.some((s) => s.endedAt === null);
+
+  const totalSessionPages = Math.max(1, Math.ceil(sessionsRaw.length / SESSIONS_PAGE_SIZE));
+  // Clamp rather than store the clamped value — if sessions ever shrink
+  // (shouldn't normally happen, but never trust it blindly) a stale page
+  // number in state just falls back to the last real page instead of
+  // rendering an empty slice.
+  const clampedSessionsPage = Math.min(sessionsPage, totalSessionPages);
+  const sessionsPageEnd = sessionsRaw.length - (clampedSessionsPage - 1) * SESSIONS_PAGE_SIZE;
+  const sessionsPageStart = Math.max(0, sessionsPageEnd - SESSIONS_PAGE_SIZE);
+  const visibleSessions = sessionsRaw.slice(sessionsPageStart, sessionsPageEnd);
 
   // Effective selection: most recent session by default (naturally the live
   // one when there is one), or whatever was explicitly clicked if it still
@@ -230,7 +251,8 @@ export function LeadSessionExplorer({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sessionsRaw.map((session, idx) => {
+          {visibleSessions.map((session, i) => {
+            const idx = sessionsPageStart + i; // absolute visit number, not reset per page
             const isSelected = session.id === effectiveSelectedId;
             const converted = session.visits.some((v) => v.converted);
             const isLive = session.endedAt === null;
@@ -259,6 +281,27 @@ export function LeadSessionExplorer({
           })}
         </TableBody>
       </Table>
+
+      {totalSessionPages > 1 && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            Showing {sessionsPageStart + 1}–{sessionsPageEnd} of {sessionsRaw.length} sessions
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSessionsPage((p) => p + 1)} disabled={clampedSessionsPage >= totalSessionPages}>
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+              Older
+            </Button>
+            <span>
+              Page {clampedSessionsPage} of {totalSessionPages}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => setSessionsPage((p) => p - 1)} disabled={clampedSessionsPage <= 1}>
+              Newer
+              <ChevronRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {selectedSession && (
         <div className="rounded-md border bg-card/50 p-3">
