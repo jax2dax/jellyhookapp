@@ -372,6 +372,14 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
           if (event.viewport_height != null) {
             updatePayload.viewport_height = event.viewport_height;
           }
+          // Re-measured at exit (see tracker.js firePageViewEnd) — the start
+          // measurement can be taken before lazy/below-the-fold content has
+          // loaded and grown the page. Only present when the tracker's own
+          // 50px-changed/6-minute throttle decided it was worth resending,
+          // so this never overwrites a good value with a stale/throttled one.
+          if (event.page_height != null) {
+            updatePayload.page_height = event.page_height;
+          }
 
           await supabase
             .from("page_views")
@@ -395,6 +403,7 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
             max_scroll_reached_at: event.max_scroll_reached_at ? new Date(event.max_scroll_reached_at) : null,
             revisit_start_scroll_depth: event.revisit_start_scroll ?? null,
             viewport_height: event.viewport_height ?? null,
+            page_height: event.page_height ?? null,
           });
         }
       }

@@ -272,6 +272,17 @@ function firePageViewStart() {
     // revisit_start_scroll: null if never backtracked; otherwise the top of
     // the "seen more than once" band (see revisitStartDepth comment above)
     const exitScroll = getScrollDepth();
+    // Re-measure page_height here too, not just at page_view_start. The
+    // start measurement can run before images/lazy content have finished
+    // loading and pushed the page taller — firing before window.load isn't
+    // even required for that to happen, since a below-the-fold <img> without
+    // reserved width/height reflows the page the moment it loads, whether
+    // that's before or after "load". By page_view_end the visitor has been
+    // on the page for a while, so this is almost always the more accurate
+    // number. getPageHeightPayload()'s own 50px-changed check means this
+    // only actually sends (and only overwrites the row) when the height
+    // genuinely grew — it does not defeat the 6-minute throttle for no reason.
+    const exitPageHeight = getPageHeightPayload();
     console.log(
       "[Tracker] 📜 page_view_end scroll summary — exit:",
       exitScroll.toFixed(3),
@@ -282,6 +293,9 @@ function firePageViewStart() {
       "| revisit_start:",
       revisitStartDepth === null ? "none" : revisitStartDepth.toFixed(3)
     );
+    if (exitPageHeight !== null) {
+      console.log("[Tracker] 📐 Sending corrected page_height at exit:", exitPageHeight, "for", window.location.pathname);
+    }
     sendExitEvent({
       type: "page_view_end",
       visitor_id,
@@ -292,6 +306,7 @@ function firePageViewStart() {
       max_scroll_depth: maxScrollDepth,
       max_scroll_reached_at: maxScrollReachedAt,
       revisit_start_scroll: revisitStartDepth,
+      page_height: exitPageHeight,
       // Also sent here so the synthetic-insert fallback path (page_view_end
       // arriving with no matching page_view_start row) still lands a usable
       // viewport_height rather than a row whose scroll values can't be read.
@@ -811,7 +826,13 @@ function firePageViewStart() {
         const headers = document.querySelectorAll("h1, h2, h3");
         if (headers.length === 0) return;
 
-        const pageHeight = document.body.scrollHeight;
+        // documentElement, not body — matches getPageHeightPx() used
+        // everywhere else. The two boxes can disagree, and this value is
+        // joined against page_views.page_height (framePlate's fallback
+        // chain in resolvePageHeight) — reading from two different boxes in
+        // two different places would make that fallback inconsistent with
+        // itself.
+        const pageHeight = getPageHeightPx();
         const structures = [];
 
         headers.forEach((h, index) => {
