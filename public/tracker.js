@@ -63,6 +63,60 @@ function getSessionId() {
     return window.innerHeight || document.documentElement.clientHeight || 0;
   }
 
+  // ─────────────────────────────────────────────────────────────────────
+  // TEMPORARY DEBUG HUD — REMOVE ONCE THE PAGE-HEIGHT INVESTIGATION IS DONE
+  //
+  // On-screen readout so page_height accuracy can be checked against
+  // DevTools directly on the live page, instead of estimating from the
+  // scrollbar. Shows what firePageViewStart() actually sent (the
+  // potentially-too-early measurement) side by side with the CURRENT live
+  // value, so a mismatch between them is visible immediately, plus
+  // documentElement vs body in case those two boxes disagree.
+  //
+  // To remove: delete this whole IIFE and the two `window.__jhDebug...`
+  // writes lower down (search "TEMP DEBUG").
+  // ─────────────────────────────────────────────────────────────────────
+  (function () {
+    try {
+      const box = document.createElement("div");
+      box.id = "jh-debug-hud";
+      box.style.cssText =
+        "position:fixed;bottom:8px;left:8px;z-index:2147483647;background:rgba(0,0,0,0.85);color:#0f0;" +
+        "font:11px/1.5 monospace;padding:8px 10px;border-radius:6px;white-space:pre;pointer-events:none;" +
+        "box-shadow:0 2px 8px rgba(0,0,0,0.5);";
+      document.documentElement.appendChild(box);
+
+      function render() {
+        const de = document.documentElement.scrollHeight;
+        const body = document.body ? document.body.scrollHeight : 0;
+        const vh = getViewportHeightPx();
+        const scrollY = window.scrollY;
+        const denom = getPageHeightPx() - vh;
+        const depth = denom > 0 ? (scrollY / denom).toFixed(3) : "0.000";
+        const sentStart = window.__jhDebugSentAtStart;
+        const sentEnd = window.__jhDebugSentAtEnd;
+        box.textContent =
+          "[JH DEBUG — page_height/viewport_height]\n" +
+          "LIVE documentElement.scrollHeight: " + de + "px\n" +
+          "LIVE body.scrollHeight:            " + body + "px" + (body !== de ? "  ⚠ DIFFERS from documentElement" : "") + "\n" +
+          "LIVE window.innerHeight (viewport): " + vh + "px\n" +
+          "LIVE scrollY:                       " + scrollY + "px\n" +
+          "LIVE computed scroll_depth:         " + depth + "\n" +
+          "---\n" +
+          "SENT at page_view_start: page_height=" + (sentStart === undefined ? "(pending)" : sentStart === null ? "null (throttled — see PAGE_HEIGHT_UPDATE_INTERVAL_MS)" : sentStart + "px") + "\n" +
+          "SENT at page_view_end:   page_height=" + (sentEnd === undefined ? "(not fired yet)" : sentEnd === null ? "null (throttled)" : sentEnd + "px");
+      }
+
+      render();
+      window.addEventListener("scroll", render, { passive: true });
+      window.addEventListener("resize", render);
+      setInterval(render, 1000); // catches async content growing the page even without a scroll/resize event
+    } catch (err) {
+      console.error("[Tracker][DEBUG HUD] failed to mount:", err);
+    }
+  })();
+  // ─────────────────────────────────────────────────────────────────────
+
   const visitor_id = getVisitorId();
  
 
@@ -261,6 +315,7 @@ function firePageViewStart() {
     event.page_height = pageHeight;
     console.log("[Tracker] 📐 Sending page_height:", pageHeight, "for", window.location.pathname);
   }
+  window.__jhDebugSentAtStart = pageHeight; // TEMP DEBUG — see HUD above
   console.log("[Tracker] 🚩 entry_scroll:", entryScroll.toFixed(3), "| viewport_height:", viewportHeight, "for", window.location.pathname);
   sendEvent(event);
 }
@@ -296,6 +351,7 @@ function firePageViewStart() {
     if (exitPageHeight !== null) {
       console.log("[Tracker] 📐 Sending corrected page_height at exit:", exitPageHeight, "for", window.location.pathname);
     }
+    window.__jhDebugSentAtEnd = exitPageHeight; // TEMP DEBUG — see HUD above
     sendExitEvent({
       type: "page_view_end",
       visitor_id,
