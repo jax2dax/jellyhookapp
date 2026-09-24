@@ -6,6 +6,11 @@
 // stretches to fill the wrapping div, so a 2-page session stays narrow
 // with empty space beside it, and a long session naturally overflows into
 // a scrollbar.
+//
+// The "1vh" reference marks are NOT drawn here — they're per-plate, inside
+// FullPagePlate (see ViewportMarks there). Every plate has its own
+// page-to-viewport ratio, so a single line spanning the whole strip could
+// only ever be correct for one plate at a time.
 "use client";
 
 import * as React from "react";
@@ -18,13 +23,11 @@ export interface SessionStripProps {
   timeline: TimelineItem[];
   theme: FramePlateTheme;
   hoverDelayMs?: number;
-  /** scaled height of one viewport, in real px — draws ONE reference line across the whole strip, never per-frame */
-  viewportHeightPx?: number;
   onHoverItem?: (item: TimelineItem | null) => void;
   className?: string;
 }
 
-export function SessionStrip({ timeline, theme, hoverDelayMs = 150, viewportHeightPx, onHoverItem, className }: SessionStripProps) {
+export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem, className }: SessionStripProps) {
   // hoveredId fires onHoverItem immediately (so consumers like an info
   // panel feel responsive); activeHoverId is what actually drives the
   // darken overlay, and only flips on after hoverDelayMs of continuous
@@ -99,9 +102,6 @@ export function SessionStrip({ timeline, theme, hoverDelayMs = 150, viewportHeig
     hoverTimerRef.current = setTimeout(() => setActiveHoverId(item.id), hoverDelayMs);
   }
 
-  const showReferenceLine = Number.isFinite(viewportHeightPx) && (viewportHeightPx as number) > 0;
-  const referenceLineY = showReferenceLine ? layout.topOffset + theme.frame.padding + (viewportHeightPx as number) * theme.plate.pxToVisualRatio : 0;
-
   return (
     <div className={className} style={{ overflowX: "auto", overflowY: "hidden" }}>
       <svg width={layout.totalWidth} height={layout.totalHeight} role="img" aria-label="Session activity chart">
@@ -112,24 +112,6 @@ export function SessionStrip({ timeline, theme, hoverDelayMs = 150, viewportHeig
             <Frame item={item} width={layout.widths[i]} plateHeight={layout.plateHeightByIndex[i]} theme={theme} darken={activeHoverId === item.id} onHover={handleHover} />
           </g>
         ))}
-
-        {/* single scale reference line for the whole strip — never repeated per frame */}
-        {showReferenceLine && (
-          <g style={{ pointerEvents: "none" }}>
-            <line
-              x1={0}
-              y1={referenceLineY}
-              x2={layout.totalWidth}
-              y2={referenceLineY}
-              stroke={theme.referenceLine.color}
-              strokeWidth={theme.referenceLine.thickness}
-              strokeDasharray={theme.referenceLine.dashArray}
-            />
-            <text x={4} y={referenceLineY - 4} fill={theme.referenceLine.labelColor} fontSize={theme.referenceLine.labelFontSize} fontWeight={600}>
-              1vh
-            </text>
-          </g>
-        )}
       </svg>
     </div>
   );

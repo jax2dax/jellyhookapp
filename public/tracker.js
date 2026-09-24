@@ -38,10 +38,29 @@ function getSessionId() {
   return id;
 }
 
+  // Returns a fraction of the SCROLLABLE RANGE (0 = top, 1 = scrolled as far
+  // as this page goes) — NOT a fraction of page height. Those differ on any
+  // page taller than the viewport: on a page 1.25x the viewport, 1.0 puts
+  // the viewport's TOP only 20% down the page. Converting this into a
+  // position on the page needs page_height AND viewport_height — both are
+  // recorded alongside it for exactly that reason. See framePlate/geometry/
+  // deriveVisitGeometry.ts for the conversion.
+  //
+  // scrollHeight is read off documentElement (matching getPageHeightPayload
+  // below), not body — the two disagree on some layouts, and reading one
+  // from each box here would make the numerator and denominator inconsistent.
   function getScrollDepth() {
     const scrolled = window.scrollY;
-    const height = document.body.scrollHeight - window.innerHeight;
+    const height = getPageHeightPx() - window.innerHeight;
     return height > 0 ? Math.round((scrolled / height) * 100) / 100 : 0;
+  }
+
+  function getPageHeightPx() {
+    return document.documentElement.scrollHeight || document.body.scrollHeight || 0;
+  }
+
+  function getViewportHeightPx() {
+    return window.innerHeight || document.documentElement.clientHeight || 0;
   }
 
   const visitor_id = getVisitorId();
@@ -184,7 +203,7 @@ const PAGE_HEIGHT_UPDATE_INTERVAL_MS = 6 * 60 * 1000; // 6 minutes
 
 function getPageHeightPayload() {
   try {
-    const currentHeight = document.documentElement.scrollHeight || document.body.scrollHeight || 0;
+    const currentHeight = getPageHeightPx();
     const storageKey = "jh_ph_" + window.location.pathname;
     const stored = sessionStorage.getItem(storageKey);
     const now = Date.now();
@@ -216,6 +235,12 @@ function firePageViewStart() {
   // re-fires a page_view_start without reloading the page/DOM). Measure the
   // real scroll position at this exact moment instead.
   const entryScroll = getScrollDepth();
+  // viewport_height is NOT cosmetic — every scroll_depth value is a fraction
+  // of (page_height - viewport_height), so without it a scroll fraction
+  // cannot be converted back into a position on the page at all. Sent on
+  // every page_view_start (unthrottled, unlike page_height): it changes on
+  // rotate/resize and is 4 bytes.
+  const viewportHeight = getViewportHeightPx();
   const event = {
     type: "page_view_start",
     visitor_id,
@@ -229,13 +254,14 @@ function firePageViewStart() {
     user_agent: navigator.userAgent,
     device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
     entry_scroll: entryScroll,
+    viewport_height: viewportHeight,
   };
   // Only attach page_height when throttle allows
   if (pageHeight !== null) {
     event.page_height = pageHeight;
     console.log("[Tracker] 📐 Sending page_height:", pageHeight, "for", window.location.pathname);
   }
-  console.log("[Tracker] 🚩 entry_scroll:", entryScroll.toFixed(3), "for", window.location.pathname);
+  console.log("[Tracker] 🚩 entry_scroll:", entryScroll.toFixed(3), "| viewport_height:", viewportHeight, "for", window.location.pathname);
   sendEvent(event);
 }
 
@@ -266,6 +292,10 @@ function firePageViewStart() {
       max_scroll_depth: maxScrollDepth,
       max_scroll_reached_at: maxScrollReachedAt,
       revisit_start_scroll: revisitStartDepth,
+      // Also sent here so the synthetic-insert fallback path (page_view_end
+      // arriving with no matching page_view_start row) still lands a usable
+      // viewport_height rather than a row whose scroll values can't be read.
+      viewport_height: getViewportHeightPx(),
       device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
     });
   }
@@ -399,7 +429,7 @@ function firePageViewStart() {
         _scrollThrottleTimer = null;
         try {
           var scrolled = window.scrollY;
-          var height = document.body.scrollHeight - window.innerHeight;
+          var height = getPageHeightPx() - window.innerHeight; // same basis as getScrollDepth()
           if (height <= 0) return; // page not tall enough to scroll
 
           var currentDepth = Math.round((scrolled / height) * 100) / 100;

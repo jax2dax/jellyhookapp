@@ -46,17 +46,52 @@ function computePlateGeometry(props: FullPagePlateProps): PlateGeometry | null {
       console.error("[framePlate] FullPagePlate given a non-finite/non-positive height, skipping render.", { height });
       return null;
     }
-    const { seenOnceTop, seenTwiceTop, maxScrollY } = visit;
-    const seenBottom = Math.max(seenOnceTop, seenTwiceTop ?? maxScrollY, maxScrollY);
+    const { seenOnceTop, seenTwiceTop, seenBottom } = visit;
+    // Both bands share the SAME bottom edge (seenBottom — the deepest point
+    // reached, extended by one viewport height; see VisitGeometry.seenBottom).
+    // This is what guarantees "seen" always has positive height, even for a
+    // visitor who never scrolled at all.
     const seenOnceY = seenOnceTop * height;
-    const seenOnceH = Math.max(0, (seenTwiceTop ?? maxScrollY) * height - seenOnceY);
+    const seenOnceH = Math.max(0, (seenTwiceTop ?? seenBottom) * height - seenOnceY);
     const seenTwiceY = (seenTwiceTop ?? seenBottom) * height;
-    const seenTwiceH = Math.max(0, maxScrollY * height - seenTwiceY);
+    const seenTwiceH = Math.max(0, seenBottom * height - seenTwiceY);
     return { seenOnceY, seenOnceH, seenTwiceY, seenTwiceH, hasSeenTwice: seenTwiceTop !== null };
   } catch (err) {
     console.error(`[framePlate] FullPagePlate geometry computation failed for visit "${props.visit?.id}":`, err);
     return null;
   }
+}
+
+/**
+ * Per-plate "1vh" ruler marks — drawn on THIS plate only, at every multiple
+ * of its own viewportFraction down its own height. Never a strip-wide line:
+ * each plate has its own page-to-viewport ratio (a 1.25-screen page and a
+ * 5-screen page in the same session have different vFrac), so a single line
+ * across the whole strip can only ever be correct for one of them.
+ */
+function ViewportMarks({ vFrac, height, width, theme }: { vFrac: number; height: number; width: number; theme: FramePlateTheme }) {
+  const ref = theme.referenceLine;
+  if (!ref.enabled || !Number.isFinite(vFrac) || vFrac <= 0 || vFrac >= 1) return null; // vFrac >= 1 = page fits in one screen, nothing to mark
+
+  const step = vFrac * height;
+  if (!Number.isFinite(step) || step <= 1) return null;
+
+  const count = ref.repeat ? Math.max(1, Math.floor(height / step)) : 1;
+  const marks: number[] = [];
+  for (let i = 1; i <= count; i++) {
+    const y = i * step;
+    if (y >= height - 0.5) break; // a mark exactly on the bottom edge is just the edge
+    marks.push(y);
+  }
+  if (marks.length === 0) return null;
+
+  return (
+    <g pointerEvents="none">
+      {marks.map((y, i) => (
+        <line key={i} x1={0} y1={y} x2={width} y2={y} stroke={ref.color} strokeWidth={ref.thickness} strokeDasharray={ref.dashArray} />
+      ))}
+    </g>
+  );
 }
 
 export function FullPagePlate(props: FullPagePlateProps) {
@@ -78,7 +113,7 @@ export function FullPagePlate(props: FullPagePlateProps) {
     );
   }
 
-  const { enterY, exitY, maxScrollY, converted, headers } = visit;
+  const { enterY, exitY, seenBottom, viewportFraction: vFrac, converted, headers } = visit;
 
   return (
     <g>
@@ -117,11 +152,13 @@ export function FullPagePlate(props: FullPagePlateProps) {
             opacity={0.95}
           />
         ))}
+
+        <ViewportMarks vFrac={vFrac} height={height} width={width} theme={theme} />
       </g>
 
       {/* right-edge bulbs — painted longest-first so the shortest (exit) stays visible on top when they coincide */}
       {converted && <Bulb config={theme.bulbs.converted} y={exitY} plateHeight={height} plateWidth={width} side="right" label="converted" />}
-      <Bulb config={theme.bulbs.deepestScroll} y={maxScrollY} plateHeight={height} plateWidth={width} side="right" label="deepest scroll" />
+      <Bulb config={theme.bulbs.deepestScroll} y={seenBottom} plateHeight={height} plateWidth={width} side="right" label="deepest scroll" />
       <Bulb config={theme.bulbs.exit} y={exitY} plateHeight={height} plateWidth={width} side="right" label="exited" />
 
       {/* left-edge: entry never collides with the above, painted independently */}

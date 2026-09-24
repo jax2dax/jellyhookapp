@@ -71,15 +71,18 @@ function pct(v: number): string {
 
 /**
  * The full page height is 100%. Everything from the topmost-ever-visible
- * point down to the deepest-ever-scrolled point was seen at least once (by
- * continuity of scrolling); the "seen 2x+" band is the part of that range
- * revisited; "not seen" is whatever's above the topmost point or below the
- * deepest one.
+ * point down to seenBottom (the deepest viewport's BOTTOM edge, not just its
+ * top) was on screen at least once; the "seen 2x+" band is the part of that
+ * range revisited; "not seen" is whatever falls above or below.
+ *
+ * seenBottom, not maxScrollY, is the right end point — a visitor who never
+ * scrolls still saw a full screen, and these percentages have to agree with
+ * what the plate actually paints.
  */
 function computeSeenBreakdown(item: VisitGeometry) {
-  const { seenOnceTop, seenTwiceTop, maxScrollY } = item;
-  const seenTwicePct = seenTwiceTop !== null ? Math.max(0, maxScrollY - seenTwiceTop) : 0;
-  const seenOncePct = Math.max(0, (seenTwiceTop ?? maxScrollY) - seenOnceTop);
+  const { seenOnceTop, seenTwiceTop, seenBottom } = item;
+  const seenTwicePct = seenTwiceTop !== null ? Math.max(0, seenBottom - seenTwiceTop) : 0;
+  const seenOncePct = Math.max(0, (seenTwiceTop ?? seenBottom) - seenOnceTop);
   const notSeenPct = Math.max(0, 1 - seenOncePct - seenTwicePct);
   return { seenOncePct, seenTwicePct, notSeenPct };
 }

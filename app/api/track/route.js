@@ -331,6 +331,10 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
             // page_view_start can fire mid-scroll (tab regains focus without
             // reloading the DOM).
             entry_scroll_depth: event.entry_scroll ?? null,
+            // Required to interpret every scroll_depth on this row: those are
+            // fractions of (page_height - viewport_height), so without this
+            // a scroll fraction can't be mapped back onto the page at all.
+            viewport_height: event.viewport_height ?? null,
           });
         }
       }
@@ -365,6 +369,9 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
           if (event.revisit_start_scroll !== undefined) {
             updatePayload.revisit_start_scroll_depth = event.revisit_start_scroll;
           }
+          if (event.viewport_height != null) {
+            updatePayload.viewport_height = event.viewport_height;
+          }
 
           await supabase
             .from("page_views")
@@ -387,6 +394,7 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
             max_scroll_depth: event.max_scroll_depth ?? null,
             max_scroll_reached_at: event.max_scroll_reached_at ? new Date(event.max_scroll_reached_at) : null,
             revisit_start_scroll_depth: event.revisit_start_scroll ?? null,
+            viewport_height: event.viewport_height ?? null,
           });
         }
       }

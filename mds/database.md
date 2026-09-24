@@ -120,17 +120,54 @@ create table public.page_views (
   page_height integer null,
   entry_scroll_depth real null,
   revisit_start_scroll_depth real null,
+  viewport_height integer null,
   constraint page_views_pkey primary key (id),
   constraint page_views_page_view_id_key unique (page_view_id)
 );
 create index if not exists page_views_session_id_idx on public.page_views using btree (session_id);
 create index if not exists page_views_site_id_idx on public.page_views using btree (site_id);
 ```
-**Scroll geometry** (all 0-1 fractions of `page_height`, except `page_height` itself which is real px — `document.documentElement.scrollHeight`, the page's actual content height, not viewport height):
+
+Migration for `viewport_height` if it doesn't exist yet:
+```sql
+alter table public.page_views
+  add column if not exists viewport_height integer null;
+```
+
+**Scroll geometry — read this before touching anything that interprets these
+columns.** The single most expensive mistake available here is assuming the
+`*_scroll_depth` columns are fractions of the page. They are not:
+
+```
+scroll fraction = scrollY / (page_height - viewport_height)
+```
+
+The denominator is the **scrollable range**, not `page_height`. The two
+differ on every page taller than the viewport — on a page 1.25x the
+viewport, `scroll_depth = 1.0` means the viewport's TOP is only 20% down the
+page (its bottom is what reaches 100%, exactly one viewport height further).
+Converting a scroll fraction into a position on the page needs all three
+columns:
+
+```
+vFrac          = viewport_height / page_height    -- one screen, as a page fraction
+scrollableFrac = 1 - vFrac                        -- how far the viewport TOP can travel
+pageTop(s)     = s * scrollableFrac               -- scroll fraction -> page position
+pageBottom(s)  = pageTop(s) + vFrac               -- what's visible from there
+```
+
+A visitor who lands on a 1.25-screen page and scrolls nothing has already
+seen 80% of it. Anything that reports 0% seen for that visit is wrong. The
+canonical implementation is `framePlate/geometry/deriveVisitGeometry.ts`.
+
+Column meanings (`*_scroll_depth` are 0-1 fractions of the **scrollable
+range** per the formula above; `page_height` and `viewport_height` are real
+px — `document.documentElement.scrollHeight` and `window.innerHeight`):
 - `entry_scroll_depth` — where the visitor's viewport was when this page_view opened. Never assume 0 — a page_view can open mid-scroll (tab regains focus without reloading the DOM). `max_scroll_depth` is seeded from this same measurement (not from 0) for the same reason: seeding at 0 would make scrolling *up* from a mid-page entry look like "reaching a new deepest point" the instant it dipped below the entry depth.
 - `max_scroll_depth` / `max_scroll_reached_at` — the deepest point ever reached and when.
 - `revisit_start_scroll_depth` — null if the visitor never backtracked below their deepest point; otherwise the shallowest point they climbed back up to after reaching `max_scroll_depth`. Only ever decreases, and is never reset once set — including when a later, deeper `max_scroll_depth` is reached — so it tracks the global minimum reached after the first backtrack, correctly spanning multiple separate descend/backtrack phases in one visit. `[revisit_start_scroll_depth, max_scroll_depth]` was necessarily crossed at least twice (once descending, once climbing back up), regardless of how much bouncing happened in between — this is what FramePlate's "seen more than once" (dark green) band renders directly, no derivation needed.
 - `scroll_depth` — where they were when they left (existing column).
+- `viewport_height` — `window.innerHeight` at page_view_start. Not optional for correctness: it is the denominator every `*_scroll_depth` value on the row was divided by, so without it none of them can be placed on the page. Null on rows predating this column — consumers fall back to a device-typical estimate and should mark the result as estimated (see `VisitGeometry.viewportEstimated`) rather than presenting it as measured.
 
 ## form_submissions
 ```sql

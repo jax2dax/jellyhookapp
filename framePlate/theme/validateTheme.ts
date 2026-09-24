@@ -163,6 +163,8 @@ export function validateTheme(userTheme?: DeepPartial<FramePlateTheme>): { theme
     };
 
     const referenceLine = {
+      enabled: typeof t.referenceLine?.enabled === "boolean" ? t.referenceLine.enabled : defaultTheme.referenceLine.enabled,
+      repeat: typeof t.referenceLine?.repeat === "boolean" ? t.referenceLine.repeat : defaultTheme.referenceLine.repeat,
       color: pick("referenceLine.color", t.referenceLine?.color, defaultTheme.referenceLine.color, isNonEmptyString, warnings),
       dashArray: pick("referenceLine.dashArray", t.referenceLine?.dashArray, defaultTheme.referenceLine.dashArray, isNonEmptyString, warnings),
       thickness: pick("referenceLine.thickness", t.referenceLine?.thickness, defaultTheme.referenceLine.thickness, isPositiveNumber, warnings),

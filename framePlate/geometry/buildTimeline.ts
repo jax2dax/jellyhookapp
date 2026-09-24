@@ -10,7 +10,12 @@ import type { PageVisitRaw, SessionRaw, TimelineItem } from "../types";
 
 const DEFAULT_MIN_GAP_MS = 15_000; // gaps shorter than this are just normal page-to-page navigation time, not an "away" frame
 
-export function buildTimeline(session: SessionRaw, domainEnd?: string, minGapMs: number = DEFAULT_MIN_GAP_MS): TimelineItem[] {
+/**
+ * @param fallbackViewportHeightPx used only for visits with no measured
+ *   viewportHeightPx of their own — see deriveVisitGeometry. Never affects
+ *   plate height, which is driven by pageHeightPx alone.
+ */
+export function buildTimeline(session: SessionRaw, domainEnd?: string, minGapMs: number = DEFAULT_MIN_GAP_MS, fallbackViewportHeightPx = 0): TimelineItem[] {
   try {
     if (!session || !Array.isArray(session.visits)) {
       console.error("[framePlate] buildTimeline called with an invalid session:", session);
@@ -27,7 +32,7 @@ export function buildTimeline(session: SessionRaw, domainEnd?: string, minGapMs:
 
     for (let i = 0; i < visits.length; i++) {
       const visit = visits[i];
-      timeline.push(deriveVisitGeometry(visit));
+      timeline.push(deriveVisitGeometry(visit, fallbackViewportHeightPx));
 
       const next = visits[i + 1];
       if (next) {

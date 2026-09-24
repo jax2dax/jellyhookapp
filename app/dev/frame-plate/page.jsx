@@ -20,6 +20,46 @@ const SCENARIOS = [
   { key: "tall", label: "Tall pages (4k-9k px)", deviceType: "mobile", build: () => generateFakeSession({ seed: 15, visitCount: 5, pageHeightRange: [4000, 9000], withConversion: true, withAwayGap: false }) },
   { key: "revisit", label: "Heavy revisiting", deviceType: null, build: () => generateFakeSession({ seed: 21, visitCount: 5, revisitChance: 0.9, withConversion: false, withAwayGap: true }) },
   { key: "live", label: "Live session (still open)", deviceType: "mobile", build: () => generateFakeSession({ seed: 77, visitCount: 4, withConversion: false, withAwayGap: false, live: true }) },
+  {
+    // Hand-built, not generateFakeSession — pinned to the exact numbers used
+    // to verify the scroll->page conversion. Viewport 665px, page 831px
+    // (1.25 screens): vFrac = 0.80, scrollableFrac = 0.20.
+    //   - never scrolled  -> seen 0 -> 0.80 (80% before touching anything)
+    //   - scroll y = 0.5  -> viewport top 10% down -> seen 0 -> 0.90, 10% unseen
+    // If either plate disagrees with those numbers, the conversion is wrong.
+    key: "reference",
+    label: "Reference: 1.25-screen page",
+    deviceType: "desktop",
+    build: () => {
+      const t0 = Date.now() - 60_000;
+      const mk = (id, path, startMs, durMs, trace) => ({
+        id,
+        pagePath: path,
+        enteredAt: new Date(startMs).toISOString(),
+        leftAt: new Date(startMs + durMs).toISOString(),
+        pageHeightPx: 831,
+        viewportHeightPx: 665,
+        scrollTrace: trace,
+        converted: false,
+      });
+      return {
+        id: "session-reference",
+        visitorId: "visitor-reference",
+        startedAt: new Date(t0).toISOString(),
+        endedAt: new Date(t0 + 45_000).toISOString(),
+        visits: [
+          mk("ref-noscroll", "/never-scrolled", t0, 20_000, [
+            { t: 0, y: 0 },
+            { t: 20_000, y: 0 },
+          ]),
+          mk("ref-halfway", "/scrolled-halfway", t0 + 20_000, 25_000, [
+            { t: 0, y: 0 },
+            { t: 25_000, y: 0.5 },
+          ]),
+        ],
+      };
+    },
+  },
 ];
 
 // ── Generic control helpers ────────────────────────────────────────────────

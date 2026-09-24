@@ -70,7 +70,8 @@ function makeVisit(
   durationMs: number,
   converted = false,
   pageHeightRange: [number, number] = [900, 4200],
-  revisitChance = 0.35
+  revisitChance = 0.35,
+  viewportHeightPx = 900
 ): PageVisitRaw {
   const { trace } = generateScrollTrace(rng, durationMs, revisitChance);
   const pageHeightPx = Math.round(randRange(rng, pageHeightRange[0], pageHeightRange[1]));
@@ -80,6 +81,7 @@ function makeVisit(
     enteredAt: new Date(enteredAtMs).toISOString(),
     leftAt: new Date(enteredAtMs + durationMs).toISOString(),
     pageHeightPx,
+    viewportHeightPx,
     scrollTrace: trace,
     converted,
     headers:
@@ -107,6 +109,8 @@ export interface GenerateFakeSessionOptions {
   durationRangeMs?: [number, number];
   /** session hasn't ended yet — endedAt is null, and the last visit renders as "live" */
   live?: boolean;
+  /** the fake visitor's viewport height — scroll fractions are relative to (pageHeight - this) */
+  viewportHeightPx?: number;
 }
 
 export function generateFakeSession(options: GenerateFakeSessionOptions = {}): SessionRaw {
@@ -119,6 +123,7 @@ export function generateFakeSession(options: GenerateFakeSessionOptions = {}): S
     revisitChance = 0.35,
     durationRangeMs = [8_000, 200_000],
     live = false,
+    viewportHeightPx = 900,
   } = options;
   const rng = makeRng(seed);
 
@@ -129,7 +134,7 @@ export function generateFakeSession(options: GenerateFakeSessionOptions = {}): S
   for (let i = 0; i < visitCount; i++) {
     const path = SAMPLE_PATHS[Math.floor(rng() * SAMPLE_PATHS.length)];
     const durationMs = Math.round(randRange(rng, durationRangeMs[0], durationRangeMs[1]));
-    visits.push(makeVisit(rng, `visit-${i}`, path, cursor, durationMs, false, pageHeightRange, revisitChance));
+    visits.push(makeVisit(rng, `visit-${i}`, path, cursor, durationMs, false, pageHeightRange, revisitChance, viewportHeightPx));
     cursor += durationMs;
 
     if (withAwayGap && i === Math.floor(visitCount / 2)) {
@@ -139,7 +144,7 @@ export function generateFakeSession(options: GenerateFakeSessionOptions = {}): S
 
   if (withConversion) {
     const durationMs = Math.round(randRange(rng, 15_000, 60_000));
-    visits.push(makeVisit(rng, `visit-conversion`, "/join-us", cursor, durationMs, true, pageHeightRange, revisitChance));
+    visits.push(makeVisit(rng, `visit-conversion`, "/join-us", cursor, durationMs, true, pageHeightRange, revisitChance, viewportHeightPx));
     cursor += durationMs;
   }
 

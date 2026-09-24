@@ -11,7 +11,15 @@
 export interface ScrollSample {
   /** ms since this page visit started */
   t: number;
-  /** scroll position as a fraction of page height, 0 = top, 1 = bottom */
+  /**
+   * Scroll position as a fraction of the SCROLLABLE RANGE — 0 = not
+   * scrolled, 1 = scrolled as far as this page allows. This is NOT a
+   * fraction of page height, and the two differ on every page taller than
+   * the viewport: on a page 1.25x the viewport, y=1 puts the viewport's TOP
+   * only 20% down the page (its bottom is at 100%, which is exactly one
+   * viewport height further). deriveVisitGeometry converts these into
+   * page-fraction positions — nothing downstream of it works in this space.
+   */
   y: number;
 }
 
@@ -22,8 +30,17 @@ export interface PageVisitRaw {
   enteredAt: string;
   /** ISO timestamp the visitor left this page */
   leftAt: string;
-  /** actual rendered page height in px — drives the full-page-plate's height */
+  /** actual rendered page height in px — drives the full-page-plate's height (independent of viewport — see scalePlateHeight.ts) */
   pageHeightPx: number;
+  /**
+   * The visitor's real viewport height in px for this visit. Required to
+   * interpret scrollTrace at all — see ScrollSample.y. Null/omitted falls
+   * back to a device-typical estimate (deriveVisitGeometry's
+   * fallbackViewportHeightPx), which makes the seen-region math an estimate
+   * rather than a measurement — it does NOT affect plate height, which is
+   * driven by pageHeightPx alone regardless of whether this is known.
+   */
+  viewportHeightPx?: number | null;
   /** chronological scroll trace for this visit; empty/undefined = no scroll data */
   scrollTrace?: ScrollSample[];
   /** did a conversion/form-fill happen on this page visit? */
@@ -48,6 +65,11 @@ export type DeviceType = "desktop" | "mobile" | "tablet";
 
 export type FrameOutcome = "active" | "exitedNormally" | "converted" | "expired" | "away" | "live";
 
+/**
+ * Everything here is in PAGE-FRACTION space: 0 = top of the page's content,
+ * 1 = bottom of it. Raw scroll-range fractions (ScrollSample.y) have already
+ * been converted by deriveVisitGeometry — see its header for the formulas.
+ */
 export interface VisitGeometry {
   kind: "visit";
   id: string;
@@ -58,11 +80,27 @@ export interface VisitGeometry {
   seenOnceTop: number;
   /** where the "seen more than once" band begins, 0-1 (null = never revisited) */
   seenTwiceTop: number | null;
-  /** deepest point ever scrolled to, 0-1 — also the deepest-scroll bulb's y */
+  /** deepest VIEWPORT-TOP position ever reached, as a page fraction (raw — not extended by viewport height; see seenBottom for the visible extent) */
   maxScrollY: number;
-  /** viewport position when the visitor entered, 0-1 — enter bulb's y */
+  /**
+   * Bottom edge of everything actually visible during the visit, 0-1 —
+   * min(1, maxScrollY + viewportFraction). Every recorded scroll position is
+   * where the viewport's TOP was, not its full visible extent — even a
+   * visitor who never scrolled at all still saw a full viewport's worth of
+   * content below their entry point. Both seen bands render down to this,
+   * and the deepest-scroll bulb sits here — never at the raw maxScrollY —
+   * so "seen" never renders as a zero-height sliver for a visitor who never
+   * scrolled, and the exit bulb (see exitY) can never sit closer than one
+   * viewport height above this.
+   */
+  seenBottom: number;
+  /** one viewport height as a 0-1 fraction of THIS visit's own page height — min(1, viewportHeightPx/pageHeightPx). What seenBottom extends maxScrollY downward by. */
+  viewportFraction: number;
+  /** true when viewportHeightPx had to be guessed (device-typical) rather than measured — the seen-region math is an estimate, not a measurement */
+  viewportEstimated: boolean;
+  /** viewport TOP position when the visitor entered, 0-1 — enter bulb's y */
   enterY: number;
-  /** viewport position when the visitor left, 0-1 — exit bulb's y */
+  /** viewport TOP position when the visitor left, 0-1 — exit bulb's y */
   exitY: number;
   converted: boolean;
   outcome: FrameOutcome;
@@ -169,11 +207,19 @@ export interface FramePlateTheme {
     /** how dark the overlay on the hovered frame gets, 0-1 */
     darkenOpacity: number;
   };
-  /** style for the optional single "1vh" scale reference line — see FramePlateChartProps.viewportHeightPx */
+  /**
+   * The "1vh" scale marks — drawn ON EACH PLATE INDIVIDUALLY, at every
+   * viewport-height boundary down that plate. Never a single line spanning
+   * the whole strip: every plate has its own page-to-viewport ratio, so a
+   * strip-wide line can only ever be correct for one plate at a time.
+   */
   referenceLine: {
+    enabled: boolean;
     color: string;
     dashArray: string;
     thickness: number;
+    /** false = mark only the first viewport boundary; true = mark every one down the plate */
+    repeat: boolean;
     labelColor: string;
     labelFontSize: number;
   };
@@ -200,16 +246,20 @@ export interface FramePlateChartProps {
   /** ms of continuous hover before the darken effect appears — avoids flicker when sweeping across the strip */
   hoverDelayMs?: number;
   /**
-   * Optional: draws ONE horizontal dashed reference line + label across the
-   * whole strip (never repeated per frame) at the scaled height of one
-   * viewport — e.g. pass 900 for a typical desktop viewport — so it's easy
-   * to judge how many "screens" deep a page's content actually is.
-   * Omit to not draw it at all.
-   */
-  /**
+   * The visitor's real viewport height in px. Two jobs:
+   *   1. Fallback for any visit whose own SessionRaw data carries no
+   *      viewportHeightPx of its own (a visit's own measured value always
+   *      wins) — required to convert scroll-range fractions into page
+   *      positions at all, see ScrollSample.y.
+   *   2. Whether the per-plate "1vh" marks are drawn — 0 turns them off;
+   *      omitting this still leaves the marks on, using the auto-resolved
+   *      value from (1) below.
    * Omit to auto-resolve from `deviceType` (mobile/desktop/tablet each get a
    * sensible typical viewport height; unknown device falls back to desktop's).
-   * Pass a number to force a specific value regardless of device.
+   * Pass a number to force a specific value regardless of device, or 0 to
+   * hide the marks (the geometry math still uses a device-typical fallback
+   * even then — turning off the visual marks must never make the "seen"
+   * region collapse back to unconverted raw scroll points).
    */
   viewportHeightPx?: number;
   /**

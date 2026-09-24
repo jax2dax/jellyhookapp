@@ -79,9 +79,14 @@ export const defaultTheme: FramePlateTheme = {
     darkenOpacity: 0.35,
   },
   referenceLine: {
+    enabled: true,
     color: "var(--fp-text, #e6e6e6)",
     dashArray: "5,4",
-    thickness: 1.5,
+    thickness: 1,
+    // Every viewport boundary down the plate, not just the first — it reads
+    // as a ruler, making "this page is about three screens long" legible
+    // without measuring anything.
+    repeat: true,
     labelColor: "var(--fp-text, #e6e6e6)",
     labelFontSize: 10,
   },
