@@ -114,6 +114,14 @@ export function deriveVisitGeometry(visit: PageVisitRaw, fallbackViewportHeightP
     const { vFrac, estimated } = resolveViewportFraction(visit, fallbackViewportHeightPx);
     const scrollableFrac = Math.max(0, 1 - vFrac);
 
+    // TEMP DEBUG — remove once the page-height investigation is done.
+    console.log(
+      `[JH DEBUG][deriveVisitGeometry] ${visit.pagePath} (id=${visit.id}): pageHeightPx=${visit.pageHeightPx}, ` +
+        `visit.viewportHeightPx (raw, from DB)=${visit.viewportHeightPx ?? "null/undefined"}, ` +
+        `fallbackViewportHeightPx (device-typical, only used if raw is missing)=${fallbackViewportHeightPx}, ` +
+        `=> vFrac=${vFrac.toFixed(4)} (estimated=${estimated}), sections(page/viewport)=${(1 / vFrac).toFixed(3)}`
+    );
+
     if (!trace || trace.length === 0) {
       return { ...fallbackGeometry(visit, outcome, fallbackViewportHeightPx), durationMs };
     }

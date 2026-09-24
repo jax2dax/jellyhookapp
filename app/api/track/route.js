@@ -314,7 +314,13 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
           .single();
 
         if (!existing) {
-          await supabase.from("page_views").insert({
+          // TEMP DEBUG: this insert (and every other page_views write in this
+          // file) previously discarded its error silently — if PostgREST's
+          // schema cache is still stale for the write path specifically, the
+          // whole insert could be failing (or failing to include an unknown
+          // column) with zero visibility. Remove this logging once
+          // viewport_height is confirmed landing correctly.
+          const { error: insertPvError } = await supabase.from("page_views").insert({
             page_view_id: event.page_view_id,
             session_id: event.session_id,
             visitor_id: event.visitor_id,
@@ -336,6 +342,11 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
             // a scroll fraction can't be mapped back onto the page at all.
             viewport_height: event.viewport_height ?? null,
           });
+          if (insertPvError) {
+            console.error("[JH DEBUG][track route] page_view_start insert error:", insertPvError.message, insertPvError.details, insertPvError.hint);
+          } else {
+            console.log("[JH DEBUG][track route] page_view_start insert OK — sent viewport_height:", event.viewport_height, "page_height:", event.page_height, "for page_view_id:", event.page_view_id);
+          }
         }
       }
 
@@ -381,10 +392,16 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
             updatePayload.page_height = event.page_height;
           }
 
-          await supabase
+          // TEMP DEBUG — remove once viewport_height is confirmed landing correctly.
+          const { error: updatePvError } = await supabase
             .from("page_views")
             .update(updatePayload)
             .eq("page_view_id", event.page_view_id);
+          if (updatePvError) {
+            console.error("[JH DEBUG][track route] page_view_end update error:", updatePvError.message, updatePvError.details, updatePvError.hint, "payload:", updatePayload);
+          } else {
+            console.log("[JH DEBUG][track route] page_view_end update OK — payload:", updatePayload);
+          }
             ///////////
         } else {
           await supabase.from("page_views").insert({

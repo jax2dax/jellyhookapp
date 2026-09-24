@@ -99,6 +99,14 @@ export function FullPagePlate(props: FullPagePlateProps) {
   const geometry = computePlateGeometry(props);
   const { width, height, theme, visit } = props;
 
+  // TEMP DEBUG — remove once the page-height investigation is done.
+  console.log(
+    `[JH DEBUG][FullPagePlate render] ${visit?.pagePath} (id=${visit?.id}): ` +
+      `RENDERED plate height=${height}px, pxToVisualRatio=${theme.plate.pxToVisualRatio}, ` +
+      `visit.pageHeightPx=${visit?.pageHeightPx} (=> expected height ${((visit?.pageHeightPx ?? 0) * theme.plate.pxToVisualRatio).toFixed(1)}px before clamping to [${theme.plate.minHeight}, ${theme.plate.maxHeight}]), ` +
+      `viewportFraction=${visit?.viewportFraction?.toFixed(4)} (=> 1vh mark spacing on this plate should be ${((visit?.viewportFraction ?? 0) * height).toFixed(1)}px, plate should show ${(1 / (visit?.viewportFraction || 1)).toFixed(2)} marks' worth)`
+  );
+
   if (geometry === null) {
     return (
       <rect
