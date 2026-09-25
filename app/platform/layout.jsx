@@ -1,5 +1,6 @@
 // app/platform/layout.jsx
 import { getAuthUser, getUserSite, getAllUserSites, getPlanLabel } from "@/lib/actions/permission.actions";
+import { getMyProfile } from "@/lib/actions/profile.actions";
 import {
   SidebarInset, SidebarProvider, SidebarTrigger,
 } from "@/components/ui/sidebar";
@@ -11,6 +12,7 @@ export default async function PlatformLayout({ children }) {
   const site = await getUserSite(user.id);
   const userPlan = await getPlanLabel();
   const allSites = await getAllUserSites(user.id);
+  const profile = await getMyProfile();
 
   return (
     <SidebarProvider>
@@ -18,6 +20,7 @@ export default async function PlatformLayout({ children }) {
         userPlan={userPlan}
         sites={allSites ?? []}
         currentSiteId={site?.id ?? null}
+        userProfile={profile}
       />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b">

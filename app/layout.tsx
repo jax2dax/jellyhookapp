@@ -35,7 +35,7 @@ export default function RootLayout({
       {/* <AppSidebar userPlan={userPlan} siteDomain={site.domain} /> */}
       
         {/* ... */}
-      
+      <Analytics/>
         <ThemeProvider
             attribute="class"
             defaultTheme="system"

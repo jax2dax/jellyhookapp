@@ -11,7 +11,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -21,8 +20,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, SparklesIcon, BadgeCheckIcon, CreditCardIcon, BellIcon, Settings ,LogOutIcon } from "lucide-react"
-import { useUser } from "@clerk/nextjs"
+import { ChevronsUpDownIcon, SparklesIcon, BellIcon, Settings, LogOutIcon } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useClerk } from "@clerk/nextjs"
+
 export function NavUser({
   user,
 }: {
@@ -33,6 +34,8 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const { signOut } = useClerk()
+  const router = useRouter()
 
   return (
     <SidebarMenu>
@@ -60,57 +63,26 @@ export function NavUser({
             align="end"
             sideOffset={4}
           >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name}</span>
-                  <span className="truncate text-xs">{user.email}</span>
-                </div>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <SparklesIcon
-                />
-                <a href="/platform/subscription">Upgrade</a>
+              <DropdownMenuItem onSelect={() => router.push("/platform/subscription")}>
+                <SparklesIcon />
+                Upgrade
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem></DropdownMenuItem>
             <DropdownMenuGroup>
-
-              
-              {/* <DropdownMenuItem>
-                 <BadgeCheckIcon
-                />
-                Account 
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                 <CreditCardIcon />
-                
-                billing 
-              </DropdownMenuItem> */}
-              
-              <DropdownMenuItem>
-                <Settings
-                />
+              <DropdownMenuItem onSelect={() => router.push("/platform/user")}>
+                <Settings />
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <BellIcon
-                />
-                <a href="/platform/network">Notifications</a>
+              <DropdownMenuItem onSelect={() => router.push("/platform/network")}>
+                <BellIcon />
+                Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <LogOutIcon
-              />
+            <DropdownMenuItem variant="destructive" onSelect={() => signOut({ redirectUrl: "/" })}>
+              <LogOutIcon />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>

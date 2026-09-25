@@ -67,16 +67,34 @@ function BrandMark() {
   )
 }
 
+interface UserProfile {
+  email: string | null
+  first_name: string | null
+  last_name: string | null
+  pfp: string | null
+}
+
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   userPlan?: string
   siteDomain?: string | null
   sites?: any[]
   currentSiteId?: string | null
+  /** this app's own public.users row — see lib/actions/profile.actions.js. NavUser shows this, never the raw Clerk profile, so a display name/email customized on /platform/user is what appears here. */
+  userProfile?: UserProfile | null
 }
 
 
-export function AppSidebar({ userPlan = "free", siteDomain, sites, currentSiteId, ...props }: AppSidebarProps) {
-  const { user } = useUser()
+export function AppSidebar({ userPlan = "free", siteDomain, sites, currentSiteId, userProfile, ...props }: AppSidebarProps) {
+  // Fallback only — covers the sliver of time before the users row exists
+  // (webhook lag on a brand-new signup) or if it failed to load.
+  const { user: clerkUser } = useUser()
+
+  const dbName = [userProfile?.first_name, userProfile?.last_name].filter(Boolean).join(" ")
+  const navUser = {
+    name: dbName || clerkUser?.fullName || "User",
+    email: userProfile?.email || clerkUser?.primaryEmailAddress?.emailAddress || "",
+    avatar: userProfile?.pfp || clerkUser?.imageUrl || "",
+  }
 
   // Build nav items — locked items redirect to subscription page
    const navItems = NAV_ITEMS.map((item) => {
@@ -117,12 +135,8 @@ export function AppSidebar({ userPlan = "free", siteDomain, sites, currentSiteId
       </SidebarContent>
 
       <SidebarFooter>
-        {/* NavUser pulls from Clerk — shows avatar, email, logout */}
-        <NavUser user={{
-          name: user?.fullName ?? "User",
-          email: user?.primaryEmailAddress?.emailAddress ?? "",
-          avatar: user?.imageUrl ?? "",
-        }} />
+        {/* Sourced from our own public.users row, not raw Clerk — see navUser above */}
+        <NavUser user={navUser} />
       </SidebarFooter>
     </Sidebar>
   )

@@ -191,9 +191,19 @@ export async function POST(req: NextRequest) {
 
     // ─────────────────────────────────────────────────────────────────────
     // USER UPDATED
-    // Keeps email/avatar in sync with Clerk. Deliberately does NOT touch
-    // first_name/last_name — once someone has set a display name for this
-    // site (via Settings), a Clerk-side profile edit must never clobber it.
+    // Keeps avatar in sync with Clerk on every event — Clerk IS the source
+    // of truth for pfp (see components/app-sidebar.tsx's profile-picture
+    // editing, which goes through Clerk's own user.setProfileImage(), not a
+    // separate upload feature this app doesn't have).
+    //
+    // Deliberately does NOT touch first_name/last_name, and does NOT
+    // overwrite email once it's already set — once someone has customized
+    // either from /platform/user (see lib/actions/profile.actions.js
+    // updateMyProfile), a Clerk-side profile edit (e.g. changing their
+    // avatar, which fires this same event) must never clobber it. Email is
+    // only ever seeded from Clerk the FIRST time — a still-null email means
+    // this is effectively the first sync (e.g. a row created before this
+    // webhook existed, or the user.created insert somehow left it blank).
     // ─────────────────────────────────────────────────────────────────────
     if (eventType === 'user.updated') {
       const user = evt.data as any
@@ -202,13 +212,17 @@ export async function POST(req: NextRequest) {
         user.email_addresses?.[0]?.email_address ??
         null
 
+      const { data: existing } = await supabase.from('users').select('email').eq('id', user.id).maybeSingle()
+
+      const payload: { id: string; pfp: string | null; email?: string | null } = {
+        id: user.id,
+        pfp: user.image_url ?? null,
+      }
+      if (!existing?.email) payload.email = primaryEmail
+
       // upsert (not update) — covers a user.updated arriving for someone who
       // signed up before this webhook was wired up and has no row yet.
-      // Only email/pfp are in the payload, so an existing row's
-      // first_name/last_name are left untouched on conflict.
-      const { error } = await supabase
-        .from('users')
-        .upsert({ id: user.id, email: primaryEmail, pfp: user.image_url ?? null }, { onConflict: 'id' })
+      const { error } = await supabase.from('users').upsert(payload, { onConflict: 'id' })
 
       if (error) {
         console.error('[webhook] user.updated — DB update error:', error.message)
