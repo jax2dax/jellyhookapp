@@ -31,7 +31,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate, formatDuration, formatRelativeTime } from "@/lib/leadFormat";
-import { FramePlateChart, type SessionRaw } from "@/framePlate";
+import { FramePlateChart, resolveViewportHeightPx, type SessionRaw } from "@/framePlate";
+import { SessionSummaryDrawer } from "./SessionSummaryDrawer";
 import { buildSessionsRaw } from "@/lib/leadSessions/transform";
 import { getLeadSessionRows, getLeadPageStructureRows } from "@/lib/actions/leadSessions.action";
 import {
@@ -308,6 +309,11 @@ export function LeadSessionExplorer({
           <FramePlateChart session={selectedSession} deviceType={deviceType} />
         </div>
       )}
+
+      {/* Separate from the chart itself — same fallback viewport the chart
+          resolved from deviceType, so "headers seen" here never disagrees
+          with what the plate above is currently drawing as seen/unseen. */}
+      {selectedSession && <SessionSummaryDrawer key={selectedSession.id} session={selectedSession} fallbackViewportHeightPx={resolveViewportHeightPx(undefined, deviceType)} />}
     </div>
   );
 }
