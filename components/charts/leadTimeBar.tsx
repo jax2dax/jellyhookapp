@@ -43,64 +43,69 @@ function truncate(label: string, max = 28) {
 }
 
 // The card this chart lives in must never grow without bound as a lead
-// visits more and more pages — cap the total height, and once a session has
-// enough visits to hit that cap, shrink every row (and the bars within them)
-// proportionally instead of letting rows overflow or get clipped. A row
-// never shrinks below MIN_ROW_HEIGHT — beyond that point the chart is simply
-// as dense as it can legibly get, capped height or not.
-const MIN_HEIGHT = 120;
-const MAX_HEIGHT = 360;
+// visits more and more pages. Rows stay a fixed, legible height — instead of
+// shrinking them to fit (which made hover targets thin and, combined with
+// the duplicate-category bug below, produced visibly wrong tooltip data),
+// the VISIBLE area caps at MAX_VISIBLE_HEIGHT and scrolls vertically once a
+// session has more pages than that.
+const MIN_HEIGHT = 96;
+const MAX_VISIBLE_HEIGHT = 208;
 const CHART_PADDING = 16;
-const BASE_ROW_HEIGHT = 34;
-const MIN_ROW_HEIGHT = 13;
+const ROW_HEIGHT = 34;
+const BAR_SIZE = 18;
 
 export function LeadTimeBar({ data }: { data: LeadTimeBarDatum[] }) {
   if (!data.length) {
     return <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">No page activity recorded.</div>;
   }
 
-  const chartData = data.map((d) => ({ ...d, displayLabel: truncate(d.label) }));
+  // Recharts' category axis dedupes rows that share the same dataKey VALUE —
+  // two visits to the same page path (very common in a path-to-conversion,
+  // e.g. a visitor bouncing back to /pricing) would otherwise collapse onto
+  // ONE tick, so hovering the tallest bar could resolve to whichever OTHER
+  // row happened to share its label, showing that row's (often much
+  // shorter) duration instead — this is exactly the "says 0 visits on the
+  // longest bar" bug. Giving every row a unique `rowId` for the axis key,
+  // and rendering the human-readable text via tickFormatter, keeps every
+  // row addressable on its own regardless of duplicate page paths.
+  const chartData = data.map((d, i) => ({ ...d, rowId: `row-${i}`, displayLabel: truncate(d.label) }));
+  const labelByRowId = new Map(chartData.map((d) => [d.rowId, d.displayLabel]));
 
-  const uncappedHeight = chartData.length * BASE_ROW_HEIGHT + CHART_PADDING;
-  const height = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, uncappedHeight));
-  // Once rows no longer fit at BASE_ROW_HEIGHT within MAX_HEIGHT, shrink
-  // every row down to whatever height actually fits (never below
-  // MIN_ROW_HEIGHT) — this is what keeps the card's height itself bounded.
-  const rowHeight = uncappedHeight > MAX_HEIGHT ? Math.max(MIN_ROW_HEIGHT, (MAX_HEIGHT - CHART_PADDING) / chartData.length) : BASE_ROW_HEIGHT;
-  const compact = rowHeight < BASE_ROW_HEIGHT;
-  const barSize = Math.max(3, Math.min(18, rowHeight * 0.55));
-  const tickFontSize = rowHeight < 20 ? 9 : 11;
+  const contentHeight = chartData.length * ROW_HEIGHT + CHART_PADDING;
+  const visibleHeight = Math.min(MAX_VISIBLE_HEIGHT, Math.max(MIN_HEIGHT, contentHeight));
+  const scrollable = contentHeight > MAX_VISIBLE_HEIGHT;
 
   return (
-    <div style={{ width: "100%", height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 24, left: 4, bottom: 4 }} barCategoryGap={compact ? 2 : "22%"}>
-          <XAxis type="number" hide />
-          <YAxis
-            type="category"
-            dataKey="displayLabel"
-            width={140}
-            tick={{ fill: "var(--muted-foreground)", fontSize: tickFontSize }}
-            axisLine={false}
-            tickLine={false}
-            interval={0}
-          />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
-          <Bar dataKey="timeMs" radius={[0, 4, 4, 0]} barSize={barSize}>
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill="var(--primary)" opacity={entry.highlight ? 1 : 0.45} />
-            ))}
-            {!compact && (
+    <div style={{ width: "100%", height: visibleHeight, overflowY: scrollable ? "auto" : "hidden" }}>
+      <div style={{ width: "100%", height: contentHeight }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 24, left: 4, bottom: 4 }} barCategoryGap="22%">
+            <XAxis type="number" hide />
+            <YAxis
+              type="category"
+              dataKey="rowId"
+              tickFormatter={(rowId: string) => labelByRowId.get(rowId) ?? ""}
+              width={140}
+              tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              interval={0}
+            />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
+            <Bar dataKey="timeMs" radius={[0, 4, 4, 0]} barSize={BAR_SIZE}>
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill="var(--primary)" opacity={entry.highlight ? 1 : 0.45} />
+              ))}
               <LabelList
                 dataKey="timeMs"
                 position="right"
                 formatter={(v: React.ReactNode) => formatDuration(Number(v))}
                 style={{ fill: "var(--foreground)", fontSize: 11 }}
               />
-            )}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

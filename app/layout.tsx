@@ -4,6 +4,7 @@ import { ClerkProvider, Show, SignInButton, SignUpButton, UserButton } from '@cl
 import { ThemeProvider } from "@/components/theme-provider"
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next"
+import Script from 'next/script'
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -16,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Jellyhook",
-  description: "Generate Lead",
+  description: "Lead Intelligence Platform",
 };
 
 export default function RootLayout({
@@ -26,7 +27,18 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      
+       <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-055K1J7VB9"
+          strategy="beforeInteractive"
+        />
+        <Script id="google-tag" strategy="beforeInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-055K1J7VB9');
+          `}
+        </Script>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

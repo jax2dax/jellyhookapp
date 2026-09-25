@@ -6,9 +6,8 @@ import { getAuthUser } from "@/lib/actions/permission.actions";
 // import { getUserSite } from "@/lib/actions/site-management.actions";
 import { getUserSite } from "@/lib/actions/permission.actions";
 import { getMembers } from "@/lib/actions/settings.actions";
-import { getMyProfile } from "@/lib/actions/profile.actions";
+import { getVisitorCount } from "@/lib/actions/supabase.actions";
 import SettingsClient from "./SettingsClients";
-import ProfileSettings from "@/components/ProfileSettings";
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
@@ -27,7 +26,7 @@ export default async function SettingsPage() {
 
   // Fetch members — will find the owner row that getUserSite just backfilled
   const members = site ? await getMembers(site.id) : [];
-  const profile = await getMyProfile();
+  const visitorCount = site ? await getVisitorCount(site.id) : 0;
 
   console.log(`[settings/page] members count=${members.length}`, members.map(m => ({ email: m.user_email, role: m.role })));
 
@@ -47,11 +46,6 @@ export default async function SettingsPage() {
       </header>
 
       <div className="flex flex-1 flex-col gap-4 p-6 pt-2">
-        <div className="mb-2 text-base font-semibold text-foreground">Profile</div>
-        <ProfileSettings profile={profile} />
-
-        <div className="mt-4 mb-2 text-base font-semibold text-foreground">Site Settings</div>
-
         {!site ? (
           <div className="rounded-lg border bg-card p-6">
             <div className="mb-3 text-sm text-muted-foreground">No site connected.</div>
@@ -67,6 +61,7 @@ export default async function SettingsPage() {
             site={site}
             initialMembers={members}
             currentUserId={user.id}
+            visitorCount={visitorCount}
           />
         )}
       </div>

@@ -33,7 +33,13 @@ export default async function PlatformLayout({ children }) {
             {/* optional breadcrumb slot */}
           </div>
         </header>
-        <div className="flex flex-1 flex-col">{children}</div>
+        {/* min-w-0: this is a flex column, and flex items don't shrink below
+            their content's intrinsic width by default — a page that renders
+            something wide (e.g. FramePlateChart's session strip) would grow
+            THIS box to match instead of letting that content scroll inside
+            its own bounded card, dragging the whole platform shell into
+            horizontal scroll. min-w-0 removes that floor. */}
+        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

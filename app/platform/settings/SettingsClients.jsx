@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { Users } from "lucide-react";
 import {
   updateSiteDomain,
   updateSiteName,
@@ -15,6 +16,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+
+function SectionLabel({ children }) {
+  return <div className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">{children}</div>;
+}
+
+// One value in the "Overview" flex row — sizes to its own content instead of
+// a fixed grid track, and wraps onto a new line on narrow screens rather
+// than the whole row getting squeezed. This is what replaces the old
+// "one small fat Card per fact" layout (Site ID / Plan / Event Limit /
+// Created each in their own full-width Card, stacked all the way down).
+function Fact({ label, value, mono = false }) {
+  return (
+    <div className="min-w-[140px] flex-1 basis-40">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`mt-0.5 text-sm break-all text-foreground ${mono ? "font-mono" : ""}`}>{value}</div>
+    </div>
+  );
+}
 
 // ─── StatusBadge ─────────────────────────────────────────
 function StatusBadge({ active }) {
@@ -254,7 +273,7 @@ function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId }) {
 }
 
 // ─── Main SettingsClient ──────────────────────────────────
-export default function SettingsClient({ site: initialSite, initialMembers, currentUserId }) {
+export default function SettingsClient({ site: initialSite, initialMembers, currentUserId, visitorCount = 0 }) {
   const [site, setSite] = useState(initialSite);
   const [confirm, setConfirm] = useState(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
@@ -299,100 +318,114 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
   const trackerScript = `<script src="http://localhost:3000/tracker.js" data-key="${site.api_key}"></script>`; // 🚀 DEPLOY
 
   return (
-    <div className="flex max-w-xl flex-col gap-3">
-      {/* SITE INFO */}
-      <div className="mb-1 text-xs tracking-wide text-muted-foreground">SITE INFORMATION</div>
-      <EditableRow label="Site Name" value={site.name ?? ""} placeholder="My Site" onSave={handleUpdateName} />
-      <EditableRow label="Domain" value={site.domain ?? ""} placeholder="yourdomain.com" onSave={handleUpdateDomain} />
+    <div className="flex w-full max-w-6xl flex-col gap-6">
+      {/* SITE NAME + DOMAIN — the two actually-editable fields, side by side rather than one below the other */}
+      <section>
+        <SectionLabel>Site information</SectionLabel>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <EditableRow label="Site Name" value={site.name ?? ""} placeholder="My Site" onSave={handleUpdateName} />
+          <EditableRow label="Domain" value={site.domain ?? ""} placeholder="yourdomain.com" onSave={handleUpdateDomain} />
+        </div>
+      </section>
 
-      {[
-        { label: "Site ID", value: site.id },
-        { label: "Plan", value: site.plan ?? "free" },
-        { label: "Event Limit", value: site.monthly_event_limit?.toLocaleString() ?? "—" },
-        { label: "Created", value: new Date(site.created_at).toLocaleDateString() },
-      ].map((row) => (
-        <Card key={row.label}>
-          <CardContent>
-            <div className="mb-1 text-xs text-muted-foreground">{row.label}</div>
-            <div className="text-sm break-all text-foreground">{row.value}</div>
+      {/* OVERVIEW — one flexible card whose facts wrap and size to their own
+          content (flex-wrap, no fixed grid track), instead of five separate
+          fat single-line Cards stacked all the way down the page. */}
+      <section>
+        <SectionLabel>Overview</SectionLabel>
+        <Card>
+          <CardContent className="flex flex-wrap gap-6">
+            <Fact label="Site ID" value={site.id} mono />
+            <Fact label="Plan" value={site.plan ?? "free"} />
+            <Fact label="Event Limit" value={site.monthly_event_limit?.toLocaleString() ?? "—"} />
+            <Fact label="Created" value={new Date(site.created_at).toLocaleDateString()} />
+            <Fact
+              label="Teams involved"
+              value={
+                <span className="inline-flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                  {visitorCount.toLocaleString()}
+                </span>
+              }
+            />
+            <div className="min-w-[140px] flex-1 basis-40">
+              <div className="text-xs text-muted-foreground">Status</div>
+              <div className="mt-1 flex items-center gap-2">
+                <StatusBadge active={site.is_active} />
+                <Button size="xs" variant={site.is_active ? "destructive" : "default"} onClick={handleToggleActive}>
+                  {site.is_active ? "Pause" : "Resume"}
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
-      ))}
-
-      {/* Status toggle */}
-      <Card>
-        <CardContent className="flex items-center justify-between">
-          <div>
-            <div className="mb-1.5 text-xs text-muted-foreground">Status</div>
-            <StatusBadge active={site.is_active} />
-          </div>
-          <Button size="sm" variant={site.is_active ? "destructive" : "default"} onClick={handleToggleActive}>
-            {site.is_active ? "Pause Tracking" : "Resume Tracking"}
-          </Button>
-        </CardContent>
-      </Card>
+      </section>
 
       {/* TEAM MEMBERS */}
-      <div className="mt-2 mb-1 text-xs tracking-wide text-muted-foreground">TEAM MEMBERS</div>
-      <TeamMembers siteId={site.id} initialMembers={initialMembers} currentUserId={currentUserId} siteOwnerId={site.user_id} />
+      <section>
+        <SectionLabel>Team members</SectionLabel>
+        <TeamMembers siteId={site.id} initialMembers={initialMembers} currentUserId={currentUserId} siteOwnerId={site.user_id} />
+      </section>
 
-      {/* API KEY */}
-      <div className="mt-2 mb-1 text-xs tracking-wide text-muted-foreground">API KEY</div>
-      <Card>
-        <CardContent>
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-xs text-muted-foreground">API Key</div>
-            <div className="flex gap-1.5">
-              <CopyButton text={site.api_key} />
-              <Button
-                size="xs"
-                variant="destructive"
-                onClick={() => {
-                  setConfirm("regenerate");
-                  setConfirmError(null);
-                }}
-              >
-                Regenerate
-              </Button>
+      {/* API KEY + TRACKER SCRIPT — side by side on wide screens instead of
+          each hogging a full row underneath the other. */}
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card>
+          <CardContent>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">API Key</div>
+              <div className="flex gap-1.5">
+                <CopyButton text={site.api_key} />
+                <Button
+                  size="xs"
+                  variant="destructive"
+                  onClick={() => {
+                    setConfirm("regenerate");
+                    setConfirmError(null);
+                  }}
+                >
+                  Regenerate
+                </Button>
+              </div>
             </div>
-          </div>
-          <div className="font-mono text-sm break-all tracking-wide text-foreground">{site.api_key}</div>
-          <div className="mt-2 text-xs text-muted-foreground">⚠ Regenerating will break any live tracker scripts using the current key.</div>
-        </CardContent>
-      </Card>
+            <div className="font-mono text-sm break-all tracking-wide text-foreground">{site.api_key}</div>
+            <div className="mt-2 text-xs text-muted-foreground">⚠ Regenerating will break any live tracker scripts using the current key.</div>
+          </CardContent>
+        </Card>
 
-      {/* TRACKER SCRIPT */}
-      <div className="mt-2 mb-1 text-xs tracking-wide text-muted-foreground">TRACKER SCRIPT</div>
-      <Card>
-        <CardContent>
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-xs text-muted-foreground">Paste into your site&apos;s &lt;head&gt;</div>
-            <CopyButton text={trackerScript} />
-          </div>
-          <div className="font-mono text-xs leading-relaxed break-all text-primary">{trackerScript}</div>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardContent>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">Paste into your site&apos;s &lt;head&gt;</div>
+              <CopyButton text={trackerScript} />
+            </div>
+            <div className="font-mono text-xs leading-relaxed break-all text-primary">{trackerScript}</div>
+          </CardContent>
+        </Card>
+      </section>
 
       {/* DANGER ZONE */}
-      <div className="mt-2 mb-1 text-xs tracking-wide text-muted-foreground">DANGER ZONE</div>
-      <Card className="border-destructive/40">
-        <CardContent className="flex items-center justify-between">
-          <div>
-            <div className="mb-1 text-sm text-destructive">Deactivate Site</div>
-            <div className="text-xs text-muted-foreground">Stops all tracking. Your data is preserved.</div>
-          </div>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => {
-              setConfirm("deactivate");
-              setConfirmError(null);
-            }}
-          >
-            Deactivate
-          </Button>
-        </CardContent>
-      </Card>
+      <section>
+        <SectionLabel>Danger zone</SectionLabel>
+        <Card className="border-destructive/40">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="mb-1 text-sm text-destructive">Deactivate Site</div>
+              <div className="text-xs text-muted-foreground">Stops all tracking. Your data is preserved.</div>
+            </div>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => {
+                setConfirm("deactivate");
+                setConfirmError(null);
+              }}
+            >
+              Deactivate
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
 
       {/* CONFIRMATION MODAL */}
       {confirm && (

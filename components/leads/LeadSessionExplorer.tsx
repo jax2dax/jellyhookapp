@@ -319,11 +319,24 @@ export function LeadSessionExplorer({
       )}
 
       {selectedSession && (
-        <div className="rounded-md border bg-card/50 p-3">
+        // w-full + min-w-0 + overflow-hidden: without these, a long session
+        // (many page-visit frames) makes FramePlateChart's inner SVG wider
+        // than the card — and since this div sits inside flex/grid ancestors
+        // (SidebarInset, the platform layout's flex column) that don't
+        // shrink their children below content size by default, THIS box
+        // itself was growing to match the SVG's width instead of clipping
+        // it, dragging the whole page into horizontal scroll. min-w-0
+        // overrides that "never shrink below content" default; overflow-
+        // hidden then guarantees anything still wider is clipped right here
+        // rather than escaping upward — FramePlateChart's own inner div
+        // already scrolls horizontally on its own (see SessionStrip), so
+        // this box is only a backstop, not the intended scroll surface.
+        <div className="w-full min-w-0 overflow-hidden rounded-md border bg-card/50 p-3">
           <FramePlateChart
             session={selectedSession}
             deviceType={deviceType}
             onSelectItem={(item, meta) => setSelectedFrame(item ? { item, isLastVisit: meta.isLastVisit } : null)}
+            className="w-full min-w-0"
           />
         </div>
       )}
