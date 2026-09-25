@@ -307,7 +307,18 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
     <main
       data-slot="sidebar-inset"
       className={cn(
-        "relative flex w-full flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",
+        // min-w-0: this is the flex-1 item in SidebarProvider's ROW flex
+        // (sidebar-gap + this, side by side) — a row-flex item's automatic
+        // minimum width defaults to its content's min-content size, not 0,
+        // regardless of flex-basis. Without min-w-0 here, any wide content
+        // rendered anywhere inside a page (e.g. FramePlateChart's session
+        // strip for a long session) grows THIS element past the available
+        // viewport width instead of staying clipped/scrollable inside its
+        // own card, dragging the whole app shell into horizontal scroll —
+        // and since every page's content sits inside this one shared
+        // element, no amount of overflow-hidden/min-w-0 further down the
+        // tree can fix it; it has to be set here, at the actual flex item.
+        "relative flex w-full min-w-0 flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",
         className
       )}
       {...props}
