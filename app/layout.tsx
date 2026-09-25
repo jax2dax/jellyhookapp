@@ -18,7 +18,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Jellyhook",
   description: "Lead Intelligence Platform",
+  verification: {
+    google: "fijlxhgxBZmHouzyiGo4NwfsBWsrWr_c9QcOHGeftoo",
+  },
 };
+
 
 export default function RootLayout({
   children,
@@ -27,18 +31,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-       <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-055K1J7VB9"
-          strategy="beforeInteractive"
-        />
-        <Script id="google-tag" strategy="beforeInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-055K1J7VB9');
-          `}
-        </Script>
+       <head>
+        <Script
+            src="https://www.googletagmanager.com/gtag/js?id=G-055K1J7VB9"
+            strategy="beforeInteractive"
+          />
+          <Script id="google-tag" strategy="beforeInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-055K1J7VB9');
+            `}
+          </Script>
+        </head>
+        <meta name="google-site-verification" content="fijlxhgxBZmHouzyiGo4NwfsBWsrWr_c9QcOHGeftoo" />
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
