@@ -84,7 +84,7 @@ export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem,
       });
 
       const totalWidth = Math.max(0, x - theme.frame.gap);
-      const ribbonLabelSpace = theme.ribbon.gap + theme.ribbon.labelFontSize * 1.6;
+      const ribbonLabelSpace = theme.ribbon.enabled ? theme.ribbon.gap + theme.ribbon.labelFontSize * 1.6 : 0;
       const topOffset = theme.frame.pathLabelHeight;
       const totalHeight = topOffset + theme.frame.height + ribbonLabelSpace;
 

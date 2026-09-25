@@ -194,6 +194,8 @@ export interface FramePlateTheme {
     pathLabelFontSize: number;
   };
   ribbon: {
+    /** false hides the duration ribbon entirely, including the space it reserves below each frame — for compact/preview variants of the chart */
+    enabled: boolean;
     color: string;
     thickness: number;
     tickHeight: number;

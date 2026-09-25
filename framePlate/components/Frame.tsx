@@ -152,7 +152,7 @@ export function Frame(props: FrameProps) {
         </g>
       )}
 
-      <DurationRibbon width={width} durationMs={item.durationMs} y={frameHeight + theme.ribbon.gap} theme={theme} />
+      {theme.ribbon.enabled && <DurationRibbon width={width} durationMs={item.durationMs} y={frameHeight + theme.ribbon.gap} theme={theme} />}
 
       {/* hover overlay — darkens only this frame, fades in after the SessionStrip delay */}
       <rect

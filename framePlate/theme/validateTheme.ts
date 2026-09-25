@@ -143,6 +143,7 @@ export function validateTheme(userTheme?: DeepPartial<FramePlateTheme>): { theme
     }
 
     const ribbon = {
+      enabled: typeof t.ribbon?.enabled === "boolean" ? t.ribbon.enabled : defaultTheme.ribbon.enabled,
       color: pick("ribbon.color", t.ribbon?.color, defaultTheme.ribbon.color, isNonEmptyString, warnings),
       thickness: pick("ribbon.thickness", t.ribbon?.thickness, defaultTheme.ribbon.thickness, isPositiveNumber, warnings),
       tickHeight: pick("ribbon.tickHeight", t.ribbon?.tickHeight, defaultTheme.ribbon.tickHeight, isPositiveNumber, warnings),

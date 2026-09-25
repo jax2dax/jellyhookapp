@@ -22,6 +22,27 @@ export const mobilePlate: DeepPartial<FramePlateTheme> = {
   header: { widthPx: 20, segments: 7, offsetX: 7 },
 };
 
+// Compact variant for small "advertisement" previews of the chart (e.g. a
+// shortcut card on the dashboard overview) — not a device preset, applied by
+// the caller explicitly on top of whatever device preset already merged in.
+// Shrinks every size-related knob so a whole session fits in a small card;
+// the duration ribbon is turned off entirely (see ribbon.enabled) and the
+// "1vh" marks are hidden by the caller passing viewportHeightPx={0} to
+// FramePlateChart — that's a separate, existing opt-out (see
+// resolveViewportHeightPx), not something this preset controls.
+export const miniPlate: DeepPartial<FramePlateTheme> = {
+  plate: { width: 40, minHeight: 22, maxHeight: 84, pxToVisualRatio: 0.035, cornerRadius: 1, borderWidth: 1 },
+  frame: { height: 100, minWidth: 46, typicalWidth: 62, maxWidth: 110, padding: 6, gap: 5, pathLabelHeight: 12, pathLabelFontSize: 8 },
+  header: { heightPx: 2, widthPx: 8, segments: 3, offsetX: 3 },
+  ribbon: { enabled: false },
+  bulbs: {
+    enter: { length: 4, thickness: 2 },
+    exit: { length: 5, thickness: 2 },
+    deepestScroll: { length: 8, thickness: 2 },
+    converted: { length: 12, thickness: 2 },
+  },
+};
+
 /** Returns the plate preset for a device type, or undefined for unknown/other — caller falls back to defaultTheme as-is. */
 export function plateForDevice(deviceType: DeviceType | string | null | undefined): DeepPartial<FramePlateTheme> | undefined {
   if (deviceType === "mobile" || deviceType === "tablet") return mobilePlate;

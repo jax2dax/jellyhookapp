@@ -14,6 +14,7 @@ import { getSitePagesOverview } from "@/lib/actions/pagesOverview.action";
 import { getIntentFailureAnalysis } from "@/lib/actions/intentFailure.action";
 import { VisitsOverTimeChart } from "@/components/charts/visitsOverTime";
 import { PageViewsBar } from "@/components/charts/pageViewsBar";
+import { FramePlatePreviewCard } from "@/components/dashboard/FramePlatePreviewCard";
 import { StatTile } from "@/components/StatTile";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,6 +44,8 @@ export default async function OverviewPage() {
   const conversionRate = totalSessions > 0 ? (totalLeads / totalSessions) * 100 : 0;
   const totalDeviceCount = deviceBreakdown.reduce((sum, d) => sum + d.count, 0);
   const totalCountrySessions = countryBreakdown.reduce((sum, c) => sum + c.sessions, 0);
+
+  const previewVisitorIds = Array.from(new Set(leads.map((l) => l.visitor_id).filter(Boolean)));
 
   const healthPages = health?.pages ?? [];
   const avgHealthScore = healthPages.length ? healthPages.reduce((s, p) => s + p.intentFailureScore, 0) / healthPages.length : null;
@@ -204,6 +207,9 @@ export default async function OverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── FramePlate preview: shortcut ad for the full lead-session chart ── */}
+      <FramePlatePreviewCard siteId={site.id} visitorIds={previewVisitorIds} />
 
       {/* ── Live activity ───────────────────────────────────────────── */}
       <Card>

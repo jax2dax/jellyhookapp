@@ -56,6 +56,7 @@ export const defaultTheme: FramePlateTheme = {
     pathLabelFontSize: 11,
   },
   ribbon: {
+    enabled: true,
     color: "var(--fp-ribbon, #c9c9c9)",
     thickness: 3,
     tickHeight: 16,
