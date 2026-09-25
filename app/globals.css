@@ -1,5 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Merienda:wght@300..900&family=Nabla&family=Saira:ital,wght@0,100..900;1,100..900&family=Varela+Round&display=swap');
+/* @import url('https://fonts.googleapis.com/css2?family=Merienda:wght@300..900&family=Nabla&family=Saira:ital,wght@0,100..900;1,100..900&family=Varela+Round&display=swap'); */
+/* @import url('https://fonts.googleapis.com/css2?family=Audiowide&family=Covered+By+Your+Grace&family=Finlandica+Headline:ital,wght@0,100..900;1,100..900&family=Manrope:wght@200..800&family=Rock+Salt&display=swap'); */
+@import url('https://fonts.googleapis.com/css2?family=Amaranth:ital,wght@0,400;0,700;1,400;1,700&family=Audiowide&family=Covered+By+Your+Grace&family=Finlandica+Headline:ital,wght@0,100..900;1,100..900&family=Manrope:wght@200..800&family=Rock+Salt&display=swap');
 @import "tailwindcss";
+
 /* @import "tw-animate-css";
 @import "shadcn/tailwind.css"; */
 
@@ -9,12 +12,19 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   /* --font-sans: var(--font-sans); */
-   --font-sans: "Varela Round", sans-serif;
+  
   
   /* If you also want to bring in Merienda or Nabla from your embed code: */
   --font-display: "Merienda", cursive;
   --font-accent: "Nabla", system-ui;
   /**/
+   /* ── Tailwind v4 Mappings for your 5 New Fonts ── */
+  --font-manrope: "Manrope", sans-serif;
+  --font-rock-salt: "Rock Salt", cursive;
+  --font-covered-grace: "Covered By Your Grace", cursive;
+  --font-audiowide: "Audiowide", sans-serif;
+  --font-finlandica: "Finlandica Headline", sans-serif;
+  /* ────────────────────────────────────────────── */
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
