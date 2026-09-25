@@ -12,6 +12,9 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -20,9 +23,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, SparklesIcon, BellIcon, Settings, LogOutIcon } from "lucide-react"
+import { ChevronsUpDownIcon, SparklesIcon, BellIcon, Settings, LogOutIcon, SunIcon, MoonIcon, MonitorIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useClerk } from "@clerk/nextjs"
+import { useTheme } from "next-themes"
 
 export function NavUser({
   user,
@@ -36,6 +40,7 @@ export function NavUser({
   const { isMobile } = useSidebar()
   const { signOut } = useClerk()
   const router = useRouter()
+  const { theme, setTheme } = useTheme()
 
   return (
     <SidebarMenu>
@@ -79,6 +84,29 @@ export function NavUser({
                 <BellIcon />
                 Notifications
               </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  {theme === "light" ? <SunIcon /> : theme === "dark" ? <MoonIcon /> : <MonitorIcon />}
+                  Theme
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onSelect={() => setTheme("light")}>
+                    <SunIcon />
+                    Light
+                    {theme === "light" && <span className="ml-auto text-xs text-muted-foreground">✓</span>}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setTheme("dark")}>
+                    <MoonIcon />
+                    Dark
+                    {theme === "dark" && <span className="ml-auto text-xs text-muted-foreground">✓</span>}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setTheme("system")}>
+                    <MonitorIcon />
+                    System
+                    {theme === "system" && <span className="ml-auto text-xs text-muted-foreground">✓</span>}
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => signOut({ redirectUrl: "/" })}>

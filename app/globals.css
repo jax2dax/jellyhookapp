@@ -69,13 +69,14 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: oklch(86.844% 0.00218 14.701);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(27.15% 0.06189 150.649);           /*--primary: oklch(0.205 0 0);*/
+  /* --primary: oklch(27.15% 0.06189 150.649);     */
+  --primary: oklch(73.831% 0.22895 145.058); 
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -173,5 +174,81 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* ── Gooey sidebar nav indicator (components/nav-main.tsx) ──────────────────
+   Each nav row gets its own blob (not one shared indicator sliding between
+   rows) — selecting a row grows a jelly-green blob rightward from the icon
+   to engulf the label; deselecting shrinks it back to the left. The actual
+   organic/melty edges come from the SVG "goo" filter (blur then sharpen the
+   alpha channel back up) defined once in nav-main.tsx and referenced here —
+   without it this would just be a rounded rectangle scaling in place. */
+.jh-goo-blob {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  filter: url(#jh-goo);
+}
+
+.jh-goo-blob::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--primary);
+  /* border-radius order: top-left top-right bottom-right bottom-left — kept
+     small on the two LEFT corners (squared-off, anchored edge) and large on
+     the two RIGHT corners (the organic, bubbly leading edge). */
+  border-radius: 14% 60% 55% 10% / 20% 55% 50% 15%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 480ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* a small trailing nodule near the bottom-left — the goo filter fuses it
+   into the main blob's edge, giving the "drip" look instead of a clean pill */
+.jh-goo-blob::after {
+  content: "";
+  position: absolute;
+  left: 10%;
+  bottom: 2px;
+  width: 30%;
+  height: 40%;
+  background: var(--primary);
+  border-radius: 50%;
+  transform: scale(0);
+  transform-origin: center;
+  transition: transform 420ms 40ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.jh-goo-blob--on::before {
+  transform: scaleX(1);
+  animation: jh-goo-wobble 3.6s ease-in-out infinite alternate;
+}
+
+.jh-goo-blob--on::after {
+  transform: scale(1);
+}
+
+@keyframes jh-goo-wobble {
+  0% {
+    border-radius: 14% 60% 55% 10% / 20% 55% 50% 15%;
+  }
+  50% {
+    border-radius: 10% 50% 65% 14% / 15% 45% 60% 20%;
+  }
+  100% {
+    border-radius: 16% 65% 48% 8% / 22% 60% 45% 12%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jh-goo-blob::before,
+  .jh-goo-blob::after {
+    transition: none;
+  }
+  .jh-goo-blob--on::before {
+    animation: none;
   }
 }
