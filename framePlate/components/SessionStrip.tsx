@@ -19,22 +19,42 @@ import { scaleFrameWidths, frameWidthConfigFromTheme } from "../geometry/scaleFr
 import { scalePlateHeights } from "../geometry/scalePlateHeight";
 import type { FramePlateTheme, TimelineItem } from "../types";
 
+export interface SessionSelectMeta {
+  /** true when the clicked visit is the last visit in the whole timeline — the page the session itself ended on (if it's not still live/converted) */
+  isLastVisit: boolean;
+}
+
 export interface SessionStripProps {
   timeline: TimelineItem[];
   theme: FramePlateTheme;
   hoverDelayMs?: number;
   onHoverItem?: (item: TimelineItem | null) => void;
+  /** fires with the clicked visit (or null when the already-selected one is clicked again, toggling it off) */
+  onSelectItem?: (item: TimelineItem | null, meta: SessionSelectMeta) => void;
   className?: string;
 }
 
-export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem, className }: SessionStripProps) {
+export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem, onSelectItem, className }: SessionStripProps) {
   // hoveredId fires onHoverItem immediately (so consumers like an info
   // panel feel responsive); activeHoverId is what actually drives the
   // darken overlay, and only flips on after hoverDelayMs of continuous
   // hover — sweeping the mouse across the strip shouldn't flash every
   // frame it passes over.
   const [activeHoverId, setActiveHoverId] = React.useState<string | null>(null);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Selection is scoped to whatever timeline is currently shown — switching
+  // to a different session's timeline shouldn't leave a stale frame pinned
+  // "selected" that no longer exists in the new one. Reset during render
+  // (React's documented pattern for this) rather than an effect, since an
+  // effect here would just cause an extra render with the stale selection
+  // still visible for one frame.
+  const [prevTimeline, setPrevTimeline] = React.useState(timeline);
+  if (timeline !== prevTimeline) {
+    setPrevTimeline(timeline);
+    setSelectedId(null);
+  }
 
   const layout = React.useMemo(() => {
     try {
@@ -102,6 +122,27 @@ export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem,
     hoverTimerRef.current = setTimeout(() => setActiveHoverId(item.id), hoverDelayMs);
   }
 
+  function handleClick(item: TimelineItem, index: number) {
+    if (item.kind !== "visit") return;
+    const nextSelectedId = selectedId === item.id ? null : item.id;
+    setSelectedId(nextSelectedId);
+    if (!onSelectItem) return;
+    if (nextSelectedId === null) {
+      onSelectItem(null, { isLastVisit: false });
+      return;
+    }
+    // "last visit" = the last VISIT-kind item in the timeline, not just the
+    // last item overall (a trailing away-gap frame can't be selected at all).
+    let lastVisitIndex = -1;
+    for (let j = timeline.length - 1; j >= 0; j--) {
+      if (timeline[j].kind === "visit") {
+        lastVisitIndex = j;
+        break;
+      }
+    }
+    onSelectItem(item, { isLastVisit: index === lastVisitIndex });
+  }
+
   return (
     <div className={className} style={{ overflowX: "auto", overflowY: "hidden" }}>
       <svg width={layout.totalWidth} height={layout.totalHeight} role="img" aria-label="Session activity chart">
@@ -109,7 +150,16 @@ export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem,
 
         {timeline.map((item, i) => (
           <g key={item.id} transform={`translate(${layout.positions[i]}, ${layout.topOffset})`}>
-            <Frame item={item} width={layout.widths[i]} plateHeight={layout.plateHeightByIndex[i]} theme={theme} darken={activeHoverId === item.id} onHover={handleHover} />
+            <Frame
+              item={item}
+              width={layout.widths[i]}
+              plateHeight={layout.plateHeightByIndex[i]}
+              theme={theme}
+              darken={activeHoverId === item.id}
+              selected={selectedId === item.id}
+              onHover={handleHover}
+              onClick={onSelectItem ? (clicked) => handleClick(clicked, i) : undefined}
+            />
           </g>
         ))}
       </svg>

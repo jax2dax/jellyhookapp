@@ -31,8 +31,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate, formatDuration, formatRelativeTime } from "@/lib/leadFormat";
-import { FramePlateChart, resolveViewportHeightPx, type SessionRaw } from "@/framePlate";
+import { FramePlateChart, resolveViewportHeightPx, type SessionRaw, type TimelineItem } from "@/framePlate";
 import { SessionSummaryDrawer } from "./SessionSummaryDrawer";
+import { SelectedFrameDetails } from "./SelectedFrameDetails";
 import { buildSessionsRaw } from "@/lib/leadSessions/transform";
 import { getLeadSessionRows, getLeadPageStructureRows } from "@/lib/actions/leadSessions.action";
 import {
@@ -128,6 +129,10 @@ export function LeadSessionExplorer({
   // with anything on every render.
   const [pageStructureRows, setPageStructureRows] = React.useState<PageStructureRow[]>(() => readInitialPageStructureCache(siteId));
   const [selectedSessionId, setSelectedSessionId] = React.useState<string | null>(null);
+  // Click-to-pin frame details — separate from hover. Cleared whenever the
+  // selected SESSION changes, since a frame id from one session's timeline
+  // means nothing in another's.
+  const [selectedFrame, setSelectedFrame] = React.useState<{ item: TimelineItem; isLastVisit: boolean } | null>(null);
   // 1 = the most recent SESSIONS_PAGE_SIZE sessions (a slice off the END of
   // the ascending array); 2 = the SESSIONS_PAGE_SIZE before that, etc. This
   // way "page 1" always means "latest" regardless of how many more sessions
@@ -160,6 +165,15 @@ export function LeadSessionExplorer({
   const effectiveSelectedId =
     selectedSessionId && sessionsRaw.some((s) => s.id === selectedSessionId) ? selectedSessionId : (sessionsRaw[sessionsRaw.length - 1]?.id ?? null);
   const selectedSession = sessionsRaw.find((s) => s.id === effectiveSelectedId) || null;
+
+  // A frame id only means something within the timeline it came from —
+  // switching sessions must drop whatever was pinned open. Reset during
+  // render (see SessionStrip's identical pattern) rather than an effect.
+  const [prevSelectedSessionId, setPrevSelectedSessionId] = React.useState(effectiveSelectedId);
+  if (effectiveSelectedId !== prevSelectedSessionId) {
+    setPrevSelectedSessionId(effectiveSelectedId);
+    setSelectedFrame(null);
+  }
 
   // ── Seed the sessions-tier cache with what the server already fetched ──
   // (zero extra network request on first paint — see leadProfile.actions.js,
@@ -306,13 +320,19 @@ export function LeadSessionExplorer({
 
       {selectedSession && (
         <div className="rounded-md border bg-card/50 p-3">
-          <FramePlateChart session={selectedSession} deviceType={deviceType} />
+          <FramePlateChart
+            session={selectedSession}
+            deviceType={deviceType}
+            onSelectItem={(item, meta) => setSelectedFrame(item ? { item, isLastVisit: meta.isLastVisit } : null)}
+          />
         </div>
       )}
 
+      {selectedFrame && <SelectedFrameDetails item={selectedFrame.item} isLastVisit={selectedFrame.isLastVisit} onClose={() => setSelectedFrame(null)} />}
+
       {/* Separate from the chart itself — same fallback viewport the chart
-          resolved from deviceType, so "headers seen" here never disagrees
-          with what the plate above is currently drawing as seen/unseen. */}
+          resolved from deviceType, so any seen/unseen math here never
+          disagrees with what the plate above is currently drawing. */}
       {selectedSession && <SessionSummaryDrawer key={selectedSession.id} session={selectedSession} fallbackViewportHeightPx={resolveViewportHeightPx(undefined, deviceType)} />}
     </div>
   );

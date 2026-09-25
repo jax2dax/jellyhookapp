@@ -60,19 +60,6 @@ export function SessionSummaryDrawer({ session, fallbackViewportHeightPx = 0, de
                 <Fact label="Total visit time" value={<Badge variant="outline">{formatDuration(summary.totalVisitTimeMs)}</Badge>} />
                 <Fact label="Total session duration" value={<Badge variant="outline">{summary.totalSessionDurationMs != null ? formatDuration(summary.totalSessionDurationMs) : "—"}</Badge>} />
                 {summary.timeOutsideMs > 0 && <Fact label="Time spent outside site" value={<Badge variant="outline">{formatDuration(summary.timeOutsideMs)}</Badge>} />}
-
-                {summary.headers.length > 0 && (
-                  <div className="pt-1">
-                    <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Headers seen</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {summary.headers.map((h) => (
-                        <Badge key={h.text} variant={h.seen ? "default" : "outline"} className={h.seen ? "" : "text-muted-foreground"}>
-                          {h.text}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="space-y-3">

@@ -17,7 +17,8 @@ export { scaleFrameWidths, frameWidthConfigFromTheme } from "./geometry/scaleFra
 export { scalePlateHeights } from "./geometry/scalePlateHeight";
 
 export { generateFakeSession, generateOutlierTestSession } from "./fakeData/generateFakeSession";
-export { formatFrameDuration } from "./format";
+export { formatFrameDuration, computeSeenBreakdown } from "./format";
+export type { SeenBreakdown } from "./format";
 
 export type {
   ScrollSample,

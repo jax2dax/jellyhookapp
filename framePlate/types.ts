@@ -270,5 +270,15 @@ export interface FramePlateChartProps {
    */
   deviceType?: DeviceType | string | null;
   onHoverItem?: (item: TimelineItem | null) => void;
+  /**
+   * Click-to-pin selection, separate from onHoverItem: fires with the clicked
+   * visit (or null if the already-selected frame was clicked again, toggling
+   * it off). `isLastVisit` tells the caller whether this is the page the
+   * session's timeline actually ends on — the fact "this page is where the
+   * session ended" isn't derivable from the item alone, since a mid-session
+   * page a visitor navigated away from normally also has outcome
+   * "exitedNormally".
+   */
+  onSelectItem?: (item: TimelineItem | null, meta: { isLastVisit: boolean }) => void;
   className?: string;
 }

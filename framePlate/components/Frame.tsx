@@ -13,6 +13,7 @@
 import * as React from "react";
 import { FullPagePlate } from "./FullPagePlate";
 import { DurationRibbon } from "./DurationRibbon";
+import { computeSeenBreakdown } from "../format";
 import type { FramePlateTheme, TimelineItem, VisitGeometry } from "../types";
 
 export interface FrameProps {
@@ -22,7 +23,10 @@ export interface FrameProps {
   theme: FramePlateTheme;
   /** true once this specific frame has been hovered past the hover delay */
   darken?: boolean;
+  /** true when this frame is the one currently pinned open in the click-to-select details panel */
+  selected?: boolean;
   onHover?: (item: TimelineItem | null) => void;
+  onClick?: (item: TimelineItem) => void;
 }
 
 interface FrameGeometry {
@@ -69,24 +73,6 @@ function pct(v: number): string {
   return `${(Math.max(0, v) * 100).toFixed(1)}%`;
 }
 
-/**
- * The full page height is 100%. Everything from the topmost-ever-visible
- * point down to seenBottom (the deepest viewport's BOTTOM edge, not just its
- * top) was on screen at least once; the "seen 2x+" band is the part of that
- * range revisited; "not seen" is whatever falls above or below.
- *
- * seenBottom, not maxScrollY, is the right end point — a visitor who never
- * scrolls still saw a full screen, and these percentages have to agree with
- * what the plate actually paints.
- */
-function computeSeenBreakdown(item: VisitGeometry) {
-  const { seenOnceTop, seenTwiceTop, seenBottom } = item;
-  const seenTwicePct = seenTwiceTop !== null ? Math.max(0, seenBottom - seenTwiceTop) : 0;
-  const seenOncePct = Math.max(0, (seenTwiceTop ?? seenBottom) - seenOnceTop);
-  const notSeenPct = Math.max(0, 1 - seenOncePct - seenTwicePct);
-  return { seenOncePct, seenTwicePct, notSeenPct };
-}
-
 const TOOLTIP_WIDTH = 190;
 const TOOLTIP_HEIGHT = 100;
 
@@ -127,7 +113,7 @@ function SeenTooltip({ item, theme }: { item: VisitGeometry; theme: FramePlateTh
 }
 
 export function Frame(props: FrameProps) {
-  const { item, width, plateHeight, theme, darken, onHover } = props;
+  const { item, width, plateHeight, theme, darken, selected, onHover, onClick } = props;
   const geometry = computeFrameGeometry(props);
   const frameHeight = theme.frame.height;
 
@@ -135,8 +121,15 @@ export function Frame(props: FrameProps) {
     return <rect width={Number.isFinite(width) && width > 0 ? width : theme.frame.minWidth} height={frameHeight} fill="#552222" stroke="#f00" strokeDasharray="4,4" />;
   }
 
+  const clickable = item.kind === "visit" && !!onClick;
+
   return (
-    <g onMouseEnter={() => onHover?.(item)} onMouseLeave={() => onHover?.(null)} style={{ cursor: onHover ? "pointer" : undefined }}>
+    <g
+      onMouseEnter={() => onHover?.(item)}
+      onMouseLeave={() => onHover?.(null)}
+      onClick={() => clickable && onClick!(item)}
+      style={{ cursor: onHover || clickable ? "pointer" : undefined }}
+    >
       {/* "away" gap frames have no plate breakdown to show — keep the plain native tooltip for those */}
       {item.kind === "gap" && <title>{`away — ${formatDurationShort(item.durationMs)}`}</title>}
 
@@ -147,6 +140,11 @@ export function Frame(props: FrameProps) {
       )}
 
       <rect width={width} height={frameHeight} fill={geometry.bg} />
+
+      {/* selection ring — pinned open in the click-to-select details panel, distinct from the hover darken overlay */}
+      {selected && (
+        <rect x={1} y={1} width={Math.max(0, width - 2)} height={Math.max(0, frameHeight - 2)} fill="none" stroke="#60a5fa" strokeWidth={2} rx={2} />
+      )}
 
       {item.kind === "visit" && (
         <g transform={`translate(${geometry.plateX}, ${geometry.plateY})`}>
