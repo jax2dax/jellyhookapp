@@ -136,25 +136,30 @@ function ProfileRow({
 }
 
 // ─── AvatarEditor ─────────────────────────────────────────
-// Goes straight through Clerk's own user.setProfileImage() rather than a
-// custom upload — this codebase has no object-storage/file-upload feature
-// at all (see SAAS_PRODUCT_AUDIT.md §17), and Clerk already hosts and
-// serves avatars for every account here. The result then reaches
-// public.users.pfp automatically via the user.updated webhook.
-function AvatarEditor({ fallbackSrc, name }: { fallbackSrc: string | null; name: string }) {
+// The picture shown is public.users.pfp — OUR database, not Clerk's own
+// imageUrl/hasImage — because Clerk always returns SOME image (an
+// auto-generated default) even when nobody's uploaded a real photo, and
+// that default must never be displayed as if it were this person's avatar.
+// pfp is only ever non-null when they've actually uploaded one (see the
+// has_image gate in app/api/webhooks/clerk/route.ts's user.created/updated
+// handlers) — a null pfp means the plain default icon below shows instead.
+//
+// Uploading still goes straight through Clerk's own user.setProfileImage()
+// rather than a custom upload (this codebase has no object-storage/upload
+// feature at all — see SAAS_PRODUCT_AUDIT.md §17, and Clerk already hosts
+// and serves avatars for every account here); the result reaches pfp
+// automatically via that same webhook. `justUploaded` is a purely optimistic
+// local override so the NEW photo appears immediately after upload instead
+// of waiting on the webhook round trip — it's what was just uploaded through
+// this exact flow, not a stand-in for Clerk's default.
+function AvatarEditor({ pfp, name }: { pfp: string | null; name: string }) {
   const { user } = useUser();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [justUploaded, setJustUploaded] = React.useState<string | null>(null);
 
-  const src = user?.imageUrl || fallbackSrc || undefined;
-  const initials = name
-    .split(" ")
-    .map((p) => p[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase() || "U";
+  const src = justUploaded ?? pfp ?? undefined;
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -163,7 +168,8 @@ function AvatarEditor({ fallbackSrc, name }: { fallbackSrc: string | null; name:
     setUploading(true);
     setError(null);
     try {
-      await user.setProfileImage({ file });
+      const updated = await user.setProfileImage({ file });
+      setJustUploaded(updated.publicUrl ?? user.imageUrl);
     } catch (err) {
       console.error("[UserPageClient] avatar upload failed:", err);
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -183,7 +189,9 @@ function AvatarEditor({ fallbackSrc, name }: { fallbackSrc: string | null; name:
       >
         <Avatar className="h-24 w-24 sm:h-28 sm:w-28">
           <AvatarImage src={src} alt={name} />
-          <AvatarFallback className="text-xl">{initials}</AvatarFallback>
+          <AvatarFallback className="bg-primary/10">
+            <UserIcon className="h-[55%] w-[55%] text-primary" />
+          </AvatarFallback>
         </Avatar>
         <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
           <Camera className="h-5 w-5 text-white" />
@@ -222,10 +230,10 @@ export default function UserPageClient({ profile, siteCount, subscription }: { p
             overflow past it, down into the card content below (email/logout
             area) — overflow-hidden above only clips at the CARD's own outer
             edges, not at this internal boundary, so nothing gets cut off. */}
-        <RandomIconBadge images={HALLOWEEN_ICONS} size={64} className="pointer-events-none absolute left-4 top-6 z-20 -rotate-6 select-none object-contain" />
+        <RandomIconBadge images={HALLOWEEN_ICONS} size={52} className="pointer-events-none absolute left-4 top-6 z-20 -rotate-6 select-none object-contain" />
 
         <CardContent className="relative -mt-12 flex flex-col gap-4 pb-6 sm:-mt-14 sm:flex-row sm:items-end">
-          <AvatarEditor fallbackSrc={current.pfp} name={fullName} />
+          <AvatarEditor pfp={current.pfp} name={fullName} />
 
           <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -272,7 +280,6 @@ export default function UserPageClient({ profile, siteCount, subscription }: { p
               <ProfileRow icon={PhoneIcon} label="Phone" value={current.phone != null ? String(current.phone) : ""} placeholder="+1 555 123 4567" type="tel" onSave={(v) => save({ phone: v })} />
             </CardContent>
           </Card>
-          <p className="mt-2 text-xs text-muted-foreground">This is your personal account info — never anything about a site. Site name, domain, and API key live in Settings.</p>
         </div>
 
         <div className="lg:col-span-2">

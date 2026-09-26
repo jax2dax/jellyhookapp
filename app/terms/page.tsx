@@ -18,7 +18,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
     body: (
       <p>
         You need an account, authenticated through our identity provider, to use Jellyhook. You&apos;re responsible for
-        keeping your account credentials and your site&apos;s API key confidential — the API key authenticates tracking
+        keeping your account credentials and your site&apos;s API key confidential. The API key authenticates tracking
         requests as coming from your site, so treat it like a secret. If you believe a key has been exposed, regenerate
         it from your site settings immediately.
       </p>
@@ -30,7 +30,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
       <p>
         You are responsible for how you use Jellyhook on your own site, including having any consent, disclosures, or
         privacy notices required by law for the visitor data you collect through it. Jellyhook processes data on your
-        behalf about people who visit the websites you track — you control what site the tracker runs on and what
+        behalf about people who visit the websites you track. You control what site the tracker runs on and what
         forms it captures.
       </p>
     ),
@@ -41,7 +41,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
       <p>
         Jellyhook offers a free tier and paid plans with additional features, billed on a recurring basis through our
         billing provider. You can view and change your plan, and see your billing history, from your account&apos;s
-        billing page. Cancelling a paid plan takes effect at the end of the current billing period — you keep access
+        billing page. Cancelling a paid plan takes effect at the end of the current billing period. You keep access
         to that plan&apos;s features until then, and your account reverts to the free tier afterward.
       </p>
     ),

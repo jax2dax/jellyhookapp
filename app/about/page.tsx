@@ -14,12 +14,12 @@ const COMPONENTS = [
   {
     icon: UserCheck,
     title: "Lead intelligence",
-    desc: "The moment a form is submitted, that lead is linked back to everything they did before converting — every page, every scroll, the full path.",
+    desc: "The moment a form is submitted, that lead is linked back to everything they did before converting: every page, every scroll, the full path.",
   },
   {
     icon: Flame,
     title: "Page health / intent analysis",
-    desc: "An algorithmic score — built from time-on-page, scroll depth, retention and exit behavior — flags which pages are quietly failing to hold attention.",
+    desc: "An algorithmic score, built from time-on-page, scroll depth, retention and exit behavior, flags which pages are quietly failing to hold attention.",
   },
   {
     icon: Users,
@@ -29,7 +29,7 @@ const COMPONENTS = [
   {
     icon: CreditCard,
     title: "Billing, handled",
-    desc: "Plans and billing run through Clerk — cancel any time, no separate invoicing system to fight with.",
+    desc: "Plans and billing run through Clerk. Cancel any time, no separate invoicing system to fight with.",
   },
 ];
 
@@ -39,15 +39,15 @@ export default function AboutPage() {
       <section className="relative border-b border-[#1b1b18] pt-16 md:pt-24">
         <div className="relative mx-auto max-w-[1400px] px-5 py-16 lg:px-10 lg:py-20">
           {/* seasonal — a random little ghost, different one on every load */}
-          <RandomIconBadge images={HALLOWEEN_ICONS} size={40} className="pointer-events-none absolute right-6 top-8 rotate-6 select-none object-contain sm:right-16" />
+          <RandomIconBadge images={HALLOWEEN_ICONS} size={32} className="pointer-events-none absolute right-6 top-8 rotate-6 select-none object-contain sm:right-16" />
           <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">About</span>
           <h1 className="mt-4 ff-display text-[clamp(2.25rem,5vw,4rem)] leading-[0.98] tracking-[-0.02em] text-[#f4f2ea]">
             Most analytics tools tell you a page got hit. <em className="italic text-[var(--lime)]">Jellyhook tells you what happened on it.</em>
           </h1>
           <p className="mt-6 max-w-2xl ff-body text-[15px] leading-[1.75] text-[#8b8980]">
             Jellyhook is a website analytics and conversion-intelligence platform. You install a tracker script, it
-            watches how people actually move through your site — the pages they land on, how long they stay, how far
-            they scroll, whether they come back to something they&apos;d already seen — and it links every one of your form
+            watches how people actually move through your site: the pages they land on, how long they stay, how far
+            they scroll, whether they come back to something they&apos;d already seen. It also links every one of your form
             submissions back to that full visit history. The goal is one specific question: which pages and which
             forms are actually turning your traffic into leads, and which ones are quietly losing people.
           </p>
@@ -92,7 +92,7 @@ export default function AboutPage() {
               <h2 className="ff-display text-2xl text-[#f4f2ea]">Who it&apos;s for</h2>
               <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
                 Website owners, marketers, and small business operators running a site with one or more conversion
-                forms — anyone who wants to know what happens between a visitor landing on a page and either filling
+                forms: anyone who wants to know what happens between a visitor landing on a page and either filling
                 out a form or leaving.
               </p>
             </div>
@@ -100,7 +100,7 @@ export default function AboutPage() {
               <h2 className="ff-display text-2xl text-[#f4f2ea]">What it isn&apos;t</h2>
               <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
                 Not a CRM, not a project management tool, not a generic AI content analyzer. Jellyhook doesn&apos;t manage
-                your leads after capture or replace your existing tools — it tells you which pages and forms are
+                your leads after capture or replace your existing tools. It tells you which pages and forms are
                 actually working so you know where to focus.
               </p>
             </div>

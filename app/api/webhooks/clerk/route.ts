@@ -164,6 +164,13 @@ export async function POST(req: NextRequest) {
     // person can then rename themselves for this site from Settings without
     // that edit ever being overwritten (see user.updated below, which
     // deliberately never touches name fields).
+    //
+    // pfp is only ever set when has_image is true. Clerk's image_url is
+    // NEVER empty — it returns an auto-generated default avatar even when
+    // nobody has uploaded a real photo — so storing it unconditionally would
+    // make pfp useless as a "did they actually upload something" signal. The
+    // app (see components/nav-user.tsx, app/platform/user/UserPageClient.tsx)
+    // relies on pfp being null to mean exactly that: show the default icon.
     // ─────────────────────────────────────────────────────────────────────
     if (eventType === 'user.created') {
       const user = evt.data as any
@@ -177,7 +184,7 @@ export async function POST(req: NextRequest) {
         email: primaryEmail,
         first_name: user.first_name ?? null,
         last_name: user.last_name ?? null,
-        pfp: user.image_url ?? null,
+        pfp: user.has_image ? user.image_url ?? null : null,
       })
 
       if (error) {
@@ -191,10 +198,11 @@ export async function POST(req: NextRequest) {
 
     // ─────────────────────────────────────────────────────────────────────
     // USER UPDATED
-    // Keeps avatar in sync with Clerk on every event — Clerk IS the source
-    // of truth for pfp (see components/app-sidebar.tsx's profile-picture
-    // editing, which goes through Clerk's own user.setProfileImage(), not a
-    // separate upload feature this app doesn't have).
+    // Keeps pfp in sync with Clerk's uploaded photo on every event — but
+    // ONLY when has_image is true (see the has_image note on user.created
+    // above). When someone removes their photo in Clerk, has_image goes
+    // back to false and this correctly clears pfp back to null too, rather
+    // than freezing on their last real photo forever.
     //
     // Deliberately does NOT touch first_name/last_name, and does NOT
     // overwrite email once it's already set — once someone has customized
@@ -216,7 +224,7 @@ export async function POST(req: NextRequest) {
 
       const payload: { id: string; pfp: string | null; email?: string | null } = {
         id: user.id,
-        pfp: user.image_url ?? null,
+        pfp: user.has_image ? user.image_url ?? null : null,
       }
       if (!existing?.email) payload.email = primaryEmail
 

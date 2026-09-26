@@ -13,12 +13,12 @@ const FEATURES = [
   {
     icon: Eye,
     title: "Session Replay",
-    desc: "Every visit becomes a scroll-by-scroll timeline — pages viewed, time on each one, and exactly how far down they actually scrolled.",
+    desc: "Every visit becomes a scroll-by-scroll timeline: pages viewed, time on each one, and exactly how far down they actually scrolled.",
   },
   {
     icon: UserCheck,
     title: "Lead Intelligence",
-    desc: "Every form submission is automatically linked back to the visitor&apos;s full browsing history — the pages, the dwell time, the path that led to the conversion.",
+    desc: "Every form submission is automatically linked back to the visitor&apos;s full browsing history: the pages, the dwell time, the path that led to the conversion.",
   },
   {
     icon: Flame,
@@ -58,7 +58,7 @@ const LandingPage = () => {
               {/* seasonal — a random little ghost, different one on every load */}
               <RandomIconBadge
                 images={HALLOWEEN_ICONS}
-                size={44}
+                size={36}
                 className="pointer-events-none absolute -top-6 left-[9.5rem] -rotate-6 select-none object-contain sm:left-[13rem]"
               />
 
@@ -74,8 +74,8 @@ const LandingPage = () => {
               </h1>
 
               <p className="mt-8 max-w-md ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-                Install one script and Jellyhook turns every visit to your site into a full session replay — pages seen,
-                time spent, how far they scrolled — and links every form submission straight back to that history.
+                Install one script and Jellyhook turns every visit to your site into a full session replay: pages seen,
+                time spent, how far they scrolled. It also links every form submission straight back to that history.
               </p>
 
               <div className="mt-10 flex flex-col gap-3 sm:flex-row">
@@ -142,7 +142,7 @@ const LandingPage = () => {
           {/* hero footer strip */}
           <div className="mt-20 flex flex-wrap items-center justify-between gap-x-8 gap-y-4 border-t border-[#1b1b18] py-5 md:mt-28">
             <span className="ff-mono text-[10px] uppercase tracking-[0.22em] text-[#77756d]">
-              One tracker script. Every session, replayed — not sampled or estimated.
+              One tracker script. Every session, replayed. Not sampled or estimated.
             </span>
 
             <div className="flex items-center gap-6 ff-mono text-[10px] uppercase tracking-[0.22em] text-[#5f5d57]">
@@ -181,7 +181,7 @@ const LandingPage = () => {
                 Built for conversion tracking &amp; <em className="italic text-[var(--lime)]">intent discovery</em>.
               </h2>
               <p className="mt-5 max-w-lg ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-                Not a generic analytics widget — behavior tracking built specifically to answer &ldquo;which pages and forms actually turn visitors into leads.&rdquo;
+                Not a generic analytics widget: behavior tracking built specifically to answer &ldquo;which pages and forms actually turn visitors into leads.&rdquo;
               </p>
             </div>
           </div>
@@ -238,7 +238,7 @@ const LandingPage = () => {
 
             <div className="lg:col-span-5">
               <p className="max-w-sm ff-body text-[15px] leading-[1.75] text-black/65">
-                Create a site, drop the tracker script in, and watch your first session replay come in — free to start.
+                Create a site, drop the tracker script in, and watch your first session replay come in. Free to start.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">

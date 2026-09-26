@@ -252,3 +252,33 @@
     animation: none;
   }
 }
+
+/* ── Live ticker new-row entrance (components/dashboard/LiveTicker.tsx) ─────
+   A newly-arrived visitor's row drops in from above and briefly flashes
+   green, while every row already on screen gets pushed down a slot via a
+   separate FLIP transform applied in JS (see that component's
+   useLayoutEffect) — this class only covers the row that's actually new. */
+@keyframes jh-ticker-row-in {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+    background-color: var(--primary);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+    background-color: transparent;
+  }
+}
+.jh-ticker-row-in {
+  animation: jh-ticker-row-in 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jh-ticker-row-in {
+    animation: none;
+  }
+}

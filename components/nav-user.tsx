@@ -23,7 +23,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, SparklesIcon, BellIcon, Settings, LogOutIcon, SunIcon, MoonIcon, MonitorIcon } from "lucide-react"
+import { ChevronsUpDownIcon, SparklesIcon, BellIcon, Settings, LogOutIcon, SunIcon, MoonIcon, MonitorIcon, UserRound } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useClerk } from "@clerk/nextjs"
 import { useTheme } from "next-themes"
@@ -53,7 +53,15 @@ export function NavUser({
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                {/* Plain default user icon, not initials — see app-sidebar.tsx's
+                    navUser: avatar is sourced from OUR OWN users.pfp column,
+                    never Clerk directly, so this fallback is what shows for
+                    everyone who hasn't uploaded a real photo, instead of
+                    Clerk's own auto-generated default avatar or made-up
+                    initials. */}
+                <AvatarFallback className="rounded-lg bg-primary/10">
+                  <UserRound className="h-[60%] w-[60%] text-primary" />
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>

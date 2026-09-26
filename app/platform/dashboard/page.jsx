@@ -15,6 +15,7 @@ import { getIntentFailureAnalysis } from "@/lib/actions/intentFailure.action";
 import { VisitsOverTimeChart } from "@/components/charts/visitsOverTime";
 import { PageViewsBar } from "@/components/charts/pageViewsBar";
 import { FramePlatePreviewCard } from "@/components/dashboard/FramePlatePreviewCard";
+import { LiveTicker } from "@/components/dashboard/LiveTicker";
 import { StatTile } from "@/components/StatTile";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -210,39 +211,8 @@ export default async function OverviewPage() {
       {/* ── FramePlate preview: shortcut ad for the full lead-session chart ── */}
       <FramePlatePreviewCard siteId={site.id} visitorIds={previewVisitorIds} />
 
-      {/* ── Live activity ───────────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Live Activity</CardTitle>
-          <CardDescription>Recent page views across your site.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {recentActivity.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">No activity yet.</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Page</TableHead>
-                  <TableHead>Visitor</TableHead>
-                  <TableHead>Entered</TableHead>
-                  <TableHead className="text-right">Scroll</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentActivity.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-foreground">{row.page_path}</TableCell>
-                    <TableCell className="text-muted-foreground">{row.visitor_id?.slice(0, 8)}...</TableCell>
-                    <TableCell className="text-muted-foreground">{row.entered_at ? new Date(row.entered_at).toLocaleTimeString() : "—"}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{row.scroll_depth != null ? `${Math.round(row.scroll_depth * 100)}%` : "—"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {/* ── Live ticker ─────────────────────────────────────────────── */}
+      <LiveTicker siteId={site.id} initialRows={recentActivity} />
 
       <p className="mt-6 text-xs text-muted-foreground">Site created {formatDate(site.created_at)}</p>
     </div>

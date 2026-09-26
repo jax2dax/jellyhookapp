@@ -93,7 +93,13 @@ export function AppSidebar({ userPlan = "free", siteDomain, sites, currentSiteId
   const navUser = {
     name: dbName || clerkUser?.fullName || "User",
     email: userProfile?.email || clerkUser?.primaryEmailAddress?.emailAddress || "",
-    avatar: userProfile?.pfp || clerkUser?.imageUrl || "",
+    // Sourced from OUR OWN users.pfp column, never Clerk directly — Clerk's
+    // imageUrl always returns SOMETHING (an auto-generated default) even
+    // when nobody's uploaded a real photo, and pfp is only ever non-null
+    // when they actually have (see the has_image gate in
+    // app/api/webhooks/clerk/route.ts). A null pfp means NavUser's
+    // AvatarFallback renders the plain default icon instead.
+    avatar: userProfile?.pfp || "",
   }
 
   // Build nav items — locked items redirect to subscription page

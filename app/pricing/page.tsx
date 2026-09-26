@@ -34,11 +34,11 @@ export default function PricingPage() {
         <div className="mx-auto max-w-[1400px] px-5 py-16 lg:px-10 lg:py-20">
           <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Pricing</span>
           <h1 className="mt-4 ff-display text-[clamp(2.25rem,5vw,4rem)] leading-[0.98] tracking-[-0.02em] text-[#f4f2ea]">
-            Everything, free — <em className="italic text-[var(--lime)]">right now</em>.
+            Everything, free, <em className="italic text-[var(--lime)]">right now</em>.
           </h1>
           <p className="mt-5 max-w-xl ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-            Jellyhook is in early access. Every feature — full sessions, lead intelligence, conversion paths, page
-            health scoring, all of it — is unlocked on every account, no card required. Paid plans are coming later,
+            Jellyhook is in early access. Every feature (full sessions, lead intelligence, conversion paths, page
+            health scoring, all of it) is unlocked on every account, no card required. Paid plans are coming later,
             but not yet.
           </p>
 
@@ -58,7 +58,7 @@ export default function PricingPage() {
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-2">Where pricing is headed</h2>
           <p className="mb-8 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
             This is the plan structure Jellyhook will eventually charge for. Today, every tier below is free on every
-            account — there&apos;s no locked feature to unlock.
+            account. There&apos;s no locked feature to unlock.
           </p>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {TIERS.map((tier) => (
@@ -88,15 +88,15 @@ export default function PricingPage() {
             {[
               {
                 q: "Is this actually free, no catch?",
-                a: "Yes. Jellyhook is in early access — every feature on every account is free while we onboard early sites. No card on file, no trial countdown.",
+                a: "Yes. Jellyhook is in early access, and every feature on every account is free while we onboard early sites. No card on file, no trial countdown.",
               },
               {
                 q: "What happens when paid plans launch?",
-                a: "We'll give plenty of notice before anything changes, and none of your tracked data or history disappears. You'll get to choose a plan that fits — nothing switches to paid automatically.",
+                a: "We'll give plenty of notice before anything changes, and none of your tracked data or history disappears. You'll get to choose a plan that fits; nothing switches to paid automatically.",
               },
               {
                 q: "What's the difference between Pro and Elite going to be?",
-                a: "Pro will add Lead Intelligence (every lead's full browsing history) and Conversion Path analysis (the sequence of pages that led to a conversion). Elite will add Intent Signals — a per-page score that flags pages losing visitor attention before it shows up as a drop in your conversion rate. All of it is free right now regardless of tier.",
+                a: "Pro will add Lead Intelligence (every lead's full browsing history) and Conversion Path analysis (the sequence of pages that led to a conversion). Elite will add Intent Signals, a per-page score that flags pages losing visitor attention before it shows up as a drop in your conversion rate. All of it is free right now regardless of tier.",
               },
               {
                 q: "Can I install it on more than one site?",

@@ -4,7 +4,7 @@ import { RandomIconBadge } from "@/components/RandomIconBadge";
 import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
 
 const ENDPOINTS = [
-  { path: "/api/track", desc: "Core ingestion endpoint — receives page-view and session events from the tracker script." },
+  { path: "/api/track", desc: "Core ingestion endpoint: receives page-view and session events from the tracker script." },
   { path: "/api/track-form", desc: "Receives form submissions and stores them as leads, deduplicated within a short window." },
   { path: "/api/track-structure", desc: "Receives page heading/layout metadata, used by page-health scoring." },
   { path: "/api/site-config", desc: "Returns per-site tracker configuration (e.g. whether form capture is restricted to a specific form)." },
@@ -31,13 +31,13 @@ export default function DocsPage() {
       <section className="relative border-b border-[#1b1b18] pt-16 md:pt-24">
         <div className="relative mx-auto max-w-[1400px] px-5 py-16 lg:px-10 lg:py-20">
           {/* seasonal — a random little ghost, different one on every load */}
-          <RandomIconBadge images={HALLOWEEN_ICONS} size={40} className="pointer-events-none absolute -top-2 left-16 -rotate-12 select-none object-contain sm:left-24" />
+          <RandomIconBadge images={HALLOWEEN_ICONS} size={32} className="pointer-events-none absolute -top-2 left-16 -rotate-12 select-none object-contain sm:left-24" />
           <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Docs</span>
           <h1 className="mt-4 ff-display text-[clamp(2.25rem,5vw,4rem)] leading-[0.98] tracking-[-0.02em] text-[#f4f2ea]">
             From install to first session in <em className="italic text-[var(--lime)]">under five minutes</em>.
           </h1>
           <p className="mt-5 max-w-xl ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-            There&apos;s no SDK to configure and no event schema to design — one script tag, and Jellyhook starts recording
+            There&apos;s no SDK to configure and no event schema to design. One script tag, and Jellyhook starts recording
             sessions, scroll depth, and form submissions automatically.
           </p>
         </div>
@@ -52,7 +52,7 @@ export default function DocsPage() {
                 <h2 className="ff-display text-2xl text-[#f4f2ea]">Create a site</h2>
               </div>
               <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-                From your dashboard, register your site&apos;s domain. Jellyhook generates a unique API key for it —
+                From your dashboard, register your site&apos;s domain. Jellyhook generates a unique API key for it:
                 this is what authenticates every event your tracker sends, so no one else can post fake data under
                 your site.
               </p>
@@ -64,7 +64,7 @@ export default function DocsPage() {
                 <h2 className="ff-display text-2xl text-[#f4f2ea]">Install the tracker</h2>
               </div>
               <p className="mb-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-                Paste the snippet from your site&apos;s setup page into your site&apos;s <code className="ff-mono text-[#c9c7bd]">&lt;head&gt;</code> — the exact
+                Paste the snippet from your site&apos;s setup page into your site&apos;s <code className="ff-mono text-[#c9c7bd]">&lt;head&gt;</code>. The exact
                 key is generated per-site, this is the shape of it:
               </p>
               <CodeBlock>{`<script\n  src="https://your-jellyhook-domain/tracker.js"\n  data-key="YOUR_SITE_API_KEY"\n></script>`}</CodeBlock>
@@ -73,13 +73,13 @@ export default function DocsPage() {
             <div>
               <div className="mb-3 flex items-center gap-3">
                 <span className="ff-mono text-[11px] text-[var(--lime)]">03</span>
-                <h2 className="ff-display text-2xl text-[#f4f2ea]">That&apos;s it — it&apos;s already tracking</h2>
+                <h2 className="ff-display text-2xl text-[#f4f2ea]">That&apos;s it, it&apos;s already tracking</h2>
               </div>
               <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
                 From here the tracker runs on its own: it identifies each visitor and session, records every page
                 view with scroll depth and time on page, and picks up form submissions on the page automatically. No
-                further configuration is required unless you want to restrict lead capture to one specific form —
-                that&apos;s a toggle in your site settings, not a code change.
+                further configuration is required unless you want to restrict lead capture to one specific form.
+                That&apos;s a toggle in your site settings, not a code change.
               </p>
             </div>
           </div>
@@ -90,7 +90,7 @@ export default function DocsPage() {
         <div className="mx-auto max-w-[1400px] px-5 py-16 lg:px-10 lg:py-20">
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-2">What gets collected</h2>
           <p className="mb-8 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Exactly this, and nothing more — see <Link href="/privacy" className="text-[var(--lime)] hover:underline">Privacy</Link> for the full
+            Exactly this, and nothing more. See <Link href="/privacy" className="text-[var(--lime)] hover:underline">Privacy</Link> for the full
             breakdown of storage and retention.
           </p>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -108,7 +108,7 @@ export default function DocsPage() {
         <div className="mx-auto max-w-[1400px] px-5 py-16 lg:px-10 lg:py-20">
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-2">Ingestion endpoints</h2>
           <p className="mb-8 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Reference only — the tracker script calls these for you. Every request is authenticated with your site&apos;s
+            Reference only, the tracker script calls these for you. Every request is authenticated with your site&apos;s
             API key.
           </p>
           <div className="divide-y divide-[#1b1b18] border-t border-b border-[#1b1b18]">
