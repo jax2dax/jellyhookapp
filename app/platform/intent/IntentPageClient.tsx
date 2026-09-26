@@ -557,16 +557,21 @@ function PageDetailPanel({ page, goals, devMode }: { page: FullPageAnalysis; goa
         </Card>
       )}
 
-      {/* Dev mode raw data */}
+      {/* Dev mode raw data — collapsed by default; a raw JSON dump is exactly
+          the kind of unpredictably-long content that can force a container
+          wider than intended, so min-w-0/overflow-hidden here is a direct
+          guard against the horizontal-scroll-leak bug (see the note on the
+          page root above and components/ui/sidebar.tsx's SidebarInset). */}
       {devMode && (
-        <Card className="border-dashed border-muted-foreground/30">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-xs font-mono text-muted-foreground flex items-center gap-2">
-              <Code2 className="h-3 w-3" /> DEV MODE — Raw scores
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <pre className="text-[10px] text-muted-foreground font-mono leading-relaxed overflow-x-auto">
+        <Card className="min-w-0 overflow-hidden border-dashed border-muted-foreground/30 py-0">
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-xs font-mono text-muted-foreground [&::-webkit-details-marker]:hidden">
+              <Code2 className="h-3 w-3 shrink-0" />
+              Raw
+              <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
+            </summary>
+            <CardContent className="min-w-0 overflow-hidden px-4 pb-4">
+              <pre className="max-w-full overflow-x-auto text-[10px] text-muted-foreground font-mono leading-relaxed">
 {`intentFailureScore:   ${page.intentFailureScore.toFixed(4)}
 retentionScore:       ${page.retentionScoreValue.toFixed(4)}
 conversionScore:      ${page.conversionScoreValue.toFixed(4)}
@@ -588,8 +593,9 @@ fnII.confusionZone:   ${page.functionII.confusionZoneRatio.toFixed(4)}
 fnIII.readingQuality: ${page.functionIII.readingQuality}
 fnIV.earlyExitRate:   ${page.functionIV.earlyExitRate.toFixed(4)}
 scoreBreakdown:       ${JSON.stringify(page.scoreBreakdown, null, 0)}`}
-            </pre>
-          </CardContent>
+              </pre>
+            </CardContent>
+          </details>
         </Card>
       )}
     </div>
@@ -854,7 +860,13 @@ export default function IntentPageClient({
 
   return (
     <TooltipProvider>
-      <div className="p-6 max-w-6xl mx-auto space-y-6">
+      {/* min-w-0 + overflow-x-hidden: same fix as SidebarInset/FramePlateChart
+          (see components/ui/sidebar.tsx and LeadSessionExplorer.tsx) — this
+          page's own root has no wide content BY DESIGN (max-w-6xl), so
+          anything that WOULD force it wider (e.g. an unusually long raw
+          value in the dev-mode dump below) should clip here rather than
+          drag the whole platform shell into horizontal scroll. */}
+      <div className="min-w-0 overflow-x-hidden p-6 max-w-6xl mx-auto space-y-6">
 
         {/* Header */}
         <div className="flex items-start justify-between gap-4">

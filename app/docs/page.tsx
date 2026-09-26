@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
+import { RandomIconBadge } from "@/components/RandomIconBadge";
+import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
 
 const ENDPOINTS = [
   { path: "/api/track", desc: "Core ingestion endpoint — receives page-view and session events from the tracker script." },
@@ -26,8 +28,10 @@ function CodeBlock({ children }: { children: string }) {
 export default function DocsPage() {
   return (
     <MarketingPage>
-      <section className="border-b border-[#1b1b18] pt-16 md:pt-24">
-        <div className="mx-auto max-w-[1400px] px-5 py-16 lg:px-10 lg:py-20">
+      <section className="relative border-b border-[#1b1b18] pt-16 md:pt-24">
+        <div className="relative mx-auto max-w-[1400px] px-5 py-16 lg:px-10 lg:py-20">
+          {/* seasonal — a random little ghost, different one on every load */}
+          <RandomIconBadge images={HALLOWEEN_ICONS} size={40} className="pointer-events-none absolute -top-2 left-16 -rotate-12 select-none object-contain sm:left-24" />
           <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Docs</span>
           <h1 className="mt-4 ff-display text-[clamp(2.25rem,5vw,4rem)] leading-[0.98] tracking-[-0.02em] text-[#f4f2ea]">
             From install to first session in <em className="italic text-[var(--lime)]">under five minutes</em>.

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowRight, Eye, UserCheck, Flame, Users, CreditCard } from "lucide-react";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
 import { SignUpButton, Show } from "@clerk/nextjs";
+import { RandomIconBadge } from "@/components/RandomIconBadge";
+import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
 
 const COMPONENTS = [
   {
@@ -34,8 +36,10 @@ const COMPONENTS = [
 export default function AboutPage() {
   return (
     <MarketingPage>
-      <section className="border-b border-[#1b1b18] pt-16 md:pt-24">
-        <div className="mx-auto max-w-[1400px] px-5 py-16 lg:px-10 lg:py-20">
+      <section className="relative border-b border-[#1b1b18] pt-16 md:pt-24">
+        <div className="relative mx-auto max-w-[1400px] px-5 py-16 lg:px-10 lg:py-20">
+          {/* seasonal — a random little ghost, different one on every load */}
+          <RandomIconBadge images={HALLOWEEN_ICONS} size={40} className="pointer-events-none absolute right-6 top-8 rotate-6 select-none object-contain sm:right-16" />
           <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">About</span>
           <h1 className="mt-4 ff-display text-[clamp(2.25rem,5vw,4rem)] leading-[0.98] tracking-[-0.02em] text-[#f4f2ea]">
             Most analytics tools tell you a page got hit. <em className="italic text-[var(--lime)]">Jellyhook tells you what happened on it.</em>

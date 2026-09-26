@@ -4,6 +4,8 @@ import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
 import { ArrowRight, ArrowUpRight, Eye, UserCheck, Flame } from "lucide-react";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
 import { primaryBtn, ghostBtn, avatarAppearance } from "@/components/marketing/MarketingTheme";
+import { RandomIconBadge } from "@/components/RandomIconBadge";
+import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
 
 // Real capabilities, not generic SaaS boilerplate — see SAAS_PRODUCT_AUDIT.md
 // §3 (Core Features) for the implementation each of these describes.
@@ -52,7 +54,14 @@ const LandingPage = () => {
         <div className="relative mx-auto max-w-[1400px] px-5 lg:px-10">
           <div className="grid grid-cols-1 gap-14 lg:grid-cols-12 lg:gap-0">
             {/* left */}
-            <div className="lg:col-span-7 lg:pr-14">
+            <div className="relative lg:col-span-7 lg:pr-14">
+              {/* seasonal — a random little ghost, different one on every load */}
+              <RandomIconBadge
+                images={HALLOWEEN_ICONS}
+                size={44}
+                className="pointer-events-none absolute -top-6 left-[9.5rem] -rotate-6 select-none object-contain sm:left-[13rem]"
+              />
+
               <div className="mb-8 flex items-center gap-3">
                 <span className="h-1.5 w-1.5 animate-pulse bg-[var(--lime)]" />
                 <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#8b8980]">Website analytics &amp; lead intelligence</span>

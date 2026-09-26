@@ -61,7 +61,6 @@ export default async function OverviewPage() {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant={site.is_active ? "default" : "outline"}>{site.is_active ? "Tracking Active" : "Tracking Paused"}</Badge>
-          <Badge variant="outline">{(site.plan || "free").toUpperCase()} plan</Badge>
         </div>
       </div>
 

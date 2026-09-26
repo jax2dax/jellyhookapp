@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/leadFormat";
 import { updateMyProfile } from "@/lib/actions/profile.actions";
+import { RandomIconBadge } from "@/components/RandomIconBadge";
+import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
 
 interface Profile {
   id: string;
@@ -212,8 +214,16 @@ export default function UserPageClient({ profile, siteCount, subscription }: { p
     <div className="w-full max-w-5xl">
       {/* PROFILE HEADER — banner + overlapping avatar, name/plan/stats laid
           out like a social profile rather than a form field. */}
-      <Card className="overflow-hidden py-0">
+      <Card className="relative overflow-hidden py-0">
         <div className="h-20 bg-gradient-to-r from-primary/25 via-primary/10 to-transparent sm:h-24" />
+
+        {/* seasonal — a random little ghost, different one on every load.
+            Positioned to start within the gradient strip and deliberately
+            overflow past it, down into the card content below (email/logout
+            area) — overflow-hidden above only clips at the CARD's own outer
+            edges, not at this internal boundary, so nothing gets cut off. */}
+        <RandomIconBadge images={HALLOWEEN_ICONS} size={64} className="pointer-events-none absolute left-4 top-6 z-20 -rotate-6 select-none object-contain" />
+
         <CardContent className="relative -mt-12 flex flex-col gap-4 pb-6 sm:-mt-14 sm:flex-row sm:items-end">
           <AvatarEditor fallbackSrc={current.pfp} name={fullName} />
 
