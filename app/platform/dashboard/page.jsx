@@ -20,7 +20,8 @@ import { StatTile } from "@/components/StatTile";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDuration, formatDate } from "@/lib/leadFormat";
+import { formatDuration } from "@/lib/leadFormat";
+import { LocalDate } from "@/components/LocalDate";
 
 export default async function OverviewPage() {
   const user = await getAuthUser();
@@ -114,7 +115,7 @@ export default async function OverviewPage() {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-base">Pages</CardTitle>
-          <CardDescription>How many people are looking at each page — all time.</CardDescription>
+          <CardDescription>How many people are looking at each page, all time.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {pages.length === 0 ? (
@@ -214,7 +215,7 @@ export default async function OverviewPage() {
       {/* ── Live ticker ─────────────────────────────────────────────── */}
       <LiveTicker siteId={site.id} initialRows={recentActivity} />
 
-      <p className="mt-6 text-xs text-muted-foreground">Site created {formatDate(site.created_at)}</p>
+      <p className="mt-6 text-xs text-muted-foreground">Site created <LocalDate value={site.created_at} /></p>
     </div>
   );
 }

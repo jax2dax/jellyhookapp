@@ -6,12 +6,16 @@
 // actually getting, second by second, not to be a careful record you'd
 // export. Exactly 10 rows, newest visitor always entering at the top and
 // visibly pushing everything else down a slot — never a silent re-sort.
+//
+// Polling is coordinated across browser tabs via lib/liveTickerCache.js —
+// see that file's header for why a shared localStorage cache exists at all.
 "use client";
 
 import * as React from "react";
 import { Radio } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getRecentActivity } from "@/lib/actions/supabase.actions";
+import { getCachedActivity, setCachedActivity, liveTickerCacheKey } from "@/lib/liveTickerCache";
 
 interface ActivityRow {
   id: string;
@@ -21,9 +25,19 @@ interface ActivityRow {
 }
 
 const MAX_ROWS = 10;
-const MIN_POLL_MS = 1200;
-const MAX_POLL_MS = 6000;
-const BASE_POLL_MS = 4000;
+// Tightened from the original 1.2s-6s range — this is the PER-TAB timer
+// pace; the actual network-request rate for a given site is separately
+// capped at MIN_NETWORK_GAP_MS regardless of how many tabs are open (see
+// lib/liveTickerCache.js).
+const MIN_POLL_MS = 500;
+const MAX_POLL_MS = 4000;
+const BASE_POLL_MS = 1500;
+// No two real getRecentActivity() calls for the same site happen closer
+// together than this, no matter how many tabs have this dashboard open —
+// a tab whose own timer fires before this gap has elapsed since the last
+// fetch (by ANY tab) skips the network call and just re-reads the shared
+// cache instead.
+const MIN_NETWORK_GAP_MS = 500;
 const NEW_ROW_ANIMATION_MS = 900;
 
 function formatElapsed(dateStr: string | null): string {
@@ -49,30 +63,65 @@ export function LiveTicker({ siteId, initialRows }: { siteId: string; initialRow
   const rowEls = React.useRef<Map<string, HTMLDivElement>>(new Map());
   const prevRects = React.useRef<Map<string, DOMRect>>(new Map());
 
+  // Merges freshly-seen rows (from this tab's own fetch OR another tab's,
+  // via the storage event below) into what's on screen: only genuinely new
+  // ids trigger the drop-in animation and the pace speedup/backoff, so a
+  // storage event that just repeats what we already knew is a no-op.
+  const mergeIncoming = React.useCallback((fresh: ActivityRow[]) => {
+    setRows((prev) => {
+      const knownIds = new Set(prev.map((r) => r.id));
+      const incoming = fresh.filter((r) => !knownIds.has(r.id));
+      if (incoming.length === 0) {
+        setPollMs((p) => Math.min(MAX_POLL_MS, p + 250));
+        return prev;
+      }
+      // The busier the site, the faster the ticker updates — more new
+      // arrivals in one poll pulls the interval down harder.
+      setPollMs((p) => Math.max(MIN_POLL_MS, p - incoming.length * 350));
+      setJustAdded(new Set(incoming.map((r) => r.id)));
+      return [...incoming, ...prev].slice(0, MAX_ROWS);
+    });
+  }, []);
+
   React.useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
+  // Cross-tab: pick up another tab's poll result the instant it lands,
+  // rather than waiting for this tab's own timer to next fire.
+  React.useEffect(() => {
+    function handleStorage(e: StorageEvent) {
+      if (e.key !== liveTickerCacheKey(siteId) || !e.newValue) return;
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (Array.isArray(parsed?.rows)) mergeIncoming(parsed.rows);
+      } catch (err) {
+        console.error("[LiveTicker] storage event parse failed:", err);
+      }
+    }
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [siteId, mergeIncoming]);
+
   React.useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(async () => {
+      // Another tab may have already fetched more recently than
+      // MIN_NETWORK_GAP_MS ago — reuse that instead of hitting the network
+      // again ourselves. Its result already reached us via the storage
+      // listener above when it was written, so this is just a fallback for
+      // whichever tab happens to be the very first to check.
+      const cached = getCachedActivity(siteId);
+      if (cached && Date.now() - cached.fetchedAt < MIN_NETWORK_GAP_MS) {
+        mergeIncoming(cached.rows);
+        return;
+      }
       try {
         const fresh: ActivityRow[] = await getRecentActivity(siteId, 15);
         if (cancelled) return;
-        setRows((prev) => {
-          const knownIds = new Set(prev.map((r) => r.id));
-          const incoming = fresh.filter((r) => !knownIds.has(r.id));
-          if (incoming.length === 0) {
-            setPollMs((p) => Math.min(MAX_POLL_MS, p + 250));
-            return prev;
-          }
-          // The busier the site, the faster the ticker updates — more new
-          // arrivals in one poll pulls the interval down harder.
-          setPollMs((p) => Math.max(MIN_POLL_MS, p - incoming.length * 350));
-          setJustAdded(new Set(incoming.map((r) => r.id)));
-          return [...incoming, ...prev].slice(0, MAX_ROWS);
-        });
+        setCachedActivity(siteId, fresh);
+        mergeIncoming(fresh);
       } catch (err) {
         console.error("[LiveTicker] refresh failed:", err);
       }
@@ -81,12 +130,7 @@ export function LiveTicker({ siteId, initialRows }: { siteId: string; initialRow
       cancelled = true;
       clearTimeout(timer);
     };
-    // rows is deliberately NOT a dependency — it's only ever read through the
-    // functional setRows(prev => ...) updater above, which always sees the
-    // latest value regardless of this closure. Depending on it here would
-    // just reschedule the same timer a second time on every poll for no
-    // reason; pollMs already changing is what re-arms it.
-  }, [siteId, pollMs]);
+  }, [siteId, pollMs, mergeIncoming]);
 
   React.useEffect(() => {
     if (justAdded.size === 0) return;

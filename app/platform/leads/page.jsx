@@ -4,6 +4,7 @@ import PlanGate from "@/components/PlanGate";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LocalDate } from "@/components/LocalDate";
 import Link from "next/link";
 
 export default async function LeadsPage() {
@@ -47,7 +48,7 @@ export default async function LeadsPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{lead.email || "—"}</TableCell>
                       <TableCell className="text-muted-foreground">{lead.page_path || "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{lead.submitted_at ? new Date(lead.submitted_at).toLocaleDateString() : "—"}</TableCell>
+                      <TableCell className="text-muted-foreground"><LocalDate value={lead.submitted_at} /></TableCell>
                       <TableCell className="text-right">
                         <Badge variant={lead.confidence === "high" ? "default" : "outline"}>{lead.confidence || "unknown"}</Badge>
                       </TableCell>

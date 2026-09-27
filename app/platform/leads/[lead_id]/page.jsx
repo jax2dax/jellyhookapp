@@ -11,7 +11,8 @@ import { LeadTimeBar } from "@/components/charts/leadTimeBar";
 import { LeadEngagementRadial } from "@/components/charts/leadEngagementRadial";
 import { LeadSessionExplorer } from "@/components/leads/LeadSessionExplorer";
 import { StatTile } from "@/components/StatTile";
-import { formatDate, formatDateTime, formatDuration, formatRelativeTime } from "@/lib/leadFormat";
+import { LocalDate } from "@/components/LocalDate";
+import { formatDuration, formatRelativeTime } from "@/lib/leadFormat";
 
 export default async function LeadProfilePage({ params }) {
   const { lead_id } = await params;
@@ -106,7 +107,7 @@ function LeadProfileBody({ profile, raw, siteId }) {
             <div>
               Last active <span className="font-medium text-foreground">{formatRelativeTime(lastActivity)}</span>
             </div>
-            <div className="text-xs">First seen {formatDate(firstSeen)}{device ? ` · ${device}` : ""}</div>
+            <div className="text-xs">First seen <LocalDate value={firstSeen} />{device ? ` · ${device}` : ""}</div>
           </div>
         </CardContent>
 
@@ -200,7 +201,7 @@ function LeadProfileBody({ profile, raw, siteId }) {
               <div key={c.id} className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm ${c.isFocus ? "border-primary/50 bg-primary/5" : ""}`}>
                 <div>
                   <span className="font-medium text-foreground">{c.pagePath}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">{formatDateTime(c.submittedAt)}</span>
+                  <span className="ml-2 text-xs text-muted-foreground"><LocalDate value={c.submittedAt} mode="datetime" /></span>
                   {c.isFocus && (
                     <Badge variant="outline" className="ml-2">
                       Viewing
