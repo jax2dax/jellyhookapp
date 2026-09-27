@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description: "What Jellyhook collects about you as a customer, and what your tracker script collects about visitors to your site.",
+  alternates: { canonical: "/privacy" },
+  robots: { index: true, follow: true },
+};
 
 const YOUR_ACCOUNT_DATA = [
   ["Identity", "Your user ID, email, name, and profile photo if you upload one."],

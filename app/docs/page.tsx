@@ -1,7 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
 import { RandomIconBadge } from "@/components/RandomIconBadge";
 import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
+
+export const metadata: Metadata = {
+  title: "Docs",
+  description:
+    "Install the Jellyhook tracker script and start recording sessions, scroll depth, and form submissions automatically. No SDK to configure and no event schema to design.",
+  alternates: { canonical: "/docs" },
+  openGraph: {
+    title: "Jellyhook Docs",
+    description:
+      "Install the Jellyhook tracker script and start recording sessions, scroll depth, and form submissions automatically. No SDK to configure and no event schema to design.",
+    url: "/docs",
+  },
+};
 
 const ENDPOINTS = [
   { path: "/api/track", desc: "Core ingestion endpoint: receives page-view and session events from the tracker script." },

@@ -7,6 +7,15 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/app-sidebar";
 
+// Every page under here requires a signed-in session (getAuthUser() below
+// redirects to /sign-in otherwise), so Google could never render the real
+// content anyway; noindex is still set explicitly as a second layer beyond
+// robots.txt's disallow, in case a URL ever leaks into search results some
+// other way (e.g. a link from an external site).
+export const metadata = {
+  robots: { index: false, follow: false },
+};
+
 export default async function PlatformLayout({ children }) {
   const user = await getAuthUser();
   const site = await getUserSite(user.id);

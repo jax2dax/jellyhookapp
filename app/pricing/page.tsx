@@ -1,7 +1,41 @@
+import type { Metadata } from "next";
+import Script from "next/script";
 import { SignUpButton, Show } from "@clerk/nextjs";
 import { Check } from "lucide-react";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
 import { primaryBtn } from "@/components/marketing/MarketingTheme";
+
+export const metadata: Metadata = {
+  title: "Pricing",
+  description:
+    "Jellyhook is free during early access. Every feature on every account, including lead intelligence, conversion paths, and page health scoring, is unlocked with no card required.",
+  alternates: { canonical: "/pricing" },
+  openGraph: {
+    title: "Jellyhook Pricing",
+    description:
+      "Jellyhook is free during early access. Every feature on every account, including lead intelligence, conversion paths, and page health scoring, is unlocked with no card required.",
+    url: "/pricing",
+  },
+};
+
+const FAQS = [
+  {
+    q: "Is this actually free, no catch?",
+    a: "Yes. Jellyhook is in early access, and every feature on every account is free while we onboard early sites. No card on file, no trial countdown.",
+  },
+  {
+    q: "What happens when paid plans launch?",
+    a: "We'll give plenty of notice before anything changes, and none of your tracked data or history disappears. You'll get to choose a plan that fits; nothing switches to paid automatically.",
+  },
+  {
+    q: "What's the difference between Pro and Elite going to be?",
+    a: "Pro will add Lead Intelligence (every lead's full browsing history) and Conversion Path analysis (the sequence of pages that led to a conversion). Elite will add Intent Signals, a per-page score that flags pages losing visitor attention before it shows up as a drop in your conversion rate. All of it is free right now regardless of tier.",
+  },
+  {
+    q: "Can I install it on more than one site?",
+    a: "Each tracked site is its own workspace inside your account, with its own tracker script and dashboard.",
+  },
+];
 
 // TIERS describes where pricing is HEADED, not what's enforced today — every
 // feature listed here is unlocked on every account right now, during early
@@ -85,24 +119,7 @@ export default function PricingPage() {
         <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-8">Questions</h2>
           <div className="divide-y divide-[#1b1b18] border-t border-b border-[#1b1b18]">
-            {[
-              {
-                q: "Is this actually free, no catch?",
-                a: "Yes. Jellyhook is in early access, and every feature on every account is free while we onboard early sites. No card on file, no trial countdown.",
-              },
-              {
-                q: "What happens when paid plans launch?",
-                a: "We'll give plenty of notice before anything changes, and none of your tracked data or history disappears. You'll get to choose a plan that fits; nothing switches to paid automatically.",
-              },
-              {
-                q: "What's the difference between Pro and Elite going to be?",
-                a: "Pro will add Lead Intelligence (every lead's full browsing history) and Conversion Path analysis (the sequence of pages that led to a conversion). Elite will add Intent Signals, a per-page score that flags pages losing visitor attention before it shows up as a drop in your conversion rate. All of it is free right now regardless of tier.",
-              },
-              {
-                q: "Can I install it on more than one site?",
-                a: "Each tracked site is its own workspace inside your account, with its own tracker script and dashboard.",
-              },
-            ].map((item) => (
+            {FAQS.map((item) => (
               <details key={item.q} className="group py-5">
                 <summary className="cursor-pointer list-none ff-body text-[15px] font-medium text-[#e9e7e0] marker:content-none">{item.q}</summary>
                 <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">{item.a}</p>
@@ -111,6 +128,20 @@ export default function PricingPage() {
           </div>
         </div>
       </section>
+
+      {/* FAQPage structured data — built directly from FAQS above, so it can
+          never say anything the visible page doesn't already say. */}
+      <Script id="ld-pricing-faq" type="application/ld+json">
+        {JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: FAQS.map((item) => ({
+            "@type": "Question",
+            name: item.q,
+            acceptedAnswer: { "@type": "Answer", text: item.a },
+          })),
+        })}
+      </Script>
     </MarketingPage>
   );
 }

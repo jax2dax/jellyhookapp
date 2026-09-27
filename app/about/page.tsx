@@ -1,9 +1,23 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Eye, UserCheck, Flame, Users, CreditCard } from "lucide-react";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
 import { SignUpButton, Show } from "@clerk/nextjs";
 import { RandomIconBadge } from "@/components/RandomIconBadge";
 import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
+
+export const metadata: Metadata = {
+  title: "About",
+  description:
+    "Jellyhook is a website analytics and conversion intelligence platform. Install a tracker script, watch how visitors move through your site, and see which pages and forms actually turn traffic into leads.",
+  alternates: { canonical: "/about" },
+  openGraph: {
+    title: "About Jellyhook",
+    description:
+      "Jellyhook is a website analytics and conversion intelligence platform. Install a tracker script, watch how visitors move through your site, and see which pages and forms actually turn traffic into leads.",
+    url: "/about",
+  },
+};
 
 const COMPONENTS = [
   {

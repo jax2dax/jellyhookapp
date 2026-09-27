@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
@@ -6,6 +7,19 @@ import { MarketingPage } from "@/components/marketing/MarketingPage";
 import { primaryBtn, ghostBtn, avatarAppearance } from "@/components/marketing/MarketingTheme";
 import { RandomIconBadge } from "@/components/RandomIconBadge";
 import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
+
+export const metadata: Metadata = {
+  title: "Website Analytics & Lead Intelligence",
+  description:
+    "Install one tracker script and turn every visit to your site into a full session replay. See scroll depth, time on page, and link every form submission back to the visitor's full history.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "Jellyhook: Website Analytics & Lead Intelligence",
+    description:
+      "Install one tracker script and turn every visit to your site into a full session replay. See scroll depth, time on page, and link every form submission back to the visitor's full history.",
+    url: "/",
+  },
+};
 
 // Real capabilities, not generic SaaS boilerplate — see SAAS_PRODUCT_AUDIT.md
 // §3 (Core Features) for the implementation each of these describes.

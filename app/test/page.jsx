@@ -3,6 +3,10 @@
 import { getAuthUser, getAllUserSites, getUserSite } from "@/lib/actions/permission.actions";
 import SiteSelector from "@/components/SiteSelector";
 
+export const metadata = {
+  robots: { index: false, follow: false },
+};
+
 export default async function TestSelectorPage() {
   const user = await getAuthUser();
 

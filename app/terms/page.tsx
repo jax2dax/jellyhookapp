@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import * as React from "react";
 import Link from "next/link";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
+
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description: "The terms that govern your use of the Jellyhook dashboard and tracker script.",
+  alternates: { canonical: "/terms" },
+  robots: { index: true, follow: true },
+};
 
 const SECTIONS: { title: string; body: React.ReactNode }[] = [
   {
