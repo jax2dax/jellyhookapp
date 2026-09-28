@@ -66,6 +66,7 @@ export const metadata: Metadata = {
   },
 };
 
+// Root layout. Every marketing page under app/ is wrapped in this, which
 
 export default function RootLayout({
   children,
