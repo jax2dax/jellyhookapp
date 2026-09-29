@@ -48,7 +48,9 @@ export async function POST(req) {
       .single();
 
     if (!site || siteError || !site.is_active) {
-      return NextResponse.json({ success: true }, { headers: corsHeaders() });
+      // TEMP DEBUG — remove once the silent-write-failure investigation is
+      // done. Exposes exactly why this returned early instead of writing.
+      return NextResponse.json({ success: true, _debug: { reason: "site_lookup_failed", site, siteError: siteError?.message } }, { headers: corsHeaders() });
     }
 
     const { data: existing } = await supabase
@@ -70,7 +72,12 @@ export async function POST(req) {
     const now = new Date().toISOString();
     const isTerminal = payload.status === "submitted" || payload.status === "abandoned";
 
+    // TEMP DEBUG — remove once the silent-write-failure investigation is done.
+    let _debugWriteError = null;
+    let _debugMode = null;
+
     if (!existing) {
+      _debugMode = "insert";
       const { error: insertError } = await supabase.from("form_engagement").insert({
         site_id: site.id,
         visitor_id: payload.visitor_id || null,
@@ -86,8 +93,12 @@ export async function POST(req) {
         first_input_at: payload.status === "started" ? now : null,
         ended_at: isTerminal ? now : null,
       });
-      if (insertError) console.error("🔴 FORM ENGAGEMENT INSERT ERROR:", insertError.message);
+      if (insertError) {
+        console.error("🔴 FORM ENGAGEMENT INSERT ERROR:", insertError.message);
+        _debugWriteError = { message: insertError.message, details: insertError.details, hint: insertError.hint, code: insertError.code };
+      }
     } else {
+      _debugMode = "update";
       const update = { status: payload.status };
       if (payload.last_field_type) update.last_field_type = payload.last_field_type;
       if (payload.last_field_key !== undefined) update.last_field_key = payload.last_field_key || null;
@@ -97,10 +108,13 @@ export async function POST(req) {
       if (isTerminal) update.ended_at = now;
 
       const { error: updateError } = await supabase.from("form_engagement").update(update).eq("id", existing.id);
-      if (updateError) console.error("🔴 FORM ENGAGEMENT UPDATE ERROR:", updateError.message);
+      if (updateError) {
+        console.error("🔴 FORM ENGAGEMENT UPDATE ERROR:", updateError.message);
+        _debugWriteError = { message: updateError.message, details: updateError.details, hint: updateError.hint, code: updateError.code };
+      }
     }
 
-    return NextResponse.json({ success: true }, { headers: corsHeaders() });
+    return NextResponse.json({ success: true, _debug: { mode: _debugMode, writeError: _debugWriteError, siteId: site.id } }, { headers: corsHeaders() });
   } catch (err) {
     console.error("FORM ENGAGEMENT TRACK ERROR:", err);
     return NextResponse.json({ error: err.message }, { status: 500, headers: corsHeaders() });
