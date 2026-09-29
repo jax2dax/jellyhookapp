@@ -61,6 +61,8 @@ function LeadProfileBody({ profile, raw, siteId }) {
     conversions,
     primaryConversion,
     preConversionPath,
+    formEngagementFacts,
+    abandonedFormsCount,
   } = profile;
 
   const hasConverted = !!primaryConversion;
@@ -151,6 +153,37 @@ function LeadProfileBody({ profile, raw, siteId }) {
           sub={hasConverted ? (visitsBeforeConversion === 0 ? "on the first visit" : `after ${visitsBeforeConversion} earlier visit${visitsBeforeConversion === 1 ? "" : "s"}`) : "not converted yet"}
         />
       </div>
+
+      {/* ── Section 2b: Form engagement facts — only shown when there's a real
+          fact to show, never a fabricated "0 abandoned forms" for every lead ── */}
+      {(formEngagementFacts || abandonedFormsCount > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Form Engagement</CardTitle>
+            <CardDescription>What actually happened around the form, not a guess about why.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-6">
+            {formEngagementFacts?.timeToFirstInputMs != null && (
+              <div>
+                <div className="text-2xl font-semibold text-foreground">{formatDuration(formEngagementFacts.timeToFirstInputMs)}</div>
+                <div className="text-xs text-muted-foreground">on screen before they typed anything</div>
+              </div>
+            )}
+            {formEngagementFacts?.timeFillingFormMs != null && (
+              <div>
+                <div className="text-2xl font-semibold text-foreground">{formatDuration(formEngagementFacts.timeFillingFormMs)}</div>
+                <div className="text-xs text-muted-foreground">spent filling it in, start to submit</div>
+              </div>
+            )}
+            {abandonedFormsCount > 0 && (
+              <div>
+                <div className="text-2xl font-semibold text-foreground">{abandonedFormsCount}</div>
+                <div className="text-xs text-muted-foreground">other form{abandonedFormsCount === 1 ? "" : "s"} this visitor started but never submitted</div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Section 3: Engagement + path to conversion ─────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

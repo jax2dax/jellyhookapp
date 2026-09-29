@@ -33,6 +33,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatDate, formatDuration, formatRelativeTime } from "@/lib/leadFormat";
 import { FramePlateChart, resolveViewportHeightPx, type SessionRaw, type TimelineItem } from "@/framePlate";
 import { SessionSummaryDrawer } from "./SessionSummaryDrawer";
+import { ChartLegend } from "./ChartLegend";
 import { SelectedFrameDetails } from "./SelectedFrameDetails";
 import { buildSessionsRaw } from "@/lib/leadSessions/transform";
 import { getLeadSessionRows, getLeadPageStructureRows, getLeadFormEngagementRows } from "@/lib/actions/leadSessions.action";
@@ -347,6 +348,8 @@ export function LeadSessionExplorer({
           </div>
         </div>
       )}
+
+      {selectedSession && <ChartLegend />}
 
       {selectedSession && (
         // w-full + min-w-0 + overflow-hidden: without these, a long session

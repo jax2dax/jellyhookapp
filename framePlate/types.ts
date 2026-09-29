@@ -67,6 +67,8 @@ export interface PageVisitRaw {
    */
   formTopY?: number | null;
   formBottomY?: number | null;
+  /** a form on this page was engaged with but never submitted (form_engagement.status = 'abandoned') */
+  abandonedForm?: boolean;
 }
 
 export interface SessionRaw {
@@ -83,7 +85,7 @@ export type DeviceType = "desktop" | "mobile" | "tablet";
 
 // ── Timeline items — a session strip is a sequence of these ────────────────
 
-export type FrameOutcome = "active" | "exitedNormally" | "converted" | "expired" | "away" | "live";
+export type FrameOutcome = "active" | "exitedNormally" | "converted" | "abandoned" | "expired" | "away" | "live";
 
 /**
  * Everything here is in PAGE-FRACTION space: 0 = top of the page's content,
@@ -231,6 +233,12 @@ export interface FramePlateTheme {
   hover: {
     /** how dark the overlay on the hovered frame gets, 0-1 */
     darkenOpacity: number;
+  };
+  /** Border drawn around the WHOLE chart (not a frame) while the session hasn't ended yet — see FramePlateChart's isSessionLive check. */
+  sessionLiveBorder: {
+    color: string;
+    widthPx: number;
+    cornerRadius: number;
   };
   /**
    * The "1vh" scale marks — drawn ON EACH PLATE INDIVIDUALLY, at every

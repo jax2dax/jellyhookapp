@@ -22,16 +22,16 @@ export const defaultTheme: FramePlateTheme = {
     borderColor: "var(--fp-plate-border, #3a3a3a)",
     borderWidth: 1.5,
   },
-  seenOnce: { color: "#4ade80" },
+  seenOnce: { color: "#068e1d" },
   seenTwice: { color: "#0f3d1c" },
   // A tiny horizontal zigzag standing in for "there's a heading here",
   // drawn ON the plate (inset from its left edge) — not another bulb shape.
   header: { color: "var(--fp-text-muted, #9a9a9a)", heightPx: 3, widthPx: 16, segments: 4, offsetX: 8 },
   frame: {
     height: 340,
-    minWidth: 72,
-    typicalWidth: 160,
-    maxWidth: 340,
+    minWidth: 74,
+    typicalWidth: 120,
+    maxWidth: 310,
     padding: 14,
     gap: 10,
     // Per framePlate/assets/bulbs-explained.png: session entered (green),
@@ -43,6 +43,10 @@ export const defaultTheme: FramePlateTheme = {
       active: "#3f5f3f",
       exitedNormally: "var(--fp-frame-exited, #1c1c1c)",
       converted: "#a6821b",
+      // A form on this page was started/viewed but left without submitting
+      // (form_engagement.status = 'abandoned') — distinct from a plain
+      // exitedNormally page where no form was ever engaged with at all.
+      abandoned: "#cc5624",
       expired: "#6b2f2f",
       away: "#5a4080",
       // The session hasn't closed yet — the visitor may be on this exact
@@ -78,6 +82,11 @@ export const defaultTheme: FramePlateTheme = {
   },
   hover: {
     darkenOpacity: 0.35,
+  },
+  sessionLiveBorder: {
+    color: "#15803d",
+    widthPx: 2,
+    cornerRadius: 8,
   },
   referenceLine: {
     enabled: true,

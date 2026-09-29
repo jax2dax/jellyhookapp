@@ -58,7 +58,14 @@ export function FramePlateChart({ session, theme: themeOverride, domainEnd, minG
 
   return (
     <FramePlateErrorBoundary>
-      <div className={className} style={isSessionLive ? { border: "2px solid #15803d", borderRadius: 8, padding: 4 } : undefined}>
+      <div
+        className={className}
+        style={
+          isSessionLive
+            ? { border: `${theme.sessionLiveBorder.widthPx}px solid ${theme.sessionLiveBorder.color}`, borderRadius: theme.sessionLiveBorder.cornerRadius, padding: 4 }
+            : undefined
+        }
+      >
         <SessionStrip timeline={timeline} theme={theme} hoverDelayMs={hoverDelayMs} onHoverItem={onHoverItem} onSelectItem={onSelectItem} />
       </div>
     </FramePlateErrorBoundary>

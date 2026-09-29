@@ -9,7 +9,7 @@
 import { defaultTheme } from "./defaultTheme";
 import type { BulbShapeConfig, BulbType, DeepPartial, FrameOutcome, FramePlateTheme } from "../types";
 
-const FRAME_OUTCOMES: FrameOutcome[] = ["active", "exitedNormally", "converted", "expired", "away", "live"];
+const FRAME_OUTCOMES: FrameOutcome[] = ["active", "exitedNormally", "converted", "abandoned", "expired", "away", "live"];
 const BULB_SHAPES = ["pill", "circle", "diamond", "custom"] as const;
 
 function isFiniteNumber(v: unknown): v is number {
@@ -163,6 +163,12 @@ export function validateTheme(userTheme?: DeepPartial<FramePlateTheme>): { theme
       darkenOpacity: pick("hover.darkenOpacity", t.hover?.darkenOpacity, defaultTheme.hover.darkenOpacity, (v): v is number => isFiniteNumber(v) && v >= 0 && v <= 1, warnings),
     };
 
+    const sessionLiveBorder = {
+      color: pick("sessionLiveBorder.color", t.sessionLiveBorder?.color, defaultTheme.sessionLiveBorder.color, isNonEmptyString, warnings),
+      widthPx: pick("sessionLiveBorder.widthPx", t.sessionLiveBorder?.widthPx, defaultTheme.sessionLiveBorder.widthPx, isPositiveNumber, warnings),
+      cornerRadius: pick("sessionLiveBorder.cornerRadius", t.sessionLiveBorder?.cornerRadius, defaultTheme.sessionLiveBorder.cornerRadius, (v): v is number => isFiniteNumber(v) && v >= 0, warnings),
+    };
+
     const referenceLine = {
       enabled: typeof t.referenceLine?.enabled === "boolean" ? t.referenceLine.enabled : defaultTheme.referenceLine.enabled,
       repeat: typeof t.referenceLine?.repeat === "boolean" ? t.referenceLine.repeat : defaultTheme.referenceLine.repeat,
@@ -173,7 +179,7 @@ export function validateTheme(userTheme?: DeepPartial<FramePlateTheme>): { theme
       labelFontSize: pick("referenceLine.labelFontSize", t.referenceLine?.labelFontSize, defaultTheme.referenceLine.labelFontSize, isPositiveNumber, warnings),
     };
 
-    const theme: FramePlateTheme = { canvasBackground, plate, seenOnce, seenTwice, header, frame, ribbon, bulbs, hover, referenceLine };
+    const theme: FramePlateTheme = { canvasBackground, plate, seenOnce, seenTwice, header, frame, ribbon, bulbs, hover, referenceLine, sessionLiveBorder };
 
     if (warnings.length > 0) {
       console.warn(`[framePlate] theme validation found ${warnings.length} issue(s):`, warnings);

@@ -121,7 +121,7 @@ export function deriveVisitGeometry(visit: PageVisitRaw, fallbackViewportHeightP
     }
 
     const durationMs = Math.max(0, new Date(visit.leftAt).getTime() - new Date(visit.enteredAt).getTime());
-    const outcome: FrameOutcome = visit.converted ? "converted" : "exitedNormally";
+    const outcome: FrameOutcome = visit.converted ? "converted" : visit.abandonedForm ? "abandoned" : "exitedNormally";
     const trace = visit.scrollTrace;
     const { vFrac, estimated } = resolveViewportFraction(visit, fallbackViewportHeightPx);
     const scrollableFrac = Math.max(0, 1 - vFrac);
