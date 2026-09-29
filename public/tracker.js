@@ -974,6 +974,14 @@ function firePageViewStart() {
     if (engagementPageViewId !== page_view_id) {
       engagementPageViewId = page_view_id;
       engagementState = new Map();
+      // A form that survives across page views (SPA navigation/idle-split
+      // without the DOM node being recreated) must be re-armed for view
+      // detection here — observeFormForEngagement below only re-observes it
+      // if its stamped page_view_id no longer matches the current one.
+      // Without this, "viewed" only ever fires on that form's very first
+      // page view, and every page view after silently skips straight to
+      // started/submitted with no recorded position.
+      document.querySelectorAll("form").forEach(observeFormForEngagement);
     }
   }
 
@@ -1062,8 +1070,13 @@ function firePageViewStart() {
 
   function observeFormForEngagement(form) {
     try {
-      if (form.__jhEngagementObserved) return;
-      form.__jhEngagementObserved = true;
+      // Stamped with the page_view_id it was last (re-)armed for, not a
+      // permanent flag — a form that survives across page views (SPA nav,
+      // idle-split) needs "viewed" to fire again for EACH page view, since
+      // position/engagement is tracked per page view, not once per DOM
+      // element for its whole lifetime.
+      if (form.__jhEngagementObservedForPv === page_view_id) return;
+      form.__jhEngagementObservedForPv = page_view_id;
       engagementObserver.observe(form);
     } catch (err) {
       console.error("[Tracker] ❌ Failed to observe form for engagement:", err);
