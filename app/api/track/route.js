@@ -1,6 +1,7 @@
 // api/track/route.js
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createSupabaseClient } from "@/lib/supabase";
+import { resolvePendingCountries } from "@/lib/resolvePendingCountries";
 
 function corsHeaders() {
   return {
@@ -12,20 +13,6 @@ function corsHeaders() {
 
 export async function OPTIONS() {
   return new Response(null, { status: 200, headers: corsHeaders() });
-}
-
-// Free, no API key, 1000 req/min — returns null on localhost (correct behavior)
-async function getCountryFromIp(ip) {
-  if (!ip || ip === "unknown" || ip === "127.0.0.1" || ip === "::1") return null;
-  try {
-    const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,country`, {
-      signal: AbortSignal.timeout(2000),
-    });
-    const data = await res.json();
-    return data.status === "success" ? data.country : null;
-  } catch {
-    return null;
-  }
 }
 
 // Bot detection — filter before any DB writes
@@ -84,9 +71,11 @@ export async function POST(req) {
       }
     }
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-
-    // Resolve country once per request
-    const country = await getCountryFromIp(ip);
+    // Country is NOT resolved here anymore — it used to block every single
+    // request on a 3rd-party HTTP call. sessions.country is left null on
+    // insert and backfilled separately after the response is sent (see
+    // resolvePendingCountries below), so a slow or down geolocation API
+    // never adds latency to a real visitor's request.
 
     for (const event of events) {
 
@@ -233,7 +222,7 @@ if (event.type === "session_start") {
       started_at: new Date(),
       last_activity_at: new Date(),
       referrer: event.referrer || null,
-      country: country || null,
+      country: null, // backfilled by resolvePendingCountries, see note above
       timezone: event.timezone || null,
     });
     if (insertError) console.error("🔴 SESSION INSERT ERROR:", insertError.message);
@@ -425,6 +414,11 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
         }
       }
     }
+
+    // Runs after the response has already been sent to the visitor — rides
+    // along on real traffic instead of needing a cron job, and a slow/down
+    // provider here never delays anyone's actual tracking request.
+    after(() => resolvePendingCountries(supabase));
 
     return NextResponse.json({ success: true }, { headers: corsHeaders() });
 

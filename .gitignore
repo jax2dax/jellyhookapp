@@ -42,3 +42,6 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+/mds/personal_problems.md
+/mds/reports/saas_validation.md
