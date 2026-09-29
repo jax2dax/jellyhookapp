@@ -993,7 +993,14 @@ function firePageViewStart() {
 
   function sendEngagementEvent(formIndex, form, patch) {
     try {
-      if (!isConversionForm(form) || shouldSkip(form)) return; // same gate submissions use
+      if (!isConversionForm(form)) {
+        console.log("[Tracker] 🟡 Form engagement skipped — isConversionForm() gate failed:", { formIndex, patch });
+        return;
+      }
+      if (shouldSkip(form)) {
+        console.log("[Tracker] 🟡 Form engagement skipped — shouldSkip() gate failed:", { formIndex, patch });
+        return;
+      }
       resetEngagementStateIfNewPageView();
       const entry = engagementState.get(formIndex) || {};
       Object.assign(entry, patch);
@@ -1012,13 +1019,16 @@ function firePageViewStart() {
         form_top_y: entry.formTopY ?? null,
         form_bottom_y: entry.formBottomY ?? null,
       };
+      console.log("[Tracker] 📋 Form engagement → sending:", payload);
       _originalFetch(ENGAGEMENT_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
         credentials: "omit",
         keepalive: true,
-      }).catch((err) => console.error("[Tracker] ❌ Form engagement send error:", err));
+      })
+        .then((r) => console.log("[Tracker] ✅ Form engagement sent, status:", r.status, payload.status))
+        .catch((err) => console.error("[Tracker] ❌ Form engagement send error:", err));
     } catch (err) {
       console.error("[Tracker] ❌ Form engagement error:", err);
     }
@@ -1139,7 +1149,11 @@ function firePageViewStart() {
   function markEngagementSubmitted(form) {
     try {
       const formIndex = Array.from(document.forms).indexOf(form);
-      if (formIndex === -1) return;
+      console.log("[Tracker] 🔎 markEngagementSubmitted called, formIndex:", formIndex, form);
+      if (formIndex === -1) {
+        console.log("[Tracker] 🟡 Form engagement skipped — form not found in document.forms");
+        return;
+      }
       sendEngagementEvent(formIndex, form, { status: "submitted" });
     } catch (err) {
       console.error("[Tracker] ❌ Form engagement submit-mark error:", err);
