@@ -130,11 +130,47 @@ function getSessionId() {
 // Neither fires on page navigation — session_id stays the same across all pages
 // isNewSession MUST be checked BEFORE getSessionId() writes to sessionStorage
 const isNewSession = !sessionStorage.getItem("jh_session_id");
-const session_id = getSessionId();
+// let, not const — reassigned by the idle-timeout check below when a tab is
+// left open across a long background gap and needs a fresh session_id.
+let session_id = getSessionId();
 
-function fireSessionStart() {
-  // Only send if this is a brand new session — not a page navigation
-  if (!isNewSession) return;
+// SESSION IDLE TIMEOUT
+// There's no fixed, cross-browser number for "how long can a background tab
+// sit before the browser discards it" — that's driven by each browser's own
+// memory pressure, not a timer, so it can't be copied from Safari/Chrome.
+// This is a deliberate business threshold instead: 30 minutes idle, the same
+// default GA4 uses for "this visit is over, not just a glance away."
+const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+
+function getLastHiddenAt() {
+  const raw = sessionStorage.getItem("jh_last_hidden_at");
+  return raw ? parseInt(raw, 10) : null;
+}
+function setLastHiddenAt(ts) {
+  sessionStorage.setItem("jh_last_hidden_at", String(ts));
+}
+
+// Closes the old (now-stale) session with the moment the visitor actually
+// left (hiddenAt), not "now" — "now" is whenever they happened to reopen the
+// tab, which could be days later — then hands back a fresh session_id.
+function startNewSessionAfterIdle(oldSessionId, hiddenAt) {
+  console.log("🟠 SESSION IDLE TIMEOUT — closing", oldSessionId, "as of", new Date(hiddenAt).toISOString());
+  sendEvent({
+    type: "session_end",
+    visitor_id,
+    session_id: oldSessionId,
+    ended_at: hiddenAt,
+  });
+  const newId = crypto.randomUUID();
+  sessionStorage.setItem("jh_session_id", newId);
+  return newId;
+}
+
+function fireSessionStart(force) {
+  // Only send if this is a brand new session — not a page navigation —
+  // unless force is set (used when the idle timeout above just minted a
+  // fresh session_id mid-visit, which isNewSession has no way to know about).
+  if (!isNewSession && !force) return;
   console.log("🟢 SESSION START FIRING:", session_id);
   sendEvent({
     type: "session_start",
@@ -179,6 +215,15 @@ window.addEventListener("beforeunload", fireSessionEnd);
   // Mutable — resets on every new page view (tab return)
   let page_view_id = crypto.randomUUID();
   let startTime = Date.now();
+
+  // Other independent sections (e.g. form engagement, below) can register a
+  // callback here to run at the exact moments this file already detects the
+  // visitor leaving the current page — tab hidden, SPA route change, or
+  // session end — without needing to duplicate that detection themselves.
+  // Called from firePageViewEnd() BEFORE page_view_id/page state is reset by
+  // whichever caller invoked it, so a listener still sees the page that's
+  // ending, not whatever comes next.
+  const pageLeaveListeners = [];
 // ── MAX SCROLL TRACKING ──
   // These reset on every new page view alongside page_view_id and startTime
   // maxScrollDepth: highest scroll fraction (0–1) reached on this page view.
@@ -321,6 +366,17 @@ function firePageViewStart() {
 }
 
   function firePageViewEnd() {
+    // Let independent sections react to "the visitor is leaving this page"
+    // before anything below changes page_view_id/page state. A listener
+    // throwing must never break analytics — that's the whole reason this is
+    // a plain loop with its own try/catch per callback, not a direct call.
+    for (const fn of pageLeaveListeners) {
+      try {
+        fn();
+      } catch (err) {
+        console.error("[Tracker] ❌ pageLeaveListener error:", err);
+      }
+    }
     // scroll_depth: position when leaving (existing column, keep for backward compat)
     // max_scroll_depth: deepest point ever reached during this page view
     // max_scroll_reached_at: when that deepest point was first hit
@@ -371,14 +427,30 @@ function firePageViewStart() {
     });
   }
 
-  // INITIAL PAGE LOAD
-  // firePageViewStart();               //fixing null closes
+  // Shared by BOTH load paths below — checked before anything else runs, so
+  // it catches a page that resumes via visibilitychange (still the same live
+  // document) AND a page that comes back via a fresh full load with
+  // sessionStorage still intact (tab restore, or the browser/OS having
+  // discarded and reloaded a backgrounded tab rather than just hiding it).
+  // The earlier version only checked this inside the visibilitychange
+  // handler, so any session that came back via a fresh load instead silently
+  // continued with no split — exactly what produced a multi-hour "away" gap
+  // inside one session instead of two separate sessions.
+  function checkIdleAndMaybeSplitSession() {
+    const hiddenAt = getLastHiddenAt();
+    if (hiddenAt !== null && Date.now() - hiddenAt > SESSION_IDLE_TIMEOUT_MS) {
+      session_id = startNewSessionAfterIdle(session_id, hiddenAt);
+      fireSessionStart(true);
+    }
+  }
+
   // INITIAL PAGE LOAD
   // Guard: only fire if tab is visible right now.
   // If the page loaded in a background tab, visibilitychange → "visible" will fire it.
   // Without this guard, pages loading while hidden fire once here AND once on visibilitychange,
   // creating a duplicate row.
   if (document.visibilityState !== "hidden") {
+    checkIdleAndMaybeSplitSession();
     firePageViewStart();
     console.log("[Tracker] ✅ Initial page_view_start fired (tab visible):", page_view_id);
   } else {
@@ -390,8 +462,16 @@ function firePageViewStart() {
     if (document.visibilityState === "hidden") {
       // User left — close current page_view row
       firePageViewEnd();
+      setLastHiddenAt(Date.now());
     } else if (document.visibilityState === "visible") {
-      // User returned — fresh page_view_id and timer, open new row
+      // User returned — if they were away longer than the idle timeout,
+      // this isn't a continuation of the same visit anymore. Close the old
+      // session as of when they actually left and start a fresh one BEFORE
+      // opening the new page_view, so the new page_view lands under the
+      // new session_id.
+      checkIdleAndMaybeSplitSession();
+
+      // Fresh page_view_id and timer, open new row
       page_view_id = crypto.randomUUID();
       startTime = Date.now();
       maxScrollDepth = getScrollDepth(); // ← seed at entry point, not 0
@@ -735,6 +815,7 @@ function firePageViewStart() {
       lastCaptureAt = now;
 
       console.log("[Tracker] ✅ Form captured:", { name, email, phone, raw });
+      markEngagementSubmitted(form);
 
       const payload = {
         api_key: apiKey,
@@ -866,6 +947,204 @@ function firePageViewStart() {
     }
     return _originalFetch.apply(this, args);
   };
+
+  // ─────────────────────────────────────────────────────────────────────
+  // FORM ENGAGEMENT TRACKING — viewed / started / submitted / abandoned
+  //
+  // Fully additive to everything above: reuses the same form gate
+  // (isConversionForm + shouldSkip) and the same NAME_KEYS/EMAIL_KEYS/
+  // PHONE_KEYS classifiers, but a failure here can never block a real
+  // submission from being captured — every entry point is try/caught on
+  // its own.
+  //
+  // One row per (page_view, form) moving forward through a status instead
+  // of a separate event per moment: viewed → started → submitted/abandoned.
+  // form_index identifies a form the same way page_structure.header_index
+  // identifies a header — its position among document.forms on the page.
+  // ─────────────────────────────────────────────────────────────────────
+  const ENGAGEMENT_API_URL = `${API_BASE}/api/track-form-engagement`;
+
+  // formIndex -> { status, lastFieldType, lastFieldKey, formTopY, formBottomY }
+  // Reset whenever page_view_id changes — a form's engagement is scoped to
+  // ONE page view, same as everything else keyed by page_view_id.
+  let engagementState = new Map();
+  let engagementPageViewId = null;
+
+  function resetEngagementStateIfNewPageView() {
+    if (engagementPageViewId !== page_view_id) {
+      engagementPageViewId = page_view_id;
+      engagementState = new Map();
+    }
+  }
+
+  function classifyField(input) {
+    const signals = [
+      input.name, input.id, input.placeholder,
+      input.getAttribute("aria-label"), input.getAttribute("autocomplete"),
+    ].map((s) => normalize(s || ""));
+    if (signals.some((s) => EMAIL_KEYS.some((k) => s.includes(normalize(k))))) return { type: "email", key: null };
+    if (signals.some((s) => NAME_KEYS.some((k) => s.includes(normalize(k))))) return { type: "name", key: null };
+    if (signals.some((s) => PHONE_KEYS.some((k) => s.includes(normalize(k))))) return { type: "phone", key: null };
+    // Doesn't match any known field type — still worth knowing WHERE people
+    // give up, so it's reported as a custom field with its raw identifier
+    // rather than being dropped.
+    return { type: "custom", key: input.name || input.id || input.placeholder || null };
+  }
+
+  function sendEngagementEvent(formIndex, form, patch) {
+    try {
+      if (!isConversionForm(form) || shouldSkip(form)) return; // same gate submissions use
+      resetEngagementStateIfNewPageView();
+      const entry = engagementState.get(formIndex) || {};
+      Object.assign(entry, patch);
+      engagementState.set(formIndex, entry);
+
+      const payload = {
+        api_key: apiKey,
+        visitor_id,
+        session_id,
+        page_view_id,
+        page_path: window.location.pathname,
+        form_index: formIndex,
+        status: entry.status,
+        last_field_type: entry.lastFieldType || null,
+        last_field_key: entry.lastFieldKey || null,
+        form_top_y: entry.formTopY ?? null,
+        form_bottom_y: entry.formBottomY ?? null,
+      };
+      _originalFetch(ENGAGEMENT_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        credentials: "omit",
+        keepalive: true,
+      }).catch((err) => console.error("[Tracker] ❌ Form engagement send error:", err));
+    } catch (err) {
+      console.error("[Tracker] ❌ Form engagement error:", err);
+    }
+  }
+
+  // ── VIEW DETECTION — fires once per form per page view, the first time it
+  // becomes at least half visible. Records its real pixel position at that
+  // moment (getBoundingClientRect, same technique page_structure already
+  // uses for headers) so the dashboard can draw it where the form actually
+  // sits, not a guess. ──
+  const engagementObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const form = entry.target;
+        const formIndex = Array.from(document.forms).indexOf(form);
+        if (formIndex === -1) continue;
+        resetEngagementStateIfNewPageView();
+        if (engagementState.has(formIndex)) continue; // already recorded for this page view
+        const rect = form.getBoundingClientRect();
+        sendEngagementEvent(formIndex, form, {
+          status: "viewed",
+          formTopY: Math.round(rect.top + window.scrollY),
+          formBottomY: Math.round(rect.bottom + window.scrollY),
+        });
+        engagementObserver.unobserve(form);
+      }
+    },
+    { threshold: 0.5 }
+  );
+
+  function observeFormForEngagement(form) {
+    try {
+      if (form.__jhEngagementObserved) return;
+      form.__jhEngagementObserved = true;
+      engagementObserver.observe(form);
+    } catch (err) {
+      console.error("[Tracker] ❌ Failed to observe form for engagement:", err);
+    }
+  }
+
+  // The install snippet is a bare <script src="..."> with no defer/async,
+  // meant to be pasted in <head> — meaning document.body does not exist yet
+  // at the moment this file executes. observe(document.body, ...) on a null
+  // body throws synchronously and would have silently killed engagement
+  // tracking's setup entirely (observer, focus listener, page-leave hook —
+  // none of it ever attaches) with no visible error unless the console
+  // happened to be open. Deferred to DOMContentLoaded when needed; runs
+  // immediately if body already exists (script placed after it, or a late
+  // dynamic injection).
+  function initFormEngagementDomWatchers() {
+    try {
+      document.querySelectorAll("form").forEach(observeFormForEngagement);
+      // Catches forms that mount later (SPA navigation, lazy-rendered content) —
+      // same reason page structure/HubSpot detection elsewhere in this file
+      // also watch the DOM instead of only scanning once at load.
+      new MutationObserver((mutations) => {
+        for (const m of mutations) {
+          for (const node of m.addedNodes) {
+            if (node.nodeType !== 1) continue;
+            if (node.tagName === "FORM") observeFormForEngagement(node);
+            if (node.querySelectorAll) node.querySelectorAll("form").forEach(observeFormForEngagement);
+          }
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+    } catch (err) {
+      console.error("[Tracker] ❌ Form engagement DOM watcher setup failed:", err);
+    }
+  }
+
+  if (document.body) {
+    initFormEngagementDomWatchers();
+  } else {
+    document.addEventListener("DOMContentLoaded", initFormEngagementDomWatchers);
+  }
+
+  // ── FIELD FOCUS ("started") — one delegated listener instead of wiring
+  // every field individually, so dynamically added fields are covered too. ──
+  document.addEventListener(
+    "focusin",
+    function (e) {
+      try {
+        const target = e.target;
+        if (!target || !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+        const form = target.closest("form");
+        if (!form) return;
+        const formIndex = Array.from(document.forms).indexOf(form);
+        if (formIndex === -1) return;
+        resetEngagementStateIfNewPageView();
+        const existing = engagementState.get(formIndex);
+        if (existing && (existing.status === "submitted" || existing.status === "abandoned")) return;
+        const { type, key } = classifyField(target);
+        sendEngagementEvent(formIndex, form, { status: "started", lastFieldType: type, lastFieldKey: type === "custom" ? key : null });
+      } catch (err) {
+        console.error("[Tracker] ❌ Form engagement focus handler error:", err);
+      }
+    },
+    true
+  );
+
+  // ── FINALIZE ("abandoned") — reuses the exact same "visitor is leaving
+  // this page" moment analytics already detects (tab hidden, SPA route
+  // change, session end), via the pageLeaveListeners hook in the outer
+  // scope. Any form still sitting at viewed/started with no submit becomes
+  // abandoned right here. ──
+  pageLeaveListeners.push(function () {
+    resetEngagementStateIfNewPageView();
+    for (const [formIndex, entry] of engagementState.entries()) {
+      if (entry.status !== "viewed" && entry.status !== "started") continue;
+      const form = document.forms[formIndex];
+      if (!form) continue;
+      sendEngagementEvent(formIndex, form, { status: "abandoned" });
+    }
+  });
+
+  // ── MARK SUBMITTED — called from sendFormCapture above the moment a real
+  // submission is captured, so this table never disagrees with leads. ──
+  function markEngagementSubmitted(form) {
+    try {
+      const formIndex = Array.from(document.forms).indexOf(form);
+      if (formIndex === -1) return;
+      sendEngagementEvent(formIndex, form, { status: "submitted" });
+    } catch (err) {
+      console.error("[Tracker] ❌ Form engagement submit-mark error:", err);
+    }
+  }
 
 })();
 

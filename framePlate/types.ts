@@ -47,6 +47,26 @@ export interface PageVisitRaw {
   converted?: boolean;
   /** header positions on the page, 0-1 fraction of page height (optional) */
   headers?: { text: string; y: number }[];
+  /**
+   * true when this exact page_view has no left_at yet — the visitor is
+   * still looking at THIS page right now. Distinct from SessionRaw.endedAt:
+   * a session can still be open (endedAt null) while this particular page
+   * was already left (isOpen false), e.g. they navigated to another tab
+   * mid-session without formally ending it. Only ever true for the most
+   * recent visit, and only drives the "live" (blue) frame outcome — it has
+   * no bearing on whether the session itself is live.
+   */
+  isOpen?: boolean;
+  /**
+   * Real pixel position of the form that was filled out on this page,
+   * measured directly (getBoundingClientRect) the moment it was first seen —
+   * see form_engagement.form_top_y/form_bottom_y. Only ever set on the page
+   * actually marked `converted`; null means "not measured" (submission
+   * predates form-engagement tracking, or the form wasn't observed before
+   * submit), in which case the converted bulb falls back to a single point.
+   */
+  formTopY?: number | null;
+  formBottomY?: number | null;
 }
 
 export interface SessionRaw {
@@ -105,6 +125,9 @@ export interface VisitGeometry {
   converted: boolean;
   outcome: FrameOutcome;
   headers?: { text: string; y: number }[];
+  /** page-fraction (0-1) span of the actual form, converted from PageVisitRaw.formTopY/formBottomY — null when not measured, see there */
+  formTopFrac?: number | null;
+  formBottomFrac?: number | null;
 }
 
 export interface GapGeometry {

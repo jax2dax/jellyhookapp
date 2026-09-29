@@ -43,13 +43,17 @@ export function buildTimeline(session: SessionRaw, domainEnd?: string, minGapMs:
       }
     }
 
-    // A session with no endedAt is still open right now — the visitor may
-    // be on the site this instant. Only the LAST item can be "live" (every
-    // earlier visit already has a real leftAt from navigating away). Don't
-    // clobber "converted", though — if they converted and just haven't left
-    // yet, that's the more important signal to keep showing.
+    // Blue/"live" means the visitor is still looking at THIS page right now
+    // — driven by that exact page_view's own left_at being unset (isOpen),
+    // never by whether the session as a whole is still open. A session can
+    // stay "live" (no ended_at) after the visitor has already left this
+    // page for another tab, and that page must NOT still show blue — only
+    // the single most recent visit can ever be open, so only it is checked.
+    // Don't clobber "converted", though — if they converted and just
+    // haven't left yet, that's the more important signal to keep showing.
     const lastItem = timeline[timeline.length - 1];
-    if (!session.endedAt && lastItem?.kind === "visit" && lastItem.outcome !== "converted") {
+    const lastRawVisit = visits[visits.length - 1];
+    if (lastRawVisit?.isOpen && lastItem?.kind === "visit" && lastItem.outcome !== "converted") {
       lastItem.outcome = "live";
     }
 

@@ -213,6 +213,37 @@ create index if not exists page_structure_site_path_idx on public.page_structure
 ```
 Used for content/intent-failure analysis, not leads.
 
+## form_engagement
+```sql
+create table public.form_engagement (
+  id uuid not null default gen_random_uuid (),
+  created_at timestamp with time zone not null default now(),
+  site_id uuid not null,
+  visitor_id text not null,
+  session_id text not null,
+  page_view_id text not null,
+  page_path text null,
+  form_index integer not null,
+  status text not null default 'viewed'::text, -- 'viewed' | 'started' | 'submitted' | 'abandoned'
+  last_field_type text null,                    -- 'name' | 'email' | 'phone' | 'custom'
+  last_field_key text null,                     -- raw field name/id/placeholder when last_field_type = 'custom'
+  viewed_at timestamp with time zone not null default now(),
+  first_input_at timestamp with time zone null,
+  ended_at timestamp with time zone null,        -- set when status becomes 'submitted' or 'abandoned'
+  constraint form_engagement_pkey primary key (id),
+  constraint form_engagement_page_view_form_idx unique (page_view_id, form_index)
+);
+create index if not exists form_engagement_site_status_idx on public.form_engagement using btree (site_id, status);
+```
+One row per (page_view, form) on that page — form_index is the form's
+position among `document.forms` on that page, same identity scheme
+`page_structure.header_index` uses for headers. Never a per-keystroke log:
+status moves forward through viewed → started → submitted/abandoned, and
+last_field_type/last_field_key just reflect whichever field the visitor was
+in the moment status last changed. RLS is anon-permissive (select/insert/
+update) to match page_views/sessions/visitors, since the tracker writes
+these anonymously same as everything else it sends.
+
 ## page_insights
 ```sql
 create table public.page_insights (

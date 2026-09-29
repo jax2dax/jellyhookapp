@@ -49,9 +49,18 @@ export function FramePlateChart({ session, theme: themeOverride, domainEnd, minG
     [session, domainEnd, minGapMs, fallbackViewportHeightPx]
   );
 
+  // Session-level liveness (ended_at still null) is a different signal from
+  // any one frame being blue: the session can still be open after the
+  // visitor has already left the last page open in it — see buildTimeline's
+  // isOpen check. This border is the ONLY place session-level "still going"
+  // is shown; individual frames never render it.
+  const isSessionLive = !session?.endedAt;
+
   return (
     <FramePlateErrorBoundary>
-      <SessionStrip timeline={timeline} theme={theme} hoverDelayMs={hoverDelayMs} onHoverItem={onHoverItem} onSelectItem={onSelectItem} className={className} />
+      <div className={className} style={isSessionLive ? { border: "2px solid #15803d", borderRadius: 8, padding: 4 } : undefined}>
+        <SessionStrip timeline={timeline} theme={theme} hoverDelayMs={hoverDelayMs} onHoverItem={onHoverItem} onSelectItem={onSelectItem} />
+      </div>
     </FramePlateErrorBoundary>
   );
 }

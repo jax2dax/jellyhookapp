@@ -35,7 +35,7 @@ import { FramePlateChart, resolveViewportHeightPx, type SessionRaw, type Timelin
 import { SessionSummaryDrawer } from "./SessionSummaryDrawer";
 import { SelectedFrameDetails } from "./SelectedFrameDetails";
 import { buildSessionsRaw } from "@/lib/leadSessions/transform";
-import { getLeadSessionRows, getLeadPageStructureRows } from "@/lib/actions/leadSessions.action";
+import { getLeadSessionRows, getLeadPageStructureRows, getLeadFormEngagementRows } from "@/lib/actions/leadSessions.action";
 import {
   setCachedSessionRows,
   getCachedPageStructure,
@@ -79,6 +79,12 @@ export interface PageStructureRow {
   position_y: number;
   page_height: number;
 }
+export interface FormEngagementRow {
+  page_view_id: string;
+  status: string;
+  form_top_y: number | null;
+  form_bottom_y: number | null;
+}
 
 interface RawRows {
   sessions: SessionRow[];
@@ -101,16 +107,6 @@ interface LeadSessionExplorerProps {
   initialSubmissionRows: SubmissionRow[];
 }
 
-function readInitialPageStructureCache(siteId: string): PageStructureRow[] {
-  try {
-    const cached = getCachedPageStructure(siteId);
-    return cached && !cached.isStale ? (cached.data as PageStructureRow[]) : [];
-  } catch (err) {
-    console.error("[LeadSessionExplorer] initial page_structure cache read failed:", err);
-    return [];
-  }
-}
-
 export function LeadSessionExplorer({
   siteId,
   visitorId,
@@ -124,10 +120,18 @@ export function LeadSessionExplorer({
     pageViews: initialPageViewRows || [],
     submissions: initialSubmissionRows || [],
   });
-  // Lazy initializer, not an effect: a one-time read of the long-lived
-  // page_structure cache at mount, not a value that needs to stay in sync
-  // with anything on every render.
-  const [pageStructureRows, setPageStructureRows] = React.useState<PageStructureRow[]>(() => readInitialPageStructureCache(siteId));
+  // Always starts empty — matching what the server renders (no localStorage
+  // there) — and gets populated from cache/fetch in an effect below, AFTER
+  // the first commit. Reading localStorage synchronously in a lazy
+  // initializer would make this component's very first client render differ
+  // from its server-rendered HTML (server always sees no cache), which is
+  // exactly what was causing a real hydration mismatch on any page view
+  // whose own page_height fell back to a cached page_structure height.
+  const [pageStructureRows, setPageStructureRows] = React.useState<PageStructureRow[]>([]);
+  // Not seeded from a server prop or cache tier — this is small, and once a
+  // form is submitted its engagement row basically never changes again, so
+  // a single client fetch per visitor is enough; no polling needed.
+  const [formEngagementRows, setFormEngagementRows] = React.useState<FormEngagementRow[]>([]);
   const [selectedSessionId, setSelectedSessionId] = React.useState<string | null>(null);
   // Click-to-pin frame details — separate from hover. Cleared whenever the
   // selected SESSION changes, since a frame id from one session's timeline
@@ -144,8 +148,8 @@ export function LeadSessionExplorer({
   const [lastFetchedAt, setLastFetchedAt] = React.useState<number | null>(null);
 
   const sessionsRaw = React.useMemo<SessionRaw[]>(() => {
-    return buildSessionsRaw({ ...rawRows, pageStructure: pageStructureRows }) as SessionRaw[];
-  }, [rawRows, pageStructureRows]);
+    return buildSessionsRaw({ ...rawRows, pageStructure: pageStructureRows, formEngagement: formEngagementRows }) as SessionRaw[];
+  }, [rawRows, pageStructureRows, formEngagementRows]);
 
   const hasLiveSession = sessionsRaw.some((s) => s.endedAt === null);
 
@@ -194,7 +198,16 @@ export function LeadSessionExplorer({
     if (paths.length === 0) return;
 
     const cached = getCachedPageStructure(siteId);
-    if (cached && !cached.isStale) return; // already reflected via the lazy initializer above
+    if (cached && !cached.isStale) {
+      // Populated here, post-mount, instead of a lazy initializer — see the
+      // state declaration above for why that distinction matters. This is
+      // the exact external-system-read case the lint rule's own guidance
+      // allows; disabled deliberately, not to dodge a real cascading-render
+      // problem (this runs once per mount/siteId change, not in a loop).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPageStructureRows(cached.data as PageStructureRow[]);
+      return;
+    }
 
     let cancelled = false;
     getLeadPageStructureRows(siteId, paths)
@@ -208,6 +221,20 @@ export function LeadSessionExplorer({
       cancelled = true;
     };
   }, [siteId, rawRows.pageViews]);
+
+  // ── Form engagement: fetched once per visitor, not polled — see the state
+  // declaration above for why. ──
+  React.useEffect(() => {
+    let cancelled = false;
+    getLeadFormEngagementRows(siteId, visitorId)
+      .then((rows: FormEngagementRow[]) => {
+        if (!cancelled) setFormEngagementRows(rows);
+      })
+      .catch((err) => console.error("[LeadSessionExplorer] form_engagement fetch failed:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [siteId, visitorId]);
 
   const refreshSessions = React.useCallback(async () => {
     setRefreshing(true);
@@ -262,35 +289,38 @@ export function LeadSessionExplorer({
             <TableHead>Date</TableHead>
             <TableHead>Duration</TableHead>
             <TableHead>Pages</TableHead>
-            <TableHead className="text-right">Outcome</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {visibleSessions.map((session, i) => {
             const idx = sessionsPageStart + i; // absolute visit number, not reset per page
             const isSelected = session.id === effectiveSelectedId;
+            // A lead converts at most once, ever — no need for a whole
+            // "outcome" column just to say converted/live/left. The row
+            // color IS the outcome: yellow if a conversion happened
+            // somewhere in this session, green if the session is still
+            // live. Neither, and the row is just a plain past visit.
             const converted = session.visits.some((v) => v.converted);
             const isLive = session.endedAt === null;
             const durationMs = session.visits.length
               ? new Date(session.visits[session.visits.length - 1].leftAt).getTime() - new Date(session.startedAt).getTime()
               : null;
+            const highlightClass = converted
+              ? "bg-yellow-500/10 hover:bg-yellow-500/15"
+              : isLive
+                ? "bg-green-500/10 hover:bg-green-500/15"
+                : "";
             return (
-              <TableRow key={session.id} className={`cursor-pointer ${isSelected ? "bg-muted/50" : ""}`} onClick={() => setSelectedSessionId(session.id)} aria-selected={isSelected}>
-                <TableCell className="font-medium">#{idx + 1}</TableCell>
+              <TableRow
+                key={session.id}
+                className={`cursor-pointer ${highlightClass} ${isSelected ? "bg-muted/50" : ""}`}
+                onClick={() => setSelectedSessionId(session.id)}
+                aria-selected={isSelected}
+              >
+                <TableCell className="font-medium">{idx === sessionsRaw.length - 1 ? "Latest" : `#${idx + 1}`}</TableCell>
                 <TableCell>{formatDate(session.startedAt)}</TableCell>
                 <TableCell>{durationMs != null ? formatDuration(durationMs) : "—"}</TableCell>
                 <TableCell>{session.visits.length}</TableCell>
-                <TableCell className="text-right">
-                  {isLive ? (
-                    <Badge className="gap-1">
-                      <Radio className="h-3 w-3" /> Live
-                    </Badge>
-                  ) : converted ? (
-                    <Badge>Converted</Badge>
-                  ) : (
-                    <Badge variant="outline">Left without converting</Badge>
-                  )}
-                </TableCell>
               </TableRow>
             );
           })}

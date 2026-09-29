@@ -71,10 +71,20 @@ function resolveViewportFraction(visit: Partial<PageVisitRaw> | undefined, fallb
   return { vFrac: Math.min(1, viewportHeightPx / pageHeightPx), estimated: measured === 0 };
 }
 
+// Converts a measured pixel position (form_top_y/form_bottom_y — real page
+// pixels, same space as pageHeightPx) into the 0-1 page-fraction space
+// everything else here renders in. null in, null out — "not measured" must
+// stay distinguishable from "measured at the very top of the page" (0).
+function toFormFrac(px: number | null | undefined, pageHeightPx: number): number | null {
+  if (px == null || !Number.isFinite(px) || !pageHeightPx || pageHeightPx <= 0) return null;
+  return clamp01(px / pageHeightPx);
+}
+
 function fallbackGeometry(visit: Partial<PageVisitRaw> | undefined, outcome: FrameOutcome, fallbackViewportHeightPx: number): VisitGeometry {
   const enteredAt = visit?.enteredAt ? new Date(visit.enteredAt).getTime() : 0;
   const leftAt = visit?.leftAt ? new Date(visit.leftAt).getTime() : 0;
   const { vFrac, estimated } = resolveViewportFraction(visit, fallbackViewportHeightPx);
+  const pageHeightPx = visit?.pageHeightPx ?? 0;
   return {
     kind: "visit",
     id: visit?.id ?? "unknown",
@@ -93,6 +103,8 @@ function fallbackGeometry(visit: Partial<PageVisitRaw> | undefined, outcome: Fra
     converted: !!visit?.converted,
     outcome,
     headers: visit?.headers,
+    formTopFrac: toFormFrac(visit?.formTopY, pageHeightPx),
+    formBottomFrac: toFormFrac(visit?.formBottomY, pageHeightPx),
   };
 }
 
@@ -177,6 +189,8 @@ export function deriveVisitGeometry(visit: PageVisitRaw, fallbackViewportHeightP
       converted: !!visit.converted,
       outcome,
       headers: visit.headers,
+      formTopFrac: toFormFrac(visit.formTopY, visit.pageHeightPx),
+      formBottomFrac: toFormFrac(visit.formBottomY, visit.pageHeightPx),
     };
   } catch (err) {
     console.error(`[framePlate] deriveVisitGeometry failed for visit "${visit?.id}":`, err);

@@ -121,7 +121,13 @@ export function FullPagePlate(props: FullPagePlateProps) {
     );
   }
 
-  const { enterY, exitY, seenBottom, viewportFraction: vFrac, converted, headers } = visit;
+  const { enterY, exitY, seenBottom, viewportFraction: vFrac, converted, headers, formTopFrac, formBottomFrac } = visit;
+  // Draw the converted marker stretched along the form's real measured
+  // length when we have it (form_engagement.form_top_y/form_bottom_y —
+  // tracked from the moment the form's abandonment/view tracking started),
+  // falling back to the old single-point-at-exit marker for conversions
+  // recorded before that existed.
+  const hasFormSpan = converted && formTopFrac != null && formBottomFrac != null;
 
   return (
     <g>
@@ -165,7 +171,21 @@ export function FullPagePlate(props: FullPagePlateProps) {
       </g>
 
       {/* right-edge bulbs — painted longest-first so the shortest (exit) stays visible on top when they coincide */}
-      {converted && <Bulb config={theme.bulbs.converted} y={exitY} plateHeight={height} plateWidth={width} side="right" label="converted" />}
+      {hasFormSpan ? (
+        <rect
+          x={width}
+          y={Math.min(formTopFrac!, formBottomFrac!) * height}
+          width={theme.bulbs.converted.length}
+          // A form measured as a single flat line (top === bottom, or a
+          // sub-pixel rounding gap) would otherwise render invisibly thin —
+          // floor it to the bulb's own thickness so it always reads as a bar.
+          height={Math.max(theme.bulbs.converted.thickness, Math.abs(formBottomFrac! - formTopFrac!) * height)}
+          fill={theme.bulbs.converted.color}
+          aria-label="converted — form position"
+        />
+      ) : (
+        converted && <Bulb config={theme.bulbs.converted} y={exitY} plateHeight={height} plateWidth={width} side="right" label="converted" />
+      )}
       <Bulb config={theme.bulbs.deepestScroll} y={seenBottom} plateHeight={height} plateWidth={width} side="right" label="deepest scroll" />
       <Bulb config={theme.bulbs.exit} y={exitY} plateHeight={height} plateWidth={width} side="right" label="exited" />
 

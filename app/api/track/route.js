@@ -2,6 +2,7 @@
 import { NextResponse, after } from "next/server";
 import { createSupabaseClient } from "@/lib/supabase";
 import { resolvePendingCountries } from "@/lib/resolvePendingCountries";
+import { closeStaleSessions } from "@/lib/closeStaleSessions";
 
 function corsHeaders() {
   return {
@@ -250,11 +251,17 @@ if (event.type === "session_end") {
       // firing immediately after session_start on the same page load
       console.log("🟡 SESSION END IGNORED (too young, age=" + ageMs + "ms):", event.session_id);
     } else {
+      // event.ended_at is set by the tracker's idle-timeout path (tab left
+      // in the background past SESSION_IDLE_TIMEOUT_MS) — it's the real
+      // moment the visitor went idle, not "now" (whenever they happened to
+      // come back, which can be hours or days later). A normal beforeunload
+      // close has no such moment to report, so it falls back to "now".
+      const endedAt = event.ended_at ? new Date(event.ended_at) : new Date();
       const { error } = await supabase
         .from("sessions")
         .update({
-          ended_at: new Date(),
-          last_activity_at: new Date(),
+          ended_at: endedAt,
+          last_activity_at: endedAt,
         })
         .eq("id", sessionToClose.id);
       if (error) console.error("🔴 SESSION END ERROR:", error.message);
@@ -419,6 +426,7 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
     // along on real traffic instead of needing a cron job, and a slow/down
     // provider here never delays anyone's actual tracking request.
     after(() => resolvePendingCountries(supabase));
+    after(() => closeStaleSessions(supabase));
 
     return NextResponse.json({ success: true }, { headers: corsHeaders() });
 
