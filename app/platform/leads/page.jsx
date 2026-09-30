@@ -19,7 +19,7 @@ export default async function LeadsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">All leads</CardTitle>
-            <CardDescription>Every form submitted on your site. Defaults to today — pick a date or search to see more.</CardDescription>
+            <CardDescription>Every form submitted on your site. Defaults to today, pick a date or search to see more.</CardDescription>
           </CardHeader>
           <CardContent>
             <LeadsTable leads={leads} />

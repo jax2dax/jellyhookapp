@@ -282,3 +282,42 @@
     animation: none;
   }
 }
+
+/* ── Custom scrollbar — the classic chunky OS scrollbar was ruining the
+   look of anything scrollable, especially FramePlate's horizontal session
+   strip. Thin, green (var(--primary), already the app's brand green —
+   not hardcoded to a separate color), and chamfered (cut corners) rather
+   than the usual fully-rounded pill or a plain rectangle. Global: applies
+   to every scrollable element (tables, chart containers, the FramePlate
+   strip) via the standard pseudo-elements, not just one component.
+   Firefox has no equivalent to clip-path on scrollbar parts, so it just
+   gets the thin+color treatment via scrollbar-color, without the chamfer. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--primary);
+  /* Chamfered rectangle — corners cut at an angle instead of rounded or
+     square. */
+  clip-path: polygon(20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--primary);
+  opacity: 0.85;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}

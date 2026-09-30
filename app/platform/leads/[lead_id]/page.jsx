@@ -248,7 +248,7 @@ function LeadProfileBody({ profile, raw, siteId }) {
             <CardTitle className="text-base">Conversion Events</CardTitle>
             <CardDescription>{conversions.length} forms submitted from this same browser over time.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="max-h-72 space-y-3 overflow-y-auto">
             {conversions.map((c) => (
               <div key={c.id} className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm ${c.isFocus ? "border-primary/50 bg-primary/5" : ""}`}>
                 <div>
