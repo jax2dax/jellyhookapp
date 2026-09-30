@@ -106,7 +106,52 @@ which just compare/stringify against the literal string `"true"`.
 
 ---
 
-## 3. Tracked site (visitor's browser) — `public/tracker.js`
+## 3. SaaS dashboard — `lib/chartRangeCache.ts`
+
+Backs the three range-based charts on `/platform/dashboard` (mini mode) and
+`/platform/conversions` (full mode): `NewReachChart`, `ConversionsAreaChart`,
+`MergedReachConversionsChart`. Unlike the caches above (one entry per
+visitor/site), these are keyed by the exact date range requested too, since
+a different range is genuinely different data — reusing one cache entry
+across ranges would show stale/wrong-range data.
+
+### `jh_chart_<kind>_<siteId>_<startIso|"all">_<endIso|"now">` (localStorage)
+
+`kind` is `"reach"`, `"conversions"`, or `"merged"`.
+
+```ts
+{
+  fetchedAt: number, // Date.now() at write time
+  data:
+    | ReachOverTimeResult        // kind = "reach" — see lib/actions/reachOverTime.action.ts
+    | ConversionsOverTimeResult  // kind = "conversions" — see lib/actions/conversionsOverTime.action.ts
+    | { rows: MergedRow[], empty: boolean } // kind = "merged" — the already-zipped rows both series render from, see MergedReachConversionsChart.tsx
+}
+```
+
+- TTL: fixed `CACHE_TTL_MS` (2 minutes) — read via `getCachedChartRange()`,
+  written via `setCachedChartRange()`. A fresh (non-stale) hit means **zero
+  network request at all**, not just a fast one.
+- Read/write both happen inside each component's `useEffect`, never in a
+  lazy `useState` initializer — these charts are server-rendered once before
+  hydration, and `localStorage` doesn't exist during that pass. Reading it
+  synchronously at init would desync that first client render from the
+  server-rendered HTML — the same hydration bug already fixed once in
+  `LeadSessionExplorer`'s `page_structure` cache (see this file's section 1).
+- The **mini** charts (dashboard) always request "the last 3 days as of
+  now," but computing that start bound from `Date.now()` directly would
+  produce a different cache key on every single mount, since it changes
+  every millisecond — defeating the cache before it could ever hit.
+  `miniRangeStart(spanDays)` rounds the "now" end down to a 15-minute step
+  first, so every mount within the same 15-minute window asks for the exact
+  same range and therefore hits the exact same cache entry.
+- Custom ranges picked via `DateRangePicker` cache exactly as entered
+  (to the minute, since the picker is `datetime-local`) — re-selecting the
+  identical custom range within the TTL also hits cache.
+
+---
+
+## 4. Tracked site (visitor's browser) — `public/tracker.js`
 
 This is what the tracker script itself keeps in an END VISITOR's browser on a
 customer's site — never read by the SaaS dashboard directly, only indirectly

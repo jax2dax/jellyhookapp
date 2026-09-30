@@ -89,7 +89,7 @@ export function VisitsOverTimeChart({ siteId, defaultWindow = '7d' }: { siteId: 
             <CardTitle className="text-lg flex items-center gap-2">
               <Users className="h-4 w-4 text-muted-foreground" /> Visits Over Time
             </CardTitle>
-            <CardDescription className="mt-0.5">Sessions started per interval.</CardDescription>
+            <CardDescription className="mt-0.5">Number of sessions started.</CardDescription>
           </div>
         </div>
 

@@ -2,6 +2,7 @@ import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
 import { getConversionPaths } from "@/lib/actions/supabase.actions";
 import PlanGate from "@/components/PlanGate";
 import { ConversionRateChart } from "@/components/charts/conversionRate";
+import { ReachConversionsSection } from "@/components/charts/ReachConversionsSection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -13,6 +14,10 @@ export default async function ConversionsPage() {
   return (
     <div className="min-h-screen bg-background p-6">
       <h1 className="mb-6 text-lg font-semibold text-foreground">Conversion Paths</h1>
+
+        <div className="mb-6">
+          <ReachConversionsSection siteId={site.id} />
+        </div>
 
         <div className="mb-6">
           <ConversionRateChart siteId={site.id} />
