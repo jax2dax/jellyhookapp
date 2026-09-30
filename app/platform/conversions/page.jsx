@@ -4,6 +4,7 @@ import PlanGate from "@/components/PlanGate";
 import { ConversionRateChart } from "@/components/charts/conversionRate";
 import { ReachConversionsSection } from "@/components/charts/ReachConversionsSection";
 import { ReferrerDonutChart } from "@/components/charts/ReferrerDonutChart";
+import { LeadOriginRadarChart } from "@/components/charts/LeadOriginRadarChart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -20,8 +21,9 @@ export default async function ConversionsPage() {
           <ReachConversionsSection siteId={site.id} />
         </div>
 
-        <div className="mb-6">
+        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ReferrerDonutChart siteId={site.id} />
+          <LeadOriginRadarChart siteId={site.id} />
         </div>
 
         <div className="mb-6">

@@ -218,6 +218,78 @@ with real changes, not every micro-edit.
   still documented as `timestamp without time zone` despite the
   2026-09-29 timestamptz migration earlier this session. Corrected.
 
+## 2026-09-29 — Leads Origin radar chart + conversions page layout
+
+- `/platform/conversions`: Referrer donut now takes the left half of the
+  row instead of full width; new `LeadOriginRadarChart` (interactive,
+  hover a point for its tooltip) takes the right half.
+- New `getLeadOriginBreakdown` action — same first-touch classification as
+  the referrer donut, but restricted to visitors who actually converted
+  (at least one `form_submissions` row), so it answers "which channel
+  produced leads," not just "which channel produced traffic."
+- Radar always renders a **fixed 6 axes** so the shape stays visually
+  stable over time: real sources (sorted by lead count) fill in first,
+  `DEFAULT_PLACEHOLDERS` (`Direct, Facebook, Instagram, Google, LinkedIn,
+  TikTok`) fill any remaining slots at 0 rather than the chart looking
+  sparse with a single real axis. A placeholder is never duplicated
+  against a real source with the same name — it just becomes that real
+  slot. Verified directly: only-Direct data correctly shows Direct real +
+  5 placeholders at 0; a 7th distinct real source correctly displaces the
+  lowest-priority placeholder (TikTok) rather than growing past 6 axes.
+
+## 2026-09-29 — Per-field form dwell-time tracking (major)
+
+- **Schema fork resolved by explicit decision**: `form_engagement` was keyed
+  by `(page_view_id, form_index)`, but tabbing away and back always mints a
+  fresh `page_view_id` — meaning "resume the same form-fill in progress"
+  would otherwise fork into a disconnected new row on every tab switch.
+  Re-keyed to `(session_id, page_path, form_index)` — resumes across
+  tab-hidden/visible cycles and revisits to the SAME page; a different page
+  is treated as a different form (safe default — the same form_index on
+  two different pages could be two unrelated forms).
+- **Design choice, not left to guess**: the client never tracks a running
+  cumulative total per field — it only ever reports "how long was I
+  focused on this field just now" (this visit's delta). The **server**
+  additively merges each delta into the durable total
+  (`mergeFieldTimings` in the route). This is what makes a full page
+  reload mid-fill (which wipes all client-side JS state) still accumulate
+  correctly without the client needing to remember or re-fetch anything —
+  verified directly: simulated a full "page reload" mid-lifecycle and
+  confirmed the field's total correctly added across visits, `order` and
+  `firstFocusAt`/`firstKeydownAt` stayed pinned to their first-ever values,
+  `lastUnfocusAt` tracked the latest.
+- **Chattiness — direct answer to the "will JSON hurt the visitor's
+  browser" question**: keydown is LOCAL ONLY, never a network call (that
+  would have been the real chattiness risk, not payload size). Only three
+  things trigger a request: the form's very first focus (viewed→started),
+  a field actually blurring (flushes that one field), and finalization.
+  A typical form generates roughly one request per field visited, not one
+  per keystroke.
+- **Real behavior change from what shipped earlier this session**:
+  ordinary page-leave (tab hidden, SPA route change) no longer finalizes
+  the form as abandoned — it only flushes whatever field was open.
+  Finalization now only happens at a TRUE session end, via a new
+  `sessionEndListeners` hook (parallel to the existing `pageLeaveListeners`,
+  fired from `fireSessionEnd()` and `startNewSessionAfterIdle()`) — and,
+  authoritatively, via a server-side sweep inside `/api/track`'s
+  `session_end` handling, which finalizes ALL of that session's still-open
+  forms (including ones on pages the visitor has since navigated away from
+  entirely, which have no live client-side JS context left to finalize
+  themselves). `ended_at` is always the form's real last recorded
+  activity, never "now."
+- New `lib/closeStaleFormEngagement.js` — crash-case safety net (tab killed,
+  no session_end ever arrives), mirroring `closeStaleSessions.js` exactly.
+- New "Field Timing" card on the lead profile page — reused the existing
+  `LeadTimeBar` component rather than building a new chart, since the
+  shape (label + timeMs, ordered, one highlighted) already fit exactly.
+  Shows fields in the order they were actually filled, longest one
+  highlighted.
+- Caught and fixed a real bug of my own while implementing this: `ended_at`
+  on abandon was reading the PRE-update `last_activity_at` instead of the
+  value being resolved in that same request — would have silently dropped
+  the final field's dwell time from the abandon timestamp. Fixed before
+  shipping, not after.
+
 ## Standing decisions / conventions established this session
 
 - **Deploy gap awareness**: always confirm whether a bug report is against

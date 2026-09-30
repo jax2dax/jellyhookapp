@@ -53,7 +53,7 @@ export function ReferrerDonutChart({ siteId }: { siteId: string }) {
         <CardTitle className="text-lg flex items-center gap-2">
           <PieIcon className="h-4 w-4 text-muted-foreground" /> Referrers
         </CardTitle>
-        <CardDescription className="mt-0.5">Where new unique visitors actually came from — first touch, not every repeat visit.</CardDescription>
+        <CardDescription className="mt-0.5">Where new unique visitors actually came from, first touch only, not every repeat visit.</CardDescription>
       </CardHeader>
       <CardContent>
         {data === null ? (

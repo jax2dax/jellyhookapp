@@ -3,6 +3,7 @@ import { NextResponse, after } from "next/server";
 import { createSupabaseClient } from "@/lib/supabase";
 import { resolvePendingCountries } from "@/lib/resolvePendingCountries";
 import { closeStaleSessions } from "@/lib/closeStaleSessions";
+import { closeStaleFormEngagement } from "@/lib/closeStaleFormEngagement";
 
 function corsHeaders() {
   return {
@@ -274,6 +275,29 @@ if (event.type === "session_end") {
         .eq("id", sessionToClose.id);
       if (error) console.error("🔴 SESSION END ERROR:", error.message);
       else console.log("✅ SESSION CLOSED (age=" + ageMs + "ms):", event.session_id);
+
+      // Any form on THIS session still sitting at viewed/started (started
+      // but never submitted) is finalized as abandoned right here — this is
+      // the authoritative sweep, since a form left mid-fill on a page the
+      // visitor has since navigated away from has no live JS context left
+      // to finalize itself. ended_at is the form's own last real recorded
+      // activity, never "now" — a form last touched hours before the
+      // session actually closed must not look like it was abandoned at the
+      // moment of closing.
+      const { data: openForms, error: openFormsError } = await supabase
+        .from("form_engagement")
+        .select("id, last_activity_at, viewed_at")
+        .eq("session_id", event.session_id)
+        .in("status", ["viewed", "started"]);
+      if (openFormsError) {
+        console.error("🔴 SESSION END — form_engagement sweep fetch error:", openFormsError.message);
+      } else {
+        for (const f of openForms ?? []) {
+          const formEndedAt = f.last_activity_at || f.viewed_at;
+          const { error: abandonError } = await supabase.from("form_engagement").update({ status: "abandoned", ended_at: formEndedAt }).eq("id", f.id);
+          if (abandonError) console.error("🔴 SESSION END — form_engagement abandon error:", abandonError.message);
+        }
+      }
     }
   }
 }
@@ -435,6 +459,7 @@ if (event.type === "page_view_start" || event.type === "page_view_end") {
     // provider here never delays anyone's actual tracking request.
     after(() => resolvePendingCountries(supabase));
     after(() => closeStaleSessions(supabase));
+    after(() => closeStaleFormEngagement(supabase));
 
     return NextResponse.json({ success: true }, { headers: corsHeaders() });
 

@@ -155,6 +155,16 @@ function setLastHiddenAt(ts) {
 // tab, which could be days later — then hands back a fresh session_id.
 function startNewSessionAfterIdle(oldSessionId, hiddenAt) {
   console.log("🟠 SESSION IDLE TIMEOUT — closing", oldSessionId, "as of", new Date(hiddenAt).toISOString());
+  // Runs BEFORE session_id is reassigned by the caller — sendEngagementEvent
+  // calls inside these listeners read the OUTER session_id closure variable
+  // live, so they still correctly see the OLD (ending) session here.
+  for (const fn of sessionEndListeners) {
+    try {
+      fn();
+    } catch (err) {
+      console.error("[Tracker] ❌ sessionEndListener error:", err);
+    }
+  }
   sendEvent({
     type: "session_end",
     visitor_id,
@@ -214,6 +224,13 @@ function fireSessionEnd() {
   // Fires on tab close / browser navigation away from site
   // Uses sendExitEvent (keepalive fetch) so it survives page unload
   console.log("🔴 SESSION END FIRING:", session_id);
+  for (const fn of sessionEndListeners) {
+    try {
+      fn();
+    } catch (err) {
+      console.error("[Tracker] ❌ sessionEndListener error:", err);
+    }
+  }
   const payload = [{
     type: "session_end",
     visitor_id,
@@ -246,12 +263,22 @@ window.addEventListener("beforeunload", fireSessionEnd);
 
   // Other independent sections (e.g. form engagement, below) can register a
   // callback here to run at the exact moments this file already detects the
-  // visitor leaving the current page — tab hidden, SPA route change, or
-  // session end — without needing to duplicate that detection themselves.
-  // Called from firePageViewEnd() BEFORE page_view_id/page state is reset by
-  // whichever caller invoked it, so a listener still sees the page that's
-  // ending, not whatever comes next.
+  // visitor leaving the CURRENT PAGE — tab hidden, SPA route change —
+  // without needing to duplicate that detection themselves. Called from
+  // firePageViewEnd() BEFORE page_view_id/page state is reset by whichever
+  // caller invoked it, so a listener still sees the page that's ending, not
+  // whatever comes next. Deliberately does NOT fire specifically for a true
+  // session end (tab closing for good) — see sessionEndListeners below —
+  // leaving a page is not the same event as leaving the site, even though
+  // in practice visibilitychange→hidden often fires moments before a real
+  // tab close too; that's incidental timing, not something to build on.
   const pageLeaveListeners = [];
+  // Fires only at a TRUE session-ending moment: fireSessionEnd() (tab
+  // closing) and startNewSessionAfterIdle() (30-min idle split closing the
+  // OLD session). Anything that must only finalize once the visitor is
+  // truly gone — not just off this particular page — belongs here instead
+  // of pageLeaveListeners.
+  const sessionEndListeners = [];
 // ── MAX SCROLL TRACKING ──
   // These reset on every new page view alongside page_view_id and startTime
   // maxScrollDepth: highest scroll fraction (0–1) reached on this page view.
@@ -977,7 +1004,8 @@ function firePageViewStart() {
   };
 
   // ─────────────────────────────────────────────────────────────────────
-  // FORM ENGAGEMENT TRACKING — viewed / started / submitted / abandoned
+  // FORM ENGAGEMENT TRACKING — viewed / started / submitted / abandoned,
+  // plus per-field dwell-time timing.
   //
   // Fully additive to everything above: reuses the same form gate
   // (isConversionForm + shouldSkip) and the same NAME_KEYS/EMAIL_KEYS/
@@ -985,32 +1013,127 @@ function firePageViewStart() {
   // submission from being captured — every entry point is try/caught on
   // its own.
   //
-  // One row per (page_view, form) moving forward through a status instead
-  // of a separate event per moment: viewed → started → submitted/abandoned.
-  // form_index identifies a form the same way page_structure.header_index
-  // identifies a header — its position among document.forms on the page.
+  // The DB row is keyed by (session_id, page_path, form_index) SERVER-SIDE,
+  // not page_view_id — tabbing away and back always mints a fresh
+  // page_view_id, but the same in-progress form-fill must resume, not
+  // fork into a disconnected new row. page_view_id is still sent
+  // (informational — "most recently touched by this page_view"), it just
+  // isn't part of the row's identity anymore. form_index identifies a form
+  // the same way page_structure.header_index identifies a header — its
+  // position among document.forms on the page.
+  //
+  // Per-field timing is NEVER sent per keystroke — that would be exactly
+  // the chatty-request problem worth avoiding. keydown only ever updates
+  // an in-memory timestamp; the only things that trigger a network send
+  // are: the form's very first focus (viewed → started), a field actually
+  // blurring (flushes that one field's accumulated dwell time), and
+  // finalization (submitted/abandoned). A typical form generates roughly
+  // one request per field visited, not one per key pressed. The client
+  // also never tracks a running CUMULATIVE total for a field — it only
+  // ever reports "how long was I focused on this field just now," and the
+  // server additively merges that into the durable total (see
+  // mergeFieldTimings in the route). That's what makes a full page reload
+  // mid-fill (which wipes all of this in-memory state) still accumulate
+  // correctly without the client remembering or re-fetching anything.
   // ─────────────────────────────────────────────────────────────────────
   const ENGAGEMENT_API_URL = `${API_BASE}/api/track-form-engagement`;
 
   // formIndex -> { status, lastFieldType, lastFieldKey, formTopY, formBottomY }
   // Reset whenever page_view_id changes — a form's engagement is scoped to
-  // ONE page view, same as everything else keyed by page_view_id.
+  // ONE page view, same as everything else keyed by page_view_id. This is
+  // local UI/dedup bookkeeping only; it does NOT determine whether the
+  // server treats this as a new row — that's the (session_id, page_path,
+  // form_index) key server-side, which survives page_view_id changes.
   let engagementState = new Map();
   let engagementPageViewId = null;
 
-  function resetEngagementStateIfNewPageView() {
-    if (engagementPageViewId !== page_view_id) {
-      engagementPageViewId = page_view_id;
-      engagementState = new Map();
-      // A form that survives across page views (SPA navigation/idle-split
-      // without the DOM node being recreated) must be re-armed for view
-      // detection here — observeFormForEngagement below only re-observes it
-      // if its stamped page_view_id no longer matches the current one.
-      // Without this, "viewed" only ever fires on that form's very first
-      // page view, and every page view after silently skips straight to
-      // started/submitted with no recorded position.
-      document.querySelectorAll("form").forEach(observeFormForEngagement);
+  // formIndex -> Map(fieldKey -> { focusStartedAt, keydownAtThisVisit })
+  // THIS VISIT's per-field dwell-time clock only — cleared per field the
+  // moment it blurs (flushed then) or the whole form finalizes. Never
+  // holds a running cross-visit total; see the header comment above.
+  let fieldVisitState = new Map();
+
+  function fieldTimingsKey(type, key) {
+    return type === "custom" ? "custom:" + (key || "unknown") : type;
+  }
+
+  // Builds the one-field delta record sent over the wire, and clears its
+  // local dwell-time clock. Shared by the real focusout handler and the
+  // submit/abandon "flush whatever's still open" paths, so both produce
+  // the exact same shape.
+  function buildFieldDelta(formIndex, fieldKey, nowMs) {
+    const visits = fieldVisitState.get(formIndex);
+    const state = visits && visits.get(fieldKey);
+    if (!state) return null;
+    visits.delete(fieldKey);
+    return {
+      firstFocusAt: new Date(state.focusStartedAt).toISOString(),
+      firstKeydownAt: state.keydownAtThisVisit != null ? new Date(state.keydownAtThisVisit).toISOString() : null,
+      lastUnfocusAt: new Date(nowMs).toISOString(),
+      totalFocusedMsDelta: Math.max(0, nowMs - state.focusStartedAt),
+    };
+  }
+
+  // Flushes EVERY field of this form still mid-focus (normally 0 or 1 —
+  // more than one would mean multiple fields somehow never blurred, which
+  // shouldn't happen, but this covers it rather than silently dropping
+  // data). Used when there's no natural single blur to hang the flush off
+  // of: submitting the form, or the visitor leaving entirely.
+  function collectOpenFieldDeltas(formIndex, nowMs) {
+    const visits = fieldVisitState.get(formIndex);
+    if (!visits || visits.size === 0) return null;
+    const delta = {};
+    for (const fieldKey of Array.from(visits.keys())) {
+      delta[fieldKey] = buildFieldDelta(formIndex, fieldKey, nowMs);
     }
+    return delta;
+  }
+
+  function resetEngagementStateIfNewPageView() {
+    if (engagementPageViewId === page_view_id) return;
+
+    const oldEngagementState = engagementState;
+    const oldFieldVisitState = fieldVisitState;
+
+    // Mark the transition FIRST — sendEngagementEvent below (used to flush
+    // any still-open field) itself calls this function, and would recurse
+    // forever if the condition above were still true when it does.
+    engagementPageViewId = page_view_id;
+    engagementState = new Map();
+    fieldVisitState = new Map();
+
+    // Flush any field still mid-focus from the OLD page view before its
+    // local clock is discarded — otherwise that dwell time just silently
+    // vanishes. Only meaningful for a tab-hidden/visible cycle or
+    // idle-split (same JS context, DOM persists); a genuine full page
+    // reload wipes this file's whole execution anyway, so there's nothing
+    // to flush in that case.
+    const nowMs = Date.now();
+    for (const [formIndex, visits] of oldFieldVisitState.entries()) {
+      if (visits.size === 0) continue;
+      const entry = oldEngagementState.get(formIndex);
+      const form = document.forms[formIndex];
+      if (!entry || !form || entry.status === "submitted" || entry.status === "abandoned") continue;
+      const delta = {};
+      for (const [fieldKey, state] of visits.entries()) {
+        delta[fieldKey] = {
+          firstFocusAt: new Date(state.focusStartedAt).toISOString(),
+          firstKeydownAt: state.keydownAtThisVisit != null ? new Date(state.keydownAtThisVisit).toISOString() : null,
+          lastUnfocusAt: new Date(nowMs).toISOString(),
+          totalFocusedMsDelta: Math.max(0, nowMs - state.focusStartedAt),
+        };
+      }
+      sendEngagementEvent(formIndex, form, { status: entry.status }, { fieldTimingsDelta: delta, lastActivityAt: new Date(nowMs).toISOString() });
+    }
+
+    // A form that survives across page views (SPA navigation/idle-split
+    // without the DOM node being recreated) must be re-armed for view
+    // detection here — observeFormForEngagement below only re-observes it
+    // if its stamped page_view_id no longer matches the current one.
+    // Without this, "viewed" only ever fires on that form's very first
+    // page view, and every page view after silently skips straight to
+    // started/submitted with no recorded position.
+    document.querySelectorAll("form").forEach(observeFormForEngagement);
   }
 
   function classifyField(input) {
@@ -1027,19 +1150,24 @@ function firePageViewStart() {
     return { type: "custom", key: input.name || input.id || input.placeholder || null };
   }
 
-  function sendEngagementEvent(formIndex, form, patch) {
+  // persistentPatch merges into engagementState (status/lastFieldType/
+  // lastFieldKey/formTopY/formBottomY) and is remembered for future calls.
+  // transient (fieldTimingsDelta/lastActivityAt) is send-only — NEVER
+  // merged into engagementState, or an already-flushed field delta would
+  // get resent on every later unrelated call for this form.
+  function sendEngagementEvent(formIndex, form, persistentPatch, transient) {
     try {
       if (!isConversionForm(form)) {
-        console.log("[Tracker] 🟡 Form engagement skipped — isConversionForm() gate failed:", { formIndex, patch });
+        console.log("[Tracker] 🟡 Form engagement skipped — isConversionForm() gate failed:", { formIndex, persistentPatch });
         return;
       }
       if (shouldSkip(form)) {
-        console.log("[Tracker] 🟡 Form engagement skipped — shouldSkip() gate failed:", { formIndex, patch });
+        console.log("[Tracker] 🟡 Form engagement skipped — shouldSkip() gate failed:", { formIndex, persistentPatch });
         return;
       }
       resetEngagementStateIfNewPageView();
       const entry = engagementState.get(formIndex) || {};
-      Object.assign(entry, patch);
+      Object.assign(entry, persistentPatch);
       engagementState.set(formIndex, entry);
 
       const payload = {
@@ -1054,6 +1182,8 @@ function firePageViewStart() {
         last_field_key: entry.lastFieldKey || null,
         form_top_y: entry.formTopY ?? null,
         form_bottom_y: entry.formBottomY ?? null,
+        field_timings_delta: (transient && transient.fieldTimingsDelta) || undefined,
+        last_activity_at: (transient && transient.lastActivityAt) || undefined,
       };
       console.log("[Tracker] 📋 Form engagement → sending:", payload);
       _originalFetch(ENGAGEMENT_API_URL, {
@@ -1085,11 +1215,13 @@ function firePageViewStart() {
         resetEngagementStateIfNewPageView();
         if (engagementState.has(formIndex)) continue; // already recorded for this page view
         const rect = form.getBoundingClientRect();
-        sendEngagementEvent(formIndex, form, {
-          status: "viewed",
-          formTopY: Math.round(rect.top + window.scrollY),
-          formBottomY: Math.round(rect.bottom + window.scrollY),
-        });
+        const nowIso = new Date().toISOString();
+        sendEngagementEvent(
+          formIndex,
+          form,
+          { status: "viewed", formTopY: Math.round(rect.top + window.scrollY), formBottomY: Math.round(rect.bottom + window.scrollY) },
+          { lastActivityAt: nowIso }
+        );
         engagementObserver.unobserve(form);
       }
     },
@@ -1146,8 +1278,13 @@ function firePageViewStart() {
     document.addEventListener("DOMContentLoaded", initFormEngagementDomWatchers);
   }
 
-  // ── FIELD FOCUS ("started") — one delegated listener instead of wiring
-  // every field individually, so dynamically added fields are covered too. ──
+  // ── FIELD FOCUS ("started" + per-field dwell-time clock start) — one
+  // delegated listener instead of wiring every field individually, so
+  // dynamically added fields are covered too. Only sends a network event
+  // on the form's very FIRST-ever focus (viewed → started, needed
+  // immediately for first_input_at); moving focus to a 2nd/3rd/etc. field
+  // of an already-started form only updates local state here — nothing is
+  // sent until that field actually blurs. ──
   document.addEventListener(
     "focusin",
     function (e) {
@@ -1161,8 +1298,27 @@ function firePageViewStart() {
         resetEngagementStateIfNewPageView();
         const existing = engagementState.get(formIndex);
         if (existing && (existing.status === "submitted" || existing.status === "abandoned")) return;
+
         const { type, key } = classifyField(target);
-        sendEngagementEvent(formIndex, form, { status: "started", lastFieldType: type, lastFieldKey: type === "custom" ? key : null });
+        const fieldKey = fieldTimingsKey(type, key);
+        if (!fieldVisitState.has(formIndex)) fieldVisitState.set(formIndex, new Map());
+        fieldVisitState.get(formIndex).set(fieldKey, { focusStartedAt: Date.now(), keydownAtThisVisit: null });
+
+        if (!existing || existing.status === "viewed") {
+          sendEngagementEvent(
+            formIndex,
+            form,
+            { status: "started", lastFieldType: type, lastFieldKey: type === "custom" ? key : null },
+            { lastActivityAt: new Date().toISOString() }
+          );
+        } else {
+          // Already started — just move the local "currently on this
+          // field" pointer, no network call for merely tabbing to another
+          // field of a form the server already knows is in progress.
+          existing.lastFieldType = type;
+          existing.lastFieldKey = type === "custom" ? key : null;
+          engagementState.set(formIndex, existing);
+        }
       } catch (err) {
         console.error("[Tracker] ❌ Form engagement focus handler error:", err);
       }
@@ -1170,23 +1326,120 @@ function firePageViewStart() {
     true
   );
 
-  // ── FINALIZE ("abandoned") — reuses the exact same "visitor is leaving
-  // this page" moment analytics already detects (tab hidden, SPA route
-  // change, session end), via the pageLeaveListeners hook in the outer
-  // scope. Any form still sitting at viewed/started with no submit becomes
-  // abandoned right here. ──
+  // ── KEYDOWN — LOCAL ONLY, never a network call. Records the first
+  // keystroke in the CURRENT visit to this field (not resent on every
+  // key), piggybacked into that field's next blur-flush. This is exactly
+  // what keeps this feature from becoming a request-per-keystroke problem. ──
+  document.addEventListener(
+    "keydown",
+    function (e) {
+      try {
+        const target = e.target;
+        if (!target || !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+        const form = target.closest("form");
+        if (!form) return;
+        const formIndex = Array.from(document.forms).indexOf(form);
+        if (formIndex === -1) return;
+        const visits = fieldVisitState.get(formIndex);
+        if (!visits) return;
+        const { type, key } = classifyField(target);
+        const state = visits.get(fieldTimingsKey(type, key));
+        if (state && state.keydownAtThisVisit === null) state.keydownAtThisVisit = Date.now();
+      } catch (err) {
+        console.error("[Tracker] ❌ Form engagement keydown handler error:", err);
+      }
+    },
+    true
+  );
+
+  // ── FIELD BLUR — the actual flush point. Fires whether the visitor
+  // unfocused onto nothing (clicked outside the form) or moved straight to
+  // another field — browsers guarantee blur on the old field before focus
+  // on the new one, so this always runs first either way. Sends this ONE
+  // field's accumulated visit delta; status/form-level fields are
+  // untouched (this never finalizes anything). ──
+  document.addEventListener(
+    "focusout",
+    function (e) {
+      try {
+        const target = e.target;
+        if (!target || !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+        const form = target.closest("form");
+        if (!form) return;
+        const formIndex = Array.from(document.forms).indexOf(form);
+        if (formIndex === -1) return;
+        const entry = engagementState.get(formIndex);
+        if (!entry || entry.status === "submitted" || entry.status === "abandoned") return; // nothing left to report against
+
+        const { type, key } = classifyField(target);
+        const fieldKey = fieldTimingsKey(type, key);
+        const nowMs = Date.now();
+        const delta = buildFieldDelta(formIndex, fieldKey, nowMs);
+        if (!delta) return; // no matching open visit — nothing to flush
+
+        sendEngagementEvent(
+          formIndex,
+          form,
+          { status: entry.status, lastFieldType: type, lastFieldKey: type === "custom" ? key : null },
+          { fieldTimingsDelta: { [fieldKey]: delta }, lastActivityAt: delta.lastUnfocusAt }
+        );
+      } catch (err) {
+        console.error("[Tracker] ❌ Form engagement blur handler error:", err);
+      }
+    },
+    true
+  );
+
+  // ── PAGE LEAVE — tab hidden / SPA route change. Deliberately does NOT
+  // finalize the form as abandoned anymore (that used to happen here) —
+  // leaving the current PAGE is not the same as leaving the SITE, and the
+  // visitor may come straight back and keep filling this exact form in.
+  // All this does now is flush whatever field is still open (defensive:
+  // some browsers don't reliably fire a native blur just because the tab
+  // became hidden), via the exact same hook analytics already uses for
+  // "the visitor is leaving this page." Real finalization only happens on
+  // a true session end — see sessionEndListeners below and the
+  // session_end sweep server-side in /api/track/route.js. ──
   pageLeaveListeners.push(function () {
     resetEngagementStateIfNewPageView();
     for (const [formIndex, entry] of engagementState.entries()) {
       if (entry.status !== "viewed" && entry.status !== "started") continue;
       const form = document.forms[formIndex];
       if (!form) continue;
-      sendEngagementEvent(formIndex, form, { status: "abandoned" });
+      const nowMs = Date.now();
+      const openDelta = collectOpenFieldDeltas(formIndex, nowMs);
+      if (!openDelta) continue; // nothing was open — nothing to flush, status stays as-is
+      const nowIso = new Date(nowMs).toISOString();
+      sendEngagementEvent(formIndex, form, { status: entry.status }, { fieldTimingsDelta: openDelta, lastActivityAt: nowIso });
+    }
+  });
+
+  // ── SESSION END — the true finalization boundary. Fires from
+  // fireSessionEnd() (tab closing) and startNewSessionAfterIdle() (30-min
+  // idle split) — see the pageLeaveListeners registration in the outer
+  // scope for why session-ending is tracked completely separately from
+  // ordinary page-leave. Finalizes THIS page's own form(s) immediately,
+  // for precision in the common case; a form left mid-fill on a page the
+  // visitor has since navigated away from entirely has no live JS context
+  // left to finalize itself here — the server's session_end sweep is the
+  // authoritative backstop that covers that case. ──
+  sessionEndListeners.push(function () {
+    for (const [formIndex, entry] of engagementState.entries()) {
+      if (entry.status !== "viewed" && entry.status !== "started") continue;
+      const form = document.forms[formIndex];
+      if (!form) continue;
+      const nowMs = Date.now();
+      const openDelta = collectOpenFieldDeltas(formIndex, nowMs);
+      const nowIso = new Date(nowMs).toISOString();
+      sendEngagementEvent(formIndex, form, { status: "abandoned" }, { fieldTimingsDelta: openDelta || undefined, lastActivityAt: nowIso });
     }
   });
 
   // ── MARK SUBMITTED — called from sendFormCapture above the moment a real
-  // submission is captured, so this table never disagrees with leads. ──
+  // submission is captured, so this table never disagrees with leads.
+  // Also flushes whatever field was open at that moment (the one they were
+  // just in when they hit submit) in the SAME request, rather than losing
+  // that last field's dwell time. ──
   function markEngagementSubmitted(form) {
     try {
       const formIndex = Array.from(document.forms).indexOf(form);
@@ -1195,7 +1448,10 @@ function firePageViewStart() {
         console.log("[Tracker] 🟡 Form engagement skipped — form not found in document.forms");
         return;
       }
-      sendEngagementEvent(formIndex, form, { status: "submitted" });
+      const nowMs = Date.now();
+      const openDelta = collectOpenFieldDeltas(formIndex, nowMs);
+      const nowIso = new Date(nowMs).toISOString();
+      sendEngagementEvent(formIndex, form, { status: "submitted" }, { fieldTimingsDelta: openDelta || undefined, lastActivityAt: nowIso });
     } catch (err) {
       console.error("[Tracker] ❌ Form engagement submit-mark error:", err);
     }

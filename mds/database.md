@@ -261,7 +261,7 @@ create table public.form_engagement (
   site_id uuid not null,
   visitor_id text not null,
   session_id text not null,
-  page_view_id text not null,
+  page_view_id text not null,  -- informational only since 2026-09-29 — see unique key note below
   page_path text null,
   form_index integer not null,
   status text not null default 'viewed'::text, -- 'viewed' | 'started' | 'submitted' | 'abandoned'
@@ -269,20 +269,50 @@ create table public.form_engagement (
   last_field_key text null,                     -- raw field name/id/placeholder when last_field_type = 'custom'
   viewed_at timestamp with time zone not null default now(),
   first_input_at timestamp with time zone null,
-  ended_at timestamp with time zone null,        -- set when status becomes 'submitted' or 'abandoned'
-  constraint form_engagement_pkey primary key (id),
-  constraint form_engagement_page_view_form_idx unique (page_view_id, form_index)
+  ended_at timestamp with time zone null,        -- set when status becomes 'submitted' or 'abandoned' — always the real last activity, never "now"
+  -- added 2026-09-29 — see "Per-field timing" note below
+  field_timings jsonb null default '{}'::jsonb,
+  last_activity_at timestamp with time zone null,
+  constraint form_engagement_pkey primary key (id)
 );
+create unique index if not exists form_engagement_session_path_form_idx
+  on public.form_engagement (session_id, page_path, form_index);
 create index if not exists form_engagement_site_status_idx on public.form_engagement using btree (site_id, status);
 ```
-One row per (page_view, form) on that page — form_index is the form's
-position among `document.forms` on that page, same identity scheme
-`page_structure.header_index` uses for headers. Never a per-keystroke log:
-status moves forward through viewed → started → submitted/abandoned, and
-last_field_type/last_field_key just reflect whichever field the visitor was
-in the moment status last changed. RLS is anon-permissive (select/insert/
-update) to match page_views/sessions/visitors, since the tracker writes
-these anonymously same as everything else it sends.
+form_index is the form's position among `document.forms` on that page,
+same identity scheme `page_structure.header_index` uses for headers.
+
+**Unique key (changed 2026-09-29).** Was `(page_view_id, form_index)`;
+now `(session_id, page_path, form_index)`. Tabbing away and back (or a
+full page reload) always mints a fresh `page_view_id` — keying identity
+on it would fork the same in-progress form-fill into a disconnected new
+row every time. `page_view_id` is still stored, just informational now
+("most recently touched by this page_view").
+
+**Per-field timing.** `field_timings` holds one entry per field the
+visitor has ever focused, keyed by its classified type (`name`/`email`/
+`phone`) or `custom:<raw_key>` for anything else:
+```json
+{ "email": { "order": 1, "firstFocusAt": "...", "firstKeydownAt": "...", "lastUnfocusAt": "...", "totalFocusedMs": 4200 } }
+```
+`order` is assigned once, server-side, the first time a field is ever
+focused. `totalFocusedMs` is **cumulative** across every visit to that
+field — the client only ever reports one visit's delta; the server
+additively merges it (`mergeFieldTimings` in
+`app/api/track-form-engagement/route.js`). See `mds/features.md`'s "Form
+Engagement Tracking" entry for the full lifecycle and why this design
+isn't a per-keystroke network request.
+
+`last_activity_at` is distinct from `ended_at` — it's bumped by field
+focus/blur/submit/session-end, and IS what `ended_at` gets set to on
+abandonment (never "now").
+
+RLS is `to public` (not `to anon`) for select/insert/update — the app's
+`createSupabaseClient()` wires in a Clerk `accessToken()` callback that
+changes the effective role even for an anonymous tracker request, so a
+policy scoped strictly `to anon` silently rejects writes from this
+specific table's actual code path (discovered the hard way — see
+`mds/progress_timeline.md`, 2026-09-29).
 
 ## page_insights
 ```sql

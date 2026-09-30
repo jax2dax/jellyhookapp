@@ -171,7 +171,7 @@ function LeadProfileBody({ profile, raw, siteId }) {
             {formEngagementFacts?.timeToFirstInputMs != null && (
               <div>
                 <div className="text-2xl font-semibold text-foreground">{formatDuration(formEngagementFacts.timeToFirstInputMs)}</div>
-                <div className="text-xs text-muted-foreground">on screen before they typed anything</div>
+                <div className="text-xs text-muted-foreground">time spent on page before typing</div>
               </div>
             )}
             {formEngagementFacts?.timeFillingFormMs != null && (
@@ -186,6 +186,20 @@ function LeadProfileBody({ profile, raw, siteId }) {
                 <div className="text-xs text-muted-foreground">other form{abandonedFormsCount === 1 ? "" : "s"} this visitor started but never submitted</div>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Section 2c: Per-field dwell time — the order they actually
+          filled the form in, and which field took the longest ── */}
+      {formEngagementFacts?.fieldTimings?.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Field Timing</CardTitle>
+            <CardDescription>How long they spent on each field, in the order they filled them out.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LeadTimeBar data={formEngagementFacts.fieldTimings} />
           </CardContent>
         </Card>
       )}
