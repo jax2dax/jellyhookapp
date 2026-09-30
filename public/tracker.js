@@ -166,6 +166,33 @@ function startNewSessionAfterIdle(oldSessionId, hiddenAt) {
   return newId;
 }
 
+// UTM params are only ever present on the URL of the actual landing page a
+// campaign link pointed at — read here, at session_start, not per page_view,
+// since by the next internal navigation they're gone from the URL bar.
+// gclid/fbclid are Google/Meta's own click-ids, auto-appended to a clicked
+// ad link even when a marketer forgot to add UTM tags — used only as a
+// fallback source signal when utm_source itself is absent, not stored
+// separately.
+function getUtmParams() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    let source = params.get("utm_source");
+    let medium = params.get("utm_medium");
+    const campaign = params.get("utm_campaign");
+    if (!source && params.get("gclid")) {
+      source = "google";
+      medium = medium || "cpc";
+    } else if (!source && params.get("fbclid")) {
+      source = "facebook";
+      medium = medium || "paid_social";
+    }
+    return { utm_source: source || null, utm_medium: medium || null, utm_campaign: campaign || null };
+  } catch (err) {
+    console.error("[Tracker] ❌ UTM parse error:", err);
+    return { utm_source: null, utm_medium: null, utm_campaign: null };
+  }
+}
+
 function fireSessionStart(force) {
   // Only send if this is a brand new session — not a page navigation —
   // unless force is set (used when the idle timeout above just minted a
@@ -179,6 +206,7 @@ function fireSessionStart(force) {
     referrer: document.referrer || null,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
     user_agent: navigator.userAgent,
+    ...getUtmParams(),
   });
 }
 

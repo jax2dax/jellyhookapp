@@ -11,10 +11,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LocalDate } from "@/components/LocalDate";
+import { LeadQualifyToggle } from "./LeadQualifyToggle";
 
 export interface LeadRow {
   id: string;
@@ -22,7 +22,7 @@ export interface LeadRow {
   email: string | null;
   page_path: string | null;
   submitted_at: string | null;
-  confidence: string | null;
+  qualified: boolean | null;
 }
 
 type DateFilter = "today" | "all" | "custom";
@@ -103,7 +103,7 @@ export function LeadsTable({ leads }: { leads: LeadRow[] }) {
               <TableHead>Email</TableHead>
               <TableHead>Page</TableHead>
               <TableHead>Submitted</TableHead>
-              <TableHead className="text-right">Confidence</TableHead>
+              <TableHead className="text-right">Qualify</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -120,7 +120,9 @@ export function LeadsTable({ leads }: { leads: LeadRow[] }) {
                   <LocalDate value={lead.submitted_at} />
                 </TableCell>
                 <TableCell className="text-right">
-                  <Badge variant={lead.confidence === "high" ? "default" : "outline"}>{lead.confidence || "unknown"}</Badge>
+                  <div className="flex justify-end">
+                    <LeadQualifyToggle leadId={lead.id} initialQualified={lead.qualified} compact />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

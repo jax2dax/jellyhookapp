@@ -67,8 +67,9 @@ create table public.visitors (
   created_at timestamp with time zone not null default now(),
   visitor_id text null,
   site_id uuid null default gen_random_uuid (),
-  first_seen timestamp without time zone null,
-  last_seen timestamp without time zone null,
+  -- migrated to timestamptz on 2026-09-29, same reason/method as sessions above
+  first_seen timestamp with time zone null,
+  last_seen timestamp with time zone null,
   device_type text null,
   browser text null,
   os text null,
@@ -77,6 +78,13 @@ create table public.visitors (
   constraint visitors_pkey primary key (id)
 );
 ```
+`device_type` was only ever set at INSERT time, from whichever event
+happened to create the row first — `session_start` never carries a
+device_type at all (only `page_view_start`/`page_view_end` do), so a race
+between those two network calls decided whether a visitor ever got one,
+permanently. Fixed 2026-09-29: the UPDATE path in `/api/track` now also
+backfills `device_type` whenever a later event carries one, instead of
+only ever setting it once at insert.
 
 ## sessions
 ```sql
@@ -86,17 +94,39 @@ create table public.sessions (
   session_id text null,
   visitor_id text null,
   site_id uuid null default gen_random_uuid (),
-  started_at timestamp without time zone null,
-  ended_at timestamp without time zone null,
-  last_activity_at timestamp without time zone null,
+  -- started_at/ended_at/last_activity_at were originally `timestamp without
+  -- time zone` — migrated to timestamptz on 2026-09-29 (see
+  -- mds/progress_timeline.md) after that mismatch against form_submissions'
+  -- timestamptz columns caused real conversion-attribution bugs. The
+  -- migration was non-lossy (`... at time zone 'UTC'` just tags the
+  -- already-correct UTC digits, no numeric shift).
+  started_at timestamp with time zone null,
+  ended_at timestamp with time zone null,
+  last_activity_at timestamp with time zone null,
   referrer text null,
   country text null,
   timezone text null,
+  -- added 2026-09-29 — see "UTM + referrer attribution" note below
+  utm_source text null,
+  utm_medium text null,
+  utm_campaign text null,
   constraint sessions_pkey primary key (id),
   constraint sessions_session_id_key unique (session_id)
 );
 create index if not exists sessions_visitor_id_idx on public.sessions using btree (visitor_id);
 ```
+
+**UTM + referrer attribution.** `referrer` is raw `document.referrer` —
+only ever correct for a visitor who *clicked straight through* from a
+referring page; it cannot know "saw an ad, then searched for us instead."
+`utm_source`/`utm_medium`/`utm_campaign` are read from the landing URL's own
+query string at `session_start` (`?utm_source=facebook&utm_medium=paid...`),
+with a fallback: if a marketer forgot to tag a link, the presence of
+Google/Meta's own auto-appended click-ids (`gclid`/`fbclid`) infers
+`utm_source`/`utm_medium` instead (see `getUtmParams()` in
+`public/tracker.js`). When building anything source-attribution related,
+`utm_source` always takes priority over `referrer` — see
+`lib/analytics/classifyReferrer.js`.
 
 ## page_views
 ```sql
@@ -109,13 +139,15 @@ create table public.page_views (
   page_url text null,
   page_path text null,
   page_title text null,
-  entered_at timestamp without time zone null,
+  -- entered_at/left_at/max_scroll_reached_at migrated to timestamptz on
+  -- 2026-09-29, same reason/method as sessions above
+  entered_at timestamp with time zone null,
   time_on_page integer null,
   scroll_depth real null,
   visitor_id text null,
-  left_at timestamp without time zone null,
+  left_at timestamp with time zone null,
   max_scroll_depth real null,
-  max_scroll_reached_at timestamp without time zone null,
+  max_scroll_reached_at timestamp with time zone null,
   -- added 2026-09-23 — see "Scroll geometry" note below
   page_height integer null,
   entry_scroll_depth real null,
@@ -185,11 +217,19 @@ create table public.form_submissions (
   confidence text null default 'high'::text,
   raw_data jsonb null,
   submitted_at timestamp with time zone null,
+  -- added 2026-09-29 — sales's manual real/junk flag, see below
+  qualified boolean null default null,
   constraint form_submissions_pkey primary key (id)
 );
 create index if not exists form_submissions_visitor_id_idx on public.form_submissions using btree (visitor_id);
 create index if not exists form_submissions_site_id_idx on public.form_submissions using btree (site_id);
 ```
+`qualified` is a human sales judgment, set from `/platform/leads` or the
+lead profile page (`LeadQualifyToggle` → `lib/actions/leadQualify.action.js`)
+— null = not reviewed yet, true = qualified/real, false = junk. Not the
+same thing as `confidence`, which is an automatic email-presence heuristic
+computed at submit time, not a person's judgment.
+
 This is the "leads" table — a lead = a row here. `raw_data` is arbitrary
 per-business form fields (jsonb, no fixed shape). `name`/`email`/`phone` are
 best-effort extractions the tracker pulls out of the submitted form.

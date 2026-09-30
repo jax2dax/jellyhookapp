@@ -98,10 +98,15 @@ export async function POST(req) {
           device_type: event.device_type || null,
         });
       } else {
-        await supabase
-          .from("visitors")
-          .update({ last_seen: new Date() })
-          .eq("id", existingVisitor.id);
+        // device_type only arrives on page_view_start/page_view_end, never
+        // session_start — whichever event's network call happened to reach
+        // the server FIRST decided whether the visitor's insert ever got a
+        // device_type at all, and this branch never backfilled it
+        // afterward. Opportunistically set it here whenever a later event
+        // does carry one, instead of only ever setting it once at insert.
+        const visitorUpdate = { last_seen: new Date() };
+        if (event.device_type) visitorUpdate.device_type = event.device_type;
+        await supabase.from("visitors").update(visitorUpdate).eq("id", existingVisitor.id);
       }
 
       // SESSION
@@ -225,6 +230,9 @@ if (event.type === "session_start") {
       referrer: event.referrer || null,
       country: null, // backfilled by resolvePendingCountries, see note above
       timezone: event.timezone || null,
+      utm_source: event.utm_source || null,
+      utm_medium: event.utm_medium || null,
+      utm_campaign: event.utm_campaign || null,
     });
     if (insertError) console.error("🔴 SESSION INSERT ERROR:", insertError.message);
     else console.log("✅ SESSION CREATED:", event.session_id);

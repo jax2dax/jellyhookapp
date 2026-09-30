@@ -3,6 +3,7 @@ import { getConversionPaths } from "@/lib/actions/supabase.actions";
 import PlanGate from "@/components/PlanGate";
 import { ConversionRateChart } from "@/components/charts/conversionRate";
 import { ReachConversionsSection } from "@/components/charts/ReachConversionsSection";
+import { ReferrerDonutChart } from "@/components/charts/ReferrerDonutChart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -17,6 +18,10 @@ export default async function ConversionsPage() {
 
         <div className="mb-6">
           <ReachConversionsSection siteId={site.id} />
+        </div>
+
+        <div className="mb-6">
+          <ReferrerDonutChart siteId={site.id} />
         </div>
 
         <div className="mb-6">
