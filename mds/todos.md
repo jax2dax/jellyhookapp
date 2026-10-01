@@ -42,10 +42,43 @@ Team communications, task pinning, task status and which member did it.
 (ai)
 ##navigator - save a undercover keyword for each chart, (possible things the user might search for. and on the navigator bot, i give a whole list of pairs of the charts-location(path#) with the: keywords might be associated with it. so then feed it to the AI, then it will rout the user to where he wanted to be routed.)
 
+# Caching and systems
+build a chache tree of what is cached, and their sequence. 
+- plan is to reuse cached info, instead of loading that same data again for a different chart
+- add a feature on it that specifies which chart loaded the cache last
+# ai customer service(support)
+
 # later (site setting/ info)
 how much load is the site tracker to out viewers when they view our site, how much speed is it eaiting up....
 
 #remove acquisition tab now (but later add it back, and also move the origin of leads radar graph there and add more analysis to the acquisition.)
 
-#cancel invites(because the invites say pending forever)
-# on network, dont diplay the peopl that have pending invitations, only the ones accepted
+# ML on the conversion paths
+
+# most pages involved that contains conversion (this gets entered into the hook engine) and gets out. 
+(sort by time to convert )
+
+#how much in contrast did the lead convert. (compared to other convertors).
+#how mcuh time did that lead spent on in the site on average before converting. (out of the whole time, where did he spend the most time on (full duration )) 
+(for each session +  troughout all sessions)
+where did that person spen his tim much on (which page). (RADAR Chart)
+
+
++give options to concatinate sessions. 
+
+
+** Converted people vs unconverted people:  page visits similarity detecting, what pages were seen analysis on both sides analysis. 
+
+
+* a chart comparision with the average.
+
+build a json for al with a map, at the end of what the json contains, if it contains, an event info, then it becomes yes {
+    {...},[
+        {map:{conversion: [true, {}]}}
+    ]
+}
+
+# Average (a certain date's ) total conversion, and poll it 
+
+# @@ !! what if 2 trackers are installed on the same site(how does my saas manage it) 
+-site reclaim (overlap another site tracker on businesses)
