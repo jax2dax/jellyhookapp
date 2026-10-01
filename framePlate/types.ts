@@ -73,7 +73,7 @@ export interface PageVisitRaw {
   formBottomY?: number | null;
   /**
    * form_engagement.status for the form measured above — 'viewed' |
-   * 'started' | 'submitted' | 'abandoned'. Drives the form imitation's
+   * 'started' | 'submitted' | 'abandoned'. Drives the form mini-plate's
    * color (bright yellow once actually submitted, the ordinary converted
    * color otherwise) — see FullPagePlate.
    */
@@ -84,7 +84,7 @@ export interface PageVisitRaw {
    * A field the visitor never clicked into is invisible to tracking
    * entirely (field_timings only ever gains an entry on focus), so this is
    * a lower bound, not a measurement of the form's actual shape. 0/null
-   * means no field was ever focused — the form imitation still renders
+   * means no field was ever focused — the form mini-plate still renders
    * (position was measured on view, independent of this), just with no
    * field stripes inside it.
    */
@@ -271,7 +271,7 @@ export interface FramePlateTheme {
   };
   bulbs: Record<BulbType, BulbShapeConfig>;
   /**
-   * The form imitation — an INSET box drawn inside the plate itself at the
+   * The form mini-plate — an INSET box drawn inside the plate itself at the
    * form's real measured position, not an edge-protruding bulb. Deliberately
    * narrower than the plate (widthFraction < 1) so the seen/seen-twice bands
    * underneath stay visible on either side of it, never fully obscured.
@@ -280,7 +280,7 @@ export interface FramePlateTheme {
    * directly, sized relative to this box's own height — thinner as the
    * count goes up — not configured here.
    */
-  formImitation: {
+  formMiniPlate: {
     /** fraction of the plate's width this box spans, centered horizontally — less than 1 so seen/seen-twice colors stay visible beside it */
     widthFraction: number;
     /** color while the form has been seen/started but not yet submitted — reuses bulbs.converted.color by default, override independently if needed */

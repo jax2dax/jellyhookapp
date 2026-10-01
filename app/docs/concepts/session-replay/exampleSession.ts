@@ -57,7 +57,7 @@ export function buildExampleSession(): SessionRaw {
       // its own purple "away" frame automatically, no extra data needed here.
       {
         // A form on this page was started, never submitted. Orange frame.
-        // The form imitation still shows — it was SEEN (50% visible, which
+        // The form mini-plate still shows — it was SEEN (50% visible, which
         // needs no interaction at all), it just never got submitted, so it
         // renders in the ordinary (not bright) yellow. Two fields were
         // focused before they left, so it shows two stripes.
@@ -81,7 +81,7 @@ export function buildExampleSession(): SessionRaw {
       },
       {
         // The form here was actually submitted. Yellow frame, and the form
-        // imitation box renders in the brighter submitted color (formStatus),
+        // mini-plate renders in the brighter submitted color (formStatus),
         // stretched to the form's real measured span (formTopY/formBottomY —
         // the same way form_engagement.form_top_y/form_bottom_y work for a
         // real visit) with four stripes, one per field that was focused

@@ -13,7 +13,7 @@ import * as React from "react";
 import { Bulb } from "./Bulb";
 import type { FramePlateTheme, VisitGeometry } from "../types";
 
-interface FormImitationGeometry {
+interface FormMiniPlateGeometry {
   boxX: number;
   boxY: number;
   boxWidth: number;
@@ -23,8 +23,8 @@ interface FormImitationGeometry {
 }
 
 /**
- * The form imitation — an inset box at the form's real measured position,
- * narrower than the plate (theme.formImitation.widthFraction) so the seen/
+ * The form mini-plate — an inset box at the form's real measured position,
+ * narrower than the plate (theme.formMiniPlate.widthFraction) so the seen/
  * seen-twice bands stay visible on either side. Ceases to exist entirely
  * (returns null) whenever the form was never measured at all — no
  * form_engagement row reached 'viewed' on this page view, meaning the form
@@ -36,28 +36,28 @@ interface FormImitationGeometry {
  * a lower bound on the form's real field count, see PageVisitRaw's doc
  * comment), sized relative to the box's OWN height so however many there
  * are, they stay inside it — thickness shrinks as the count goes up
- * (boxHeight / count), clamped between theme.formImitation.min/
+ * (boxHeight / count), clamped between theme.formMiniPlate.min/
  * maxStripeThicknessPx so a form with only 1-2 focused fields never renders
  * a stripe so thick it reads as a filled block instead of a thin line.
  */
-function computeFormImitationGeometry(visit: VisitGeometry, width: number, height: number, theme: FramePlateTheme): FormImitationGeometry | null {
+function computeFormMiniPlateGeometry(visit: VisitGeometry, width: number, height: number, theme: FramePlateTheme): FormMiniPlateGeometry | null {
   try {
     const { formTopFrac, formBottomFrac, formStatus, formFieldCount } = visit;
     if (formTopFrac == null || formBottomFrac == null) return null;
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
 
-    const fi = theme.formImitation;
-    const boxWidth = width * fi.widthFraction;
+    const fmp = theme.formMiniPlate;
+    const boxWidth = width * fmp.widthFraction;
     const boxX = (width - boxWidth) / 2;
     const boxY = Math.min(formTopFrac, formBottomFrac) * height;
-    const boxHeight = Math.max(fi.minHeightPx, Math.abs(formBottomFrac - formTopFrac) * height);
-    const color = formStatus === "submitted" ? fi.submittedColor : fi.color;
+    const boxHeight = Math.max(fmp.minHeightPx, Math.abs(formBottomFrac - formTopFrac) * height);
+    const color = formStatus === "submitted" ? fmp.submittedColor : fmp.color;
 
     const fieldCount = Math.max(0, Math.floor(formFieldCount ?? 0));
-    const stripes: FormImitationGeometry["stripes"] = [];
+    const stripes: FormMiniPlateGeometry["stripes"] = [];
     if (fieldCount > 0) {
       const slot = boxHeight / fieldCount;
-      const thickness = Math.min(fi.maxStripeThicknessPx, Math.max(fi.minStripeThicknessPx, slot * 0.5));
+      const thickness = Math.min(fmp.maxStripeThicknessPx, Math.max(fmp.minStripeThicknessPx, slot * 0.5));
       const stripeWidth = boxWidth * 0.8;
       const stripeX = boxX + (boxWidth - stripeWidth) / 2;
       for (let i = 0; i < fieldCount; i++) {
@@ -68,20 +68,20 @@ function computeFormImitationGeometry(visit: VisitGeometry, width: number, heigh
 
     return { boxX, boxY, boxWidth, boxHeight, color, stripes };
   } catch (err) {
-    console.error(`[framePlate] form imitation geometry failed for visit "${visit?.id}":`, err);
+    console.error(`[framePlate] form mini-plate geometry failed for visit "${visit?.id}":`, err);
     return null;
   }
 }
 
-function FormImitation({ visit, width, height, theme }: { visit: VisitGeometry; width: number; height: number; theme: FramePlateTheme }) {
-  const geometry = computeFormImitationGeometry(visit, width, height, theme);
+function FormMiniPlate({ visit, width, height, theme }: { visit: VisitGeometry; width: number; height: number; theme: FramePlateTheme }) {
+  const geometry = computeFormMiniPlateGeometry(visit, width, height, theme);
   if (geometry === null) return null;
-  const fi = theme.formImitation;
+  const fmp = theme.formMiniPlate;
   return (
     <g aria-label="form position">
-      <rect x={geometry.boxX} y={geometry.boxY} width={geometry.boxWidth} height={geometry.boxHeight} rx={fi.cornerRadius} ry={fi.cornerRadius} fill={geometry.color} />
+      <rect x={geometry.boxX} y={geometry.boxY} width={geometry.boxWidth} height={geometry.boxHeight} rx={fmp.cornerRadius} ry={fmp.cornerRadius} fill={geometry.color} />
       {geometry.stripes.map((s, i) => (
-        <rect key={i} x={s.x} y={s.y} width={s.width} height={s.height} fill={fi.stripeColor} />
+        <rect key={i} x={s.x} y={s.y} width={s.width} height={s.height} fill={fmp.stripeColor} />
       ))}
     </g>
   );
@@ -196,8 +196,8 @@ export function FullPagePlate(props: FullPagePlateProps) {
   }
 
   const { enterY, exitY, seenBottom, viewportFraction: vFrac, converted, headers, formTopFrac, formBottomFrac } = visit;
-  // The form imitation renders whenever the form was ever measured at all
-  // (view detection needs no interaction — see FormImitation's doc comment
+  // The form mini-plate renders whenever the form was ever measured at all
+  // (view detection needs no interaction — see FormMiniPlate's doc comment
   // above), independent of whether this particular visit converted. The
   // old single-point bulb is now only ever a fallback for a conversion
   // recorded before form_engagement position tracking existed at all.
@@ -243,9 +243,9 @@ export function FullPagePlate(props: FullPagePlateProps) {
 
         <ViewportMarks vFrac={vFrac} height={height} width={width} theme={theme} />
 
-        {/* form imitation — inset, narrower than the plate, so seen/seen-twice
-            stay visible either side of it; see FormImitation's doc comment. */}
-        {hasFormSpan && <FormImitation visit={visit} width={width} height={height} theme={theme} />}
+        {/* form mini-plate — inset, narrower than the plate, so seen/seen-twice
+            stay visible either side of it; see FormMiniPlate's doc comment. */}
+        {hasFormSpan && <FormMiniPlate visit={visit} width={width} height={height} theme={theme} />}
       </g>
 
       {/* right-edge bulbs — painted longest-first so the shortest (exit) stays visible on top when they coincide.

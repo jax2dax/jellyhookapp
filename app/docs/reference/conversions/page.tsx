@@ -71,10 +71,19 @@ export default function ConversionsReferencePage() {
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             One card per converted lead, filterable by date range (last 3 days, last week, last month, all time, or
             a custom range) and paginated — not every conversion the site has ever had rendered onto one page at
-            once.
+            once. Each card is collapsed to a single line by default — name, email, the page they converted on, and
+            the date — so a long list of conversions stays scannable; click anywhere on that line to expand it.
           </p>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Each card&apos;s chart shows only that lead&apos;s path to conversion: start of the session through the
+            A lead&apos;s name in this list is colored the same yellow the{" "}
+            <Link href="/docs/concepts/session-replay" className="text-[var(--lime)] hover:underline">
+              session replay chart
+            </Link>{" "}
+            itself uses for a converted page — that color means the same thing everywhere in the dashboard, not
+            just here.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Expanding a card shows only that lead&apos;s path to conversion: start of the session through the
             exact page visit they converted on, nothing after. If the real session kept going past that point, the
             rest of it is deliberately cut from this view — click{" "}
             <span className="text-[#f4f2ea]">View full information</span> to see the whole thing, uncut, on that
@@ -87,6 +96,11 @@ export default function ConversionsReferencePage() {
               Session replay
             </Link>
             .
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            The list itself is cached in your browser for a couple of minutes, so switching the date filter back to
+            a range you already looked at recently loads instantly instead of re-querying. Changing the filter to
+            something genuinely new, or waiting past that window, always fetches fresh data.
           </p>
         </div>
       </div>

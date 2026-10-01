@@ -161,27 +161,27 @@ export function validateTheme(userTheme?: DeepPartial<FramePlateTheme>): { theme
       converted: validateBulb("converted", t.bulbs?.converted, defaultTheme.bulbs.converted, warnings),
     };
 
-    const formImitation = {
+    const formMiniPlate = {
       widthFraction: pick(
-        "formImitation.widthFraction",
-        t.formImitation?.widthFraction,
-        defaultTheme.formImitation.widthFraction,
+        "formMiniPlate.widthFraction",
+        t.formMiniPlate?.widthFraction,
+        defaultTheme.formMiniPlate.widthFraction,
         (v): v is number => isFiniteNumber(v) && v > 0 && v <= 1,
         warnings
       ),
-      color: pick("formImitation.color", t.formImitation?.color, defaultTheme.formImitation.color, isNonEmptyString, warnings),
-      submittedColor: pick("formImitation.submittedColor", t.formImitation?.submittedColor, defaultTheme.formImitation.submittedColor, isNonEmptyString, warnings),
-      minHeightPx: pick("formImitation.minHeightPx", t.formImitation?.minHeightPx, defaultTheme.formImitation.minHeightPx, isPositiveNumber, warnings),
-      cornerRadius: pick("formImitation.cornerRadius", t.formImitation?.cornerRadius, defaultTheme.formImitation.cornerRadius, (v): v is number => isFiniteNumber(v) && v >= 0, warnings),
-      stripeColor: pick("formImitation.stripeColor", t.formImitation?.stripeColor, defaultTheme.formImitation.stripeColor, isNonEmptyString, warnings),
-      maxStripeThicknessPx: pick("formImitation.maxStripeThicknessPx", t.formImitation?.maxStripeThicknessPx, defaultTheme.formImitation.maxStripeThicknessPx, isPositiveNumber, warnings),
-      minStripeThicknessPx: pick("formImitation.minStripeThicknessPx", t.formImitation?.minStripeThicknessPx, defaultTheme.formImitation.minStripeThicknessPx, isPositiveNumber, warnings),
+      color: pick("formMiniPlate.color", t.formMiniPlate?.color, defaultTheme.formMiniPlate.color, isNonEmptyString, warnings),
+      submittedColor: pick("formMiniPlate.submittedColor", t.formMiniPlate?.submittedColor, defaultTheme.formMiniPlate.submittedColor, isNonEmptyString, warnings),
+      minHeightPx: pick("formMiniPlate.minHeightPx", t.formMiniPlate?.minHeightPx, defaultTheme.formMiniPlate.minHeightPx, isPositiveNumber, warnings),
+      cornerRadius: pick("formMiniPlate.cornerRadius", t.formMiniPlate?.cornerRadius, defaultTheme.formMiniPlate.cornerRadius, (v): v is number => isFiniteNumber(v) && v >= 0, warnings),
+      stripeColor: pick("formMiniPlate.stripeColor", t.formMiniPlate?.stripeColor, defaultTheme.formMiniPlate.stripeColor, isNonEmptyString, warnings),
+      maxStripeThicknessPx: pick("formMiniPlate.maxStripeThicknessPx", t.formMiniPlate?.maxStripeThicknessPx, defaultTheme.formMiniPlate.maxStripeThicknessPx, isPositiveNumber, warnings),
+      minStripeThicknessPx: pick("formMiniPlate.minStripeThicknessPx", t.formMiniPlate?.minStripeThicknessPx, defaultTheme.formMiniPlate.minStripeThicknessPx, isPositiveNumber, warnings),
     };
-    if (formImitation.minStripeThicknessPx > formImitation.maxStripeThicknessPx) {
+    if (formMiniPlate.minStripeThicknessPx > formMiniPlate.maxStripeThicknessPx) {
       warnings.push(
-        `[framePlate/theme] formImitation.minStripeThicknessPx (${formImitation.minStripeThicknessPx}) > maxStripeThicknessPx (${formImitation.maxStripeThicknessPx}) — swapping them.`
+        `[framePlate/theme] formMiniPlate.minStripeThicknessPx (${formMiniPlate.minStripeThicknessPx}) > maxStripeThicknessPx (${formMiniPlate.maxStripeThicknessPx}) — swapping them.`
       );
-      [formImitation.minStripeThicknessPx, formImitation.maxStripeThicknessPx] = [formImitation.maxStripeThicknessPx, formImitation.minStripeThicknessPx];
+      [formMiniPlate.minStripeThicknessPx, formMiniPlate.maxStripeThicknessPx] = [formMiniPlate.maxStripeThicknessPx, formMiniPlate.minStripeThicknessPx];
     }
 
     const hover = {
@@ -204,7 +204,7 @@ export function validateTheme(userTheme?: DeepPartial<FramePlateTheme>): { theme
       labelFontSize: pick("referenceLine.labelFontSize", t.referenceLine?.labelFontSize, defaultTheme.referenceLine.labelFontSize, isPositiveNumber, warnings),
     };
 
-    const theme: FramePlateTheme = { canvasBackground, plate, seenOnce, seenTwice, header, frame, ribbon, bulbs, formImitation, hover, referenceLine, sessionLiveBorder };
+    const theme: FramePlateTheme = { canvasBackground, plate, seenOnce, seenTwice, header, frame, ribbon, bulbs, formMiniPlate, hover, referenceLine, sessionLiveBorder };
 
     if (warnings.length > 0) {
       console.warn(`[framePlate] theme validation found ${warnings.length} issue(s):`, warnings);

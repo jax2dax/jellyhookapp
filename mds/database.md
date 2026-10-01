@@ -307,11 +307,12 @@ isn't a per-keystroke network request.
 focus/blur/submit/session-end, and IS what `ended_at` gets set to on
 abandonment (never "now").
 
-**Consumed by FramePlate's form imitation (2026-10-01).** `form_top_y`/
-`form_bottom_y`/`status`/`field_timings` from this table feed the
-session-replay chart's form imitation box (see `framePlate/components/
-FullPagePlate.tsx` and `/docs/concepts/session-replay`). Three things
-worth knowing if you touch this table:
+**Consumed by FramePlate's form mini-plate (2026-10-01, renamed from
+"form imitation" 2026-10-01).** `form_top_y`/`form_bottom_y`/`status`/
+`field_timings` from this table feed the session-replay chart's form
+mini-plate box (see `framePlate/components/FullPagePlate.tsx` and
+`/docs/concepts/session-replay`). Three things worth knowing if you touch
+this table:
 - Position is captured the moment a form is first ≥50% visible
   (`viewed` or later) — that needs no interaction at all, so the chart can
   show a form's location on a visit that never converted and never even

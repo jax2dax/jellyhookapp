@@ -930,4 +930,64 @@ entry + `mds/local_cache_schema.md`'s new section).
   wrong for a card holding a variable-height chart). Content stays
   mounted regardless of expanded state; collapsing only zeroes the grid
   row. Reusable anywhere else in the app that wants the same effect, not
-  built as a one-off inline style. 
+  built as a one-off inline style.
+
+## 2026-10-01 (later still) — "Form imitation" renamed to "form mini-plate"; docs rewrite
+
+User called "form imitation" a bad name and asked for "form mini-plate"
+instead, plus a rewrite of the session-replay and conversions docs so
+every visual element explicitly states what it represents, and asked the
+writing style itself be grounded in how professional SaaS products write
+docs (researched via WebFetch against Stripe's docs before writing —
+pattern taken: state the concept plainly, then its exact values/behavior
+as a flat list or table, callouts for edge cases, explicit statement of
+what a reserved-but-unused value is for rather than silently omitting
+it).
+
+- **Renamed everywhere, not just in prose.** This app's own documentation
+  philosophy (stated on the session-replay page itself: "matching exactly
+  what the code itself calls them") meant code identifiers had to change
+  too, not just doc text. Renamed `theme.formImitation` →
+  `theme.formMiniPlate` (`framePlate/types.ts`, `defaultTheme.ts`,
+  `validateTheme.ts` — including the explicit-whitelist final object
+  construction line, the one place a renamed-but-not-added-there field
+  would silently vanish), and `FormImitation`/`computeFormImitationGeometry`/
+  `FormImitationGeometry` → `FormMiniPlate`/`computeFormMiniPlateGeometry`/
+  `FormMiniPlateGeometry` in `framePlate/components/FullPagePlate.tsx`.
+  `TerminologyDiagram.tsx`'s `FORM_IMITATION` constant, its rendered
+  callout label, and its `aria-label` all renamed too. Grepped the whole
+  repo afterward to confirm zero stray references outside this file and
+  `mds/database.md`'s intentional "renamed from" note.
+- **Session-replay page (`/docs/concepts/session-replay`) rewritten** so
+  the terminology section states explicitly what each element represents,
+  per the user's own framing: plate → the entire real page's true height
+  (scaled by a fixed ratio, clamped, never relative to other pages in the
+  session); bulb position → where on the page that specific moment
+  happened; frame width → how long the visit lasted; frame color → the
+  visit's outcome; form mini-plate → the form's own real measured
+  position/span, not a single point. Also added a short note to "Frame
+  colors, exact values" that `active`/`expired` exist in the theme but
+  are never actually produced by real code today (confirmed by reading
+  `components/leads/ChartLegend.tsx`'s own identical caveat, which already
+  excludes them from the in-app legend for the same reason) — deliberately
+  disclosed rather than silently left out, the way a reserved-but-unused
+  API field gets called out rather than hidden.
+- **Conversions reference page (`/docs/reference/conversions`) — the
+  existing brief "Conversions list" section expanded**, not replaced: now
+  covers the collapsed-by-default cards, the yellow identity-name color
+  tying back to the session-replay chart's own converted color, and a
+  plain-language caching note (mirroring the existing wording style on
+  `/docs/troubleshooting` about session data caching) — deliberately no
+  internal file/function names on this page, since it's user-facing,
+  unlike `doc_source_map.md`.
+- `mds/database.md`'s `form_engagement` section and
+  `mds/documentation/doc_source_map.md`'s session-replay row updated to
+  the new name, with an explicit "renamed from X" note rather than
+  silently rewriting history. `mds/features.md` was already clean (never
+  referred to it as "form imitation" to begin with). Verified with
+  `npx tsc --noEmit -p .` and `npx next build`, both clean.
+- **Noticed, not fixed (out of scope for this request):**
+  `framePlate/components/FullPagePlate.tsx` still has a `console.log`
+  block marked `// TEMP DEBUG — remove once the page-height investigation
+  is done`, firing on every render (visible in the build output). Worth
+  removing in a future pass. 

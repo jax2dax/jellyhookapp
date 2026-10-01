@@ -44,43 +44,55 @@ export default function SessionReplayPage() {
       </div>
 
       <div className="mt-14">
-        <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Frame, plate, bulb, and the form imitation: four different things</h2>
+        <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Frame, plate, bulb, and the form mini-plate: what each one represents</h2>
         <p className="mb-6 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-          These four words get used precisely from here on, matching exactly what the code itself calls them, so
-          they need to be told apart once, clearly.
+          These four words get used precisely from here on, matching exactly what the code itself calls them. Each
+          one stands in for something real about the visit — not just a shape with a name, but a specific
+          measurement, drawn so that measurement can be read at a glance.
         </p>
         <TerminologyDiagram />
         <ul className="mt-6 max-w-2xl space-y-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
           <li>
-            <span className="text-[#f4f2ea]">Frame:</span> the whole colored column for one page visit, or one gap.
-            Its width changes with how long that visit lasted. Its color is what &quot;gray,&quot; &quot;yellow,&quot;
-            &quot;orange&quot; below actually refer to.
+            <span className="text-[#f4f2ea]">Frame:</span> the whole colored column for one page visit, or one gap
+            away from the site. Its <span className="text-[#f4f2ea]">width represents how long that visit lasted</span> —
+            visits of similar length land at a similar width; one unusually long outlier grows past the rest rather
+            than squeezing everything else down to a sliver. Its{" "}
+            <span className="text-[#f4f2ea]">color represents the outcome</span> of that visit — what
+            &quot;gray,&quot; &quot;yellow,&quot; &quot;orange&quot; below actually mean.
           </li>
           <li>
-            <span className="text-[#f4f2ea]">Plate:</span> the smaller rectangle inside the frame. This is the
-            actual miniature of the real page, always the same width, its height scaled to that specific page&apos;s
-            real height. The shaded seen and unseen areas live here, not on the frame.
+            <span className="text-[#f4f2ea]">Plate:</span> the smaller rectangle inside the frame.{" "}
+            <span className="text-[#f4f2ea]">Represents the entire real page, true height</span> — its height is
+            that page&apos;s actual pixel height scaled down by a fixed ratio, clamped to a sensible minimum and
+            maximum so a very short or very tall page both stay legible. That scaling never depends on any other
+            page in the session: the same real page height always draws the same plate height, wherever it appears.
+            The shaded seen and unseen areas live here, not on the frame.
           </li>
           <li>
-            <span className="text-[#f4f2ea]">Form imitation:</span> an inset box drawn <em>inside</em> the plate, at
-            the form&apos;s real measured position — narrower than the plate itself, so the seen/seen-twice shading
-            stays visible either side of it. See below for exactly when it appears and what the stripes inside it mean.
+            <span className="text-[#f4f2ea]">Bulb:</span> a small marker sticking out from the plate&apos;s own
+            edge, not the frame&apos;s. Each one <span className="text-[#f4f2ea]">represents one specific moment</span>{" "}
+            — entering the page, leaving it, or the furthest point ever scrolled to — and its{" "}
+            <span className="text-[#f4f2ea]">position along that edge represents where on the page that moment
+            happened</span>, top to bottom, on the same scale the plate itself is drawn to.
           </li>
           <li>
-            <span className="text-[#f4f2ea]">Bulb:</span> a small marker sticking out from the plate&apos;s own edge,
-            not the frame&apos;s edge. Each one marks one specific moment or position: enter, exit, or deepest scroll.
+            <span className="text-[#f4f2ea]">Form mini-plate:</span> an inset box drawn <em>inside</em> the plate,
+            not on its edge like a bulb. <span className="text-[#f4f2ea]">Represents the form&apos;s own real
+            measured position and span on the page</span> — where it actually sits, top to bottom, not a single
+            point. Narrower than the plate itself, so the seen/seen-twice shading stays visible either side of it.
+            See below for exactly when it appears and what the stripes inside it mean.
           </li>
         </ul>
       </div>
 
       <div className="mt-14">
-        <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">The form imitation box, precisely</h2>
+        <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">The form mini-plate, precisely</h2>
         <p className="max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
           It appears whenever a form on that page was ever seen at least 50% on screen — which needs no interaction
           at all, not typing, not even focusing a field, just scrolling it into view. That means it can show up on a
           visit that never converted and never even started the form: seeing it is enough. If a form was never
-          scrolled into view at all on a given visit, the box does not appear — there is nothing to measure yet, so
-          nothing is drawn.
+          scrolled into view at all on a given visit, the mini-plate does not appear — there is nothing measured
+          yet, so nothing is drawn.
         </p>
         <ul className="mt-4 space-y-2.5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
           <ColorRow
@@ -97,15 +109,19 @@ export default function SessionReplayPage() {
         <p className="mt-4 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
           The white stripes inside it are fields — but specifically, fields that were actually clicked into at least
           once. A field nobody ever focused leaves no trace at all, so the stripe count is a floor on the form&apos;s
-          real field count, never the true total. However many there are, they always stay inside the box: each
-          stripe&apos;s thickness is the box&apos;s own height divided by the field count, so more fields means
-          thinner stripes, not an overflowing box.
+          real field count, never the true total. However many there are, they always stay inside the mini-plate:
+          each stripe&apos;s thickness is the mini-plate&apos;s own height divided by the field count, so more
+          fields means thinner stripes, not an overflowing box.
         </p>
       </div>
 
       <div className="mt-14 space-y-10">
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Frame colors, exact values</h2>
+          <p className="mb-4 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            A frame&apos;s color always represents that visit&apos;s outcome — never its duration or how far they
+            scrolled, which live in the frame&apos;s width and the bulbs instead.
+          </p>
           <ul className="space-y-2.5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
             <ColorRow color={outcome.exitedNormally} label="Gray" desc="a normal page visit, nothing unusual." />
             <ColorRow color={outcome.converted} label="Yellow" desc="a form on this page was submitted." />
@@ -120,6 +136,11 @@ export default function SessionReplayPage() {
             session itself has not ended yet. That is a different signal from any one frame&apos;s color, and can be
             true even after the visitor has moved on from whichever page is drawn last.
           </p>
+          <p className="mt-3 max-w-2xl ff-body text-[13px] leading-relaxed text-[#77756d]">
+            Two more outcomes exist behind the scenes — a plain green for &quot;still active&quot; and a dark red
+            for &quot;expired&quot; — but nothing in the product assigns either of them to a real page visit today,
+            so they are never something you will actually see on a chart.
+          </p>
         </div>
 
         <div>
@@ -133,6 +154,10 @@ export default function SessionReplayPage() {
 
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">The bulbs, exact values</h2>
+          <p className="mb-4 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            A bulb&apos;s color represents which moment it marks; its position along the plate&apos;s edge
+            represents where on the page that moment happened.
+          </p>
           <ul className="space-y-2.5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
             <ColorRow color={bulbs.enter.color} label="Green" desc="where they entered the page." />
             <ColorRow color={bulbs.exit.color} label="Red" desc="where they were when they left it." />
@@ -140,8 +165,8 @@ export default function SessionReplayPage() {
           </ul>
           <p className="mt-4 max-w-2xl ff-body text-[13px] leading-relaxed text-[#77756d]">
             There used to be a fourth, yellow bulb marking a converted page&apos;s form position. It is now the form
-            imitation box described above for anything tracked since; the single-point yellow bulb only still
-            appears as a fallback for a conversion recorded before form position tracking existed at all.
+            mini-plate described above for anything tracked since; the single-point yellow bulb only still appears
+            as a fallback for a conversion recorded before form position tracking existed at all.
           </p>
         </div>
 

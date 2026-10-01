@@ -84,7 +84,7 @@ export const defaultTheme: FramePlateTheme = {
     deepestScroll: { shape: "pill", length: 15, thickness: 3, color: "#3b82f6", zIndex: 2 },
     converted: { shape: "pill", length: 22, thickness: 3, color: "#eab308", zIndex: 0 },
   },
-  formImitation: {
+  formMiniPlate: {
     // Centered, narrower than the plate — seen/seen-twice stay visible on
     // both sides of it rather than being fully covered.
     widthFraction: 0.62,

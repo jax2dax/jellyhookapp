@@ -3,10 +3,10 @@
 // Precise, not illustrative-ish: every size and color here is read
 // straight from framePlate/theme/defaultTheme.ts, not approximated.
 // theme.frame.height, theme.plate.width, theme.frame.padding, the
-// exit/deepestScroll bulb length+thickness, and the form imitation's own
+// exit/deepestScroll bulb length+thickness, and the form mini-plate's own
 // width fraction + stripe sizing are all the real numbers a production
 // chart actually uses. Only the plate's height, the outcome color, and the
-// form imitation's own position/field-count are chosen freely for this one
+// form mini-plate's own position/field-count are chosen freely for this one
 // diagram, since those vary per real page visit.
 import { defaultTheme } from "@/framePlate";
 
@@ -27,13 +27,13 @@ const DEEPEST_BULB = defaultTheme.bulbs.deepestScroll;
 const EXIT_Y = PLATE_Y + 120;
 const DEEPEST_Y = PLATE_Y + 170;
 
-// Form imitation — an INSET box, not a bulb (see FullPagePlate.tsx): narrower
-// than the plate (theme.formImitation.widthFraction), centered, drawn
+// Form mini-plate — an INSET box, not a bulb (see FullPagePlate.tsx): narrower
+// than the plate (theme.formMiniPlate.widthFraction), centered, drawn
 // submitted-bright since that's the color this diagram's frame outcome
 // (converted) implies. Three stripes, same clamp math FullPagePlate itself
 // uses, just computed here directly rather than imported.
-const FORM_IMITATION = defaultTheme.formImitation;
-const FORM_BOX_WIDTH = PLATE_WIDTH * FORM_IMITATION.widthFraction;
+const FORM_MINI_PLATE = defaultTheme.formMiniPlate;
+const FORM_BOX_WIDTH = PLATE_WIDTH * FORM_MINI_PLATE.widthFraction;
 const FORM_BOX_X = PLATE_X + (PLATE_WIDTH - FORM_BOX_WIDTH) / 2;
 const FORM_BOX_Y = PLATE_Y + 40;
 const FORM_BOX_HEIGHT = 40;
@@ -41,7 +41,7 @@ const FORM_FIELD_COUNT = 3;
 const FORM_STRIPE_WIDTH = FORM_BOX_WIDTH * 0.8;
 const FORM_STRIPE_X = FORM_BOX_X + (FORM_BOX_WIDTH - FORM_STRIPE_WIDTH) / 2;
 const FORM_STRIPE_SLOT = FORM_BOX_HEIGHT / FORM_FIELD_COUNT;
-const FORM_STRIPE_THICKNESS = Math.min(FORM_IMITATION.maxStripeThicknessPx, Math.max(FORM_IMITATION.minStripeThicknessPx, FORM_STRIPE_SLOT * 0.5));
+const FORM_STRIPE_THICKNESS = Math.min(FORM_MINI_PLATE.maxStripeThicknessPx, Math.max(FORM_MINI_PLATE.minStripeThicknessPx, FORM_STRIPE_SLOT * 0.5));
 
 function Callout({ from, to, label }: { from: [number, number]; to: [number, number]; label: string }) {
   return (
@@ -61,7 +61,7 @@ export function TerminologyDiagram() {
       viewBox="0 0 440 380"
       className="w-full max-w-lg"
       role="img"
-      aria-label="Diagram labeling the frame, the plate inside it, the inset form imitation box, and a bulb on the plate's edge"
+      aria-label="Diagram labeling the frame, the plate inside it, the inset form mini-plate box, and a bulb on the plate's edge"
     >
       {/* path label — sits above the frame, not part of the frame's own rectangle */}
       <text x={FRAME_X + FRAME_WIDTH / 2} y={FRAME_Y - 8} textAnchor="middle" fontFamily="monospace" fontSize={11} fill="#8b8980">
@@ -76,8 +76,8 @@ export function TerminologyDiagram() {
       <rect x={PLATE_X} y={PLATE_Y} width={PLATE_WIDTH} height={140} fill={defaultTheme.seenOnce.color} />
       <rect x={PLATE_X} y={PLATE_Y + 140} width={PLATE_WIDTH} height={50} fill={defaultTheme.seenTwice.color} />
 
-      {/* form imitation — INSET inside the plate, narrower than it, not protruding past its edge like a bulb */}
-      <rect x={FORM_BOX_X} y={FORM_BOX_Y} width={FORM_BOX_WIDTH} height={FORM_BOX_HEIGHT} rx={FORM_IMITATION.cornerRadius} fill={FORM_IMITATION.submittedColor} />
+      {/* form mini-plate — INSET inside the plate, narrower than it, not protruding past its edge like a bulb */}
+      <rect x={FORM_BOX_X} y={FORM_BOX_Y} width={FORM_BOX_WIDTH} height={FORM_BOX_HEIGHT} rx={FORM_MINI_PLATE.cornerRadius} fill={FORM_MINI_PLATE.submittedColor} />
       {Array.from({ length: FORM_FIELD_COUNT }).map((_, i) => (
         <rect
           key={i}
@@ -85,7 +85,7 @@ export function TerminologyDiagram() {
           y={FORM_BOX_Y + i * FORM_STRIPE_SLOT + FORM_STRIPE_SLOT / 2 - FORM_STRIPE_THICKNESS / 2}
           width={FORM_STRIPE_WIDTH}
           height={FORM_STRIPE_THICKNESS}
-          fill={FORM_IMITATION.stripeColor}
+          fill={FORM_MINI_PLATE.stripeColor}
         />
       ))}
 
@@ -96,7 +96,7 @@ export function TerminologyDiagram() {
       {/* callouts — leader line from the exact edge being labeled, out to clear space */}
       <Callout from={[FRAME_X, FRAME_Y]} to={[30, FRAME_Y - 6]} label="Frame" />
       <Callout from={[PLATE_X, PLATE_Y]} to={[30, PLATE_Y + 90]} label="Plate" />
-      <Callout from={[FORM_BOX_X + FORM_BOX_WIDTH, FORM_BOX_Y + FORM_BOX_HEIGHT / 2]} to={[380, FORM_BOX_Y + 6]} label="Form imitation" />
+      <Callout from={[FORM_BOX_X + FORM_BOX_WIDTH, FORM_BOX_Y + FORM_BOX_HEIGHT / 2]} to={[380, FORM_BOX_Y + 6]} label="Form mini-plate" />
       <Callout from={[PLATE_RIGHT_EDGE + DEEPEST_BULB.length, DEEPEST_Y]} to={[380, DEEPEST_Y]} label="Bulb" />
     </svg>
   );
