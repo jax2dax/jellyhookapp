@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseClient } from '@/lib/supabase/server';
+import { requireSiteAccess } from '@/lib/actions/siteAccess';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -153,6 +154,8 @@ export async function getConversionRateData(
   window: WindowPreset = '7d',
 ): Promise<ConversionRateResult> {
   console.log('[getConversionRateData] Start', { siteId, window });
+
+  await requireSiteAccess(siteId);
 
   // ✅ createSupabaseClient is async — must be awaited
   const supabase = await createSupabaseClient();

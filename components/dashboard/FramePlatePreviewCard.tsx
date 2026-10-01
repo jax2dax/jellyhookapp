@@ -70,29 +70,39 @@ function toSessionsRaw(rows: { sessions: unknown[]; pageViews: unknown[]; submis
   return buildSessionsRaw({ ...rows, pageStructure: [] }) as SessionRaw[];
 }
 
-/** Synchronous cache read for the lazy useState initializers below — same tier LeadSessionExplorer uses (jh_leadsess_<visitorId>). */
-function readInitialSessionsRaw(visitorId: string | null): SessionRaw[] {
-  if (!visitorId) return [];
-  const cached = getCachedSessionRows(visitorId);
-  return cached ? toSessionsRaw(cached.data) : [];
-}
-
 type SlotStatus = "loading" | "ready" | "empty";
 
-/** Cache-first fetch of one visitor's sessions. `visitorId: null` means "nothing to fetch" (e.g. slot B reusing slot A's own data for a single-lead site). */
+/**
+ * Cache-first fetch of one visitor's sessions. `visitorId: null` means
+ * "nothing to fetch" (e.g. slot B reusing slot A's own data for a
+ * single-lead site).
+ *
+ * Starts every render — server and client alike — from the same empty/
+ * loading state, then reads the localStorage cache inside useEffect, never
+ * in a lazy useState initializer. localStorage doesn't exist during SSR,
+ * so reading it synchronously there would make the server-rendered HTML
+ * ("loading") diverge from what the client immediately renders on mount if
+ * a cache entry happens to exist ("ready") — exactly the hydration mismatch
+ * this used to produce. See components/leads/LeadSessionExplorer.tsx for
+ * the same pattern done correctly from the start.
+ */
 function useVisitorSessions(siteId: string, visitorId: string | null): { sessionsRaw: SessionRaw[]; status: SlotStatus } {
-  const [sessionsRaw, setSessionsRaw] = React.useState<SessionRaw[]>(() => readInitialSessionsRaw(visitorId));
-  const [status, setStatus] = React.useState<SlotStatus>(() => {
-    if (!visitorId) return "empty";
-    return readInitialSessionsRaw(visitorId).length ? "ready" : "loading";
-  });
+  const [sessionsRaw, setSessionsRaw] = React.useState<SessionRaw[]>([]);
+  const [status, setStatus] = React.useState<SlotStatus>(visitorId ? "loading" : "empty");
 
   React.useEffect(() => {
     if (!visitorId) return;
     let cancelled = false;
 
     const cached = getCachedSessionRows(visitorId);
-    if (cached && !cached.isStale) return;
+    if (cached) {
+      const raw = toSessionsRaw(cached.data);
+      if (raw.length) {
+        setSessionsRaw(raw);
+        setStatus("ready");
+      }
+      if (!cached.isStale) return;
+    }
 
     getLeadSessionRows(siteId, visitorId)
       .then((fresh) => {

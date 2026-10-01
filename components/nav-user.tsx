@@ -23,10 +23,12 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, SparklesIcon, BellIcon, Settings, LogOutIcon, SunIcon, MoonIcon, MonitorIcon, UserRound } from "lucide-react"
+import { ChevronsUpDownIcon, SparklesIcon, BugIcon, Settings, LogOutIcon, SunIcon, MoonIcon, MonitorIcon, UserRound } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useClerk } from "@clerk/nextjs"
 import { useTheme } from "next-themes"
+import * as React from "react"
+import { BugReportDialog } from "@/components/feedback/BugReportDialog"
 
 export function NavUser({
   user,
@@ -41,6 +43,7 @@ export function NavUser({
   const { signOut } = useClerk()
   const router = useRouter()
   const { theme, setTheme } = useTheme()
+  const [bugReportOpen, setBugReportOpen] = React.useState(false)
 
   return (
     <SidebarMenu>
@@ -88,9 +91,9 @@ export function NavUser({
                 <Settings />
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => router.push("/platform/network")}>
-                <BellIcon />
-                Notifications
+              <DropdownMenuItem onSelect={() => setBugReportOpen(true)}>
+                <BugIcon />
+                Report a bug
               </DropdownMenuItem>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
@@ -124,6 +127,8 @@ export function NavUser({
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+
+      <BugReportDialog open={bugReportOpen} onOpenChange={setBugReportOpen} />
     </SidebarMenu>
   )
 }

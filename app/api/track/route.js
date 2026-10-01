@@ -1,9 +1,18 @@
 // api/track/route.js
 import { NextResponse, after } from "next/server";
-import { createSupabaseClient } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 import { resolvePendingCountries } from "@/lib/resolvePendingCountries";
 import { closeStaleSessions } from "@/lib/closeStaleSessions";
 import { closeStaleFormEngagement } from "@/lib/closeStaleFormEngagement";
+
+// Service role, not the Clerk-JWT client — every request hitting this route
+// is an anonymous visitor on a CUSTOMER's site, never someone logged into
+// Jellyhook itself. There is no Clerk session to attach here, ever, by
+// design. Authorization already happens below (the api_key lookup) before
+// any write — this just lets that already-authorized write actually reach
+// tables that no longer grant anon/authenticated anything directly. See
+// mds/progress_timeline.md for the full RLS rewrite this is part of.
+const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 function corsHeaders() {
   return {
@@ -27,7 +36,7 @@ function isBot(userAgent) {
 
 export async function POST(req) {
   try {
-    const supabase = createSupabaseClient();
+    const supabase = supabaseAdmin;
 
     let events;
     try {

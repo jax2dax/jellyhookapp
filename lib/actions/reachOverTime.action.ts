@@ -7,6 +7,7 @@
 
 import { createSupabaseClient } from "@/lib/supabase/server";
 import { buildBuckets, bucketIndexFor, type Bucket } from "@/lib/analytics/bucketRange";
+import { requireSiteAccess } from "@/lib/actions/siteAccess";
 
 export interface ReachBucket extends Bucket {
   newVisitors: number;
@@ -24,6 +25,7 @@ export interface ReachOverTimeResult {
  * @param endIso   null/undefined = now
  */
 export async function getNewReachOverTime(siteId: string, startIso?: string | null, endIso?: string | null): Promise<ReachOverTimeResult> {
+  await requireSiteAccess(siteId);
   const supabase = await createSupabaseClient();
   const now = new Date();
 

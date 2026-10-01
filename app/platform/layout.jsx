@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/app-sidebar";
+import { FeedbackAutoPrompt } from "@/components/feedback/FeedbackAutoPrompt";
 
 // Every page under here requires a signed-in session (getAuthUser() below
 // redirects to /sign-in otherwise), so Google could never render the real
@@ -50,6 +51,10 @@ export default async function PlatformLayout({ children }) {
             horizontal scroll. min-w-0 removes that floor. */}
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </SidebarInset>
+      {/* Invisible until its own returning-user heuristic decides to show
+          itself — see the component for the exact rule. Mounted once here
+          so it watches activity across every /platform/* page. */}
+      <FeedbackAutoPrompt />
     </SidebarProvider>
   );
 }

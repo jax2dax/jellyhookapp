@@ -398,3 +398,302 @@ with real changes, not every micro-edit.
   provisional and will change before pricing is real — the checkmarks
   communicate "a plan structure exists" without committing to wording
   that's going to get rewritten.
+
+## 2026-09-30 (later still) — Feedback + bug-report system
+
+- **Sidebar**: the old plain "Support" row (`NavSecondary`, always a dead
+  `#` link) is now a single bordered button split in half —
+  `components/feedback/SupportFeedbackButton.tsx`. Left half is still
+  Support, unchanged. Right half is new: Feedback, opens a 1–5 star +
+  optional-comment dialog.
+- **Feedback nudge**: the Feedback half gets a quiet attention-getter — a
+  green sweep crosses left → fully covers → exits right over ~1.3s
+  (`jh-feedback-sweep` keyframes, `app/globals.css`), up to twice a day
+  with a real 10-minute gap enforced both between the two and before the
+  first one (`jh_glow_*` in localStorage). Respects
+  `prefers-reduced-motion`. This is independent of, and unrelated to, the
+  auto-popup below — one is a passive reminder on a button, the other is a
+  popup that actually interrupts.
+- **User-card dropdown** (`nav-user.tsx`): "Notifications" removed — it
+  was routing to `/platform/network` anyway, not a real notifications
+  feature — replaced with "Report a bug" (bug icon), opening
+  `BugReportDialog.tsx`: one description textarea, with the current page
+  path and `navigator.userAgent` attached automatically so the reporter
+  never has to type either.
+- **Auto feedback popup** (`FeedbackAutoPrompt.tsx`, mounted once in
+  `app/platform/layout.jsx`): a 15-second heartbeat accumulates actual
+  *visible-tab* time per calendar day in localStorage (not wall-clock
+  time since mount, which would also count a backgrounded tab). Once one
+  day crosses 10 minutes, that day is marked "qualified"; the first
+  **later** calendar day that also crosses 10 minutes triggers the
+  popup — once ever (`jh_fb_prompted`). The user was explicit this exact
+  rule will likely be tuned or replaced; the thresholds are two constants
+  at the top of that file for exactly that reason.
+- **Storage**: new `lib/actions/feedback.actions.js` (`submitFeedback`,
+  `submitBugReport`), same `supabaseAdmin` service-role pattern as
+  `profile.actions.js`. Needs two new tables (`feedback`, `bug_reports`)
+  that the user runs themselves — see the SQL handed over in that
+  conversation turn, not reproduced here.
+- **New shared UI primitives**: `components/ui/dialog.tsx` and
+  `components/ui/textarea.tsx` didn't exist before this — built from the
+  same `radix-ui` package and `cn`/`data-slot` conventions already used by
+  `sheet.tsx`/`input.tsx`, so any future modal work has a real `Dialog` to
+  reach for instead of another one-off.
+- **Bug fix, same day**: switching sidebar tabs briefly flashed the (real,
+  thin, green-styled — not actually hidden despite the `no-scrollbar`
+  class SidebarContent carries, which isn't a real defined utility
+  anywhere in this codebase) scrollbar in underneath the new
+  Support/Feedback button. Root cause: the button lived inside
+  `SidebarContent`, the scrollable (`overflow-auto`) region NavMain also
+  lives in — NavMain's own active-tab transition could shift its height
+  by a sub-pixel amount mid-animation, enough to momentarily overflow that
+  region. Fixed by moving `SupportFeedbackButton` out of `SidebarContent`
+  entirely, into its own sibling row between it and `SidebarFooter` — it
+  can no longer be part of that scrollable area no matter what NavMain's
+  animation does, without touching NavMain itself.
+
+  - Feed back -5 star + description was added.
+
+## 2026-09-30 (production prep) — Pre-launch security audit: cross-tenant data leak, fixed
+
+Context: domain switch to jellyhook.com is in progress (DNS processing).
+Before standing up Clerk's production instance, did the "find major
+API/security leaks" pass the user asked for — specifically whether any
+frontend code talks to Supabase directly (it doesn't — confirmed, zero
+client-reachable file anywhere imports `@supabase/supabase-js` or
+references `NEXT_PUBLIC_SUPABASE_*` outside the two server-only client
+factories, `lib/supabase.ts` / `lib/supabase/server.ts`), and whether
+relying on "requests only come from my backend" is actually safe with RLS
+off on every table (it is NOT, and this audit is why).
+
+- **Found: `setLeadQualified` was an unauthenticated cross-tenant write.**
+  It updated `form_submissions` by `leadId` alone — no `auth()` check at
+  all, no site-ownership check, not even scoped by `site_id`. With RLS
+  off, a request with no valid session still hits the DB through the anon
+  key's default grants. Anyone who knew (or guessed) a `form_submissions`
+  UUID could qualify/junk any customer's lead. Fixed: now takes `siteId`,
+  requires a real session, and requires that session to have `site_members`
+  access to that exact site before touching anything.
+- **Found: `getMembers` leaked team rosters (names + emails) for any
+  siteId**, no ownership check. Fixed the same way.
+- **Found this was systemic, not isolated**: every analytics-reading
+  action taking a client-supplied `siteId` — `getReferrerBreakdown`,
+  `getLeadOriginBreakdown`, `getNewReachOverTime`,
+  `getUniqueConversionsOverTime`, `getUniqueConversionRate`,
+  `getVisitsOverTime`, `getIntentFailureAnalysis` (had an auth() check,
+  but only "is someone logged in," never "does THIS someone own THIS
+  site"), `getConversionRateData`, `getConversionPaths`, the three
+  functions in `leadSessions.action.js`, and `getRecentActivity` — had
+  zero verification that the siteId belonged to the caller. Any signed-in
+  user could read any other customer's full analytics by siteId alone.
+  "The request comes from my backend" was the exact wrong assumption here
+  — the backend code still has to check ownership on every call; without
+  RLS there's no second layer underneath it doing that automatically.
+- **Fix**: one shared helper, `lib/actions/siteAccess.js`'s
+  `requireSiteAccess(siteId)` — checks `auth()`, then `site_members`
+  (falling back to legacy `sites.user_id`, same pattern as
+  `settings.actions.js`'s existing `verifyOwner`), throws if the caller
+  doesn't belong to that site. Added as the first line of every function
+  above.
+- **Not yet touched, lower urgency**: `lib/actions/supabase.actions.js`
+  has ~19 more siteId-taking functions with the same gap, but — checked —
+  all are currently called only from server components (siteId always
+  server-resolved via `requireSite`/`getUserSite`, never client input), so
+  not actually exploitable today. Same for `pagesOverview.action.js`'s
+  `getSitePagesOverview`. Worth the same treatment eventually for
+  defense-in-depth (a future refactor could easily wire one into a client
+  component and silently reopen this), just not urgent the way the
+  client-reachable ones were. `lib/actions/analytic.actions.js` is dead
+  code — not imported anywhere — left alone.
+- **Also noted, not a vulnerability**: three files
+  (`lib/actions/supabase.actions.js`, `site-management.actions.js`,
+  `permission.actions.js`) all independently define overlapping functions
+  (`getUserSite`, `requireSite`, `getSiteMembers`, `createSite`,
+  `inviteMember`...). Different pages import different ones. Not fixed
+  here — out of scope for a security pass — but worth a real cleanup
+  later, since duplicated security-relevant logic is exactly how the
+  `setLeadQualified`-style gap happens again.
+- Fixed in the same pass: `SettingsClients.jsx` had `trackerScript`
+  hardcoded to `http://localhost:3000` unconditionally (marked with a
+  `🚀 DEPLOY` TODO) — every customer's copied install snippet from Settings
+  was broken on any real deployment. Now uses `NEXT_PUBLIC_TRACKER_URL`,
+  matching the already-correct pattern in `create-site/page.jsx`.
+
+## 2026-09-30 (still production prep) — RLS was effectively off; real policies + service-role split
+
+User had already turned RLS "on," but every table's actual policy was a
+single `"all"` rule — `using (true)` to both `anon` and `authenticated` —
+which permits anyone, logged in or not, to read/write/delete every row.
+Functionally identical to RLS being disabled. Why this mattered now, not
+before: the public Supabase anon key is a `NEXT_PUBLIC_*` env var, visible
+in any browser's Network tab in seconds, no account needed.
+
+**The architectural wrinkle that made this non-trivial**: this app has two
+fundamentally different kinds of traffic hitting the same tables —
+anonymous visitors on *customers'* websites (the tracker, authenticated by
+nothing but an `api_key` check in the route code — never a Clerk session,
+ever, by design) and actual logged-in Jellyhook customers (real Clerk
+sessions, real JWTs). RLS policies keyed on `authenticated` + a real JWT
+claim are correct for the second group and structurally cannot apply to
+the first — no amount of code changes gives an anonymous website visitor a
+Jellyhook login, because they were never meant to have one. Previously
+confirmed (2026-09-29, form_engagement) that this app's Clerk-JWT Supabase
+client (`accessToken()` callback present even when it returns nothing)
+doesn't resolve anonymous requests cleanly to `anon` either — `to public`
+was needed there, not `to anon`. Decided not to re-fight that same
+uncertainty table by table: moved every tracker-facing write path to the
+**service-role key** instead, sidestepping the anon/public role-resolution
+question entirely for ingestion.
+
+**Found while tracing exactly what needed service role — two tables
+(`sites`, `site_members`) turned out far more complex than the simple
+tracking tables**: `site-management.actions.js` alone has a cross-tenant
+domain-duplicate check (`createSite` looking up ANY site by domain, not
+just the caller's own), and five separate functions querying
+`site_members` by `user_id = 'pending:<email>'` — a sentinel string with
+no relationship to a real Clerk user id, used for invites before the
+invitee has ever logged in. No RLS policy can safely express "this pending
+row belongs to you" without trusting an email claim in the JWT that may
+not even exist. Rather than encode all of that into live SQL with no way
+to test it against the real Supabase project before shipping, moved
+**all** of `sites`/`site_members` access in `permission.actions.js`,
+`settings.actions.js`, and `site-management.actions.js` to the service-role
+client — each of those already had a correct `auth()` + ownership check
+(`verifyOwner`, membership lookups) in application code before touching
+the DB; that check is unchanged and is still the real authorization, just
+now executed through a client that isn't also fighting RLS trying (and
+failing) to re-derive the same thing. Verified every exported function in
+both files has that check before making the swap (two exceptions, both
+confirmed harmless: `getSiteMembers` in `site-management.actions.js` is
+dead code — nothing imports it; `getSiteVerifiedStatus` returns only a
+boolean).
+
+**Code changes (all service-role swaps, auth logic inside each function
+untouched):**
+- `app/api/track/route.js`, `app/api/track-form/route.js`,
+  `app/api/track-form-engagement/route.js`, `app/api/site-config/route.js`,
+  `app/api/track-structure/route.js` (a 6th tracker-facing route, found
+  during this pass — missed in the earlier security audit because it
+  wasn't in the first grep's result set), `app/api/close-stale-sessions/route.js`
+  (inherently cross-tenant — sweeps stale sessions across every site, no
+  per-user scope would make sense) — all switched from the Clerk-JWT client
+  to service role.
+- `lib/actions/permission.actions.js`, `lib/actions/settings.actions.js`,
+  `lib/actions/site-management.actions.js` — same swap, for the
+  `sites`/`site_members` reasoning above.
+- **Deleted** `app/api/debug/route.js` and `app/api/debug-leads/route.js` —
+  found in the same pass, completely unauthenticated, returning the 50 most
+  recent `page_views`/`form_submissions` (real lead PII) across *every*
+  site to anyone who hit the URL. No production purpose, pure leftover.
+  `app/api/debug-site/route.js` and `app/api/get-analytics/route.ts` are
+  also leftover debug routes but not active leaks (the first is properly
+  auth-scoped; the second is dead code, nothing calls it) — left alone,
+  worth deleting eventually but not urgent.
+
+**RLS policy design that ships with this** (SQL handed to the user
+directly, not reproduced here in full):
+- `sites`, `site_members`, `users`, `subscriptions`, `billing_events`:
+  **no policy at all** for `anon`/`authenticated` — total deny for both,
+  service role (which bypasses RLS unconditionally) is the only way in.
+  Confirmed via grep that nothing outside the already-converted
+  service-role files touches these.
+  - One deliberate exception: `site_members` gets ONE minimal policy —
+    `authenticated` may `select` rows where `user_id` matches their own
+    JWT `sub` claim. Without this, every other table's ownership check
+    (an `exists (select 1 from site_members where ...)` subquery) would
+    silently return nothing for every single user, because Postgres RLS
+    applies to subqueries the same as top-level queries — a table with
+    zero `authenticated` access can't be read even indirectly through
+    another table's policy. Caught this before writing any SQL, not after
+    a broken dashboard.
+- `visitors`, `sessions`, `page_views`, `form_engagement`, `page_structure`:
+  `insert`/`update` wide open `to public` (matches the tracker's actual,
+  unauthenticated write path — same reasoning as the 2026-09-29
+  `form_engagement` fix, now applied consistently instead of one-off).
+  `select` restricted `to authenticated`, scoped through the
+  `site_members` ownership check above. No `delete` policy anywhere — the
+  app never deletes these rows, so default-deny there costs nothing.
+- `form_submissions`: `insert to public` (tracker-written), but `update`
+  restricted `to authenticated` + ownership (only the qualify/junk toggle
+  touches this, from the dashboard, never the tracker).
+- `page_insights`: `authenticated` + ownership for select/insert/update,
+  no public access at all — visitors never touch this table, only the
+  dashboard's intent-analysis feature does.
+
+**Bug found applying the above, same day**: every "members can select"
+policy used `(auth.uid())::text`, matching the pattern already visible in
+the user's existing `users`-table policies (`"Allow select own user"`).
+Wrong call — `auth.uid()` is Supabase's *native* auth helper and its
+implementation casts the JWT `sub` claim to Postgres's `uuid` type
+internally; Clerk's user ids (`user_3CWPiUysltfw2WiuspYCuA6XDxs`) aren't
+UUID-shaped, so the cast throws *inside* `auth.uid()`, before any `::text`
+cast on its result ever runs. Surfaced as `invalid input syntax for type
+uuid` in `getTotalSessions`/`getActiveVisitors`/`getPageViewsLast24h`/
+`getLeads`/`getSitePagesOverview` (all of which correctly logged the raw
+Postgres error) and as a misleading clean "you don't have access to this
+site" from `requireSiteAccess` (which did NOT check the `error` field on
+its queries, so the same underlying crash got silently swallowed into the
+generic denial message instead of surfacing the real cause).
+Two fixes: every policy's `(auth.uid())::text` replaced with
+`(auth.jwt() ->> 'sub')` (plain text extraction, no casting, can't throw
+this way), and `lib/actions/siteAccess.js` moved to the service-role
+client (same reasoning as everywhere else this pass — the ownership check
+now happens in JS against the real Clerk `userId`, not inside a policy)
+plus now actually logs `error` from both its queries instead of silently
+discarding it. The `users`-table policies that originally suggested
+`auth.uid()` was the right pattern were never actually exercised by real
+traffic (only service role touches `users` in live code) — the bug in
+them just never got the chance to surface before now.
+
+**Confirmed fixed, same day**: the `auth.uid()` → `auth.jwt() ->> 'sub'`
+SQL patch had to be run twice — the user's first attempt didn't take (a
+re-check query afterward still showed every policy with `auth.uid()` in
+it), second attempt confirmed via the same query returning zero rows.
+After that, the dashboard, leads, and intent analysis all loaded real data
+again — the RLS design itself was correct from the start, the only actual
+bug was the `auth.uid()` typing issue.
+
+**Separate, unrelated bug found right after, in the same dashboard load**:
+a React hydration mismatch in `components/dashboard/FramePlatePreviewCard.tsx`.
+Its `useVisitorSessions` hook read the localStorage session cache
+synchronously inside two `useState` lazy initializers
+(`readInitialSessionsRaw`) — the exact anti-pattern already called out as
+a standing convention earlier this session ("cache reads/writes only
+inside useEffect, never a lazy useState initializer"), just missed in
+this one file. Server-side, `localStorage` doesn't exist, so SSR always
+rendered the "loading" placeholder; client-side, hydration found a real
+cache entry and rendered the actual chart immediately — two different
+trees for the same initial render, which is exactly what a hydration
+mismatch is. `components/leads/LeadSessionExplorer.tsx` already does this
+correctly (empty `useState`, cache read only in `useEffect`) — this file
+didn't match it. Fixed by starting both server and client from the same
+`"loading"`/`"empty"` state unconditionally, and moving the cache read
+into the existing `useEffect` (which already ran a live fetch afterward
+regardless, so no behavior changed beyond removing the SSR/client
+divergence). Unrelated to the RLS work — this bug could have existed
+before it and just never had enough cached data to make the mismatch
+visible until now.
+
+**What actually changed, end to end, and what it means for you:**
+- **Safe now, wasn't before**: nobody — logged in or not — can read or
+  write `sites`, `site_members`, `users`, `subscriptions`, or
+  `billing_events` directly against Supabase anymore; only your own server
+  code (via the service-role key) can. A signed-in customer can only ever
+  see/modify their own site's `visitors`/`sessions`/`page_views`/
+  `form_submissions`/`form_engagement`/`page_structure`/`page_insights` —
+  enforced at the database itself now, not just in application code.
+- **Unchanged**: the tracker's actual behavior. Every write path a real
+  visitor's browser triggers works exactly as before — nothing about
+  install, tracking, or form capture changed from a customer's or a
+  website visitor's perspective.
+- **Still open, not forgotten**: `lib/actions/supabase.actions.js` has
+  ~19 more siteId-taking functions with the same missing-ownership-check
+  shape `setLeadQualified` had — not currently exploitable (everything
+  that calls them today resolves `siteId` server-side first), but worth
+  the same `requireSiteAccess` treatment eventually. `app/api/debug-site/route.js`
+  and `app/api/get-analytics/route.ts` are harmless leftover debug routes,
+  not deleted, not urgent. The `users` table policies shown earlier in
+  this conversation were never recreated (nothing live uses the JWT client
+  against `users`) — if a "delete my account" feature gets built later, it
+  needs its own policy or, more likely given everything else in this
+  pass, its own service-role action. 

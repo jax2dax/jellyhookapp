@@ -5,7 +5,7 @@
 'use server'
 
 import { createSupabaseClient } from '@/lib/supabase/server'
-import { auth } from '@clerk/nextjs/server'
+import { requireSiteAccess } from '@/lib/actions/siteAccess'
 import {
   analyzePageFull,
   PageViewRow,
@@ -50,11 +50,7 @@ export async function getIntentFailureAnalysis(
 ): Promise<IntentFailureResult | null> {
   console.log(`[intentFailure] ▶ siteId=${siteId}`)
 
-  const { userId } = await auth()
-  if (!userId) {
-    console.error('[intentFailure] ❌ Unauthorized')
-    return null
-  }
+  await requireSiteAccess(siteId)
 
   const supabase = await createSupabaseClient()
 

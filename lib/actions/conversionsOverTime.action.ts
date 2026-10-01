@@ -11,6 +11,7 @@
 
 import { createSupabaseClient } from "@/lib/supabase/server";
 import { buildBuckets, bucketIndexFor, type Bucket } from "@/lib/analytics/bucketRange";
+import { requireSiteAccess } from "@/lib/actions/siteAccess";
 
 export interface ConversionBucket extends Bucket {
   uniqueConversions: number;
@@ -24,6 +25,7 @@ export interface ConversionsOverTimeResult {
 }
 
 export async function getUniqueConversionsOverTime(siteId: string, startIso?: string | null, endIso?: string | null): Promise<ConversionsOverTimeResult> {
+  await requireSiteAccess(siteId);
   const supabase = await createSupabaseClient();
   const now = new Date();
 

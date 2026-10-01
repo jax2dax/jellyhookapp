@@ -109,7 +109,7 @@ function LeadProfileBody({ profile, raw, siteId }) {
           <div className="text-left text-sm text-muted-foreground sm:text-right">
             <div className="mb-1.5 flex items-center gap-2 sm:justify-end">
               <span className="text-xs">Qualify:</span>
-              <LeadQualifyToggle leadId={raw.focusSubmission.id} initialQualified={raw.focusSubmission.qualified} />
+              <LeadQualifyToggle siteId={site.id} leadId={raw.focusSubmission.id} initialQualified={raw.focusSubmission.qualified} />
             </div>
             <div>
               Last active <span className="font-medium text-foreground">{formatRelativeTime(lastActivity)}</span>

@@ -15,6 +15,7 @@
 
 import { createSupabaseClient } from "@/lib/supabase/server";
 import { classifyReferrer } from "@/lib/analytics/classifyReferrer";
+import { requireSiteAccess } from "@/lib/actions/siteAccess";
 
 export interface LeadOriginSlice {
   source: string;
@@ -31,6 +32,7 @@ const DEFAULT_PLACEHOLDERS = ["Direct", "Facebook", "Instagram", "Google", "Link
 const TOTAL_SLOTS = 6;
 
 export async function getLeadOriginBreakdown(siteId: string): Promise<LeadOriginBreakdownResult> {
+  await requireSiteAccess(siteId);
   const supabase = await createSupabaseClient();
 
   const { data: submissionRows, error: subError } = await supabase.from("form_submissions").select("visitor_id").eq("site_id", siteId);

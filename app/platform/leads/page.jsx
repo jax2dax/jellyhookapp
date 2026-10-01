@@ -22,7 +22,7 @@ export default async function LeadsPage() {
             <CardDescription>Every form submitted on your site. Defaults to today, pick a date or search to see more.</CardDescription>
           </CardHeader>
           <CardContent>
-            <LeadsTable leads={leads} />
+            <LeadsTable leads={leads} siteId={site.id} />
           </CardContent>
         </Card>
       </PlanGate>

@@ -8,6 +8,7 @@
 "use server";
 
 import { createSupabaseClient } from "@/lib/supabase/server";
+import { requireSiteAccess } from "@/lib/actions/siteAccess";
 
 export interface UniqueConversionRateResult {
   uniqueVisitors: number;
@@ -16,6 +17,7 @@ export interface UniqueConversionRateResult {
 }
 
 export async function getUniqueConversionRate(siteId: string): Promise<UniqueConversionRateResult> {
+  await requireSiteAccess(siteId);
   const supabase = await createSupabaseClient();
 
   const [{ count: uniqueVisitors, error: visitorsError }, { data: submissionRows, error: submissionsError }] = await Promise.all([

@@ -5,12 +5,12 @@ import * as React from "react"
 import Image from "next/image"
 import {
   LayoutDashboard, Users, Flame, UserCheck,
-  GitFork, Globe, Settings, CreditCard, LifeBuoy,Network
+  GitFork, Globe, Settings, CreditCard,Network
 } from "lucide-react"
 import { SiteSwitcher } from "@/components/siteSwitcher"
 
 import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
+import { SupportFeedbackButton } from "@/components/feedback/SupportFeedbackButton"
 import { NavUser } from "@/components/nav-user"
 import { useUser } from "@clerk/nextjs"
 import {
@@ -39,10 +39,6 @@ const NAV_ITEMS = [
   { title: "Settings",          url: "/platform/settings",      icon: Settings,        plan: "free"  },
   { title: "Subscription",      url: "/platform/subscription",  icon: CreditCard,      plan: "free"  },
    { title: "Network",           url: "/platform/network",      icon: Network,         plan: "free"  },
-]
-
-const NAV_SECONDARY = [
-  { title: "Support", url: "#", icon: <LifeBuoy />  },
 ]
 
 // jellyhookMark.png / jellyhookMarkLight.png are chroma-keyed, transparent
@@ -137,9 +133,19 @@ export function AppSidebar({ userPlan = "free", siteDomain, sites, currentSiteId
       <SidebarContent>
         {/**@ts-ignore */}
         <NavMain items={navItems} />
-        {/**@ts-ignore */}
-         <NavSecondary items={NAV_SECONDARY} className="mt-auto" />
       </SidebarContent>
+
+      {/* Deliberately a sibling of SidebarContent, not inside it. SidebarContent
+          is the scrollable region (overflow-auto) NavMain lives in, and
+          NavMain's own active-tab transition can momentarily change its
+          height by a sub-pixel amount mid-animation — inside SidebarContent,
+          that was enough to flash the real (thin, green-styled) scrollbar
+          into view under this button for a frame on every tab switch. Moving
+          it out here means it can never be part of that scrollable area at
+          all, regardless of what NavMain's own animation does. */}
+      <div className="shrink-0 overflow-hidden px-2 py-1">
+        <SupportFeedbackButton />
+      </div>
 
       <SidebarFooter>
         {/* Sourced from our own public.users row, not raw Clerk — see navUser above */}

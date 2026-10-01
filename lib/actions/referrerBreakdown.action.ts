@@ -9,6 +9,7 @@
 
 import { createSupabaseClient } from "@/lib/supabase/server";
 import { classifyReferrer } from "@/lib/analytics/classifyReferrer";
+import { requireSiteAccess } from "@/lib/actions/siteAccess";
 
 export interface ReferrerSlice {
   source: string;
@@ -21,6 +22,7 @@ export interface ReferrerBreakdownResult {
 }
 
 export async function getReferrerBreakdown(siteId: string): Promise<ReferrerBreakdownResult> {
+  await requireSiteAccess(siteId);
   const supabase = await createSupabaseClient();
 
   const { data: rows, error } = await supabase

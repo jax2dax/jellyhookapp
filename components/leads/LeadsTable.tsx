@@ -42,7 +42,7 @@ function toDateInputValue(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export function LeadsTable({ leads }: { leads: LeadRow[] }) {
+export function LeadsTable({ leads, siteId }: { leads: LeadRow[]; siteId: string }) {
   const [query, setQuery] = React.useState("");
   const [dateFilter, setDateFilter] = React.useState<DateFilter>("today");
   const [customDate, setCustomDate] = React.useState(() => toDateInputValue(new Date()));
@@ -142,7 +142,7 @@ export function LeadsTable({ leads }: { leads: LeadRow[] }) {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end">
-                        <LeadQualifyToggle leadId={lead.id} initialQualified={lead.qualified} compact />
+                        <LeadQualifyToggle siteId={siteId} leadId={lead.id} initialQualified={lead.qualified} compact />
                       </div>
                     </TableCell>
                   </TableRow>

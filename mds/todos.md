@@ -44,3 +44,5 @@ Team communications, task pinning, task status and which member did it.
 
 # later (site setting/ info)
 how much load is the site tracker to out viewers when they view our site, how much speed is it eaiting up....
+
+#remove acquisition tab now (but later add it back, and also move the origin of leads radar graph there and add more analysis to the acquisition.)

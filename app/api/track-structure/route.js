@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { createSupabaseClient } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+// Service role — see app/api/track/route.js's header comment for why.
+const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 function corsHeaders() {
   return {
@@ -15,7 +18,7 @@ export async function OPTIONS() {
 
 export async function POST(req) {
   try {
-    const supabase = createSupabaseClient();
+    const supabase = supabaseAdmin;
 
     let payload;
     try {

@@ -1,5 +1,6 @@
 'use server';
 import { createSupabaseClient } from '@/lib/supabase/server';
+import { requireSiteAccess } from '@/lib/actions/siteAccess';
 
 // ------------------------------------------------------------------
 // Types
@@ -44,6 +45,8 @@ export async function getConversionPaths({
   afterSeconds = 30,
 }: GetConversionPathsParams): Promise<ConversionPathsResult> {
   console.log('[getConversionPaths] Start', { siteId, beforeSeconds, afterSeconds });
+
+  await requireSiteAccess(siteId);
 
   const supabase = await createSupabaseClient();
 

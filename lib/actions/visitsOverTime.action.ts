@@ -7,6 +7,7 @@
 'use server';
 
 import { createSupabaseClient } from '@/lib/supabase/server';
+import { requireSiteAccess } from '@/lib/actions/siteAccess';
 
 export type VisitsWindowPreset = '3d' | '7d' | '1m' | '3m' | 'all';
 
@@ -78,6 +79,7 @@ function resolveWindow(
 }
 
 export async function getVisitsOverTime(siteId: string, window: VisitsWindowPreset = '7d'): Promise<VisitsOverTimeResult> {
+  await requireSiteAccess(siteId);
   const supabase = await createSupabaseClient();
   const now = new Date();
 
