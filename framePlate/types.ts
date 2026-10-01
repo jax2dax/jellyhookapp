@@ -242,6 +242,21 @@ export interface FramePlateTheme {
     pathLabelHeight: number;
     pathLabelColor: string;
     pathLabelFontSize: number;
+    /**
+     * A VARIETY, off by default — `height` above is still what every
+     * existing chart uses unless this is explicitly turned on (e.g. via a
+     * theme preset like compactFrameHeight, see theme/variants.ts). When
+     * true, SessionStrip computes every frame in THIS render's shared
+     * height as (the tallest plate actually being drawn in this view) +
+     * dynamicHeightPadding, capped at `height` — never taller than the
+     * ordinary fixed height, only ever shorter. All frames in one strip
+     * still share one height either way; this only changes what that
+     * shared number IS. Built for short, single-page sessions where the
+     * fixed height otherwise leaves a large empty gap below every plate.
+     */
+    dynamicHeight?: boolean;
+    /** the "couple pixels" of breathing room below the tallest plate when dynamicHeight is on — ignored otherwise */
+    dynamicHeightPadding?: number;
   };
   ribbon: {
     /** false hides the duration ribbon entirely, including the space it reserves below each frame — for compact/preview variants of the chart */

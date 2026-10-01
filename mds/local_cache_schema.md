@@ -151,6 +151,47 @@ across ranges would show stale/wrong-range data.
 
 ---
 
+## 3b. SaaS dashboard — `lib/convertedLeadsCache.ts`
+
+Backs `components/leads/ConvertedLeadsExplorer.tsx` (the per-lead cards on
+`/platform/conversions`). Deliberately its own module, not folded into
+`lib/chartRangeCache.ts` above even though the key shape and read/write
+functions are near-identical — this one's TTL needs to be tunable
+independently of the reach/conversions/merged charts that share that
+module's single constant.
+
+### `jh_convleads_<siteId>_<startIso|"all">_<endIso|"now">` (localStorage)
+
+```ts
+{
+  fetchedAt: number,
+  data: {
+    submissions: ConvertedSubmission[], // form_submissions rows in the requested range
+    sessions: any[],       // raw sessions rows for those submissions' session_ids
+    pageViews: any[],      // raw page_views rows, same session_ids
+    pageStructure: any[],  // raw page_structure rows for the page_paths involved
+    formEngagement: any[], // raw form_engagement rows for the page_view_ids involved
+  }
+}
+```
+
+Raw rows only — same split as section 1's `jh_leadsess_<visitorId>`.
+`buildSessionsRaw` + `truncateSessionToSubmission` (`lib/leadSessions/transform.js`)
+re-derive each card's actual truncated chart data from this fresh on every
+render via `useMemo`, never stored pre-built.
+
+- **TTL: `CONVERTED_LEADS_CACHE_TTL_MS` in `lib/convertedLeadsCache.ts`**,
+  currently 2 minutes — that file calls out exactly where to change it, in
+  its own clearly-labeled constant, separate from every other cache's TTL.
+- A fresh (non-stale) hit means zero network request at all when the
+  conversions page loads or the date filter is re-set to a range already
+  cached — not just a fast one.
+- Read/write both happen inside `ConvertedLeadsExplorer`'s `useEffect`,
+  never in a lazy `useState` initializer — same hydration-safety reasoning
+  as every other cache in this file.
+
+---
+
 ## 4. Tracked site (visitor's browser) — `public/tracker.js`
 
 This is what the tracker script itself keeps in an END VISITOR's browser on a

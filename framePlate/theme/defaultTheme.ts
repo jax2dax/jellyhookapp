@@ -58,6 +58,10 @@ export const defaultTheme: FramePlateTheme = {
     pathLabelHeight: 20,
     pathLabelColor: "var(--fp-text-muted, #bdbdbd)",
     pathLabelFontSize: 11,
+    // Off by default — every existing chart keeps its fixed 340 height.
+    // See theme/variants.ts's compactFrameHeight for the opt-in preset.
+    dynamicHeight: false,
+    dynamicHeightPadding: 8,
   },
   ribbon: {
     enabled: true,

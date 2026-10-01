@@ -132,6 +132,8 @@ export function validateTheme(userTheme?: DeepPartial<FramePlateTheme>): { theme
       pathLabelHeight: pick("frame.pathLabelHeight", t.frame?.pathLabelHeight, defaultTheme.frame.pathLabelHeight, isPositiveNumber, warnings),
       pathLabelColor: pick("frame.pathLabelColor", t.frame?.pathLabelColor, defaultTheme.frame.pathLabelColor, isNonEmptyString, warnings),
       pathLabelFontSize: pick("frame.pathLabelFontSize", t.frame?.pathLabelFontSize, defaultTheme.frame.pathLabelFontSize, isPositiveNumber, warnings),
+      dynamicHeight: typeof t.frame?.dynamicHeight === "boolean" ? t.frame.dynamicHeight : defaultTheme.frame.dynamicHeight,
+      dynamicHeightPadding: pick("frame.dynamicHeightPadding", t.frame?.dynamicHeightPadding, defaultTheme.frame.dynamicHeightPadding, (v): v is number => isFiniteNumber(v) && v >= 0, warnings),
     };
     if (!(frame.minWidth <= frame.typicalWidth && frame.typicalWidth <= frame.maxWidth)) {
       warnings.push(

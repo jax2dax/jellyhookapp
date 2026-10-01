@@ -807,4 +807,127 @@ directly, not recalled from memory.
 - **Not done**: `framePlate/fakeData/generateFakeSession.ts` (the
   `/dev/frame-plate` playground) still doesn't generate form position
   data, so this feature is real-data-only for now — flagged to the user,
-  not fixed, since nobody asked for the playground specifically. 
+  not fixed, since nobody asked for the playground specifically.
+
+## 2026-10-01 — Conversions page: "Top paths to conversion" replaced with per-lead truncated charts
+
+Asked two structural questions before building anything, since the answer
+changes the component shape, not just styling: (1) does each row show its
+chart inline, or expand on click → card-per-lead with the chart inline,
+confirmed; (2) does the frame-click detail panel live per-card or in one
+shared spot at the bottom → per-card, self-contained, confirmed.
+
+- **Removed**: the "Top paths to conversion" list and its backing
+  `getConversionPaths(siteId)` in `lib/actions/supabase.actions.js` —
+  confirmed it had exactly one call site before deleting it outright
+  (there's a SEPARATE, same-named `getConversionPaths` in
+  `lib/actions/conversionPath.action.ts` powering an unrelated chart on
+  the lead profile page — `components/charts/lineConversionPath.tsx` — not
+  touched, different feature entirely despite the name collision).
+- **New**: `components/leads/ConvertedLeadsExplorer.tsx` — one card per
+  converted lead (`ConvertedLeadCard.tsx`), date-range filter (last 3
+  days/week/month, all time default, or a custom start/end via
+  `datetime-local` inputs — "time flexibility" taken literally, not just
+  a date picker), client-side pagination (5 cards/page) over whatever the
+  filter returned.
+- **The actual ask, precisely**: each card's `FramePlateChart` shows ONLY
+  that lead's start-of-session → conversion path — any visits after the
+  converted page view are dropped, even if the real session kept going.
+  New `truncateSessionToSubmission()` in `lib/leadSessions/transform.js`
+  does this: re-derives the cutoff from the submission's own
+  `submitted_at` (same heuristic `findConvertedPageViewIds` already uses
+  elsewhere) rather than trusting the generic `visit.converted` flag,
+  because one session can hold more than one submission and each one's
+  card must cut at ITS OWN moment. Also forces `endedAt` to the cutoff
+  visit's own `leftAt` — this is presented as a finished, bounded story,
+  so it must never show the "session still live" border past where it
+  was cut. Each card also has a "View full information" link to that
+  lead's real `/platform/leads/[lead_id]` page for the untruncated story.
+- **Per-card frame inspection**: `ConvertedLeadCard` owns its own
+  `selectedFrame` state and renders `SelectedFrameDetails` directly
+  underneath its own chart — the exact same mechanism
+  `LeadSessionExplorer` uses on the lead profile page, just scoped per
+  card instead of per whole page, so multiple cards' charts can be
+  inspected independently at once.
+- **Data fetching**: new `lib/actions/conversionLeads.action.js` — raw
+  rows only (form_submissions in the date range, then sessions/page_views/
+  page_structure/form_engagement batched by the resulting session_ids in
+  one round trip each), same "raw rows out, SessionRaw built client-side"
+  split `leadSessions.action.js` already established. Client component
+  fetches directly (same pattern `NewReachChart`/`ReferrerDonutChart`
+  etc. use) and refetches whenever the date filter changes, rather than
+  the server page fetching "all time" speculatively upfront.
+- **Caught before it shipped**: the custom-range `datetime-local` inputs'
+  default values were originally computed via `Date.now()` inside a lazy
+  `useState` initializer — the exact hydration-mismatch shape fixed in
+  `FramePlatePreviewCard` a few turns earlier. These specific inputs are
+  never rendered during the initial SSR pass (hidden behind `preset ===
+  "custom"`, itself a post-hydration user action), so it likely wouldn't
+  have surfaced as a visible warning today — fixed anyway, into an empty
+  initial state filled by an effect, rather than leave a latent copy of a
+  bug already fixed once this session.
+- **Docs updated**: `/docs/reference/conversions` gained a "Conversions
+  list" section; `doc_source_map.md`'s row for it updated to list every
+  new file and note the removed feature.
+
+## 2026-10-01 (later) — Conversions cards collapsed by default, plus a new FramePlate variety
+
+- **Collapsed by default**: `ConvertedLeadCard` now starts collapsed —
+  only the identity row (name, converted page, date, "View full
+  information") shows until clicked. Clicking the row toggles it; the
+  "View full information" link inside that same row stops propagation so
+  it navigates instead of also toggling the card.
+- **New FramePlate variety — `compactFrameHeight`** (`framePlate/theme/variants.ts`,
+  a new file, separate from `deviceThemes.ts` since this is an orthogonal
+  axis — layout strategy, not device). Off by default on every existing
+  chart (`FramePlateTheme.frame.dynamicHeight: false`); when a theme
+  override turns it on, every frame in that one render shares a height
+  computed from the TALLEST plate actually being drawn in that view +
+  a small padding (`dynamicHeightPadding`, default 8px), capped at the
+  ordinary fixed height — it can only ever shrink the frame, never grow
+  it past today's default. Built because the new conversions cards are
+  reliably short, single-page paths-to-conversion, where the fixed
+  340px frame height left a large empty gap below a 60-80px plate.
+  Computed inside `SessionStrip.tsx`'s existing layout `useMemo` (which
+  already computes every plate's scaled height via `scalePlateHeights`
+  for unrelated reasons — reusing that instead of a second pass), which
+  then builds one adjusted theme object for that render and passes it to
+  every `<Frame>` instead of the original. `ConvertedLeadCard` is the
+  first and so far only consumer — applied there, not anywhere else,
+  per the user's framing of this as "a variety, not a permanent
+  modification."
+
+## 2026-10-01 (later still) — Conversions cards: caching, UI, animation
+
+User confirmed the feature works, then asked for three fixes plus full
+documentation (this entry + `mds/features.md`'s new "Conversions List"
+entry + `mds/local_cache_schema.md`'s new section).
+
+- **It was never caching at all.** `ConvertedLeadsExplorer` called
+  `getConvertedLeadSessions` directly on every mount/filter-change, no
+  cache layer whatsoever — confirmed by reading the code, not assumed.
+  Fixed with a new, dedicated module, `lib/convertedLeadsCache.ts`
+  (deliberately NOT folded into the existing `lib/chartRangeCache.ts`,
+  even though the shape is near-identical, specifically so this TTL —
+  `CONVERTED_LEADS_CACHE_TTL_MS`, a single clearly-labeled constant at
+  the top of that file, currently 2 minutes — can be changed later
+  without touching the reach/conversions/merged charts that share
+  chartRangeCache.ts's own TTL). Same raw-rows-cached /
+  built-client-side-via-useMemo split `LeadSessionExplorer` already
+  established — `ConvertedLeadsExplorer` now holds `rawData` in state,
+  derives `sessionsRaw`/`cards` via `useMemo`, exactly mirroring that
+  component's architecture.
+- **Identity row redesigned.** Name (or email, if no name) now renders
+  in `#eab308` — the exact same yellow `framePlate/theme/defaultTheme.ts`
+  uses for the "converted" outcome everywhere else, a deliberate color
+  tie-back rather than a random pick. Added a small sparkle icon, split
+  the subtitle into icon-labeled page/date, and stopped repeating the
+  email when there's no separate name to justify showing it twice.
+- **Smooth expand/collapse.** Added `.jh-collapsible` to
+  `app/globals.css` — a `grid-template-rows: 0fr → 1fr` transition, not
+  `max-height` (which has to guess an upper bound and animates linearly
+  against that guess rather than the content's real height — looks subtly
+  wrong for a card holding a variable-height chart). Content stays
+  mounted regardless of expanded state; collapsing only zeroes the grid
+  row. Reusable anywhere else in the app that wants the same effect, not
+  built as a one-off inline style. 

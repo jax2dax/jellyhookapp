@@ -76,6 +76,17 @@ export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem,
         return visitHeights[visitCursor++] ?? theme.plate.minHeight;
       });
 
+      // The dynamicHeight variety (off by default — see FramePlateTheme.frame's
+      // doc comment): one shared height for every frame in THIS render,
+      // sized to the tallest plate actually being drawn here + a little
+      // padding, never exceeding the ordinary fixed height. All frames in
+      // the strip still render at the same themeForFrames below either way.
+      const tallestPlate = visitHeights.length > 0 ? Math.max(...visitHeights) : theme.plate.minHeight;
+      const frameHeight = theme.frame.dynamicHeight
+        ? Math.min(theme.frame.height, tallestPlate + (theme.frame.dynamicHeightPadding ?? 0))
+        : theme.frame.height;
+      const themeForFrames: FramePlateTheme = theme.frame.dynamicHeight ? { ...theme, frame: { ...theme.frame, height: frameHeight } } : theme;
+
       let x = 0;
       const positions = widths.map((w) => {
         const thisX = x;
@@ -86,9 +97,9 @@ export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem,
       const totalWidth = Math.max(0, x - theme.frame.gap);
       const ribbonLabelSpace = theme.ribbon.enabled ? theme.ribbon.gap + theme.ribbon.labelFontSize * 1.6 : 0;
       const topOffset = theme.frame.pathLabelHeight;
-      const totalHeight = topOffset + theme.frame.height + ribbonLabelSpace;
+      const totalHeight = topOffset + frameHeight + ribbonLabelSpace;
 
-      return { widths, plateHeightByIndex, positions, totalWidth, totalHeight, topOffset };
+      return { widths, plateHeightByIndex, positions, totalWidth, totalHeight, topOffset, themeForFrames };
     } catch (err) {
       console.error("[framePlate] SessionStrip layout computation failed:", err);
       return null;
@@ -154,7 +165,7 @@ export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem,
               item={item}
               width={layout.widths[i]}
               plateHeight={layout.plateHeightByIndex[i]}
-              theme={theme}
+              theme={layout.themeForFrames}
               darken={activeHoverId === item.id}
               selected={selectedId === item.id}
               onHover={handleHover}

@@ -9,6 +9,7 @@ export { DurationRibbon } from "./components/DurationRibbon";
 export { defaultTheme, lightPlate, darkPlate } from "./theme/defaultTheme";
 export { validateTheme } from "./theme/validateTheme";
 export { desktopPlate, mobilePlate, miniPlate, plateForDevice, resolveViewportHeightPx } from "./theme/deviceThemes";
+export { compactFrameHeight } from "./theme/variants";
 export { mergeDeepPartial } from "./theme/mergeThemeOverrides";
 
 export { deriveVisitGeometry } from "./geometry/deriveVisitGeometry";

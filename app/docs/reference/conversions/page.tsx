@@ -65,6 +65,30 @@ export default function ConversionsReferencePage() {
             seventh distinct real source shows up.
           </p>
         </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Conversions list</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            One card per converted lead, filterable by date range (last 3 days, last week, last month, all time, or
+            a custom range) and paginated — not every conversion the site has ever had rendered onto one page at
+            once.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Each card&apos;s chart shows only that lead&apos;s path to conversion: start of the session through the
+            exact page visit they converted on, nothing after. If the real session kept going past that point, the
+            rest of it is deliberately cut from this view — click{" "}
+            <span className="text-[#f4f2ea]">View full information</span> to see the whole thing, uncut, on that
+            lead&apos;s own{" "}
+            <Link href="/docs/reference/lead-profile" className="text-[var(--lime)] hover:underline">
+              profile page
+            </Link>
+            . Clicking a frame inside any card&apos;s chart works exactly like it does there too — see{" "}
+            <Link href="/docs/concepts/session-replay" className="text-[var(--lime)] hover:underline">
+              Session replay
+            </Link>
+            .
+          </p>
+        </div>
       </div>
     </div>
   );

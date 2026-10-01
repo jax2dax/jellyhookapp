@@ -359,3 +359,29 @@
     animation: none;
   }
 }
+
+/* ---------- smooth collapsible (ConvertedLeadCard, reusable elsewhere) ----------
+   grid-template-rows 0fr -> 1fr, not max-height: max-height has to guess an
+   upper bound and animates linearly against THAT guess, not the content's
+   real height, which looks subtly wrong for a card that holds a variable-
+   height chart. This adapts to whatever the content's real height actually
+   is, every time, no guessing. Content stays mounted either way — collapsed
+   just means its grid row is 0fr, clipped by the outer overflow-hidden. */
+.jh-collapsible {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  transition: grid-template-rows 0.28s ease;
+}
+.jh-collapsible.jh-collapsible-open {
+  grid-template-rows: 1fr;
+}
+.jh-collapsible > * {
+  overflow: hidden;
+  min-height: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jh-collapsible {
+    transition: none;
+  }
+}
