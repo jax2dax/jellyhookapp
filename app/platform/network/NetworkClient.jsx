@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Crown, Mail, UserCheck, UserMinus, UserX, X } from "lucide-react";
+import { Crown, Mail, UserCheck, UserX, X } from "lucide-react";
 
 function fmtDate(iso) {
   if (!iso) return "";
@@ -30,13 +30,14 @@ function OwnerCard({ member }) {
   );
 }
 
-// ─── Member / Pending / Declined card ────────────────────
+// ─── Member / Declined card ──────────────────────────────
+// Only ever rendered for accepted members or declined invites now —
+// pending invitees get PendingInviteRow instead, see above.
 function MemberCard({ member, isOwner, isYou, onRemove, busy }) {
-  const isPending = member.status === "pending_invite";
   const isDeclined = member.status === "declined";
 
   return (
-    <Card className={`flex-row items-center gap-3 px-3.5 py-3 ${isDeclined ? "opacity-45" : ""} ${isPending ? "border-dashed border-warning/40" : ""}`}>
+    <Card className={`flex-row items-center gap-3 px-3.5 py-3 ${isDeclined ? "opacity-45" : ""}`}>
       <InitialsAvatar label={member.user_email} />
       <div className="min-w-0 flex-1">
         <div className={`truncate text-sm ${isDeclined ? "text-muted-foreground" : "text-foreground"}`}>
@@ -45,9 +46,8 @@ function MemberCard({ member, isOwner, isYou, onRemove, busy }) {
         </div>
         <div className="mt-1 flex items-center gap-1.5">
           <Badge variant="outline">{member.role}</Badge>
-          {isPending && <span className="text-xs text-warning">⏳ invited {fmtDate(member.created_at)}</span>}
           {isDeclined && <span className="text-xs text-muted-foreground">declined</span>}
-          {!isPending && !isDeclined && member.created_at && <span className="text-xs text-muted-foreground">joined {fmtDate(member.created_at)}</span>}
+          {!isDeclined && member.created_at && <span className="text-xs text-muted-foreground">joined {fmtDate(member.created_at)}</span>}
         </div>
       </div>
 
@@ -57,6 +57,24 @@ function MemberCard({ member, isOwner, isYou, onRemove, busy }) {
         </Button>
       )}
     </Card>
+  );
+}
+
+// ─── Pending invite row — deliberately NOT styled like a team-member
+// card (no avatar, no "part of the team" framing): an invite someone
+// hasn't accepted yet isn't a team member, just a sent email waiting on a
+// response. Cancel is explicit, not a bare X, since that's the whole
+// point of this row existing. ──────────────────────────────────────────
+function PendingInviteRow({ invite, onCancel, busy }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-dashed border-border py-2.5 text-sm last:border-b-0">
+      <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate text-foreground">{invite.user_email || invite.user_id}</span>
+      <span className="shrink-0 text-xs text-muted-foreground">sent {fmtDate(invite.created_at)}</span>
+      <Button size="sm" variant="ghost" className="shrink-0 text-xs text-destructive hover:text-destructive" onClick={() => onCancel(invite)} disabled={busy === invite.id}>
+        {busy === invite.id ? "Cancelling…" : "Cancel invite"}
+      </Button>
+    </div>
   );
 }
 
@@ -161,17 +179,16 @@ export default function NetworkClient({ site, members, currentUserId, myInvites 
             </>
           )}
           {active.length} member{active.length !== 1 ? "s" : ""}
-          {pending.length > 0 && <> · {pending.length} pending</>}
         </div>
 
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-2 gap-2.5">
           <StatTile icon={UserCheck} label="Members" value={active.length} />
-          <StatTile icon={UserMinus} label="Pending" value={pending.length} />
           <StatTile icon={UserX} label="Declined" value={declined.length} />
         </div>
       </div>
 
-      {/* ── TREE ──────────────────────────────────────────── */}
+      {/* ── TREE — accepted team members only; pending invitees aren't
+          team members yet, so they don't appear here at all ────────── */}
       <div>
         <SectionLabel>Hierarchy</SectionLabel>
 
@@ -186,25 +203,13 @@ export default function NetworkClient({ site, members, currentUserId, myInvites 
             </div>
           )}
 
-          {active.length === 0 && pending.length === 0 && (
+          {active.length === 0 && (
             <div className="w-full rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
               No one else has access yet. Invite a teammate below.
             </div>
           )}
         </div>
       </div>
-
-      {/* ── PENDING ───────────────────────────────────────── */}
-      {pending.length > 0 && (
-        <div>
-          <SectionLabel count={pending.length}>Pending Invites</SectionLabel>
-          <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
-            {pending.map((m) => (
-              <MemberCard key={m.id} member={m} isOwner={isOwner} isYou={false} onRemove={handleRemove} busy={busy} />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ── DECLINED (collapsed) ──────────────────────────── */}
       {declined.length > 0 && (
@@ -244,6 +249,15 @@ export default function NetworkClient({ site, members, currentUserId, myInvites 
             </div>
             {error && <div className="mt-2 text-xs text-destructive">{error}</div>}
             {success && <div className="mt-2 text-xs text-primary">{success}</div>}
+
+            {pending.length > 0 && (
+              <div className="mt-4 border-t border-border pt-3">
+                <SectionLabel count={pending.length}>Sent invites, awaiting response</SectionLabel>
+                {pending.map((m) => (
+                  <PendingInviteRow key={m.id} invite={m} onCancel={handleRemove} busy={busy} />
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

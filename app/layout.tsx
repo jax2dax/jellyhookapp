@@ -102,8 +102,8 @@ export default function RootLayout({
             "@context": "https://schema.org",
             "@type": "Organization",
             name: "Jellyhook",
-            url: "https://jellyhookapp.vercel.app",
-            logo: "https://jellyhookapp.vercel.app/mainLogo.png",
+            url: SITE_URL,
+            logo: `${SITE_URL}/mainLogo.png`,
             description:
               "Jellyhook is a website analytics and lead intelligence platform offering session replay, scroll depth tracking, lead capture, and page health scoring.",
           })}

@@ -3,13 +3,19 @@
 // left half is still Support (unchanged, still a "#" placeholder — no
 // support flow was asked for), right half opens FeedbackDialog.
 //
-// The right half also gets a periodic "nudge": a green sweep crosses left
-// to right and back to idle over ~1.3s, up to twice per day with at least a
-// 10-minute gap between them (see GLOW_INTERVAL_MS/GLOW_MAX_PER_DAY) — a
-// quiet attention-getter, not the same thing as the auto feedback popup in
-// FeedbackAutoPrompt.tsx. jh_glow_last_at is seeded on mount specifically so
-// the FIRST nudge of the day also waits the full interval instead of firing
-// the moment someone opens the sidebar.
+// The right half also gets a periodic "nudge": a soft, translucent glow
+// drifts slowly across it and fades back out over ~2.8s (jh-feedback-sweep
+// in app/globals.css), up to twice per day with at least a 10-minute gap
+// between them (see GLOW_INTERVAL_MS/GLOW_MAX_PER_DAY) — a quiet
+// attention-getter, not the same thing as the auto feedback popup in
+// FeedbackAutoPrompt.tsx. Deliberately a translucent gradient that fades
+// in and out at its own edges, not a hard-edged solid block — an earlier
+// version used a flat bg-primary block sweeping in on a 1.3s linear-ish
+// timing, which read as a glitch/flash rather than a reminder (an abrupt
+// hard-edged color block appearing and vanishing registers as "something
+// broke," not "something wants my attention"). jh_glow_last_at is seeded
+// on mount specifically so the FIRST nudge of the day also waits the full
+// interval instead of firing the moment someone opens the sidebar.
 "use client";
 
 import * as React from "react";
@@ -20,7 +26,7 @@ import { cn } from "@/lib/utils";
 
 const GLOW_INTERVAL_MS = 10 * 60 * 1000;
 const GLOW_MAX_PER_DAY = 2;
-const GLOW_DURATION_MS = 1300;
+const GLOW_DURATION_MS = 2800;
 const GLOW_CHECK_MS = 30_000;
 
 function todayStr() {
@@ -81,10 +87,10 @@ export function SupportFeedbackButton() {
             >
               <span
                 aria-hidden="true"
-                className={cn("pointer-events-none absolute inset-0 -translate-x-full bg-primary", glowing && "jh-feedback-sweep")}
+                className={cn("jh-feedback-glow pointer-events-none absolute inset-0 opacity-0", glowing && "jh-feedback-sweep")}
               />
-              <MessageSquareHeart className={cn("relative z-10 size-3.5 transition-colors", glowing && "text-primary-foreground")} />
-              <span className={cn("relative z-10 transition-colors", glowing && "text-primary-foreground")}>Feedback</span>
+              <MessageSquareHeart className="relative z-10 size-3.5" />
+              <span className="relative z-10">Feedback</span>
             </button>
           </div>
         </SidebarMenuItem>

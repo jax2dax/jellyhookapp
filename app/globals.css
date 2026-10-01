@@ -322,23 +322,37 @@
   background: transparent;
 }
 
-/* ---------- feedback nudge sweep (SupportFeedbackButton) ---------- */
+/* ---------- feedback nudge sweep (SupportFeedbackButton) ----------
+   A soft, translucent gradient drifting across and fading out — not a
+   hard-edged solid block. A flat color sliding in and vanishing abruptly
+   read as a glitch, not a reminder; this fades in, drifts slowly, fades
+   out, with no sharp edge anywhere in the timing or the shape itself. */
+.jh-feedback-glow {
+  background: linear-gradient(90deg, transparent 0%, var(--primary) 50%, transparent 100%);
+  transform: translateX(-120%);
+}
 @keyframes jh-feedback-sweep {
   0% {
-    transform: translateX(-100%);
+    transform: translateX(-120%);
+    opacity: 0;
   }
-  35% {
-    transform: translateX(0%);
+  20% {
+    opacity: 0.4;
   }
-  65% {
+  50% {
     transform: translateX(0%);
+    opacity: 0.4;
+  }
+  80% {
+    opacity: 0.4;
   }
   100% {
-    transform: translateX(100%);
+    transform: translateX(120%);
+    opacity: 0;
   }
 }
 .jh-feedback-sweep {
-  animation: jh-feedback-sweep 1.3s ease-in-out;
+  animation: jh-feedback-sweep 2.8s ease-in-out;
 }
 @media (prefers-reduced-motion: reduce) {
   .jh-feedback-sweep {
