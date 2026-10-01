@@ -44,9 +44,9 @@ export default function SessionReplayPage() {
       </div>
 
       <div className="mt-14">
-        <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Frame, plate, and bulb: three different things</h2>
+        <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Frame, plate, bulb, and the form imitation: four different things</h2>
         <p className="mb-6 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-          These three words get used precisely from here on, matching exactly what the code itself calls them, so
+          These four words get used precisely from here on, matching exactly what the code itself calls them, so
           they need to be told apart once, clearly.
         </p>
         <TerminologyDiagram />
@@ -62,11 +62,45 @@ export default function SessionReplayPage() {
             real height. The shaded seen and unseen areas live here, not on the frame.
           </li>
           <li>
+            <span className="text-[#f4f2ea]">Form imitation:</span> an inset box drawn <em>inside</em> the plate, at
+            the form&apos;s real measured position — narrower than the plate itself, so the seen/seen-twice shading
+            stays visible either side of it. See below for exactly when it appears and what the stripes inside it mean.
+          </li>
+          <li>
             <span className="text-[#f4f2ea]">Bulb:</span> a small marker sticking out from the plate&apos;s own edge,
-            not the frame&apos;s edge. Each one marks one specific moment or position, enter, exit, deepest scroll,
-            or a submitted form&apos;s location.
+            not the frame&apos;s edge. Each one marks one specific moment or position: enter, exit, or deepest scroll.
           </li>
         </ul>
+      </div>
+
+      <div className="mt-14">
+        <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">The form imitation box, precisely</h2>
+        <p className="max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          It appears whenever a form on that page was ever seen at least 50% on screen — which needs no interaction
+          at all, not typing, not even focusing a field, just scrolling it into view. That means it can show up on a
+          visit that never converted and never even started the form: seeing it is enough. If a form was never
+          scrolled into view at all on a given visit, the box does not appear — there is nothing to measure yet, so
+          nothing is drawn.
+        </p>
+        <ul className="mt-4 space-y-2.5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <ColorRow
+            color={defaultTheme.bulbs.converted.color}
+            label="Darker yellow"
+            desc="the form was seen, and maybe started, but not submitted on this visit."
+          />
+          <ColorRow
+            color="#fde047"
+            label="Bright yellow"
+            desc="the form was actually submitted on this visit."
+          />
+        </ul>
+        <p className="mt-4 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          The white stripes inside it are fields — but specifically, fields that were actually clicked into at least
+          once. A field nobody ever focused leaves no trace at all, so the stripe count is a floor on the form&apos;s
+          real field count, never the true total. However many there are, they always stay inside the box: each
+          stripe&apos;s thickness is the box&apos;s own height divided by the field count, so more fields means
+          thinner stripes, not an overflowing box.
+        </p>
       </div>
 
       <div className="mt-14 space-y-10">
@@ -103,12 +137,12 @@ export default function SessionReplayPage() {
             <ColorRow color={bulbs.enter.color} label="Green" desc="where they entered the page." />
             <ColorRow color={bulbs.exit.color} label="Red" desc="where they were when they left it." />
             <ColorRow color={bulbs.deepestScroll.color} label="Blue" desc="the furthest point they ever scrolled to on that page." />
-            <ColorRow
-              color={bulbs.converted.color}
-              label="Yellow bar"
-              desc="the real measured position of the submitted form, stretched to its actual length. Only present for conversions recorded after form position tracking was added. Older ones fall back to a single dot at the exit point."
-            />
           </ul>
+          <p className="mt-4 max-w-2xl ff-body text-[13px] leading-relaxed text-[#77756d]">
+            There used to be a fourth, yellow bulb marking a converted page&apos;s form position. It is now the form
+            imitation box described above for anything tracked since; the single-point yellow bulb only still
+            appears as a fallback for a conversion recorded before form position tracking existed at all.
+          </p>
         </div>
 
         <div>

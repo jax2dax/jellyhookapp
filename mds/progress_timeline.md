@@ -749,4 +749,62 @@ eye.
 **Docs updated**: `mds/database.md` gained a full "Row Level Security"
 section — the two-tier design (service-role-only tables vs.
 app-check-plus-RLS tables), why `auth.jwt() ->> 'sub'` and not
-`auth.uid()`, and the now-closed defense-in-depth gap. 
+`auth.uid()`, and the now-closed defense-in-depth gap.
+
+## 2026-10-01 — FramePlate: form imitation box replaces the converted bulb
+
+Before writing any code, confirmed two data-availability questions the
+user asked directly: (1) form position IS available independent of
+conversion — `form_engagement`'s `viewed` status is captured via
+`IntersectionObserver` the moment a form crosses 50% visible
+(`public/tracker.js`), which needs zero interaction, so a session that
+never converted can still carry real form position data; (2) field COUNT
+is NOT reliably available — `field_timings` only ever gains an entry once
+a field is focused (`focusin` listener, no proactive scan of `form.elements`
+the way `page_structure` scans headers), so any field never clicked is
+invisible to tracking entirely. Both confirmed by reading the tracker code
+directly, not recalled from memory.
+
+- **Data pipeline** (`lib/leadSessions/transform.js`): removed the
+  `isConverted ?` gate on `formTopY`/`formBottomY` — position now flows
+  through for any page view with a `form_engagement` row, submitted or
+  not. Added `formStatus` and `formFieldCount` (distinct `field_timings`
+  key count — a lower bound, documented as such everywhere it appears,
+  never presented as the form's true field count).
+- **Types** (`framePlate/types.ts`): `formStatus`/`formFieldCount` added
+  to both `PageVisitRaw` and `VisitGeometry`; new `formImitation` theme
+  section (width fraction, two colors, stripe thickness bounds).
+- **Rendering** (`framePlate/components/FullPagePlate.tsx`, new
+  `FormImitation` component): the old edge-protruding "converted bulb" is
+  replaced by an INSET box drawn inside the plate at 62% of its width,
+  centered — seen/seen-twice stay visible either side of it, matching the
+  user's reference screenshots. Renders whenever the form was ever
+  measured at all (independent of `converted` now), in the ordinary
+  converted-yellow unless `formStatus === "submitted"`, in which case it
+  switches to a brighter yellow. Field stripes: one per
+  `formFieldCount`, each sized `boxHeight / count` and clamped between a
+  min/max thickness so they always fit inside the box and read as thin
+  lines rather than a filled block even with only 1-2 fields. The old
+  single-point bulb is now only a fallback for a conversion recorded
+  before form position tracking existed at all.
+- **Theme validation** (`framePlate/theme/validateTheme.ts`): added
+  `formImitation` validation — without this, `FramePlateChart`'s call to
+  `validateTheme()` (which reconstructs the theme object field-by-field
+  from an explicit whitelist) would have silently stripped the new
+  section from every theme, defaults included.
+- **Docs updated same day**: `/docs/concepts/session-replay` gained a
+  dedicated "form imitation box" section, the terminology section grew
+  from three concepts to four, `TerminologyDiagram.tsx` now draws and
+  labels the box + stripes using real theme geometry (not approximated,
+  same standard as the rest of that diagram), and the example fixture
+  (`exampleSession.ts`) was updated — it already set `formTopY`/
+  `formBottomY` on its converted visit but not the new `formStatus`/
+  `formFieldCount`, which would have rendered in the wrong color; also
+  added form data to the previously form-less abandoned-form visit so the
+  live example demonstrates both colors side by side. `mds/database.md`'s
+  `form_engagement` section and `mds/documentation/doc_source_map.md`'s
+  session-replay row both updated to match.
+- **Not done**: `framePlate/fakeData/generateFakeSession.ts` (the
+  `/dev/frame-plate` playground) still doesn't generate form position
+  data, so this feature is real-data-only for now — flagged to the user,
+  not fixed, since nobody asked for the playground specifically. 

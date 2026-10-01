@@ -159,6 +159,29 @@ export function validateTheme(userTheme?: DeepPartial<FramePlateTheme>): { theme
       converted: validateBulb("converted", t.bulbs?.converted, defaultTheme.bulbs.converted, warnings),
     };
 
+    const formImitation = {
+      widthFraction: pick(
+        "formImitation.widthFraction",
+        t.formImitation?.widthFraction,
+        defaultTheme.formImitation.widthFraction,
+        (v): v is number => isFiniteNumber(v) && v > 0 && v <= 1,
+        warnings
+      ),
+      color: pick("formImitation.color", t.formImitation?.color, defaultTheme.formImitation.color, isNonEmptyString, warnings),
+      submittedColor: pick("formImitation.submittedColor", t.formImitation?.submittedColor, defaultTheme.formImitation.submittedColor, isNonEmptyString, warnings),
+      minHeightPx: pick("formImitation.minHeightPx", t.formImitation?.minHeightPx, defaultTheme.formImitation.minHeightPx, isPositiveNumber, warnings),
+      cornerRadius: pick("formImitation.cornerRadius", t.formImitation?.cornerRadius, defaultTheme.formImitation.cornerRadius, (v): v is number => isFiniteNumber(v) && v >= 0, warnings),
+      stripeColor: pick("formImitation.stripeColor", t.formImitation?.stripeColor, defaultTheme.formImitation.stripeColor, isNonEmptyString, warnings),
+      maxStripeThicknessPx: pick("formImitation.maxStripeThicknessPx", t.formImitation?.maxStripeThicknessPx, defaultTheme.formImitation.maxStripeThicknessPx, isPositiveNumber, warnings),
+      minStripeThicknessPx: pick("formImitation.minStripeThicknessPx", t.formImitation?.minStripeThicknessPx, defaultTheme.formImitation.minStripeThicknessPx, isPositiveNumber, warnings),
+    };
+    if (formImitation.minStripeThicknessPx > formImitation.maxStripeThicknessPx) {
+      warnings.push(
+        `[framePlate/theme] formImitation.minStripeThicknessPx (${formImitation.minStripeThicknessPx}) > maxStripeThicknessPx (${formImitation.maxStripeThicknessPx}) — swapping them.`
+      );
+      [formImitation.minStripeThicknessPx, formImitation.maxStripeThicknessPx] = [formImitation.maxStripeThicknessPx, formImitation.minStripeThicknessPx];
+    }
+
     const hover = {
       darkenOpacity: pick("hover.darkenOpacity", t.hover?.darkenOpacity, defaultTheme.hover.darkenOpacity, (v): v is number => isFiniteNumber(v) && v >= 0 && v <= 1, warnings),
     };
@@ -179,7 +202,7 @@ export function validateTheme(userTheme?: DeepPartial<FramePlateTheme>): { theme
       labelFontSize: pick("referenceLine.labelFontSize", t.referenceLine?.labelFontSize, defaultTheme.referenceLine.labelFontSize, isPositiveNumber, warnings),
     };
 
-    const theme: FramePlateTheme = { canvasBackground, plate, seenOnce, seenTwice, header, frame, ribbon, bulbs, hover, referenceLine, sessionLiveBorder };
+    const theme: FramePlateTheme = { canvasBackground, plate, seenOnce, seenTwice, header, frame, ribbon, bulbs, formImitation, hover, referenceLine, sessionLiveBorder };
 
     if (warnings.length > 0) {
       console.warn(`[framePlate] theme validation found ${warnings.length} issue(s):`, warnings);

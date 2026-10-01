@@ -57,6 +57,10 @@ export function buildExampleSession(): SessionRaw {
       // its own purple "away" frame automatically, no extra data needed here.
       {
         // A form on this page was started, never submitted. Orange frame.
+        // The form imitation still shows — it was SEEN (50% visible, which
+        // needs no interaction at all), it just never got submitted, so it
+        // renders in the ordinary (not bright) yellow. Two fields were
+        // focused before they left, so it shows two stripes.
         id: "v2",
         pagePath: "/pricing",
         enteredAt: new Date(start + 3 * MIN + 40 * MIN).toISOString(),
@@ -70,13 +74,18 @@ export function buildExampleSession(): SessionRaw {
         ],
         headers: [{ text: "Plans", y: 0.1 }],
         abandonedForm: true,
+        formTopY: 1200,
+        formBottomY: 1500,
+        formStatus: "started",
+        formFieldCount: 2,
       },
       {
-        // The form here was actually submitted. Yellow frame, and the bulb
-        // on the right edge is stretched to the form's real measured height
-        // instead of a single point, because this fixture sets formTopY and
-        // formBottomY directly, the same way form_engagement.form_top_y and
-        // form_bottom_y do for a real visit.
+        // The form here was actually submitted. Yellow frame, and the form
+        // imitation box renders in the brighter submitted color (formStatus),
+        // stretched to the form's real measured span (formTopY/formBottomY —
+        // the same way form_engagement.form_top_y/form_bottom_y work for a
+        // real visit) with four stripes, one per field that was focused
+        // (formFieldCount) before they submitted.
         id: "v3",
         pagePath: "/contact",
         enteredAt: new Date(start + 3 * MIN + 40 * MIN + 4 * MIN).toISOString(),
@@ -92,6 +101,8 @@ export function buildExampleSession(): SessionRaw {
         converted: true,
         formTopY: 1400,
         formBottomY: 1800,
+        formStatus: "submitted",
+        formFieldCount: 4,
       },
       {
         // Still open right now — this is the blue frame. Different signal

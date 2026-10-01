@@ -13,6 +13,80 @@ import * as React from "react";
 import { Bulb } from "./Bulb";
 import type { FramePlateTheme, VisitGeometry } from "../types";
 
+interface FormImitationGeometry {
+  boxX: number;
+  boxY: number;
+  boxWidth: number;
+  boxHeight: number;
+  color: string;
+  stripes: { x: number; y: number; width: number; height: number }[];
+}
+
+/**
+ * The form imitation — an inset box at the form's real measured position,
+ * narrower than the plate (theme.formImitation.widthFraction) so the seen/
+ * seen-twice bands stay visible on either side. Ceases to exist entirely
+ * (returns null) whenever the form was never measured at all — no
+ * form_engagement row reached 'viewed' on this page view, meaning the form
+ * never crossed the 50%-visible threshold that triggers position capture.
+ * Independent of `converted`: a form that was seen but never submitted
+ * still has a real position worth showing.
+ *
+ * Field stripes: one per DISTINCT field ever focused (visit.formFieldCount —
+ * a lower bound on the form's real field count, see PageVisitRaw's doc
+ * comment), sized relative to the box's OWN height so however many there
+ * are, they stay inside it — thickness shrinks as the count goes up
+ * (boxHeight / count), clamped between theme.formImitation.min/
+ * maxStripeThicknessPx so a form with only 1-2 focused fields never renders
+ * a stripe so thick it reads as a filled block instead of a thin line.
+ */
+function computeFormImitationGeometry(visit: VisitGeometry, width: number, height: number, theme: FramePlateTheme): FormImitationGeometry | null {
+  try {
+    const { formTopFrac, formBottomFrac, formStatus, formFieldCount } = visit;
+    if (formTopFrac == null || formBottomFrac == null) return null;
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+
+    const fi = theme.formImitation;
+    const boxWidth = width * fi.widthFraction;
+    const boxX = (width - boxWidth) / 2;
+    const boxY = Math.min(formTopFrac, formBottomFrac) * height;
+    const boxHeight = Math.max(fi.minHeightPx, Math.abs(formBottomFrac - formTopFrac) * height);
+    const color = formStatus === "submitted" ? fi.submittedColor : fi.color;
+
+    const fieldCount = Math.max(0, Math.floor(formFieldCount ?? 0));
+    const stripes: FormImitationGeometry["stripes"] = [];
+    if (fieldCount > 0) {
+      const slot = boxHeight / fieldCount;
+      const thickness = Math.min(fi.maxStripeThicknessPx, Math.max(fi.minStripeThicknessPx, slot * 0.5));
+      const stripeWidth = boxWidth * 0.8;
+      const stripeX = boxX + (boxWidth - stripeWidth) / 2;
+      for (let i = 0; i < fieldCount; i++) {
+        const cy = boxY + i * slot + slot / 2;
+        stripes.push({ x: stripeX, y: cy - thickness / 2, width: stripeWidth, height: thickness });
+      }
+    }
+
+    return { boxX, boxY, boxWidth, boxHeight, color, stripes };
+  } catch (err) {
+    console.error(`[framePlate] form imitation geometry failed for visit "${visit?.id}":`, err);
+    return null;
+  }
+}
+
+function FormImitation({ visit, width, height, theme }: { visit: VisitGeometry; width: number; height: number; theme: FramePlateTheme }) {
+  const geometry = computeFormImitationGeometry(visit, width, height, theme);
+  if (geometry === null) return null;
+  const fi = theme.formImitation;
+  return (
+    <g aria-label="form position">
+      <rect x={geometry.boxX} y={geometry.boxY} width={geometry.boxWidth} height={geometry.boxHeight} rx={fi.cornerRadius} ry={fi.cornerRadius} fill={geometry.color} />
+      {geometry.stripes.map((s, i) => (
+        <rect key={i} x={s.x} y={s.y} width={s.width} height={s.height} fill={fi.stripeColor} />
+      ))}
+    </g>
+  );
+}
+
 export interface FullPagePlateProps {
   visit: VisitGeometry;
   width: number;
@@ -122,12 +196,12 @@ export function FullPagePlate(props: FullPagePlateProps) {
   }
 
   const { enterY, exitY, seenBottom, viewportFraction: vFrac, converted, headers, formTopFrac, formBottomFrac } = visit;
-  // Draw the converted marker stretched along the form's real measured
-  // length when we have it (form_engagement.form_top_y/form_bottom_y —
-  // tracked from the moment the form's abandonment/view tracking started),
-  // falling back to the old single-point-at-exit marker for conversions
-  // recorded before that existed.
-  const hasFormSpan = converted && formTopFrac != null && formBottomFrac != null;
+  // The form imitation renders whenever the form was ever measured at all
+  // (view detection needs no interaction — see FormImitation's doc comment
+  // above), independent of whether this particular visit converted. The
+  // old single-point bulb is now only ever a fallback for a conversion
+  // recorded before form_engagement position tracking existed at all.
+  const hasFormSpan = formTopFrac != null && formBottomFrac != null;
 
   return (
     <g>
@@ -168,24 +242,17 @@ export function FullPagePlate(props: FullPagePlateProps) {
         ))}
 
         <ViewportMarks vFrac={vFrac} height={height} width={width} theme={theme} />
+
+        {/* form imitation — inset, narrower than the plate, so seen/seen-twice
+            stay visible either side of it; see FormImitation's doc comment. */}
+        {hasFormSpan && <FormImitation visit={visit} width={width} height={height} theme={theme} />}
       </g>
 
-      {/* right-edge bulbs — painted longest-first so the shortest (exit) stays visible on top when they coincide */}
-      {hasFormSpan ? (
-        <rect
-          x={width}
-          y={Math.min(formTopFrac!, formBottomFrac!) * height}
-          width={theme.bulbs.converted.length}
-          // A form measured as a single flat line (top === bottom, or a
-          // sub-pixel rounding gap) would otherwise render invisibly thin —
-          // floor it to the bulb's own thickness so it always reads as a bar.
-          height={Math.max(theme.bulbs.converted.thickness, Math.abs(formBottomFrac! - formTopFrac!) * height)}
-          fill={theme.bulbs.converted.color}
-          aria-label="converted — form position"
-        />
-      ) : (
-        converted && <Bulb config={theme.bulbs.converted} y={exitY} plateHeight={height} plateWidth={width} side="right" label="converted" />
-      )}
+      {/* right-edge bulbs — painted longest-first so the shortest (exit) stays visible on top when they coincide.
+          The old single-point converted bulb only ever appears now as a
+          fallback for a conversion recorded before form position tracking
+          existed — see hasFormSpan above. */}
+      {!hasFormSpan && converted && <Bulb config={theme.bulbs.converted} y={exitY} plateHeight={height} plateWidth={width} side="right" label="converted" />}
       <Bulb config={theme.bulbs.deepestScroll} y={seenBottom} plateHeight={height} plateWidth={width} side="right" label="deepest scroll" />
       <Bulb config={theme.bulbs.exit} y={exitY} plateHeight={height} plateWidth={width} side="right" label="exited" />
 

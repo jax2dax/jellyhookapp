@@ -58,15 +58,37 @@ export interface PageVisitRaw {
    */
   isOpen?: boolean;
   /**
-   * Real pixel position of the form that was filled out on this page,
-   * measured directly (getBoundingClientRect) the moment it was first seen —
-   * see form_engagement.form_top_y/form_bottom_y. Only ever set on the page
-   * actually marked `converted`; null means "not measured" (submission
-   * predates form-engagement tracking, or the form wasn't observed before
-   * submit), in which case the converted bulb falls back to a single point.
+   * Real pixel position of a form on this page, measured directly
+   * (getBoundingClientRect) the moment it was first seen — see
+   * form_engagement.form_top_y/form_bottom_y. Set whenever a form on this
+   * page view was seen at least 50% (form_engagement reaches `viewed` or
+   * beyond), regardless of whether it was ever submitted — view detection
+   * requires no interaction at all, just scrolling it into sight. Null means
+   * "not measured": no form_engagement row for this page view (predates
+   * that tracking, or the form never reached 50% visible), in which case
+   * the converted bulb falls back to a single point for a page that did
+   * convert.
    */
   formTopY?: number | null;
   formBottomY?: number | null;
+  /**
+   * form_engagement.status for the form measured above — 'viewed' |
+   * 'started' | 'submitted' | 'abandoned'. Drives the form imitation's
+   * color (bright yellow once actually submitted, the ordinary converted
+   * color otherwise) — see FullPagePlate.
+   */
+  formStatus?: string | null;
+  /**
+   * Count of DISTINCT fields ever focused on this form, from
+   * form_engagement.field_timings — NOT the form's real total field count.
+   * A field the visitor never clicked into is invisible to tracking
+   * entirely (field_timings only ever gains an entry on focus), so this is
+   * a lower bound, not a measurement of the form's actual shape. 0/null
+   * means no field was ever focused — the form imitation still renders
+   * (position was measured on view, independent of this), just with no
+   * field stripes inside it.
+   */
+  formFieldCount?: number | null;
   /** a form on this page was engaged with but never submitted (form_engagement.status = 'abandoned') */
   abandonedForm?: boolean;
 }
@@ -130,6 +152,9 @@ export interface VisitGeometry {
   /** page-fraction (0-1) span of the actual form, converted from PageVisitRaw.formTopY/formBottomY — null when not measured, see there */
   formTopFrac?: number | null;
   formBottomFrac?: number | null;
+  /** passed through unchanged from PageVisitRaw.formStatus/formFieldCount — no page-fraction conversion needed for either */
+  formStatus?: string | null;
+  formFieldCount?: number | null;
 }
 
 export interface GapGeometry {
@@ -230,6 +255,31 @@ export interface FramePlateTheme {
     gap: number;
   };
   bulbs: Record<BulbType, BulbShapeConfig>;
+  /**
+   * The form imitation — an INSET box drawn inside the plate itself at the
+   * form's real measured position, not an edge-protruding bulb. Deliberately
+   * narrower than the plate (widthFraction < 1) so the seen/seen-twice bands
+   * underneath stay visible on either side of it, never fully obscured.
+   * Field stripes (how many fields were ever focused — see
+   * PageVisitRaw.formFieldCount) are drawn inside it by FullPagePlate
+   * directly, sized relative to this box's own height — thinner as the
+   * count goes up — not configured here.
+   */
+  formImitation: {
+    /** fraction of the plate's width this box spans, centered horizontally — less than 1 so seen/seen-twice colors stay visible beside it */
+    widthFraction: number;
+    /** color while the form has been seen/started but not yet submitted — reuses bulbs.converted.color by default, override independently if needed */
+    color: string;
+    /** brighter color once the form was actually submitted — the one visual difference between "they saw/started it" and "they completed it" */
+    submittedColor: string;
+    /** floor so a form measured as a single flat line (top === bottom) still reads as a bar, not an invisible sliver */
+    minHeightPx: number;
+    cornerRadius: number;
+    stripeColor: string;
+    /** a single stripe never exceeds this, however tall the box is — keeps it reading as "a thin line for one field," not a filled block, when there are only 1-2 fields */
+    maxStripeThicknessPx: number;
+    minStripeThicknessPx: number;
+  };
   hover: {
     /** how dark the overlay on the hovered frame gets, 0-1 */
     darkenOpacity: number;

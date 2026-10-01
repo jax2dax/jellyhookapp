@@ -80,6 +80,21 @@ export const defaultTheme: FramePlateTheme = {
     deepestScroll: { shape: "pill", length: 15, thickness: 3, color: "#3b82f6", zIndex: 2 },
     converted: { shape: "pill", length: 22, thickness: 3, color: "#eab308", zIndex: 0 },
   },
+  formImitation: {
+    // Centered, narrower than the plate — seen/seen-twice stay visible on
+    // both sides of it rather than being fully covered.
+    widthFraction: 0.62,
+    // Same yellow as bulbs.converted.color — "seen/started, not submitted
+    // yet" reads as the ordinary converted-adjacent color; only an actual
+    // submission gets the brighter one below.
+    color: "#eab308",
+    submittedColor: "#fde047",
+    minHeightPx: 3,
+    cornerRadius: 1,
+    stripeColor: "#ffffff",
+    maxStripeThicknessPx: 2.5,
+    minStripeThicknessPx: 0.6,
+  },
   hover: {
     darkenOpacity: 0.35,
   },
