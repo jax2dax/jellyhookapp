@@ -307,12 +307,9 @@ isn't a per-keystroke network request.
 focus/blur/submit/session-end, and IS what `ended_at` gets set to on
 abandonment (never "now").
 
-RLS is `to public` (not `to anon`) for select/insert/update — the app's
-`createSupabaseClient()` wires in a Clerk `accessToken()` callback that
-changes the effective role even for an anonymous tracker request, so a
-policy scoped strictly `to anon` silently rejects writes from this
-specific table's actual code path (discovered the hard way — see
-`mds/progress_timeline.md`, 2026-09-29).
+RLS: insert/update `to public` (unconditional), select `to authenticated`
+scoped by site membership — see "Row Level Security" at the bottom of this
+file for the full design and why `to public` rather than `to anon`.
 
 ## page_insights
 ```sql
@@ -403,3 +400,90 @@ create table public.users (
   last_name text null,
   constraint users_pkey primary key (id)
 ) TABLESPACE pg_default;
+
+## Row Level Security
+
+Active as of 2026-09-30 (see `mds/progress_timeline.md` for the full story
+of how this was decided, including a real bug caught and fixed in it).
+Replaced an earlier state where every table had one blanket `using (true)`
+policy to `anon, authenticated` — functionally identical to RLS being off,
+since the Supabase anon key is a `NEXT_PUBLIC_*` env var visible in any
+browser's Network tab.
+
+**The split, and why.** This app has two fundamentally different kinds of
+traffic hitting these tables: anonymous visitors on *customers'* websites
+(the tracker — authenticated by nothing but an `api_key` check in the
+route code, never a Clerk session, by design) and actual logged-in
+Jellyhook customers (real Clerk sessions). A JWT-based ownership policy is
+correct for the second group and cannot apply to the first — no code
+change gives an anonymous website visitor a Jellyhook login.
+
+**Two tables genuinely can't be expressed safely in RLS at all**: `sites`
+and `site_members`. Invite handling matches `site_members.user_id` against
+a sentinel string (`pending:<email>`) that has no relation to a real Clerk
+user id until the invite is accepted; `createSite` also does a
+cross-tenant domain-duplicate check (looking up ANY site by domain, not
+just the caller's own). No policy can express "this pending row belongs to
+you" without trusting an email claim that may not even exist in the JWT.
+These two tables, plus `users`/`subscriptions`/`billing_events` (already
+exclusively service-role-accessed in live code, confirmed by grep), grant
+**nothing at all** to `anon`/`authenticated` — every access goes through
+the service-role key in `permission.actions.js`, `settings.actions.js`,
+`site-management.actions.js`, `profile.actions.js`, `billing.actions.ts`,
+and the webhook handler, each of which already has its own `auth()` +
+ownership check before querying. That app-layer check is the real
+authorization for these five tables — RLS is not a backstop here, by
+deliberate choice, because encoding the above into policy SQL untestable
+against the real project was judged riskier than trusting the (already
+correct, already-existing) application checks.
+
+**One narrow exception on `site_members`**: `authenticated` may `select`
+rows where `user_id` matches their own id. Required for every OTHER
+table's ownership check below to resolve at all — Postgres RLS applies to
+subqueries the same as top-level queries, so if `site_members` granted
+`authenticated` nothing, the `exists (select 1 from site_members ...)`
+clause inside every other table's policy would also silently return
+nothing for everyone, not just for non-members.
+
+**Every other table** (`visitors`, `sessions`, `page_views`,
+`form_submissions`, `form_engagement`, `page_structure`, `page_insights`)
+keeps the two-layer design: the app's `requireSiteAccess()` /
+per-function ownership check, *and* a real RLS policy underneath it as an
+independent backstop. Specifically:
+- `insert`/`update` wide open **to public** (not `to anon` — an
+  authenticated-ish client with an `accessToken()` callback configured,
+  even one that resolves to nothing for an anonymous tracker request,
+  doesn't reliably land in the `anon` role; `to public` matches regardless
+  of role, discovered the hard way on `form_engagement`, 2026-09-29,
+  applied to every table consistently rather than one-off this time).
+  `form_submissions` is insert-only here — the tracker never updates it.
+- `select` restricted **to authenticated**, scoped by:
+  ```sql
+  exists (
+    select 1 from site_members
+    where site_members.site_id = <table>.site_id
+      and site_members.user_id = (auth.jwt() ->> 'sub')
+      and site_members.status = 'active'
+  )
+  ```
+  `form_submissions` additionally has this same scoping on `update` (the
+  qualify/junk toggle — a dashboard action, never the tracker).
+- No `delete` policy anywhere — the app never deletes rows in any of
+  these tables, so default-deny costs nothing.
+
+**`auth.jwt() ->> 'sub'`, not `auth.uid()`.** `auth.uid()` is Supabase's
+*native* auth helper — its implementation casts the JWT `sub` claim to
+Postgres's `uuid` type internally. Clerk user ids
+(`user_3CWPiUysltfw2WiuspYCuA6XDxs`) aren't UUID-shaped, so that cast
+throws, which surfaced as `invalid input syntax for type uuid` across
+every ownership-checked query the first time this was deployed.
+`auth.jwt() ->> 'sub'` reads the same claim as plain text, no casting,
+cannot throw this way. Don't reintroduce `auth.uid()` into any future
+policy on a table Clerk users touch.
+
+**Gap closed (2026-09-30, same day)**: every siteId-taking function in
+`lib/actions/supabase.actions.js` and `pagesOverview.action.js`'s
+`getSitePagesOverview` now calls `requireSiteAccess(siteId)` first too —
+the full two-layer design (app-layer check + RLS backstop) is consistent
+across every table in this file, not just the ones added since this
+section was first written.

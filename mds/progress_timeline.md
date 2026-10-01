@@ -696,4 +696,57 @@ visible until now.
   this conversation were never recreated (nothing live uses the JWT client
   against `users`) — if a "delete my account" feature gets built later, it
   needs its own policy or, more likely given everything else in this
-  pass, its own service-role action. 
+  pass, its own service-role action.
+
+## 2026-09-30 (production, continued) — Closed the defense-in-depth gap, fixed a real tracker outage
+
+**Closed the known gap**: every siteId-taking function in
+`lib/actions/supabase.actions.js` (19 functions) and
+`pagesOverview.action.js`'s `getSitePagesOverview` now calls
+`requireSiteAccess(siteId)` first, matching every other analytics action
+in the codebase. Explicitly did **not** move these tables to service
+role when asked, and explained why: `visitors`/`sessions`/`page_views`/
+etc. are protected by two independent layers right now — the app-layer
+`requireSiteAccess` check, and the RLS policy underneath it. Moving them
+to service role would strip the RLS layer entirely and put the app back
+to "one missed check away from a leak," which is exactly the class of bug
+`setLeadQualified` already was. Confirmed first that service-role vs.
+anon+JWT has zero effect on request count or latency beyond RLS no longer
+evaluating per-row (it's never a database-hits tradeoff, only a
+security-model one) — `sites`/`site_members`/`users`/`subscriptions`/
+`billing_events` are on service role because their access patterns are
+genuinely inexpressible in RLS (pending invites, cross-tenant duplicate
+checks), not because service role is simply "safer."
+
+**Real, live bug found and fixed**: after switching `NEXT_PUBLIC_TRACKER_URL`
+to `https://jellyhook.com`, every tracker request from a real customer's
+site started failing — CORS preflight rejected on every `POST` route
+(`Redirect is not allowed for a preflight request`) and a raw 308 on the
+`GET` route. Root cause: `middleware.ts`'s matcher ran Clerk's middleware
+on literally every `/api/*` route, including the fully public,
+anonymous, api-key-authenticated tracker endpoints
+(`/api/track`, `/api/track-form`, `/api/track-form-engagement`,
+`/api/track-structure`, `/api/site-config`, `/api/close-stale-sessions`)
+and the webhook (`/api/webhooks/clerk`). Clerk's middleware performs a
+"handshake" redirect to itself to verify/refresh session cookie state —
+very likely triggered here because `jellyhook.com` was newly added and
+not yet fully recognized by the (still dev/test) Clerk instance, which
+was configured against `jellyhookapp.vercel.app`. Browsers categorically
+refuse to follow a redirect during a CORS preflight, breaking every
+cross-origin `POST` to these routes outright; a followed `GET` redirect
+can also just land somewhere without the right CORS headers attached.
+These 7 routes have zero legitimate reason to ever go through Clerk's
+middleware — none of them use a Clerk session, ever, by design — so
+fixed by excluding them explicitly from the matcher (not just relying on
+the broad catch-all to happen not to include them), and removed the
+now-redundant `/(api|trpc)(.*)` matcher entry that was explicitly
+re-including everything under `/api` right after the main pattern tried
+to exclude it. Verified the new matcher against every relevant path
+before shipping it (tracker/webhook routes skip middleware, dashboard/
+sign-in/other API routes still get it) rather than trusting the regex by
+eye.
+
+**Docs updated**: `mds/database.md` gained a full "Row Level Security"
+section — the two-tier design (service-role-only tables vs.
+app-check-plus-RLS tables), why `auth.jwt() ->> 'sub'` and not
+`auth.uid()`, and the now-closed defense-in-depth gap. 
