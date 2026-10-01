@@ -58,6 +58,26 @@ export function MarketingThemeStyles() {
         .jh-grain {
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
         }
+
+        /* ---------- ambient glow pulse (auth cards, pricing table) ---------- */
+        @keyframes jh-glow-pulse {
+            0%, 100% { opacity: 0.35; transform: scale(1); }
+            50%      { opacity: 0.6; transform: scale(1.06); }
+        }
+        .jh-glow-pulse { animation: jh-glow-pulse 4s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+            .jh-glow-pulse { animation: none; opacity: 0.45; }
+        }
+
+        /* ---------- step transition (auth card form -> verify) ---------- */
+        @keyframes jh-step-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .jh-step-in { animation: jh-step-in 0.35s ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+            .jh-step-in { animation: none; }
+        }
     `}</style>
   );
 }

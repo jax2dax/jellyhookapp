@@ -160,17 +160,18 @@ export async function POST(req: NextRequest) {
 
     // ─────────────────────────────────────────────────────────────────────
     // USER CREATED
-    // Seeds first_name/last_name/pfp from Clerk as a starting default — the
+    // Seeds first_name/last_name from Clerk as a starting default — the
     // person can then rename themselves for this site from Settings without
     // that edit ever being overwritten (see user.updated below, which
     // deliberately never touches name fields).
     //
-    // pfp is only ever set when has_image is true. Clerk's image_url is
+    // Deliberately never touches pfp, even to seed it. Clerk's image_url is
     // NEVER empty — it returns an auto-generated default avatar even when
-    // nobody has uploaded a real photo — so storing it unconditionally would
-    // make pfp useless as a "did they actually upload something" signal. The
-    // app (see components/nav-user.tsx, app/platform/user/UserPageClient.tsx)
-    // relies on pfp being null to mean exactly that: show the default icon.
+    // nobody has uploaded a real photo — so it can never be trusted as a
+    // "did they actually upload something" signal, not even as a one-time
+    // seed. pfp starts out null (the DB default) and is only ever set by
+    // this app's own upload flow (lib/actions/profile.actions.js
+    // uploadMyAvatar). A null pfp means the app's default icon shows.
     // ─────────────────────────────────────────────────────────────────────
     if (eventType === 'user.created') {
       const user = evt.data as any
@@ -184,7 +185,6 @@ export async function POST(req: NextRequest) {
         email: primaryEmail,
         first_name: user.first_name ?? null,
         last_name: user.last_name ?? null,
-        pfp: user.has_image ? user.image_url ?? null : null,
       })
 
       if (error) {
@@ -198,20 +198,20 @@ export async function POST(req: NextRequest) {
 
     // ─────────────────────────────────────────────────────────────────────
     // USER UPDATED
-    // Keeps pfp in sync with Clerk's uploaded photo on every event — but
-    // ONLY when has_image is true (see the has_image note on user.created
-    // above). When someone removes their photo in Clerk, has_image goes
-    // back to false and this correctly clears pfp back to null too, rather
-    // than freezing on their last real photo forever.
+    // Deliberately never touches pfp — see the note on user.created above.
+    // A Clerk-side profile edit (including uploading a new photo there,
+    // which this app's UI no longer does at all — see uploadMyAvatar) must
+    // never write into pfp; that column is owned entirely by this app's own
+    // upload flow now.
     //
     // Deliberately does NOT touch first_name/last_name, and does NOT
     // overwrite email once it's already set — once someone has customized
     // either from /platform/user (see lib/actions/profile.actions.js
-    // updateMyProfile), a Clerk-side profile edit (e.g. changing their
-    // avatar, which fires this same event) must never clobber it. Email is
-    // only ever seeded from Clerk the FIRST time — a still-null email means
-    // this is effectively the first sync (e.g. a row created before this
-    // webhook existed, or the user.created insert somehow left it blank).
+    // updateMyProfile), a Clerk-side profile edit must never clobber it.
+    // Email is only ever seeded from Clerk the FIRST time — a still-null
+    // email means this is effectively the first sync (e.g. a row created
+    // before this webhook existed, or the user.created insert somehow left
+    // it blank).
     // ─────────────────────────────────────────────────────────────────────
     if (eventType === 'user.updated') {
       const user = evt.data as any
@@ -222,10 +222,7 @@ export async function POST(req: NextRequest) {
 
       const { data: existing } = await supabase.from('users').select('email').eq('id', user.id).maybeSingle()
 
-      const payload: { id: string; pfp: string | null; email?: string | null } = {
-        id: user.id,
-        pfp: user.has_image ? user.image_url ?? null : null,
-      }
+      const payload: { id: string; email?: string | null } = { id: user.id }
       if (!existing?.email) payload.email = primaryEmail
 
       // upsert (not update) — covers a user.updated arriving for someone who

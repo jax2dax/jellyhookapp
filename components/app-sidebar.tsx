@@ -93,11 +93,12 @@ export function AppSidebar({ userPlan = "free", siteDomain, sites, currentSiteId
   const navUser = {
     name: dbName || clerkUser?.fullName || "User",
     email: userProfile?.email || clerkUser?.primaryEmailAddress?.emailAddress || "",
-    // Sourced from OUR OWN users.pfp column, never Clerk directly — Clerk's
+    // Sourced from OUR OWN users.pfp column, never Clerk at all — Clerk's
     // imageUrl always returns SOMETHING (an auto-generated default) even
-    // when nobody's uploaded a real photo, and pfp is only ever non-null
-    // when they actually have (see the has_image gate in
-    // app/api/webhooks/clerk/route.ts). A null pfp means NavUser's
+    // when nobody's uploaded a real photo, so it's never even consulted as
+    // a fallback. pfp is only ever non-null once someone has uploaded a
+    // photo through this app's own upload flow (see uploadMyAvatar in
+    // lib/actions/profile.actions.js). A null pfp means NavUser's
     // AvatarFallback renders the plain default icon instead.
     avatar: userProfile?.pfp || "",
   }

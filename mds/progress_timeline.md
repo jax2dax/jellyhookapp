@@ -290,6 +290,38 @@ with real changes, not every micro-edit.
   the final field's dwell time from the abandon timestamp. Fixed before
   shipping, not after.
 
+## 2026-09-30 — Real orphaned page_view bug found via docs work, plus a self-inflicted one
+
+- **Real production bug, found while writing the session-replay docs page**:
+  `lib/closeStaleSessions.js` and `/api/track`'s explicit `session_end`
+  sweep close a stale *session*, but neither ever touched that session's
+  underlying `page_views` rows. A page_view still sitting at `left_at:
+  null` keeps recomputing its own duration against "now" forever, every
+  time anyone opens that chart — this is what produced frames showing
+  hundreds of thousands of minutes. Fixed in both places: closing a
+  session now also backfills any of its still-open page_views, dated to
+  the same real closure moment, never "now." Ran the actual cleanup
+  against production: found and fixed all 161 existing orphaned rows,
+  verified zero remain.
+- **Separate, self-inflicted bug in the docs example itself**: the
+  session-replay page's own teaching fixture (`exampleSession.ts`)
+  anchored its "still open" demo page to a hardcoded absolute date
+  (2026-01-15) instead of computing relative to render time. Every day
+  that passed made that demo's duration grow by another day — by
+  2026-09-30 it was showing 371,154 minutes, ironically demonstrating the
+  exact bug it exists to explain. Diagnosed precisely from the user's
+  reported number alone (371,154 min is almost exactly the day-count
+  between the hardcoded date and today) before touching any code. Fixed
+  by making the fixture a function, called fresh via `useMemo` on every
+  real page load instead of a module-level constant.
+- Lesson for future fixtures: **never anchor a "still open"/live demo to
+  an absolute date**. Anchor to `Date.now()` at the moment it's actually
+  used, always.
+- `/docs/troubleshooting` (Section 4 of the roadmap) built, seeded with
+  this exact case as its first real entry, plus pending-verification and
+  referrer-shows-Direct pointers back to the relevant Core Concepts pages
+  rather than duplicating their content.
+
 ## Standing decisions / conventions established this session
 
 - **Deploy gap awareness**: always confirm whether a bug report is against
@@ -310,3 +342,59 @@ with real changes, not every micro-edit.
   sentences dressed up as insight. Applies to `formEngagementFacts`,
   the unique-conversion-rate redefinition, and is the bar for whatever
   comes next.
+
+## 2026-09-30 (later) — Custom auth cards, custom pricing cards, two-tier billing model decided
+
+- **Profile pictures no longer touch Clerk at all.** Found and closed three
+  separate leaks where Clerk's own `imageUrl` (which always returns
+  something, even an auto-generated default, whether or not the person
+  ever uploaded a real photo) could end up in `users.pfp`: the upload
+  flow's fallback in `UserPageClient.tsx`, the Clerk webhook's
+  `has_image`-gated sync on every `user.created`/`user.updated`, and an
+  ungated backfill inside `getMyProfile()`. Replaced the whole thing with
+  `uploadMyAvatar` in `lib/actions/profile.actions.js`, which uploads
+  straight into this app's own Supabase Storage bucket (`avatars`) and is
+  now the *only* writer of `pfp`. Clerk is never consulted for avatars
+  anywhere in the app, not even as a last-resort fallback.
+- **Sign-in and sign-up are fully custom**, built on Clerk's newer
+  "Future" headless hooks (`useSignUp`/`useSignIn` → `.password()`,
+  `.sso()`, `.verifications.*`, `.finalize()` — Clerk v7's replacement for
+  the older imperative `create()`/`prepareEmailAddressVerification()` API
+  pattern). No `<SignIn />`/`<SignUp />`/`<SignInButton>`/`<SignUpButton>`
+  anywhere in the codebase anymore — every entry point (landing page,
+  header, pricing, about) links to `/sign-in` or `/sign-up` directly.
+  `AuthCardFrame.tsx` gives both cards their visual identity: an ambient
+  lime glow (`jh-glow-pulse`, same breathing-light language as the hero
+  image), viewfinder corner brackets that sharpen on hover, and a top
+  accent bar that draws in left-to-right — on-brand with the mono/terminal
+  aesthetic used everywhere else, instead of a generic boxed form.
+- **Decided: subscriptions will eventually come in two scopes, not one.**
+  Upgrading a *site*'s plan gives everyone invited to that site the
+  upgraded tier, and is what unlocks inviting team members at all (a
+  Free-tier site can't invite anyone). Upgrading *personally* gives just
+  the signed-in person that tier's access, solo, with no team invites.
+  Same price, same features per tier, different blast radius. This isn't
+  built yet — today's `subscriptions` table is still a single per-user row
+  (see `upsertUserSubscription` in `app/api/webhooks/clerk/route.ts`), and
+  actually wiring this up will need real thought about whether "site"
+  billing rides on Clerk Organizations or stays on this app's own
+  sites/team-members model. Recorded here so the decision isn't lost
+  before the schema work happens.
+- **Both PricingTable surfaces replaced with custom cards, preview-only.**
+  Clerk's `<PricingTable />` in `/platform/subscription` and the plain
+  TIERS grid on the public `/pricing` page are both gone, replaced by
+  `components/billing/DashboardPricingCards.tsx` (shadcn tokens, fits the
+  dashboard's light/dark shell) and `components/marketing/PricingCards.tsx`
+  (lime/dark, same bracket/glow language as the auth cards) — sharing one
+  data source, `lib/pricing/tiers.ts`, so the tiers and the new
+  site-vs-personal scope copy can't drift between the two surfaces. Both
+  are genuinely free/no-op right now (pricing isn't live) — per the user,
+  once approved these go back into hiding until real pricing launches,
+  the same way the old "Free now" grid did.
+- **Feature text blurred on both pricing surfaces.** The checkmark stays
+  sharp; the text after it (every feature bullet, every scope note like
+  "Elite for you alone on this site. No team invites.") is blurred with
+  `blur-[5px]` + `select-none`, because the actual feature copy is still
+  provisional and will change before pricing is real — the checkmarks
+  communicate "a plan structure exists" without committing to wording
+  that's going to get rewritten.

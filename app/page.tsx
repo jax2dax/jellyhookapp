@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
+import { Show, UserButton } from "@clerk/nextjs";
 import { ArrowRight, ArrowUpRight, Eye, UserCheck, Flame } from "lucide-react";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
 import { primaryBtn, ghostBtn, avatarAppearance } from "@/components/marketing/MarketingTheme";
@@ -94,15 +94,15 @@ const LandingPage = () => {
 
               <div className="mt-10 flex flex-col gap-3 sm:flex-row">
                 <Show when="signed-out">
-                  <SignUpButton mode="modal">
+                  <Link href="/sign-up">
                     <button className={primaryBtn}>
                       Start tracking your site
                       <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
                     </button>
-                  </SignUpButton>
-                  <SignInButton mode="modal">
+                  </Link>
+                  <Link href="/sign-in">
                     <button className={ghostBtn}>Sign in</button>
-                  </SignInButton>
+                  </Link>
                 </Show>
 
                 <Show when="signed-in">
@@ -257,17 +257,17 @@ const LandingPage = () => {
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Show when="signed-out">
-                  <SignUpButton mode="modal">
+                  <Link href="/sign-up">
                     <button className="group inline-flex h-14 w-full items-center justify-center gap-3 bg-black px-7 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--lime)] transition-colors hover:bg-[#151515] sm:w-auto">
                       Get started free
                       <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
                     </button>
-                  </SignUpButton>
-                  <SignInButton mode="modal">
+                  </Link>
+                  <Link href="/sign-in">
                     <button className="inline-flex h-14 w-full items-center justify-center border border-black/35 px-7 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-black transition-colors hover:bg-black hover:text-[var(--lime)] sm:w-auto">
                       Sign in
                     </button>
-                  </SignInButton>
+                  </Link>
                 </Show>
 
                 <Show when="signed-in">

@@ -14,7 +14,7 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { SignInButton, SignUpButton, Show, UserButton, SignOutButton } from "@clerk/nextjs";
+import { Show, UserButton, SignOutButton } from "@clerk/nextjs";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { avatarAppearance } from "./MarketingTheme";
 
@@ -67,17 +67,17 @@ export function SiteHeader() {
           {/* desktop auth */}
           <div className="hidden items-center gap-3 md:flex">
             <Show when="signed-out">
-              <SignInButton mode="modal">
+              <Link href="/sign-in">
                 <button className="h-10 px-4 ff-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#a8a69d] transition-colors hover:text-[var(--lime)]">
                   Sign in
                 </button>
-              </SignInButton>
-              <SignUpButton mode="modal">
+              </Link>
+              <Link href="/sign-up">
                 <button className="group inline-flex h-10 items-center gap-2.5 bg-[var(--lime)] px-5 ff-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-black transition-colors hover:bg-[var(--lime-bright)]">
                   Get started
                   <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
-              </SignUpButton>
+              </Link>
             </Show>
 
             <Show when="signed-in">
@@ -120,16 +120,16 @@ export function SiteHeader() {
 
             <div className="flex flex-col gap-3 py-5">
               <Show when="signed-out">
-                <SignUpButton mode="modal">
+                <Link href="/sign-up" onClick={() => setIsMobileMenuOpen(false)}>
                   <button className="inline-flex w-full items-center justify-center bg-[var(--lime)] py-4 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-black">
                     Get started
                   </button>
-                </SignUpButton>
-                <SignInButton mode="modal">
+                </Link>
+                <Link href="/sign-in" onClick={() => setIsMobileMenuOpen(false)}>
                   <button className="inline-flex w-full items-center justify-center border border-[#2b2b25] py-4 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#cac8bf]">
                     Sign in
                   </button>
-                </SignInButton>
+                </Link>
               </Show>
 
               <Show when="signed-in">

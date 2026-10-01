@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Eye, UserCheck, Flame, Users, CreditCard } from "lucide-react";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
-import { SignUpButton, Show } from "@clerk/nextjs";
+import { Show } from "@clerk/nextjs";
 import { RandomIconBadge } from "@/components/RandomIconBadge";
 import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
 
@@ -129,12 +129,12 @@ export default function AboutPage() {
               See it on your own site.
             </h3>
             <Show when="signed-out">
-              <SignUpButton mode="modal">
+              <Link href="/sign-up">
                 <button className="group inline-flex h-14 w-full items-center justify-center gap-3 bg-black px-7 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--lime)] transition-colors hover:bg-[#151515] sm:w-auto">
                   Get started free
                   <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
-              </SignUpButton>
+              </Link>
             </Show>
             <Show when="signed-in">
               <Link href="/dashboard">

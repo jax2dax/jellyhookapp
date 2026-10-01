@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { useUser, useClerk } from "@clerk/nextjs";
+import { useClerk } from "@clerk/nextjs";
 import { Camera, CalendarDays, LogOut, Phone as PhoneIcon, Mail, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/leadFormat";
-import { updateMyProfile } from "@/lib/actions/profile.actions";
+import { updateMyProfile, uploadMyAvatar } from "@/lib/actions/profile.actions";
 import { RandomIconBadge } from "@/components/RandomIconBadge";
 import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
 
@@ -136,24 +136,20 @@ function ProfileRow({
 }
 
 // ─── AvatarEditor ─────────────────────────────────────────
-// The picture shown is public.users.pfp — OUR database, not Clerk's own
-// imageUrl/hasImage — because Clerk always returns SOME image (an
-// auto-generated default) even when nobody's uploaded a real photo, and
-// that default must never be displayed as if it were this person's avatar.
-// pfp is only ever non-null when they've actually uploaded one (see the
-// has_image gate in app/api/webhooks/clerk/route.ts's user.created/updated
-// handlers) — a null pfp means the plain default icon below shows instead.
+// The picture shown is public.users.pfp — OUR database, never Clerk. Clerk
+// is not consulted anywhere in this component, not even as a fallback:
+// Clerk's imageUrl always returns SOME image (an auto-generated default)
+// even when nobody's uploaded a real photo, so it can never be trusted, not
+// even as a last resort. pfp is only ever non-null once this app's own
+// upload below has actually stored a file — a null pfp means the plain
+// default icon shows instead.
 //
-// Uploading still goes straight through Clerk's own user.setProfileImage()
-// rather than a custom upload (this codebase has no object-storage/upload
-// feature at all — see SAAS_PRODUCT_AUDIT.md §17, and Clerk already hosts
-// and serves avatars for every account here); the result reaches pfp
-// automatically via that same webhook. `justUploaded` is a purely optimistic
-// local override so the NEW photo appears immediately after upload instead
-// of waiting on the webhook round trip — it's what was just uploaded through
-// this exact flow, not a stand-in for Clerk's default.
+// Uploading goes to uploadMyAvatar (lib/actions/profile.actions.js), which
+// stores the file in this app's own Supabase Storage bucket and writes the
+// resulting URL straight into pfp — Clerk's setProfileImage is never called.
+// `justUploaded` is a purely optimistic local override so the NEW photo
+// appears immediately after upload instead of waiting on a page refresh.
 function AvatarEditor({ pfp, name }: { pfp: string | null; name: string }) {
-  const { user } = useUser();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -164,12 +160,16 @@ function AvatarEditor({ pfp, name }: { pfp: string | null; name: string }) {
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the same file later
-    if (!file || !user) return;
+    if (!file) return;
     setUploading(true);
     setError(null);
     try {
-      const updated = await user.setProfileImage({ file });
-      setJustUploaded(updated.publicUrl ?? user.imageUrl);
+      const result = await uploadMyAvatar(file);
+      if (result.success && result.url) {
+        setJustUploaded(result.url);
+      } else {
+        setError(result.error ?? "Upload failed");
+      }
     } catch (err) {
       console.error("[UserPageClient] avatar upload failed:", err);
       setError(err instanceof Error ? err.message : "Upload failed");

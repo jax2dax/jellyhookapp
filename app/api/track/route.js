@@ -276,6 +276,28 @@ if (event.type === "session_end") {
       if (error) console.error("🔴 SESSION END ERROR:", error.message);
       else console.log("✅ SESSION CLOSED (age=" + ageMs + "ms):", event.session_id);
 
+      // page_view_end should normally have already fired (visibilitychange
+      // hidden fires before beforeunload in effectively every browser), but
+      // nothing guarantees that ordering. Any page_view still sitting at
+      // left_at = null when the session closes would otherwise keep
+      // recomputing its own duration against "now" forever, every time
+      // anyone opens that lead's session replay chart — see
+      // lib/closeStaleSessions.js's identical fix for the same root cause.
+      const { data: openPageViews, error: openPvError } = await supabase
+        .from("page_views")
+        .select("id, entered_at")
+        .eq("session_id", event.session_id)
+        .is("left_at", null);
+      if (openPvError) {
+        console.error("🔴 SESSION END — page_views sweep fetch error:", openPvError.message);
+      } else {
+        for (const pv of openPageViews ?? []) {
+          const timeOnPage = Math.max(0, endedAt.getTime() - new Date(pv.entered_at).getTime());
+          const { error: pvError } = await supabase.from("page_views").update({ left_at: endedAt, time_on_page: timeOnPage }).eq("id", pv.id);
+          if (pvError) console.error("🔴 SESSION END — page_view close error:", pvError.message);
+        }
+      }
+
       // Any form on THIS session still sitting at viewed/started (started
       // but never submitted) is finalized as abandoned right here — this is
       // the authoritative sweep, since a form left mid-fill on a page the

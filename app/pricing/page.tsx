@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { SignUpButton, Show } from "@clerk/nextjs";
-import { Check } from "lucide-react";
+import { Show } from "@clerk/nextjs";
+import Link from "next/link";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
+import { PricingCards } from "@/components/marketing/PricingCards";
 import { primaryBtn } from "@/components/marketing/MarketingTheme";
 
 export const metadata: Metadata = {
@@ -35,29 +36,9 @@ const FAQS = [
     q: "Can I install it on more than one site?",
     a: "Each tracked site is its own workspace inside your account, with its own tracker script and dashboard.",
   },
-];
-
-// TIERS describes where pricing is HEADED, not what's enforced today — every
-// feature listed here is unlocked on every account right now, during early
-// access (see the hero + FAQ below). Once paid plans actually launch, this
-// is the real gating logic they'll map to: lib/actions/permission.actions.js
-// (PLAN_LEVELS: free < pro < elite) and app/platform/billing/BillingClient.tsx's
-// plan-feature bullets.
-const TIERS: { name: string; blurb: string; features: string[] }[] = [
   {
-    name: "Free",
-    blurb: "Install the tracker and see who's on your site.",
-    features: ["Visitor & session tracking", "Page views, scroll depth, time on page", "Lead capture from forms"],
-  },
-  {
-    name: "Pro",
-    blurb: "Turn raw traffic into a lead list you can act on.",
-    features: ["Everything in Free", "Lead intelligence (full visitor journey per lead)", "Conversion path analysis"],
-  },
-  {
-    name: "Elite",
-    blurb: "Know which pages are losing people before your conversion rate tells you.",
-    features: ["Everything in Pro", "Intent / page-health signals"],
+    q: "What's the difference between upgrading a site and upgrading just me?",
+    a: "Once paid plans launch, every paid tier will offer both. Upgrading a SITE upgrades it for everyone on it — anyone you invite as a team member inherits that tier's access, and upgrading is what unlocks inviting team members at all. Upgrading PERSONALLY gives just you that tier's access, solo, with no team invites. Both cost the same and unlock the same features; the only difference is who else benefits from it.",
   },
 ];
 
@@ -78,9 +59,9 @@ export default function PricingPage() {
 
           <div className="mt-8">
             <Show when="signed-out">
-              <SignUpButton mode="modal">
+              <Link href="/sign-up">
                 <button className={primaryBtn}>Get started free</button>
-              </SignUpButton>
+              </Link>
             </Show>
           </div>
         </div>
@@ -90,27 +71,20 @@ export default function PricingPage() {
       <section className="border-b border-[#1b1b18]">
         <div className="mx-auto max-w-[1400px] px-5 py-16 lg:px-10 lg:py-20">
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-2">Where pricing is headed</h2>
-          <p className="mb-8 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="mb-4 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
             This is the plan structure Jellyhook will eventually charge for. Today, every tier below is free on every
             account. There&apos;s no locked feature to unlock.
           </p>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {TIERS.map((tier) => (
-              <div key={tier.name} className="relative flex flex-col border border-[#1b1b18] bg-[#0a0a09] p-6">
-                <span className="absolute right-4 top-4 ff-mono text-[9px] uppercase tracking-[0.18em] text-[var(--lime)]">Free now</span>
-                <h3 className="ff-display text-2xl text-[#f4f2ea]">{tier.name}</h3>
-                <p className="mt-2 ff-body text-[13px] leading-relaxed text-[#8b8980]">{tier.blurb}</p>
-                <ul className="mt-6 flex-1 space-y-3">
-                  {tier.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5 ff-body text-[13px] leading-snug">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--lime)]" strokeWidth={2} />
-                      <span className="text-[#e9e7e0]">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+          <p className="mb-8 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Once paid plans launch, each tier will be purchasable two ways — this is how pricing will be maintained
+            going forward, not a today-vs-tomorrow distinction. Upgrading a <strong className="text-[#e9e7e0]">site</strong>{" "}
+            upgrades it for everyone on it: anyone invited as a team member inherits that tier, and upgrading a site
+            is what unlocks inviting team members at all (a Free-tier site can&apos;t invite anyone). Upgrading{" "}
+            <strong className="text-[#e9e7e0]">personally</strong> gives just the signed-in person that tier&apos;s
+            access, solo, with no team invites. Both cost the same and unlock the same features per tier; toggle
+            below to see how each card&apos;s note changes depending on which one you&apos;re looking at.
+          </p>
+          <PricingCards />
         </div>
       </section>
 
