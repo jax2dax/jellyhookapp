@@ -15,7 +15,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
     title: "1. What Jellyhook is",
     body: (
       <p>
-        Jellyhook (&ldquo;we&rdquo;, &ldquo;us&rdquo;) is a website analytics and lead-intelligence service. You install a tracker script on
+        Jellyhook (&ldquo;we&rdquo;, &ldquo;us&rdquo;) is a lead-intelligence and conversion-insight service. You install a tracker script on
         your own website (&ldquo;your site&rdquo;); it collects behavioral data from your site&apos;s visitors and presents it to you
         through the Jellyhook dashboard. These Terms govern your use of that dashboard and the tracker script.
       </p>

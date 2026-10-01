@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 const DESCRIPTION =
-  "Jellyhook is a website analytics and lead intelligence platform. Install one tracker script and get full session replays, scroll depth, lead capture, and page health scoring for every visitor.";
+  "Jellyhook is a lead intelligence and conversion insight platform. See every visitor's full session, exactly where your forms lose people, and which leads are actually worth chasing.";
 
 // Root defaults. Every marketing page under app/ sets its own title and
 // description, which override these via Next's metadata merging; the title
@@ -27,7 +27,7 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME}: Website Analytics & Lead Intelligence`,
+    default: `${SITE_NAME}: Lead Intelligence & Conversion Insights`,
     template: `%s | ${SITE_NAME}`,
   },
   description: DESCRIPTION,
@@ -51,13 +51,13 @@ export const metadata: Metadata = {
     type: "website",
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: `${SITE_NAME}: Website Analytics & Lead Intelligence`,
+    title: `${SITE_NAME}: Lead Intelligence & Conversion Insights`,
     description: DESCRIPTION,
     images: [{ url: "/mainLogo.png", width: 1024, height: 1024, alt: SITE_NAME }],
   },
   twitter: {
     card: "summary",
-    title: `${SITE_NAME}: Website Analytics & Lead Intelligence`,
+    title: `${SITE_NAME}: Lead Intelligence & Conversion Insights`,
     description: DESCRIPTION,
     images: ["/mainLogo.png"],
   },
@@ -105,7 +105,7 @@ export default function RootLayout({
             url: SITE_URL,
             logo: `${SITE_URL}/mainLogo.png`,
             description:
-              "Jellyhook is a website analytics and lead intelligence platform offering session replay, scroll depth tracking, lead capture, and page health scoring.",
+              "Jellyhook is a lead intelligence and conversion insight platform offering session replay, linked form submissions, and conversion path tracking.",
           })}
         </Script>
 

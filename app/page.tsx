@@ -2,46 +2,79 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { Show, UserButton } from "@clerk/nextjs";
-import { ArrowRight, ArrowUpRight, Eye, UserCheck, Flame } from "lucide-react";
+import { ArrowRight, ArrowUpRight, UserCheck, TrendingUp, Users } from "lucide-react";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
 import { primaryBtn, ghostBtn, avatarAppearance } from "@/components/marketing/MarketingTheme";
 import { RandomIconBadge } from "@/components/RandomIconBadge";
 import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
 
 export const metadata: Metadata = {
-  title: "Website Analytics & Lead Intelligence",
+  title: "Lead Intelligence & Conversion Insights",
   description:
-    "Install one tracker script and turn every visit to your site into a full session replay. See scroll depth, time on page, and link every form submission back to the visitor's full history.",
+    "Jellyhook shows you what a lead saw before they converted, exactly where your forms lose people, and which pages are actually turning visitors into leads.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Jellyhook: Website Analytics & Lead Intelligence",
+    title: "Jellyhook: Lead Intelligence & Conversion Insights",
     description:
-      "Install one tracker script and turn every visit to your site into a full session replay. See scroll depth, time on page, and link every form submission back to the visitor's full history.",
+      "Jellyhook shows you what a lead saw before they converted, exactly where your forms lose people, and which pages are actually turning visitors into leads.",
     url: "/",
   },
 };
 
-// Real capabilities, not generic SaaS boilerplate — see SAAS_PRODUCT_AUDIT.md
-// §3 (Core Features) for the implementation each of these describes.
-const FEATURES = [
-  {
-    icon: Eye,
-    title: "Session Replay",
-    desc: "Every visit becomes a scroll-by-scroll timeline: pages viewed, time on each one, and exactly how far down they actually scrolled.",
-  },
+// Promises, not features — the hero makes the case for what the business
+// gets out of this. The mechanism (one tracker script → session replay →
+// linked form submissions) is explained once, lower down, right before the
+// per-team breakdown it enables. See SAAS_PRODUCT_AUDIT.md §3 for what each
+// team-facing claim below is actually backed by.
+const HERO_PROMISES = ["Close more deals", "Decrease form friction", "Increase conversions", "Grow your business"];
+
+// Who actually uses this and what it does for them — not a list of
+// standalone features. Every claim here is traceable to a real, shipped
+// capability (session replay, linked form submissions, abandoned-form
+// tracking); nothing here is a scored/algorithmic claim like the old
+// "Page Health Scoring" line used to be — that was never a real algorithm,
+// just heuristic if-statements, and roadmap.md already rules out marketing
+// it as one.
+const AUDIENCES = [
   {
     icon: UserCheck,
-    title: "Lead Intelligence",
-    desc: "Every form submission is automatically linked back to the visitor&apos;s full browsing history: the pages, the dwell time, the path that led to the conversion.",
+    title: "Sales",
+    desc: "Walk into every call already knowing what a lead saw: which pages, how long, and what was on screen right before they converted. Wear their shoes before you ever say hello.",
   },
   {
-    icon: Flame,
-    title: "Page Health Scoring",
-    desc: "An algorithmic score flags which pages are quietly losing visitors' attention before it shows up in your conversion rate.",
+    icon: TrendingUp,
+    title: "Marketing",
+    desc: "Spot the pages and moments that actually push visitors to convert, see whether a campaign change really moved the needle, and put budget behind the channels proven to bring in leads.",
+  },
+  {
+    icon: Users,
+    title: "Business managers",
+    desc: "Watch conversions trend over time and see, from the real session replays, exactly which pages hold attention and which ones quietly lose it — a shared, factual picture your whole team can work from.",
   },
 ];
 
-const TICKER = ["Session replay", "Scroll depth", "Lead capture", "Page health scoring", "Conversion paths"];
+const TICKER = ["Session replay", "Scroll depth", "Lead intelligence", "HubSpot forms", "Conversion paths"];
+
+// The four hero promises, said again with the "why" behind them — outcomes
+// a reader can picture, not a feature re-explained in smaller text.
+const PROMISE_DETAILS = [
+  {
+    title: "Close more deals",
+    desc: "Know what a lead actually looked at and cared about before you ever pick up the phone — open with the thing that already has their attention, not a generic script.",
+  },
+  {
+    title: "Decrease form friction",
+    desc: "Stop guessing why your conversion rate won't move. See exactly where people stall out on a form, down to the field and the moment, every time it happens.",
+  },
+  {
+    title: "Increase conversions",
+    desc: "Find the pages and paths quietly doing the work, and the ones quietly losing you leads, so every change you make is aimed at something real.",
+  },
+  {
+    title: "Grow your business",
+    desc: "Give sales, marketing, and leadership the same real picture of what's happening on your site, instead of three different guesses pulling in three different directions.",
+  },
+];
 
 const LandingPage = () => {
   return (
@@ -78,7 +111,7 @@ const LandingPage = () => {
 
               <div className="mb-8 flex items-center gap-3">
                 <span className="h-1.5 w-1.5 animate-pulse bg-[var(--lime)]" />
-                <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#8b8980]">Website analytics &amp; lead intelligence</span>
+                <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#8b8980]">Lead intelligence, conversion insights &amp; form friction</span>
               </div>
 
               <h1 className="ff-display text-[clamp(3rem,7.5vw,6.25rem)] leading-[0.9] tracking-[-0.025em] text-[#f4f2ea]">
@@ -87,10 +120,14 @@ const LandingPage = () => {
                 Start <em className="italic text-[var(--lime)]">hooking</em>.
               </h1>
 
-              <p className="mt-8 max-w-md ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-                Install one script and Jellyhook turns every visit to your site into a full session replay: pages seen,
-                time spent, how far they scrolled. It also links every form submission straight back to that history.
-              </p>
+              <ul className="mt-8 grid max-w-md grid-cols-1 gap-y-3 sm:grid-cols-2 sm:gap-x-6">
+                {HERO_PROMISES.map((promise) => (
+                  <li key={promise} className="flex items-center gap-2 ff-display text-[17px] leading-tight text-[#f4f2ea]">
+                    <ArrowRight className="h-4 w-4 shrink-0 text-[var(--lime)]" />
+                    {promise}
+                  </li>
+                ))}
+              </ul>
 
               <div className="mt-10 flex flex-col gap-3 sm:flex-row">
                 <Show when="signed-out">
@@ -146,8 +183,8 @@ const LandingPage = () => {
                 ))}
 
                 <div className="flex items-center justify-between px-4 py-4">
-                  <span className="ff-mono text-[10px] uppercase tracking-[0.26em] text-[#77756d]">Page health</span>
-                  <span className="ff-display text-2xl leading-none text-[var(--lime)]">scored per page</span>
+                  <span className="ff-mono text-[10px] uppercase tracking-[0.26em] text-[#77756d]">Conversion path</span>
+                  <span className="ff-display text-2xl leading-none text-[var(--lime)]">mapped end-to-end</span>
                 </div>
               </div>
             </div>
@@ -195,26 +232,28 @@ const LandingPage = () => {
                 Built for conversion tracking &amp; <em className="italic text-[var(--lime)]">intent discovery</em>.
               </h2>
               <p className="mt-5 max-w-lg ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-                Not a generic analytics widget: behavior tracking built specifically to answer &ldquo;which pages and forms actually turn visitors into leads.&rdquo;
+                Install one script and Jellyhook turns every visit into a full session replay — pages seen, time
+                spent, how far they scrolled — then links every form submission straight back to that history.
+                Here&apos;s what that means for the people who actually use it.
               </p>
             </div>
           </div>
 
           <div className="border-t border-[#1b1b18]">
-            {FEATURES.map((feature, i) => {
-              const Icon = feature.icon;
+            {AUDIENCES.map((audience, i) => {
+              const Icon = audience.icon;
               return (
                 <div
-                  key={feature.title}
+                  key={audience.title}
                   className="group grid grid-cols-1 items-center gap-4 border-b border-[#1b1b18] px-2 py-7 transition-colors duration-300 hover:bg-[var(--lime)] md:grid-cols-12 md:gap-6 md:px-5 md:py-9"
                 >
                   <span className="ff-mono text-[11px] tracking-[0.2em] text-[#77756d] transition-colors group-hover:text-black/60 md:col-span-1">0{i + 1}</span>
 
                   <h3 className="ff-display text-3xl leading-none tracking-[-0.01em] text-[#f4f2ea] transition-colors group-hover:text-black md:col-span-4 md:text-4xl">
-                    {feature.title}
+                    {audience.title}
                   </h3>
 
-                  <p className="ff-body text-[14px] leading-relaxed text-[#8b8980] transition-colors group-hover:text-black/70 md:col-span-5">{feature.desc}</p>
+                  <p className="ff-body text-[14px] leading-relaxed text-[#8b8980] transition-colors group-hover:text-black/70 md:col-span-5">{audience.desc}</p>
 
                   <div className="flex items-center justify-start gap-3 md:col-span-2 md:justify-end">
                     <Icon className="h-5 w-5 text-[#4a4a43] transition-colors group-hover:text-black" strokeWidth={1.5} />
@@ -226,6 +265,44 @@ const LandingPage = () => {
                 </div>
               );
             })}
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 ff-mono text-[10px] uppercase tracking-[0.22em]">
+            <span className="text-[#5f5d57]">Works with</span>
+            <span className="text-[#f4f2ea]">plain HTML forms</span>
+            <span className="text-[#5f5d57]">·</span>
+            <span className="text-[#f4f2ea]">HubSpot embeds</span>
+            <span className="text-[#5f5d57]">·</span>
+            <span className="text-[#f4f2ea]">most other form builders</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= WHY IT MATTERS ================= */}
+      <section className="border-b border-[#1b1b18]">
+        <div className="mx-auto max-w-[1400px] px-5 py-20 lg:px-10 lg:py-32">
+          <div className="mb-16 grid grid-cols-1 gap-8 lg:grid-cols-12">
+            <div className="lg:col-span-4">
+              <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">03 / Why it matters</span>
+            </div>
+            <div className="lg:col-span-8">
+              <h2 className="ff-display text-[clamp(2rem,4.2vw,3.5rem)] leading-[1.02] tracking-[-0.02em] text-[#f4f2ea]">
+                Every lost lead had a reason. <em className="italic text-[var(--lime)]">You just never saw it.</em>
+              </h2>
+              <p className="mt-5 max-w-lg ff-body text-[15px] leading-[1.75] text-[#8b8980]">
+                A bounce rate tells you someone left. It never tells you why. Jellyhook is built to close that
+                gap — so the four things above aren&apos;t just promises, they&apos;re what you actually get.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-px bg-[#1b1b18] sm:grid-cols-2">
+            {PROMISE_DETAILS.map((item) => (
+              <div key={item.title} className="bg-[#0a0a09] p-7 lg:p-9">
+                <h3 className="ff-display text-xl text-[#f4f2ea]">{item.title}</h3>
+                <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">{item.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>

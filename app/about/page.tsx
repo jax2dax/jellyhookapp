@@ -9,12 +9,12 @@ import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Jellyhook is a website analytics and conversion intelligence platform. Install a tracker script, watch how visitors move through your site, and see which pages and forms actually turn traffic into leads.",
+    "Jellyhook is a lead intelligence and conversion insight platform. Install a tracker script, watch how visitors move through your site, and see which pages and forms actually turn traffic into leads.",
   alternates: { canonical: "/about" },
   openGraph: {
     title: "About Jellyhook",
     description:
-      "Jellyhook is a website analytics and conversion intelligence platform. Install a tracker script, watch how visitors move through your site, and see which pages and forms actually turn traffic into leads.",
+      "Jellyhook is a lead intelligence and conversion insight platform. Install a tracker script, watch how visitors move through your site, and see which pages and forms actually turn traffic into leads.",
     url: "/about",
   },
 };
@@ -59,7 +59,7 @@ export default function AboutPage() {
             Most analytics tools tell you a page got hit. <em className="italic text-[var(--lime)]">Jellyhook tells you what happened on it.</em>
           </h1>
           <p className="mt-6 max-w-2xl ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-            Jellyhook is a website analytics and conversion-intelligence platform. You install a tracker script, it
+            Jellyhook is a lead intelligence and conversion-insight platform. You install a tracker script, it
             watches how people actually move through your site: the pages they land on, how long they stay, how far
             they scroll, whether they come back to something they&apos;d already seen. It also links every one of your form
             submissions back to that full visit history. The goal is one specific question: which pages and which
