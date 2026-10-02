@@ -2,8 +2,17 @@
 // All times are epoch milliseconds. See main-chart/overview.md for what the
 // x and y values mean.
 
-/** One session as the chart sees it: [start, end). end null = still open. */
-export interface SessionSpan {
+/**
+ * One continuous stretch of a visitor being actively online: [start, end).
+ * end null = still open. This is PAGE-VIEW-based, not session-based — a
+ * visitor counts as online only while a page_view is actually open, never
+ * for the whole time their session happens to stay open. One session with
+ * two page visits separated by a real gap (they left the site, came back
+ * later) produces TWO separate spans, not one: the chart bumps down the
+ * moment they leave and bumps back up if they return — see overview.md,
+ * "Online means a page is actually open."
+ */
+export interface OnlineSpan {
   start: number;
   end: number | null;
 }
@@ -32,8 +41,8 @@ export interface ViewWindow {
 
 /**
  * Sorted +1/-1 timeline built from every loaded span. cum[i] is the number
- * of sessions open right after event i (and every event sharing its time)
- * has been applied.
+ * of spans (visitors actively online) open right after event i (and every
+ * event sharing its time) has been applied.
  */
 export interface EventTimeline {
   times: Float64Array;

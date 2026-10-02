@@ -1,8 +1,10 @@
 // main-chart/hooks/useSessionsOnlineNow.ts
 //
 // For anywhere OUTSIDE the chart itself that wants the exact same "how many
-// sessions are open right now" number — e.g. a dashboard stat tile — without
-// duplicating the chart's live-polling logic or drifting out of sync with it.
+// visitors are actively online right now" number — e.g. a dashboard stat
+// tile — without duplicating the chart's live-polling logic or drifting
+// out of sync with it. "Online" here means a page is actually open (see
+// OnlineSpan), not merely that a session hasn't formally ended.
 //
 // Reads from the SAME per-site store MainChart uses (storeFor is a module-
 // level singleton keyed by siteId), so if MainChart is also mounted on the
@@ -32,6 +34,6 @@ export function useSessionsOnlineNow(siteId: string): number | null {
     return () => window.clearInterval(id);
   }, [store]);
 
-  if (store.firstSessionAt === undefined) return null; // still loading
+  if (store.firstActivityAt === undefined) return null; // still loading
   return valueAt(store.timeline(), store.now());
 }

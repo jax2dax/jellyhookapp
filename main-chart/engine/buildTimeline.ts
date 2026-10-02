@@ -1,22 +1,22 @@
 // main-chart/engine/buildTimeline.ts
 // Spans -> one sorted +1/-1 event list. Rebuilt only when the loaded data
 // changes (a poll or a history load), never per frame.
-import type { EventTimeline, SessionSpan } from "../types";
+import type { EventTimeline, OnlineSpan } from "../types";
 
-export function buildTimeline(spans: Iterable<SessionSpan>): EventTimeline {
+export function buildTimeline(spans: Iterable<OnlineSpan>): EventTimeline {
   const raw: number[] = [];
   for (const s of spans) {
-    // A session always counts for at least 1ms, so a visit can never be
-    // invisible just because its recorded end equals (or precedes) its start.
+    // A span always counts for at least 1ms, so it can never be invisible
+    // just because its recorded end equals (or precedes) its start.
     raw.push(s.start, 1);
     if (s.end !== null) raw.push(Math.max(s.end, s.start + 1), -1);
-    // Open sessions get no end event: they stay counted through "now".
+    // A still-open span gets no end event: it stays counted through "now".
   }
 
   const n = raw.length / 2;
   const order = new Uint32Array(n);
   for (let i = 0; i < n; i++) order[i] = i;
-  // Ends before starts at the same instant: [start, end) means a session
+  // Ends before starts at the same instant: [start, end) means a span
   // ending at t is no longer online at t.
   order.sort((a, b) => raw[a * 2] - raw[b * 2] || raw[a * 2 + 1] - raw[b * 2 + 1]);
 

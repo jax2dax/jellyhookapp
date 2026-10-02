@@ -1,8 +1,8 @@
 // main-chart/engine/markers.ts
 //
 // Where marker-layer events land on the chart. Pure: takes the series
-// already computed for the session line and never changes it, so a marker
-// layer can't affect the line it sits on.
+// already computed for the main chart's own line and never changes it, so
+// a marker layer can't affect the line it sits on.
 //
 // Point markers (conversions) snap FORWARD to the next point: a form
 // submitted at 10:43 on the 5s chart is marked on the 10:45 point; one at

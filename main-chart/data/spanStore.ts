@@ -1,18 +1,19 @@
 // main-chart/data/spanStore.ts
 //
-// Everything the browser has loaded for one site's main chart: session
-// spans and marker-layer events, each keyed by id so overlapping loads and
-// live refreshes just overwrite each other. Lives at module level, one store
+// Everything the browser has loaded for one site's main chart: online
+// spans (see OnlineSpan — page-view-based, not session-based) and
+// marker-layer events, each keyed by id so overlapping loads and live
+// refreshes just overwrite each other. Lives at module level, one store
 // per site: switching dashboard pages and coming back reuses what's already
 // loaded instead of refetching it. See main-chart/docs/data-flow.md for the
 // full fetch lifecycle.
-import { getLiveSpanUpdates, getMarkerEvents, getSessionBounds, getSessionSpans, type SpanResponse } from "@/lib/actions/mainChart.action";
+import { getActivityBounds, getLiveSpanUpdates, getMarkerEvents, getOnlineSpans, type SpanResponse } from "@/lib/actions/mainChart.action";
 import { buildTimeline } from "../engine/buildTimeline";
-import type { EventTimeline, MarkerEvent, MarkerLayer, MarkerPayload, SessionSpan, SpanPayload } from "../types";
+import type { EventTimeline, MarkerEvent, MarkerLayer, MarkerPayload, OnlineSpan, SpanPayload } from "../types";
 
 /** Overlap between consecutive live polls, so nothing touched near the boundary slips between them. */
 const POLL_OVERLAP_MS = 30_000;
-/** How far past "now" a live load asks for, so a session started a moment after the request still lands in it. */
+/** How far past "now" a live load asks for, so a page view started a moment after the request still lands in it. */
 const LIVE_FETCH_AHEAD_MS = 60 * 60 * 1000;
 
 type Range = [number, number];
@@ -49,17 +50,17 @@ function toEvents(payload: MarkerPayload): MarkerEvent[] {
 
 export class SpanStore {
   readonly siteId: string;
-  private spans = new Map<string, SessionSpan>();
-  /** started_at ranges fully loaded, sorted, non-overlapping. A range ending at Infinity is kept current by polling. */
+  private spans = new Map<string, OnlineSpan>();
+  /** entered_at ranges fully loaded, sorted, non-overlapping. A range ending at Infinity is kept current by polling. */
   private covered: Range[] = [];
   /**
    * Left edge of everything that exists. undefined = not asked yet. A site
-   * with no sessions at all gets "now", so live polling still starts and
+   * with no page views at all gets "now", so live polling still starts and
    * its first visitor shows up without a reload.
    */
-  firstSessionAt: number | undefined = undefined;
-  /** when the most recent session started (kept current by polls); undefined = not asked yet or no sessions */
-  lastSessionAt: number | undefined = undefined;
+  firstActivityAt: number | undefined = undefined;
+  /** when the most recent page view started (kept current by polls); undefined = not asked yet or no page views */
+  lastActivityAt: number | undefined = undefined;
   /** serverClock - browserClock, from the latest response */
   clockSkewMs = 0;
   /** server time the next live poll asks "touched since" (minus overlap) */
@@ -124,19 +125,19 @@ export class SpanStore {
    * itself isn't loaded yet.
    */
   dataFromFor(t: number): number | null {
-    // Before the first session nothing exists, so there's nothing left to load.
-    if (this.firstSessionAt !== undefined && t < this.firstSessionAt) return -Infinity;
+    // Before the first page view nothing exists, so there's nothing left to load.
+    if (this.firstActivityAt !== undefined && t < this.firstActivityAt) return -Infinity;
     for (const [a, b] of this.covered) {
-      // Nothing exists before the first session, so a stretch starting there is complete all the way left.
-      if (t >= a && t < b) return this.firstSessionAt !== undefined && a <= this.firstSessionAt ? -Infinity : a;
+      // Nothing exists before the first page view, so a stretch starting there is complete all the way left.
+      if (t >= a && t < b) return this.firstActivityAt !== undefined && a <= this.firstActivityAt ? -Infinity : a;
     }
     return null;
   }
 
-  /** True when [from, to) is fully loaded (clamped to the site's first session). */
+  /** True when [from, to) is fully loaded (clamped to the site's first page view). */
   isCovered(from: number, to: number): boolean {
-    if (this.firstSessionAt === undefined) return false;
-    return missingIn(this.covered, Math.max(from, this.firstSessionAt), to).length === 0;
+    if (this.firstActivityAt === undefined) return false;
+    return missingIn(this.covered, Math.max(from, this.firstActivityAt), to).length === 0;
   }
 
   get size(): number {
@@ -156,7 +157,7 @@ export class SpanStore {
   private merge(payload: SpanPayload) {
     let changed = false;
     for (let i = 0; i < payload.ids.length; i++) {
-      if (this.lastSessionAt === undefined || payload.starts[i] > this.lastSessionAt) this.lastSessionAt = payload.starts[i];
+      if (this.lastActivityAt === undefined || payload.starts[i] > this.lastActivityAt) this.lastActivityAt = payload.starts[i];
       const prev = this.spans.get(payload.ids[i]);
       if (prev && prev.start === payload.starts[i] && prev.end === payload.ends[i]) continue;
       this.spans.set(payload.ids[i], { start: payload.starts[i], end: payload.ends[i] });
@@ -191,20 +192,20 @@ export class SpanStore {
 
   private fail(err: unknown) {
     console.error(`[main-chart] load failed for site ${this.siteId}:`, err);
-    this.error = (err as Error)?.message || "Failed to load sessions";
+    this.error = (err as Error)?.message || "Failed to load page views";
   }
 
   private async loadBounds() {
-    if (this.firstSessionAt !== undefined) return;
-    const res = await getSessionBounds(this.siteId);
+    if (this.firstActivityAt !== undefined) return;
+    const res = await getActivityBounds(this.siteId);
     this.noteServerTime(res);
-    this.firstSessionAt = res.firstSessionAt ?? res.serverNow;
-    if (res.lastSessionAt !== null && (this.lastSessionAt === undefined || res.lastSessionAt > this.lastSessionAt)) this.lastSessionAt = res.lastSessionAt;
+    this.firstActivityAt = res.firstActivityAt ?? res.serverNow;
+    if (res.lastActivityAt !== null && (this.lastActivityAt === undefined || res.lastActivityAt > this.lastActivityAt)) this.lastActivityAt = res.lastActivityAt;
   }
 
-  /** First and latest session times, fetched once (the chart needs them to pick its opening view). */
+  /** First and latest page-view times, fetched once (the chart needs them to pick its opening view). */
   ensureBounds(): Promise<void> {
-    if (this.firstSessionAt !== undefined) return Promise.resolve();
+    if (this.firstActivityAt !== undefined) return Promise.resolve();
     return this.enqueue(async () => {
       try {
         await this.loadBounds();
@@ -215,18 +216,18 @@ export class SpanStore {
   }
 
   /**
-   * Make sure every session needed to draw [from, to) is loaded. A range
+   * Make sure every span needed to draw [from, to) is loaded. A range
    * reaching "now" (to = Infinity) also switches on live polling for it.
    */
   ensureRange(from: number, to: number): Promise<void> {
     return this.enqueue(async () => {
       try {
         await this.loadBounds();
-        const start = Math.max(from, this.firstSessionAt as number);
+        const start = Math.max(from, this.firstActivityAt as number);
         for (const [a, b] of missingIn(this.covered, start, to)) {
           const live = b === Infinity;
           const fetchTo = live ? this.now() + LIVE_FETCH_AHEAD_MS : b;
-          const res: SpanResponse = await getSessionSpans(this.siteId, a, fetchTo);
+          const res: SpanResponse = await getOnlineSpans(this.siteId, a, fetchTo);
           this.noteServerTime(res);
           this.merge(res.payload);
           this.covered = withRange(this.covered, [a, b]);
@@ -272,8 +273,8 @@ export class SpanStore {
   }
 
   /**
-   * One live refresh: new/closed/reopened sessions, every span still held as
-   * open, and any switched-on marker layer, all in ONE server call. Each
+   * One live refresh: new/closed/reopened page views, every span still held
+   * as open, and any switched-on marker layer, all in ONE server call. Each
    * layer catches up from its own cursor, so a layer that was switched off
    * for a while still gets everything it missed when it's switched back on.
    */

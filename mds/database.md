@@ -131,18 +131,17 @@ create table public.sessions (
   constraint sessions_session_id_key unique (session_id)
 );
 create index if not exists sessions_visitor_id_idx on public.sessions using btree (visitor_id);
--- Required by the main chart (main-chart/, 2026-10-01). Not applied yet
--- as of writing: run these once in the Supabase SQL editor.
+-- Required by getVisitsOverTime (lib/actions/visitsOverTime.action.ts).
+-- Not applied yet as of writing: run these once in the Supabase SQL editor.
 create index if not exists sessions_site_started_idx on public.sessions using btree (site_id, started_at);
 create index if not exists sessions_site_last_activity_idx on public.sessions using btree (site_id, last_activity_at);
 ```
 
-**Read by the main chart (2026-10-01).** `lib/actions/mainChart.action.ts`
-reads `id, started_at, ended_at` (filtering by `site_id` + `started_at`,
-and by `site_id` + `last_activity_at` for live polling). Every query pages
-1,000 rows at a time, since PostgREST silently caps responses at 1,000
-rows. Note that other actions such as `reachOverTime.action.ts` do NOT
-page and will silently truncate once a site passes 1,000 matching rows.
+**Away gaps.** A session stays open (`ended_at` null) across a visitor
+leaving the site entirely and coming back later, up to the idle timeout —
+see `lib/closeStaleSessions.js`. This makes `sessions` wrong as the source
+for "is anyone online right now": as of 2026-10-02 the main chart reads
+`page_views` instead for exactly this reason (see below).
 
 **UTM + referrer attribution.** `referrer` is raw `document.referrer` —
 only ever correct for a visitor who *clicked straight through* from a
@@ -186,7 +185,19 @@ create table public.page_views (
 );
 create index if not exists page_views_session_id_idx on public.page_views using btree (session_id);
 create index if not exists page_views_site_id_idx on public.page_views using btree (site_id);
+-- Required by the main chart (main-chart/, 2026-10-02). Not applied yet
+-- as of writing: run this once in the Supabase SQL editor.
+create index if not exists page_views_site_entered_idx on public.page_views using btree (site_id, entered_at);
 ```
+
+**Read by the main chart (2026-10-02).** `lib/actions/mainChart.action.ts`
+reads `id, entered_at, left_at` (filtering by `site_id` + `entered_at` for
+both the ranged load and live polling). The chart counts a visitor as
+online only while a `page_views` row is open, not merely while their
+`sessions` row is open — see the "Away gaps" note above. Every query pages
+1,000 rows at a time, since PostgREST silently caps responses at 1,000
+rows. Note that other actions such as `reachOverTime.action.ts` do NOT
+page and will silently truncate once a site passes 1,000 matching rows.
 
 Migration for `viewport_height` if it doesn't exist yet:
 ```sql

@@ -124,16 +124,20 @@ export default async function OverviewPage() {
           <CardTitle className="text-base">Pages</CardTitle>
           <CardDescription>How many people are looking at each page, all time.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           {pages.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">No page views recorded yet.</div>
           ) : (
-            <>
+            // Side by side on wide screens instead of stacked — the bar
+            // chart and the table show the same data two ways, so putting
+            // one above the other doubled the vertical space this card
+            // needed for no real benefit.
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <PageViewsBar data={pages.slice(0, 10)} />
               {/* Capped instead of growing with every page the site has —
                   scrolls internally past this height rather than pushing
                   everything below it down the page. */}
-              <div className="max-h-80 overflow-y-auto">
+              <div className="max-h-80 overflow-y-auto lg:max-h-[22rem]">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -157,7 +161,7 @@ export default async function OverviewPage() {
                   </TableBody>
                 </Table>
               </div>
-            </>
+            </div>
           )}
         </CardContent>
       </Card>

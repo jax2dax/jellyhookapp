@@ -72,6 +72,11 @@ export function NewReachChart({ siteId, mini = false, embedded = false }: { site
             <Users className="h-3.5 w-3.5 text-muted-foreground" /> New Reach
           </CardTitle>
           {!mini && <CardDescription className="mt-0.5">New unique visitors gained over time.</CardDescription>}
+          {/* Mini has no controls at all, so it says what window it's actually
+              showing instead of leaving that to be assumed — must match
+              miniRangeStart's own span below, these two are not derived from
+              one shared constant. */}
+          {mini && <CardDescription className="mt-0 text-[11px]">Last 3 days</CardDescription>}
         </div>
       </div>
       {!mini && (

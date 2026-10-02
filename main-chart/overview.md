@@ -2,8 +2,8 @@
 
 A TradingView-style chart on `/platform/dashboard` that answers one
 question: **how many people were on the site at the same time, and when?**
-It rises when a session starts and falls when a session closes, so a
-business sees its busiest moments the way a trader sees price.
+It rises when a visitor opens a page and falls the moment they leave it, so
+a business sees its busiest moments the way a trader sees price.
 
 Further reading:
 
@@ -27,13 +27,39 @@ The interval decides the shape of the line. The size of the window you're
 looking at never does. Picking 5s and looking at five months still means
 5s buckets, as you specified for variety 1.
 
-## The y axis: peak sessions online in that bucket
+## The y axis: peak visitors online in that bucket
 
-For each bucket, y is **the highest number of sessions that were open at
+For each bucket, y is **the highest number of visitors who were online at
 the same instant at any moment inside that bucket.**
 
-A session counts as open from its `started_at` up to its `ended_at`. An
-open session (`ended_at` still null) counts right up to "now".
+### Online means a page is actually open
+
+A visitor counts as online from the moment a page view opens
+(`page_views.entered_at`) to the moment it closes (`left_at`), not for
+however long their underlying `sessions` row happens to stay open.
+
+The distinction matters because the two can disagree for a long time: a
+session stays open across a visitor leaving the site entirely and coming
+back later, right up to the idle timeout (see `mds/database.md`'s
+`sessions` "away gaps" note and `lib/closeStaleSessions.js`). If the chart
+counted sessions instead, someone who left the tab open in the background
+for twenty minutes would still read as "online" the whole time, even
+though they were genuinely gone.
+
+So the chart is pessimistic: the instant a page view closes, that visitor
+drops off the line, because there's no way to know yet whether they'll be
+back. If they do come back, a new page view opens and the line rises
+again. One session with two page visits separated by a real gap produces
+a visible dip and recovery, not one unbroken stretch at the top — this is
+intentional, not a bug. A still-open page view counts right up to "now",
+same as a still-open session always did.
+
+The one caveat: the most recent ~30 minutes draws provisionally, because
+a crashed tab's page view can still look open for a little while before
+the stale-session sweep closes it (see docs/data-flow.md). That sweep
+closes any still-open page views for a session at the same time it closes
+the session itself, so this window never diverges from what sessions
+already did.
 
 Your own examples, run against the real code (both pass):
 
@@ -59,7 +85,7 @@ Nothing is ever averaged.
 
 **Live (variety 2).** The right edge is pinned to now and moves every
 second. Drag left to travel back through history (loaded on demand). The
-left edge stops at the site's first-ever session. Zoom with a trackpad
+left edge stops at the site's first-ever page view. Zoom with a trackpad
 pinch or the +/- buttons; a normal scroll still scrolls the page. Panning
 away from now un-pins it, and a "Now" button jumps back.
 
@@ -69,10 +95,10 @@ away from now un-pins it, and a "Now" button jumps back.
 |---|---|---|---|
 | **Smooth** (default) | one per bucket, value = peak | a curve | exactly how busy each moment was, softly drawn |
 | **Steps** | one per bucket, value = peak | held flat until the next bucket | exact values, nothing interpolated |
-| **Trend** | only where the count **changed**, value = that bucket's average | a curve running from one change straight to the next | the overall movement; bumps only where many sessions arrive close together |
+| **Trend** | only where the count **changed**, value = that bucket's average | a curve running from one change straight to the next | the overall movement; bumps only where many visitors arrive close together |
 
-Trend is the one for your 2:30 am example. A session starts at 2:30 am,
-and the next change (anyone arriving or leaving) is at 9:30 pm:
+Trend is the one for your 2:30 am example. A visitor's page view opens at
+2:30 am, and the next change (anyone arriving or leaving) is at 9:30 pm:
 
 - Smooth and Steps sit at **1**, flat, all day, because 1 person really
   was online the whole time.

@@ -1,9 +1,19 @@
 // lib/actions/mainChart.action.ts
-// Raw rows for the main chart (main-chart/): session spans (id, started_at,
-// ended_at) and marker-layer events (id, time, label). Every bucket, peak,
-// pixel column and marker position is computed in the browser, so
-// panning, zooming and switching intervals never cost a request. See
-// main-chart/docs/data-flow.md for which query runs when.
+// Raw rows for the main chart (main-chart/): online spans and marker-layer
+// events (id, time, label). Every bucket, peak, pixel column and marker
+// position is computed in the browser, so panning, zooming and switching
+// intervals never cost a request. See main-chart/docs/data-flow.md for
+// which query runs when.
+//
+// Spans come from `page_views` (entered_at/left_at), not `sessions`
+// (started_at/ended_at). A session can stay open across a visitor leaving
+// the site entirely and coming back later — see mds/database.md's
+// `sessions` note on "away" gaps — so sourcing from sessions would count
+// someone as online during time they were genuinely gone. A page_view is
+// open only while a page is actually on screen, which is exactly "online"
+// means here. See main-chart/overview.md, "Online means a page is
+// actually open," for the full reasoning and the one caveat (a crashed
+// tab can still read as open for a little while).
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
@@ -19,21 +29,23 @@ const supabaseAdmin = createClient(process.env.SUPABASE_URL!, process.env.SUPABA
 // Every range query here pages through until a short page comes back.
 const PAGE_SIZE = 1000;
 
-// A session still open at time X began at most this long before X. Bounds
-// the carry-in query to an index range instead of the site's whole
-// history. Sessions split after 30 idle minutes, so a real one never comes
-// close; raise this if that ever changes.
+// A page_view still open at time X began at most this long before X.
+// Bounds the carry-in query to an index range instead of the site's whole
+// history. A page_view this long-lived (someone just leaving one page open
+// and never navigating) is unusual but not impossible — unlike a session,
+// nothing automatically closes it just for being old on its own — so this
+// stays generous rather than tuned tight to a typical visit length.
 const CARRY_IN_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
 const ID_BATCH = 100; // keeps the `id=in.(...)` query string well under URL length limits
 
-type Row = { id: string; started_at: string | null; ended_at: string | null };
+type Row = { id: string; entered_at: string | null; left_at: string | null };
 
 /**
- * serverNow rides along with every response. The tracker stamps sessions
+ * serverNow rides along with every response. The tracker stamps page views
  * with the SERVER's clock, so the browser uses it to (a) know its own
  * clock's offset and draw "now" where the data actually is, and (b) ask
- * the next live poll for "touched since <server time>" instead of trusting
+ * the next live poll for "entered since <server time>" instead of trusting
  * a browser clock that might be minutes off.
  */
 export interface SpanResponse {
@@ -56,10 +68,10 @@ type RangeQuery<T> = { range(from: number, to: number): PromiseLike<{ data: T[] 
 function toPayload(rows: Row[]): SpanPayload {
   const payload: SpanPayload = { ids: [], starts: [], ends: [] };
   for (const r of rows) {
-    if (!r.started_at) continue;
+    if (!r.entered_at) continue;
     payload.ids.push(r.id);
-    payload.starts.push(Date.parse(r.started_at));
-    payload.ends.push(r.ended_at ? Date.parse(r.ended_at) : null);
+    payload.starts.push(Date.parse(r.entered_at));
+    payload.ends.push(r.left_at ? Date.parse(r.left_at) : null);
   }
   return payload;
 }
@@ -147,36 +159,36 @@ export async function getMarkerEvents(siteId: string, layer: MarkerLayer, fromMs
 }
 
 /**
- * When this site's first and most recent sessions started. The first is
+ * When this site's first and most recent page views started. The first is
  * live mode's left edge; the latest decides how far the chart zooms out
  * when it opens, so a quiet site doesn't open on an empty hour. Null when
- * there are no sessions at all.
+ * there has never been a single page view.
  */
-export async function getSessionBounds(siteId: string): Promise<{ firstSessionAt: number | null; lastSessionAt: number | null; serverNow: number }> {
+export async function getActivityBounds(siteId: string): Promise<{ firstActivityAt: number | null; lastActivityAt: number | null; serverNow: number }> {
   await requireSiteAccess(siteId);
   const serverNow = Date.now();
   const supabase = await createSupabaseClient();
   const edge = (ascending: boolean) =>
-    supabase.from("sessions").select("started_at").eq("site_id", siteId).not("started_at", "is", null).order("started_at", { ascending }).limit(1).maybeSingle();
+    supabase.from("page_views").select("entered_at").eq("site_id", siteId).not("entered_at", "is", null).order("entered_at", { ascending }).limit(1).maybeSingle();
   const [first, last] = await Promise.all([edge(true), edge(false)]);
   const error = first.error || last.error;
   if (error) {
-    console.error("[mainChart] getSessionBounds failed:", error.message);
-    throw new Error(`Failed to load sessions: ${error.message}`);
+    console.error("[mainChart] getActivityBounds failed:", error.message);
+    throw new Error(`Failed to load page views: ${error.message}`);
   }
   return {
-    firstSessionAt: first.data?.started_at ? Date.parse(first.data.started_at) : null,
-    lastSessionAt: last.data?.started_at ? Date.parse(last.data.started_at) : null,
+    firstActivityAt: first.data?.entered_at ? Date.parse(first.data.entered_at) : null,
+    lastActivityAt: last.data?.entered_at ? Date.parse(last.data.entered_at) : null,
     serverNow,
   };
 }
 
 /**
- * Every session that STARTED in [fromMs, toMs), plus every session that
+ * Every page view that STARTED in [fromMs, toMs), plus every page view that
  * started up to CARRY_IN_LOOKBACK_MS before fromMs and was still open at
  * fromMs. Together: everything needed to draw [fromMs, toMs) correctly.
  */
-export async function getSessionSpans(siteId: string, fromMs: number, toMs: number): Promise<SpanResponse> {
+export async function getOnlineSpans(siteId: string, fromMs: number, toMs: number): Promise<SpanResponse> {
   await requireSiteAccess(siteId);
   // Taken BEFORE querying: anything touched after this moment is
   // guaranteed to be picked up by the next live poll.
@@ -187,17 +199,17 @@ export async function getSessionSpans(siteId: string, fromMs: number, toMs: numb
 
   const [inRange, carryIn] = await Promise.all([
     fetchAllPages("spans", (s) =>
-      s.from("sessions").select("id, started_at, ended_at").eq("site_id", siteId).gte("started_at", from).lt("started_at", to).order("started_at").order("id")
+      s.from("page_views").select("id, entered_at, left_at").eq("site_id", siteId).gte("entered_at", from).lt("entered_at", to).order("entered_at").order("id")
     ),
     fetchAllPages("carry-in", (s) =>
       s
-        .from("sessions")
-        .select("id, started_at, ended_at")
+        .from("page_views")
+        .select("id, entered_at, left_at")
         .eq("site_id", siteId)
-        .gte("started_at", lookback)
-        .lt("started_at", from)
-        .or(`ended_at.gte."${from}",ended_at.is.null`)
-        .order("started_at")
+        .gte("entered_at", lookback)
+        .lt("entered_at", from)
+        .or(`left_at.gte."${from}",left_at.is.null`)
+        .order("entered_at")
         .order("id")
     ),
   ]);
@@ -206,11 +218,15 @@ export async function getSessionSpans(siteId: string, fromMs: number, toMs: numb
 
 /**
  * Live refresh. Two things can change after a span was loaded:
- *   - any session touched since `touchedSinceMs` (new, closed normally, or
- *     reopened by a reload) — found via last_activity_at;
- *   - a session we hold as open that the stale-session sweep closed. The
- *     sweep backdates last_activity_at, so the first query can't see it;
- *     these are re-read by id instead.
+ *   - any page view that started since `touchedSinceMs` — a new visitor,
+ *     or an existing one navigating to another page;
+ *   - a page view we hold as open (no left_at yet) that has since closed,
+ *     either because the visitor actually left that page (a real close
+ *     event arrives, usually within seconds) or because the stale-session
+ *     sweep backdated left_at for a crashed tab. Either way, the only way
+ *     to find out is to re-read it, so every open id is re-read on every
+ *     poll — there's no "touched at" column on page_views to filter by,
+ *     the way sessions has last_activity_at.
  * Marker layers that are switched on ride along in this SAME call, so
  * turning markers on never adds a server call per poll. Each layer passes
  * its own "since" (new conversions submitted since then); the team list is
@@ -227,13 +243,13 @@ export async function getLiveSpanUpdates(
   const since = new Date(touchedSinceMs).toISOString();
 
   const touched = fetchAllPages("touched", (s) =>
-    s.from("sessions").select("id, started_at, ended_at").eq("site_id", siteId).gte("last_activity_at", since).order("last_activity_at").order("id")
+    s.from("page_views").select("id, entered_at, left_at").eq("site_id", siteId).gte("entered_at", since).order("entered_at").order("id")
   );
 
   const batches: Promise<Row[]>[] = [];
   for (let i = 0; i < openIds.length; i += ID_BATCH) {
     const ids = openIds.slice(i, i + ID_BATCH);
-    batches.push(fetchAllPages("open-ids", (s) => s.from("sessions").select("id, started_at, ended_at").eq("site_id", siteId).in("id", ids).order("id")));
+    batches.push(fetchAllPages("open-ids", (s) => s.from("page_views").select("id, entered_at, left_at").eq("site_id", siteId).in("id", ids).order("id")));
   }
 
   const markerJobs = (Object.entries(markerSince) as [MarkerLayer, number][]).map(async ([layer, sinceMs]): Promise<[MarkerLayer, MarkerPayload]> => {

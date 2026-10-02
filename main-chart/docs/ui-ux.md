@@ -34,7 +34,8 @@ individually before the chart has to switch to per-column ranges.
 - **Readout line:** its own line under the title, fixed to one line of
   height. Its text changes on every hover and every second, so it must
   never push the controls or the chart around. Idle, it shows how many
-  sessions are open right now. On hover, it shows the bucket (or range of
+  visitors have a page open right now (see overview.md, "Online means a
+  page is actually open"). On hover, it shows the bucket (or range of
   buckets) under the cursor and its value: "peak 3", or "between 1 and 5
   across 1,700 5s buckets" in envelope mode. Long text is cut with "...".
 - **Zoom buttons:** top right of the plot, live mode only, with "Now"
@@ -78,7 +79,7 @@ look smaller than in the other two styles.
 
 A row under the readout line: **Markers  [ ] Conversions  [ ] Team
 joined**, each with a small swatch of how it looks. Both start unticked:
-the chart shows sessions only until you ask for more.
+the chart shows the online line only until you ask for more.
 
 | | Conversions | Team joined |
 |---|---|---|
@@ -141,7 +142,7 @@ so the page keeps scrolling while the cursor is over the chart.
 
 Zoom limits: at least 12 buckets across (no zooming into a single bucket);
 at most the site's whole history plus 5%. You can't pan past now or before
-the first session.
+the first page view.
 
 Changing the interval keeps your current view. Only the minimum zoom is
 re-applied.
@@ -155,20 +156,20 @@ enough back to include the most recent visit, plus 15% room
 
 Why: on a quiet site, the last hour is often empty, and an empty, flat
 line at 0 looks exactly like "nothing loaded". That's what happened on
-the first real test: 58 sessions in the site's history, the latest 6.4
+the first real test: 58 page views in the site's history, the latest 6.4
 hours old, and the chart opened on an empty hour.
 
 ## States
 
-- **Loading:** "Loading sessions..." top-left. Unloaded areas are shaded.
+- **Loading:** "Loading page views..." top-left. Unloaded areas are shaded.
 - **Error:** the message in red in the same spot. The chart keeps whatever
   it already has.
 - **Nobody online in this stretch:** a centered "Nobody was online in this
   stretch · last visit 6h ago", plus a **Show the last visit** button in
   live mode, which zooms out to include it. Appears whenever the visible,
   loaded stretch holds no one at all, e.g. after zooming into a quiet hour.
-- **No sessions yet:** only when the site has never had a single session
-  (decided from the site's latest session time, NOT from what happens to
+- **No visitors yet:** only when the site has never had a single page view
+  (decided from the site's latest activity time, NOT from what happens to
   be loaded). Live polling still runs, so the first visitor appears
   without a reload.
 
@@ -183,7 +184,7 @@ hours old, and the chart opened on an empty hour.
 | 300px height | room for the shape without pushing the dashboard down | `theme.heightPx` |
 | 30-minute provisional zone | equals the sweep's idle threshold | `theme.provisionalWindowMs` (keep in sync with `lib/closeStaleSessions.js`) |
 | Custom range has no pan/zoom | it shows exactly the window you typed | add the same handlers if wanted |
-| Markers start unticked | the session line is the main story; markers are something you ask for | `useState` for `markersOn` in `MainChart.tsx` |
+| Markers start unticked | the online line is the main story; markers are something you ask for | `useState` for `markersOn` in `MainChart.tsx` |
 | Dot size 4.5px, ring 1.5px, hover radius 8px | readable without hiding the line | `theme.marker` |
 
 Not built yet: pinch-zoom on touch screens and keyboard navigation.

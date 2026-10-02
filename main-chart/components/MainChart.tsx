@@ -153,11 +153,11 @@ export function MainChart({ siteId }: { siteId: string }) {
 
   React.useEffect(() => store.subscribe(() => setStoreVersion(store.version)), [store]);
 
-  /** Keep live views inside [first session, now] and between the min/max zoom. */
+  /** Keep live views inside [first activity, now] and between the min/max zoom. */
   const clampLive = React.useCallback(
     (v: ViewWindow, now: number): ViewWindow => {
       const minSpan = intervalRef.current * theme.minBucketsInView;
-      const first = store.firstSessionAt;
+      const first = store.firstActivityAt;
       const maxSpan = first === undefined ? Infinity : Math.max(minSpan, (now - first) * 1.05);
       const span = Math.min(maxSpan, Math.max(minSpan, v.to - v.from));
       let from = Math.max(v.from, now - maxSpan);
@@ -580,8 +580,8 @@ export function MainChart({ siteId }: { siteId: string }) {
       loadLeftIfNeeded();
       redraw();
     };
-    // The opening view depends on when the latest visit was, so wait for that first.
-    if (store.firstSessionAt !== undefined) open();
+    // The opening view depends on when the latest activity was, so wait for that first.
+    if (store.firstActivityAt !== undefined) open();
     else store.ensureBounds().then(open);
     return () => {
       cancelled = true;
@@ -590,7 +590,7 @@ export function MainChart({ siteId }: { siteId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, store, setFollow, loadLeftIfNeeded, redraw]);
 
-  // ── New data arrived: once the first-session time is known, re-clamp ────
+  // ── New data arrived: once the first-activity time is known, re-clamp ────
   React.useEffect(() => {
     return store.subscribe(() => {
       const v = viewRef.current;
@@ -679,7 +679,7 @@ export function MainChart({ siteId }: { siteId: string }) {
   function openingLiveView(): ViewWindow {
     const now = store.now();
     let span = intervalRef.current * DEFAULT_BUCKETS_IN_VIEW;
-    const last = store.lastSessionAt;
+    const last = store.lastActivityAt;
     if (last !== undefined && last < now - span) span = (now - last) * theme.lastVisitPadding;
     return clampLive({ from: now - span, to: now }, now);
   }
@@ -703,8 +703,8 @@ export function MainChart({ siteId }: { siteId: string }) {
   const loading = store.pending > 0;
   // "Never had a visitor" is about the SITE, not about what's loaded: a busy
   // site can have nothing in the stretch currently loaded.
-  const neverVisited = !loading && store.firstSessionAt !== undefined && store.lastSessionAt === undefined;
-  const lastVisitAgo = store.lastSessionAt !== undefined ? formatAgo(store.now() - store.lastSessionAt) : null;
+  const neverVisited = !loading && store.firstActivityAt !== undefined && store.lastActivityAt === undefined;
+  const lastVisitAgo = store.lastActivityAt !== undefined ? formatAgo(store.now() - store.lastActivityAt) : null;
 
   return (
     <Card>

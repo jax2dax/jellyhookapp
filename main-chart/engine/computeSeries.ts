@@ -1,8 +1,9 @@
 // main-chart/engine/computeSeries.ts
 //
 // The core rule (see main-chart/overview.md): a bucket's value is the PEAK
-// number of sessions open at any instant inside that bucket. Nothing is
-// averaged, and a visit shorter than the interval still shows up.
+// number of visitors actively online (a page view open, see OnlineSpan) at
+// any instant inside that bucket. Nothing is averaged, and a visit shorter
+// than the interval still shows up.
 //
 // When there are more buckets than pixel columns (e.g. 5s buckets across
 // five months), each point becomes one pixel column and carries the
@@ -36,7 +37,7 @@ export function computeSeries(tl: EventTimeline, opts: ComputeOptions): Computed
 
   let B0 = alignDown(from, I, offset);
   // A bucket that starts before the loaded data would be missing every
-  // session that began in its unloaded part, and read too low.
+  // span that began in its unloaded part, and read too low.
   if (B0 < dataFrom) B0 = alignUp(dataFrom, I, offset);
   if (!(B0 < drawTo)) return empty;
 
@@ -106,7 +107,7 @@ export function computeSeries(tl: EventTimeline, opts: ComputeOptions): Computed
   return { mode: N > C ? "envelope" : "bucket", xs, peak, low, bucketsPerPoint: N / C, intervalMs: I, offsetMs: offset };
 }
 
-/** Sessions open at the exact instant t (every event at or before t applied). */
+/** Visitors actively online at the exact instant t (every event at or before t applied). */
 export function valueAt(tl: EventTimeline, t: number): number {
   const { times, cum } = tl;
   let lo = 0;

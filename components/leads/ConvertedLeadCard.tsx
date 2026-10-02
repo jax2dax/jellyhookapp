@@ -56,10 +56,10 @@ export function ConvertedLeadCard({
   const [selectedFrame, setSelectedFrame] = React.useState<{ item: TimelineItem; isLastVisit: boolean } | null>(null);
 
   return (
-    <Card>
-      <CardContent className="p-4">
+    <Card className="gap-0 py-0">
+      <CardContent className={expanded ? "px-4 py-2 pb-3" : "px-4 py-1.5"}>
         <div
-          className="flex flex-wrap items-center justify-between gap-3 cursor-pointer"
+          className="flex flex-nowrap items-center justify-between gap-3 cursor-pointer"
           onClick={() => setExpanded((e) => !e)}
           role="button"
           aria-expanded={expanded}
@@ -67,17 +67,17 @@ export function ConvertedLeadCard({
           <div className="flex min-w-0 items-center gap-2">
             {expanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
             <Sparkles className="h-3.5 w-3.5 shrink-0" style={{ color: CONVERTED_YELLOW }} />
-            <div className="min-w-0">
-              <span className="font-semibold" style={{ color: CONVERTED_YELLOW }}>
+            <div className="flex min-w-0 items-center gap-x-3 whitespace-nowrap">
+              <span className="shrink-0 font-semibold" style={{ color: CONVERTED_YELLOW }}>
                 {submission.name || submission.email || "Unknown"}
               </span>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-                {submission.name && submission.email && <span>{submission.email}</span>}
-                <span className="inline-flex items-center gap-1">
+              <div className="flex min-w-0 items-center gap-x-3 overflow-hidden text-xs text-muted-foreground">
+                {submission.name && submission.email && <span className="truncate">{submission.email}</span>}
+                <span className="inline-flex shrink-0 items-center gap-1">
                   <Globe className="h-3 w-3" />
                   {submission.page_path || "—"}
                 </span>
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex shrink-0 items-center gap-1">
                   <CalendarDays className="h-3 w-3" />
                   {formatDate(submission.submitted_at)}
                 </span>
@@ -85,7 +85,7 @@ export function ConvertedLeadCard({
             </div>
           </div>
           {/* stopPropagation — this link navigates, it must never also toggle the expand/collapse */}
-          <Button asChild variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
+          <Button asChild variant="outline" size="sm" className="shrink-0" onClick={(e) => e.stopPropagation()}>
             <Link href={`/platform/leads/${submission.id}`}>
               View full information
               <ArrowRight className="ml-1.5 h-3.5 w-3.5" />

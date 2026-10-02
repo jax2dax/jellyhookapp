@@ -36,9 +36,15 @@ export default function DashboardReferencePage() {
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Sessions online</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            A live chart of how many sessions were open at the same time, drawn over a chosen interval (from 5
-            seconds up to 1 day per point). It moves on its own while you watch it: the right edge is always now,
-            and it keeps counting forward every second.
+            A live chart of how many visitors were actively on a page at the same time, drawn over a chosen
+            interval (from 5 seconds up to 1 day per point). It moves on its own while you watch it: the right edge
+            is always now, and it keeps counting forward every second.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            &quot;Online&quot; means a page is actually open, not just that a visit hasn&apos;t formally ended. If
+            someone leaves the site, the chart bumps down right away rather than assuming they are still there; if
+            they come back, it bumps back up. A visitor who leaves for a few minutes and returns will show as a
+            dip and a recovery, not an unbroken stretch at the top.
           </p>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Three ways to draw the same data: Smooth (a curved line through each point, the default), Steps (the
@@ -60,8 +66,8 @@ export default function DashboardReferencePage() {
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             One honest limitation: the last 30 minutes are drawn in a different color because a visitor whose tab
             crashed, rather than closing normally, can still be counted online for up to that long before the
-            system notices and closes their session. It always corrects itself once that happens; the chart is
-            just telling you that specific stretch is not final yet.
+            system notices and marks them gone. It always corrects itself once that happens; the chart is just
+            telling you that specific stretch is not final yet.
           </p>
         </div>
 

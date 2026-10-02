@@ -1374,3 +1374,128 @@ root route (never linked, not a real screen), `/platform/intent/debug`.
 `docsNav.ts`, `doc_source_map.md`, and `roadmap.md` all updated to match.
 Verified with `npx tsc --noEmit -p .` and `npx next build`, both clean,
 after every batch of changes. Not verified in a real browser.
+
+## 2026-10-02 (later still) — Dashboard chart fixes: bucketing, labels, layout
+
+Four fixes to dashboard charts from direct user feedback.
+
+- **Visits Over Time was mislabeling and mis-bucketing its own data.**
+  `lib/actions/visitsOverTime.action.ts`'s "Last 7 Days" preset used a
+  1-day bucket size, but its label formatter branched on `bucketMs <= DAY`
+  for the "show date + time" case — since the bucket IS exactly one day,
+  that branch fired, producing "Sep 25 10:54" instead of "Sep 25" for
+  every tick. Separately, bucket START times were computed as
+  `now - N*day`, which carries whatever time-of-day "now" happens to be,
+  not aligned to a day boundary at all, so even a correctly-labeled day
+  bucket wouldn't have actually split the data into real calendar days.
+  "Last Month" used 4-day buckets (labeled as ranges like "16-20") instead
+  of daily ones. Fixed:
+  - "Last 3 Days" replaced with "Last 24 Hours" (24 hourly buckets,
+    rolling from now, not day-aligned, since an hour-of-day window has no
+    natural day boundary to align to).
+  - "Last 7 Days": 7 buckets, one real calendar day each.
+  - "Last Month": 30 buckets, one real calendar day each (was 7 buckets
+    of 4 days).
+  - "Last 3 Months": unchanged in size (13 weekly buckets, this one was
+    already correct), now aligned the same way as the others.
+  - Day/week bucket edges now align to the VIEWER's local midnight, not
+    the server's. Since this is a `'use server'` action, the server has
+    no idea what timezone the browser is in: the client now sends its own
+    `Date.prototype.getTimezoneOffset()` along with the request, and the
+    server uses it only to align bucket boundaries, never to format text.
+  - Label TEXT moved out of the server action entirely and into the
+    client component instead, formatted from each bucket's ISO boundary
+    with `toLocaleDateString`/`toLocaleTimeString` running in the actual
+    browser locale/timezone — the server previously built the label
+    string itself, which would have been silently wrong in whatever
+    timezone the server happens to run in (typically UTC on Vercel),
+    regardless of the alignment fix above. The server now returns a
+    single `granularity` ("hour"/"day"/"week"/"month") per result instead
+    of a per-bucket label, removing the ambiguous `bucketMs` threshold
+    check that caused the original bug.
+  - Verified the alignment math directly (not just via the UI, which
+    can't be checked here): 13 cases including a cross-timezone check
+    that the same instant produces different, correctly-aligned local
+    midnights for US Eastern vs. Tokyo. All pass.
+- **`DateRangePicker.tsx`** (shared by the full New Reach / Conversions
+  charts on `/platform/conversions`): added "Last 24 hours" / "Last 7
+  days" / "Last month" quick presets alongside the existing "All time"
+  and "Custom range". Which preset is selected is now tracked in its own
+  state, not derived from the resulting start/end values — deriving it
+  would have been ambiguous (a custom range that happens to span exactly
+  7 days is indistinguishable from the "Last 7 days" preset in start/end
+  terms alone).
+- **Mini New Reach / Conversions charts on the dashboard** (no controls
+  at all) now say "Last 3 days" under their title, matching the actual
+  window `miniRangeStart(3)` already uses, instead of leaving the window
+  unstated.
+- **"Pages" card on the dashboard**: the bar chart and the table used to
+  stack vertically, each full width, for what is the same data shown two
+  ways. Now side by side on wide screens (`grid lg:grid-cols-2`), stacked
+  only on narrow ones.
+
+Verified with `npx tsc --noEmit -p .`, `npx eslint`, and `npx next build`,
+all clean. Not verified in a real browser.
+
+## 2026-10-02 — Main chart: "online" now means a page view is open, not a session
+
+User request: when a visitor leaves the site (not necessarily closes a
+session), the chart should bump down immediately rather than counting
+them as online until the session formally closes, and bump back up if
+they return.
+
+- **Root cause of the old behavior.** A `sessions` row stays open across
+  a visitor leaving entirely and coming back, right up to the 30-minute
+  idle sweep (`lib/closeStaleSessions.js`) — see `mds/database.md`'s
+  "Away gaps" note. Sourcing the chart from `sessions` therefore counted
+  genuine away-time as online.
+- **Fix: source from `page_views` instead.** `main-chart/types.ts`'s
+  `SessionSpan` → `OnlineSpan`; every span is now one `page_views` row
+  (`entered_at`/`left_at`), not one `sessions` row. A session with two
+  page visits separated by a real gap now produces two separate spans —
+  a visible dip and recovery — instead of one unbroken stretch.
+  `lib/actions/mainChart.action.ts` rewritten: `getSessionBounds` →
+  `getActivityBounds`, `getSessionSpans` → `getOnlineSpans`, both now
+  querying `page_views`. `getLiveSpanUpdates`'s "touched since" filter
+  changed from `sessions.last_activity_at` to `page_views.entered_at`,
+  since `page_views` has no heartbeat column — closes (normal or
+  sweep-backdated) are still caught via the existing re-read-every-open-id
+  mechanism, so no schema change was needed for live polling.
+  `main-chart/data/spanStore.ts` renamed its bounds fields
+  (`firstSessionAt`/`lastSessionAt` → `firstActivityAt`/`lastActivityAt`)
+  to match. The engine files (`buildTimeline.ts`, `computeSeries.ts`,
+  `computeTrend.ts`, `markers.ts`) needed only renames/comment updates —
+  they were already generic over `{start, end}`.
+- **Judgment call: no grace period.** Same-site page navigation creates a
+  brief real gap between one page view's `left_at` and the next one's
+  `entered_at`, but it's sub-second in practice and is absorbed by the
+  chart's existing peak-based bucketing (finest granularity 5s) without a
+  visible flicker. Decided against introducing a `minGapMs`-style buffer
+  (unlike FramePlate's own `DEFAULT_MIN_GAP_MS` for its "away" frame
+  detection) since it wasn't needed and would add a tunable with no clear
+  correct value. Not explicitly confirmed with the user before
+  implementing — flagged in case a buffer turns out to be wanted later.
+- **Added `page_views_site_entered_idx` (site_id, entered_at)** to
+  `mds/database.md` as a hand-off migration (not yet run). Removed the
+  now-wrong "required by the main chart" note from the old
+  `sessions_site_started_idx`/`sessions_site_last_activity_idx` pair
+  (still required, just by `getVisitsOverTime` now, not the main chart).
+- **Docs updated:** `main-chart/overview.md` gained a new "Online means a
+  page is actually open" section (the promise `mainChart.action.ts`'s own
+  header comment now makes); `docs/architecture.md` and `docs/data-flow.md`
+  had every `sessions`-sourced claim corrected, including removing the
+  now-false "away time counts as online" line from `data-flow.md`;
+  `docs/ui-ux.md` had its factual (not just cosmetic) `sessions`
+  references updated. The public `/docs/reference/dashboard` page gained
+  a paragraph explaining the bump-down/bump-up behavior in plain terms.
+- **Tests.** Scratchpad mock DB and store test harness updated to the
+  `page_views` model; one old test case (a closed row "reopening," valid
+  for `sessions`' reload-triggered dedup logic) was removed rather than
+  fixed, since nothing in the real `page_views` lifecycle can reopen a
+  closed row — confirmed by reading `app/api/track/route.js`'s
+  `page_view_start`/`page_view_end` handling, which always mints a new row
+  rather than clearing an old `left_at`. Added a new test exercising the
+  actual requested behavior directly: online while on a page, bump down
+  the instant it closes, bump back up on the next page view. All pass.
+- Verified with `npx tsc --noEmit -p .`, `npx eslint`, and
+  `npx next build`, all clean. Not verified in a real browser.

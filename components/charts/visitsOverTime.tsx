@@ -2,21 +2,52 @@
 // "How many visits is this site getting" — sessions per interval. Same
 // window-preset UX and visual language as ConversionRateChart so the two
 // live comfortably on the same dashboard.
+//
+// Bucket labels are formatted HERE, in the browser, never on the server:
+// the server action only returns each bucket's boundary as an ISO instant
+// plus the window's granularity (hour/day/week/month) — see
+// lib/actions/visitsOverTime.action.ts's header comment for why. This is
+// also why the viewer's own `getTimezoneOffset()` is sent along with the
+// request: it is what lets day/week buckets align to the viewer's local
+// midnight rather than whatever timezone the server happens to run in.
 'use client';
 
 import * as React from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RefreshCw, Users } from 'lucide-react';
-import { getVisitsOverTime, VisitsOverTimeResult, VisitsWindowPreset } from '@/lib/actions/visitsOverTime.action';
+import { getVisitsOverTime, VisitsOverTimeResult, VisitsWindowPreset, VisitsBucketGranularity } from '@/lib/actions/visitsOverTime.action';
 
 const WINDOW_OPTIONS: { value: VisitsWindowPreset; label: string }[] = [
-  { value: '3d', label: 'Last 3 Days' },
+  { value: '24h', label: 'Last 24 Hours' },
   { value: '7d', label: 'Last 7 Days' },
   { value: '1m', label: 'Last Month' },
   { value: '3m', label: 'Last 3 Months' },
   { value: 'all', label: 'All Time' },
 ];
+
+/**
+ * One rule per granularity, decided once for the whole result, never
+ * re-derived per bucket from bucket size (that ambiguity, e.g. a day-long
+ * bucket landing in a "show the time too" branch, is exactly the bug that
+ * used to make the 7-day view show "Sep 25 10:54" instead of "Sep 25").
+ */
+function formatBucketLabel(startIso: string, endIso: string, granularity: VisitsBucketGranularity): string {
+  const start = new Date(startIso);
+  if (granularity === 'hour') {
+    return start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+  if (granularity === 'day') {
+    return start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  if (granularity === 'week') {
+    const end = new Date(new Date(endIso).getTime() - 1);
+    const s = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const e = end.toLocaleDateString('en-US', { day: 'numeric' });
+    return `${s}–${e}`;
+  }
+  return start.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+}
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) => {
   if (!active || !payload?.length) return null;
@@ -40,7 +71,12 @@ export function VisitsOverTimeChart({ siteId, defaultWindow = '7d' }: { siteId: 
   const fetchData = React.useCallback(async () => {
     try {
       setError(null);
-      const result = await getVisitsOverTime(siteId, selectedWindow);
+      // Read here, inside the effect/callback, never during render: the
+      // server-rendered pass has no browser timezone to read at all, and
+      // reading it synchronously at render time is exactly the kind of
+      // server/client divergence this app avoids everywhere else.
+      const tzOffsetMinutes = new Date().getTimezoneOffset();
+      const result = await getVisitsOverTime(siteId, selectedWindow, tzOffsetMinutes);
       setData(result);
     } catch (err) {
       console.error('[VisitsOverTimeChart] fetch error:', err);
@@ -57,7 +93,11 @@ export function VisitsOverTimeChart({ siteId, defaultWindow = '7d' }: { siteId: 
 
   const chartBuckets = React.useMemo(() => {
     if (!data) return [];
-    return data.buckets.map((b, idx) => ({ label: b.label, visits: b.visits, isLast: idx === data.buckets.length - 1 }));
+    return data.buckets.map((b, idx) => ({
+      label: formatBucketLabel(b.bucketStart, b.bucketEnd, data.granularity),
+      visits: b.visits,
+      isLast: idx === data.buckets.length - 1,
+    }));
   }, [data]);
 
   if (loading && !data) {

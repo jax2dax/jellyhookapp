@@ -3,10 +3,10 @@
 // The "Trend" variation. Instead of one point per bucket (which holds the
 // line flat for as long as nothing happens), there is one point per bucket
 // in which the count CHANGED, and the line runs from one change straight to
-// the next. A session that starts at 2:30 am with the next change at
+// the next. A visitor who arrives at 2:30 am with the next change at
 // 9:30 pm gives a line that slowly travels between those two moments,
 // instead of sitting flat at 1 all day. Steep climbs only appear where
-// many sessions start close together.
+// many visitors come online close together.
 //
 // Each point's value is the AVERAGE number online across its bucket
 // (time-weighted), so a visit that only covers half a 10s bucket counts as
