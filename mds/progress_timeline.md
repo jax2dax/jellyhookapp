@@ -1169,3 +1169,117 @@ no data. Diagnosed with read-only queries against the real database
   `acceptInvite` handles.
 - Store tests extended with the quiet-site case. All engine, trend, marker
   and store tests pass; tsc, eslint and `next build` clean.
+
+## 2026-10-02 — Dashboard/network/billing polish pass (7 separate fixes)
+
+A batch of smaller UX fixes across the dashboard, network, billing and
+live-ticker surfaces, from direct user feedback.
+
+- **FramePlatePreviewCard renamed "Lead footprints".** Each slot now labels
+  itself "{name}'s footprints" instead of a generic "Session Playback"
+  title. Which lead lands in each slot changed from `Math.random()` to
+  frequency-based: the lead with the most `form_submissions` rows (someone
+  who's shown up/converted repeatedly) gets slot A, the next-most-frequent
+  distinct lead gets slot B — see `rankByFrequency()`. The component now
+  takes the site's `leads` array directly (name/email included) instead of
+  a bare list of visitor ids, so it can compute this itself without an
+  extra query.
+- **"Active Now" tile now updates live, no reload.** It used to be a
+  one-shot `getActiveVisitors()` server query at page load — stale until a
+  full reload, while the main chart right below it kept counting live and
+  visibly disagreed with it. Replaced with `useSessionsOnlineNow(siteId)`
+  (new hook in `main-chart/hooks/`), which reads the EXACT SAME per-site
+  store the main chart uses (`storeFor`), so the two numbers aren't just
+  "close" — they're the literal same computation over the literal same
+  data. Self-loads a small window so it also works if the main chart isn't
+  mounted on a page. `getActiveVisitors` itself left in place (unused for
+  now) rather than deleted, in case something else still wants a 30s-window
+  definition of "active" later.
+- **New Reach / Conversions mini charts link to `/platform/conversions`.**
+  Only the `mini` (dashboard-preview) variant — the full chart doesn't
+  link to itself.
+- **User settings → Billing: "everything free" instead of a real plan
+  card.** Replaced the `{plan} plan` / `ACTIVE` badge display with a gift
+  ribbon ("Free for now") and a blurred, non-interactive ghost of what a
+  real plan card would show, matching the exact blur treatment
+  `/pricing`'s `PricingCards.tsx` already uses for locked-feature text.
+  The upgrade/manage-billing button is gone (nothing to manage); replaced
+  with a link to `/pricing` for what's coming later. Scoped to this one
+  card only — `/platform/billing`'s own full page (`BillingClient.tsx`) was
+  left untouched, since the request was specifically about the user
+  settings page.
+- **Network tab: sidebar instead of oversized cards.** The old layout
+  (two `StatTile`s — "Members"/"Declined" — plus a big owner "hero" card
+  and a grid of 260px-min member cards) spent most of its width on padding
+  around one line of text each. Replaced with a right sidebar
+  (`<aside>`, members for now per the user's framing — declined invites
+  get their own small section below it): each row is avatar on the left,
+  name (+ owner crown / "(you)") on the right, email/role underneath. The
+  invite form and pending-invites list stay in the main column, unchanged
+  functionally — only the display/layout of owner+members+declined
+  changed, `handleInvite`/`handleRemove`/state all untouched.
+- **Live Ticker: Realtime push, polling kept as backstop.** User's own
+  clarification: the actual complaint wasn't poll *speed*, it was that a
+  new visitor sometimes doesn't update the UI promptly even within the
+  existing polling window. True instant cross-browser delivery can't come
+  from polling at all (the ticker runs in the SITE OWNER's browser, a new
+  visitor's session starts in a completely different visitor's browser —
+  the owner's tab can only ever find out by asking the server). Added a
+  Supabase Realtime subscription (`postgres_changes` INSERT on
+  `page_views`, filtered to `site_id`) that pushes a new row over the
+  existing websocket the instant Postgres inserts it, merged into the same
+  `mergeIncoming()` the poll path already uses. New
+  `lib/supabase/browser.ts`: a browser-side Supabase client authenticated
+  via Clerk's client-side `getToken()` (the `useAuth()` hook), mirroring
+  `lib/supabase/server.ts`'s server-side `accessToken` pattern — this is
+  what makes Realtime respect the exact same site_members-scoped RLS
+  policy every other query already goes through, never a separate
+  all-or-nothing Realtime auth model. Polling is left running unchanged as
+  the fallback: requires `page_views` to be added to the
+  `supabase_realtime` publication (SQL in `mds/database.md`, not applied
+  yet as of writing) — until then, `.subscribe()` simply never calls back
+  and the ticker behaves exactly as it already did.
+
+Verified: `npx tsc --noEmit -p .`, `npx eslint` on every changed
+file/directory, and `npx next build`, all clean. Not verified in a real
+browser (every page here is behind Clerk sign-in) — in particular, the
+Realtime subscription's actual behavior once the publication SQL is run is
+unconfirmed; it's additive and safe either way, but worth a manual check
+once that SQL has been applied.
+
+## 2026-10-02 (later) — /pricing and /about: removed fabricated claims, de-featured About
+
+User called out that the Pro/Elite FAQ and the site-vs-personal-upgrade
+copy were asserting things nobody has actually decided yet.
+
+- **Removed the "What's the difference between Pro and Elite going to be?"
+  FAQ entirely** (`app/pricing/page.tsx`'s `FAQS`). It described specific
+  Pro/Elite feature splits that were never decided anywhere else in the
+  codebase, invented for this one answer.
+- **Stopped promising site-upgrade/personal-upgrade parity.** Both the
+  last remaining FAQ and the "Where pricing is headed" paragraph used to
+  say the two paths "cost the same and unlock the same features," and
+  `lib/pricing/tiers.ts`'s own code comment said personal upgrades get
+  "Same tier access as the site version." None of that is decided. All
+  three now say plainly that pricing/feature parity between the two isn't
+  finalized and shouldn't be assumed identical. Also removed one em dash
+  from the FAQ answer ("everyone on it — anyone you" → "everyone on it:
+  anyone you").
+- **About page: replaced the feature list with outcomes.** "One product,
+  five working parts" (Tracking & session replay / Lead intelligence /
+  Page health intent analysis / Team access / Billing, handled) read as a
+  spec sheet. Replaced with what it actually changes for the business —
+  lead footprints, conversion path tracking, form friction spotted,
+  marketing decisions you can check, spotting confusion before it costs
+  you — same persuasion-over-feature-list approach as the 2026-10-01
+  landing-page rewrite. Every claim still traces to a real shipped
+  capability; nothing invented. Dropped Team access/Billing from this
+  section entirely (administrative, not persuasive) rather than forcing a
+  fifth outcome to keep the old count.
+- Verified: `npx tsc --noEmit -p .`, `npx eslint`, `npx next build`, all
+  clean.
+- **Noticed, not touched (out of scope for this request):** `/pricing`'s
+  hero paragraph still says "page health scoring," the same
+  already-flagged, not-a-real-feature claim from the 2026-10-01 landing
+  page cleanup (see that entry). Left alone since this request didn't
+  mention it.

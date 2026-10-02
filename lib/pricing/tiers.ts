@@ -33,9 +33,10 @@ export interface PricingTier {
 //     to that site inherits the upgraded tier's access, and upgrading is
 //     what unlocks inviting team members at all (a Free-tier site can't
 //     invite anyone).
-//   - "personal": upgrades just the signed-in person, solo. Same tier
-//     access as the site version, but no team invites — this person alone
-//     gets it on the sites they belong to.
+//   - "personal": upgrades just the signed-in person, solo, with no team
+//     invites. NOT confirmed to unlock exactly the same features or cost
+//     the same as the site version — that split hasn't been decided yet,
+//     so don't assume parity between the two anywhere in copy or code.
 export const PRICING_TIERS: PricingTier[] = [
   {
     name: "Free",
@@ -48,7 +49,7 @@ export const PRICING_TIERS: PricingTier[] = [
     features: ["Everything in Free", "Lead intelligence (full visitor journey per lead)", "Conversion path analysis"],
     scopes: [
       { scope: "site", label: "Upgrade this site", note: "Everyone invited to this site gets Pro, and you can invite team members." },
-      { scope: "personal", label: "Upgrade just me", note: "Pro for you alone on this site. No team invites." },
+      { scope: "personal", label: "Upgrade just me", note: "Scoped to you alone on this site, no team invites. May not end up identical to the site upgrade." },
     ],
   },
   {
@@ -57,7 +58,7 @@ export const PRICING_TIERS: PricingTier[] = [
     features: ["Everything in Pro", "Intent / page-health signals"],
     scopes: [
       { scope: "site", label: "Upgrade this site", note: "Everyone invited to this site gets Elite, and you can invite team members." },
-      { scope: "personal", label: "Upgrade just me", note: "Elite for you alone on this site. No team invites." },
+      { scope: "personal", label: "Upgrade just me", note: "Scoped to you alone on this site, no team invites. May not end up identical to the site upgrade." },
     ],
   },
 ];

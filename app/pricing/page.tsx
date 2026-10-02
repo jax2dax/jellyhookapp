@@ -29,16 +29,12 @@ const FAQS = [
     a: "We'll give plenty of notice before anything changes, and none of your tracked data or history disappears. You'll get to choose a plan that fits; nothing switches to paid automatically.",
   },
   {
-    q: "What's the difference between Pro and Elite going to be?",
-    a: "Pro will add Lead Intelligence (every lead's full browsing history) and Conversion Path analysis (the sequence of pages that led to a conversion). Elite will add Intent Signals, a per-page score that flags pages losing visitor attention before it shows up as a drop in your conversion rate. All of it is free right now regardless of tier.",
-  },
-  {
     q: "Can I install it on more than one site?",
     a: "Each tracked site is its own workspace inside your account, with its own tracker script and dashboard.",
   },
   {
     q: "What's the difference between upgrading a site and upgrading just me?",
-    a: "Once paid plans launch, every paid tier will offer both. Upgrading a SITE upgrades it for everyone on it — anyone you invite as a team member inherits that tier's access, and upgrading is what unlocks inviting team members at all. Upgrading PERSONALLY gives just you that tier's access, solo, with no team invites. Both cost the same and unlock the same features; the only difference is who else benefits from it.",
+    a: "Once paid plans launch, every paid tier will offer both. Upgrading a SITE upgrades it for everyone on it: anyone you invite as a team member inherits that tier's access, and upgrading is what unlocks inviting team members at all. Upgrading PERSONALLY gives just you that tier's access, solo, with no team invites. We haven't finalized whether the two will be priced and featured identically, so don't assume a site upgrade and a personal upgrade will end up giving exactly the same power; expect at least some differences once this is actually built out.",
   },
 ];
 
@@ -76,13 +72,14 @@ export default function PricingPage() {
             account. There&apos;s no locked feature to unlock.
           </p>
           <p className="mb-8 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Once paid plans launch, each tier will be purchasable two ways — this is how pricing will be maintained
-            going forward, not a today-vs-tomorrow distinction. Upgrading a <strong className="text-[#e9e7e0]">site</strong>{" "}
-            upgrades it for everyone on it: anyone invited as a team member inherits that tier, and upgrading a site
-            is what unlocks inviting team members at all (a Free-tier site can&apos;t invite anyone). Upgrading{" "}
+            Once paid plans launch, each tier will be purchasable two ways, going forward, not a today-vs-tomorrow
+            distinction. Upgrading a <strong className="text-[#e9e7e0]">site</strong> upgrades it for everyone on it:
+            anyone invited as a team member inherits that tier, and upgrading a site is what unlocks inviting team
+            members at all (a Free-tier site can&apos;t invite anyone). Upgrading{" "}
             <strong className="text-[#e9e7e0]">personally</strong> gives just the signed-in person that tier&apos;s
-            access, solo, with no team invites. Both cost the same and unlock the same features per tier; toggle
-            below to see how each card&apos;s note changes depending on which one you&apos;re looking at.
+            access, solo, with no team invites. We haven&apos;t finalized pricing or feature parity between the two
+            yet, so don&apos;t read the two paths as guaranteed to cost the same or unlock exactly the same things;
+            toggle below to see how each card&apos;s note changes depending on which one you&apos;re looking at.
           </p>
           <PricingCards />
         </div>

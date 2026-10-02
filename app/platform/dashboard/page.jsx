@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Activity, ArrowRight, Eye, Flame, Percent, UserCheck, Users } from "lucide-react";
+import { ArrowRight, Eye, Flame, Percent, UserCheck, Users } from "lucide-react";
 import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
-import { getActiveVisitors, getPageViewsLast24h, getTotalSessions, getRecentActivity, getLeads } from "@/lib/actions/supabase.actions";
+import { getPageViewsLast24h, getTotalSessions, getRecentActivity, getLeads } from "@/lib/actions/supabase.actions";
 import { getSitePagesOverview } from "@/lib/actions/pagesOverview.action";
 import { getIntentFailureAnalysis } from "@/lib/actions/intentFailure.action";
 import { getUniqueConversionRate } from "@/lib/actions/uniqueConversionRate.action";
@@ -10,6 +10,7 @@ import { PageViewsBar } from "@/components/charts/pageViewsBar";
 import { NewReachChart } from "@/components/charts/NewReachChart";
 import { ConversionsAreaChart } from "@/components/charts/ConversionsAreaChart";
 import { FramePlatePreviewCard } from "@/components/dashboard/FramePlatePreviewCard";
+import { ActiveNowTile } from "@/components/dashboard/ActiveNowTile";
 import { LiveTicker } from "@/components/dashboard/LiveTicker";
 import { StatTile } from "@/components/StatTile";
 import { Badge } from "@/components/ui/badge";
@@ -23,8 +24,7 @@ export default async function OverviewPage() {
   const user = await getAuthUser();
   const site = await requireSite(user.id);
 
-  const [activeNow, pageViews24h, totalSessions, recentActivity, leads, pages, health, uniqueConversion] = await Promise.all([
-    getActiveVisitors(site.id),
+  const [pageViews24h, totalSessions, recentActivity, leads, pages, health, uniqueConversion] = await Promise.all([
     getPageViewsLast24h(site.id),
     getTotalSessions(site.id),
     getRecentActivity(site.id),
@@ -38,8 +38,6 @@ export default async function OverviewPage() {
   ]);
 
   const totalLeads = leads.length;
-
-  const previewVisitorIds = Array.from(new Set(leads.map((l) => l.visitor_id).filter(Boolean)));
 
   const healthPages = health?.pages ?? [];
   const avgHealthScore = healthPages.length ? healthPages.reduce((s, p) => s + p.intentFailureScore, 0) / healthPages.length : null;
@@ -60,7 +58,7 @@ export default async function OverviewPage() {
 
       {/* ── Key stats ───────────────────────────────────────────────── */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatTile compact icon={Activity} label="Active Now" value={activeNow} sub="visitors on site right now" />
+        <ActiveNowTile siteId={site.id} />
         <StatTile compact icon={Eye} label="Page Views (24h)" value={pageViews24h} sub="in the last day" />
         <StatTile compact icon={Users} label="Total Sessions" value={totalSessions} sub="all time" />
         <StatTile compact icon={UserCheck} label="Total Leads" value={totalLeads} sub="form submissions all time" />
@@ -165,7 +163,7 @@ export default async function OverviewPage() {
       </Card>
 
       {/* ── FramePlate preview: shortcut ad for the full lead-session chart ── */}
-      <FramePlatePreviewCard siteId={site.id} visitorIds={previewVisitorIds} />
+      <FramePlatePreviewCard siteId={site.id} leads={leads.map((l) => ({ visitor_id: l.visitor_id, name: l.name, email: l.email }))} />
 
       {/* ── Live ticker ─────────────────────────────────────────────── */}
       <LiveTicker siteId={site.id} initialRows={recentActivity} />

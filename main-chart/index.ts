@@ -4,5 +4,6 @@ export { computeSeries, valueAt } from "./engine/computeSeries";
 export { computeTrend } from "./engine/computeTrend";
 export { placePointMarkers, monotoneCubicAt } from "./engine/markers";
 export { buildTimeline } from "./engine/buildTimeline";
+export { useSessionsOnlineNow } from "./hooks/useSessionsOnlineNow";
 export { INTERVALS } from "./engine/intervals";
 export type { SessionSpan, SpanPayload, ComputedSeries, ViewWindow, IntervalDef, MarkerLayer, MarkerEvent, MarkerPayload } from "./types";

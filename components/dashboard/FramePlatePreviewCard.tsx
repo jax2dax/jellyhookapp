@@ -7,46 +7,68 @@
 // miniPlate preset for why those specific two are stripped.
 //
 // Two mini charts, each for a DIFFERENT lead when more than one exists:
-//   - Each slot prioritizes that lead's CONVERTED session (the most
-//     "interesting" one to show off) — falling back to their most recent
-//     session if they haven't converted.
-//   - Slot B picks a different lead than slot A when possible. With only one
-//     lead on the site, both slots fall back to that same lead, but slot B
-//     is still given a DIFFERENT session than slot A picked (not necessarily
-//     the converted one this time, since that's already shown in slot A) —
-//     never just the same chart twice.
-//
-// TODO(product): which lead lands in each slot is picked with Math.random()
-// out of this site's leads — arbitrary beyond the converted/distinct-lead
-// priority above. The plan (per conversation) is to replace
-// pickPreviewVisitorId with an algorithmic pick (e.g. the most visually
-// interesting / highest-scroll session), cache THAT specific choice, and
-// always re-serve the same cached "featured" sessions instead of re-rolling
-// on every render. Swap the implementation of pickPreviewVisitorId (and how
-// it's cached) without touching anything else in this file when that's ready.
+//   - WHICH lead lands in each slot: the lead with the most form_submissions
+//     rows on this site (see rankByFrequency) — someone who's shown up
+//     repeatedly is more interesting to show off than a one-time submitter.
+//     Slot A gets the most frequent lead, slot B the next-most-frequent
+//     distinct one. With only one lead on the site, both slots fall back to
+//     that same lead.
+//   - Within a lead's own sessions, each slot prioritizes their CONVERTED
+//     session (the most "interesting" one to show off) — falling back to
+//     their most recent session if they haven't converted.
+//   - Slot B is given a DIFFERENT session than slot A when both land on the
+//     same lead (not necessarily the converted one this time, since that's
+//     already shown in slot A) — never just the same chart twice.
 "use client";
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, LineChart } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ArrowRight, Footprints } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FramePlateChart, miniPlate, type SessionRaw } from "@/framePlate";
 import { buildSessionsRaw } from "@/lib/leadSessions/transform";
 import { getLeadSessionRows } from "@/lib/actions/leadSessions.action";
 import { getCachedSessionRows, setCachedSessionRows } from "@/lib/leadSessionsCache";
 
-export interface FramePlatePreviewCardProps {
-  siteId: string;
-  /** distinct visitor_ids pulled from this site's leads (form_submissions) — see dashboard page.jsx */
-  visitorIds: string[];
+export interface PreviewLead {
+  visitor_id: string | null;
+  name: string | null;
+  email: string | null;
 }
 
-/** Arbitrary beyond the exclude filter — see the TODO(product) note above the imports. */
-function pickRandomFrom(ids: string[], exclude?: string | null): string | null {
-  const pool = exclude ? ids.filter((id) => id !== exclude) : ids;
-  const candidates = pool.length ? pool : ids; // nothing left after excluding — only one lead exists, reuse it
-  if (!candidates.length) return null;
-  return candidates[Math.floor(Math.random() * candidates.length)];
+export interface FramePlatePreviewCardProps {
+  siteId: string;
+  /** this site's leads (form_submissions rows) — see dashboard page.jsx. Order doesn't matter; frequency is computed here. */
+  leads: PreviewLead[];
+}
+
+interface RankedLead {
+  visitorId: string;
+  displayName: string;
+  submissionCount: number;
+}
+
+/**
+ * Distinct leads, ranked by how many times they've shown up in
+ * form_submissions (most frequent first) — a lead who's converted or
+ * re-engaged repeatedly is more interesting to feature than a one-time
+ * submitter. Ties keep submission order (first-seen first).
+ */
+function rankByFrequency(leads: PreviewLead[]): RankedLead[] {
+  const order: string[] = [];
+  const counts = new Map<string, number>();
+  const names = new Map<string, string>();
+  for (const lead of leads) {
+    if (!lead.visitor_id) continue;
+    if (!counts.has(lead.visitor_id)) {
+      order.push(lead.visitor_id);
+      names.set(lead.visitor_id, lead.name || lead.email || "This visitor");
+    }
+    counts.set(lead.visitor_id, (counts.get(lead.visitor_id) ?? 0) + 1);
+  }
+  return order
+    .map((visitorId) => ({ visitorId, displayName: names.get(visitorId)!, submissionCount: counts.get(visitorId)! }))
+    .sort((a, b) => b.submissionCount - a.submissionCount);
 }
 
 /**
@@ -98,6 +120,10 @@ function useVisitorSessions(siteId: string, visitorId: string | null): { session
     if (cached) {
       const raw = toSessionsRaw(cached.data);
       if (raw.length) {
+        // One-shot sync from an external system (localStorage) — not a
+        // cascading-render risk, same justification as the identical
+        // pattern in components/charts/NewReachChart.tsx.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSessionsRaw(raw);
         setStatus("ready");
       }
@@ -130,26 +156,37 @@ function useVisitorSessions(siteId: string, visitorId: string | null): { session
   return { sessionsRaw, status };
 }
 
-function MiniChartSlot({ status, session }: { status: SlotStatus; session: SessionRaw | null }) {
-  if (status === "empty") return <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">No sessions yet.</div>;
-  if (status === "loading" || !session) return <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">Loading a preview…</div>;
+function MiniChartSlot({ status, session, displayName }: { status: SlotStatus; session: SessionRaw | null; displayName: string }) {
   return (
-    <div className="max-w-md overflow-x-auto rounded-md border bg-card/50 p-2">
-      <FramePlateChart session={session} theme={miniPlate} viewportHeightPx={0} />
+    <div>
+      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-foreground">
+        <Footprints className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate">{displayName}&apos;s footprints</span>
+      </div>
+      {status === "empty" ? (
+        <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">No sessions yet.</div>
+      ) : status === "loading" || !session ? (
+        <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">Loading a preview…</div>
+      ) : (
+        <div className="max-w-md overflow-x-auto rounded-md border bg-card/50 p-2">
+          <FramePlateChart session={session} theme={miniPlate} viewportHeightPx={0} />
+        </div>
+      )}
     </div>
   );
 }
 
-export function FramePlatePreviewCard({ siteId, visitorIds }: FramePlatePreviewCardProps) {
-  // Picked once per mount, not re-rolled on every re-render.
-  const [visitorIdA] = React.useState(() => pickRandomFrom(visitorIds));
-  const [visitorIdB] = React.useState(() => pickRandomFrom(visitorIds, visitorIdA));
-  const sameLead = visitorIdA !== null && visitorIdA === visitorIdB;
+export function FramePlatePreviewCard({ siteId, leads }: FramePlatePreviewCardProps) {
+  // Ranked once per mount, not re-rolled on every re-render.
+  const [ranked] = React.useState(() => rankByFrequency(leads));
+  const leadA = ranked[0] ?? null;
+  const leadB = ranked[1] ?? null;
+  const sameLead = leadB === null && leadA !== null;
 
-  const slotA = useVisitorSessions(siteId, visitorIdA);
-  // Same lead as slot A: don't re-fetch, just reuse slot A's own sessions
-  // list and pick a different session out of it (see pickPrioritySession).
-  const slotB = useVisitorSessions(siteId, sameLead ? null : visitorIdB);
+  const slotA = useVisitorSessions(siteId, leadA?.visitorId ?? null);
+  // Only one distinct lead on this site: don't re-fetch, just reuse slot A's
+  // own sessions list and pick a different session out of it (see pickPrioritySession).
+  const slotB = useVisitorSessions(siteId, sameLead ? null : leadB?.visitorId ?? null);
 
   const sessionA = slotA.sessionsRaw.length ? pickPrioritySession(slotA.sessionsRaw) : null;
   const sessionsRawB = sameLead ? slotA.sessionsRaw : slotB.sessionsRaw;
@@ -160,17 +197,16 @@ export function FramePlatePreviewCard({ siteId, visitorIds }: FramePlatePreviewC
     <Card className="mb-6">
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-1.5">
-          <LineChart className="h-4 w-4 text-muted-foreground" /> Session Playback
+          <Footprints className="h-4 w-4 text-muted-foreground" /> Lead footprints
         </CardTitle>
-        <CardDescription>See exactly how a visitor moved through your site, scroll by scroll.</CardDescription>
       </CardHeader>
       <CardContent>
-        {!visitorIdA ? (
+        {!leadA ? (
           <div className="py-6 text-center text-sm text-muted-foreground">No lead sessions yet to preview.</div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <MiniChartSlot status={slotA.status} session={sessionA} />
-            <MiniChartSlot status={statusB} session={sessionB} />
+            <MiniChartSlot status={slotA.status} session={sessionA} displayName={leadA.displayName} />
+            <MiniChartSlot status={statusB} session={sessionB} displayName={(sameLead ? leadA : leadB)?.displayName ?? "This visitor"} />
           </div>
         )}
         <Link href="/platform/leads" className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline">

@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { useClerk } from "@clerk/nextjs";
-import { Camera, CalendarDays, LogOut, Phone as PhoneIcon, Mail, User as UserIcon } from "lucide-react";
+import { Camera, CalendarDays, Gift, LogOut, Phone as PhoneIcon, Mail, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -216,8 +216,6 @@ export default function UserPageClient({ profile, siteCount, subscription }: { p
     return result;
   }
 
-  const isFree = !subscription || subscription.status === "canceled" || subscription.plan === "free";
-
   return (
     <div className="w-full max-w-5xl">
       {/* PROFILE HEADER — banner + overlapping avatar, name/plan/stats laid
@@ -284,20 +282,42 @@ export default function UserPageClient({ profile, siteCount, subscription }: { p
 
         <div className="lg:col-span-2">
           <SectionLabel>Billing</SectionLabel>
-          <Card>
+          {/* Early access: every feature is free on every account, so there's
+              nothing to actually manage or upgrade here yet (see
+              app/pricing/page.tsx — same "everything free" messaging). The
+              gift ribbon + blur signal that plainly, instead of showing a
+              real plan/status/upgrade flow that implies something is locked
+              or chargeable right now. */}
+          <Card className="relative overflow-hidden">
+            <div
+              className="absolute -right-10 top-3 w-36 rotate-45 bg-primary py-1 text-center text-[10px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm"
+              aria-hidden
+            >
+              Free for now
+            </div>
             <CardContent>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-foreground">{planLabel(subscription?.plan)} plan</span>
-                {subscription?.status && <Badge variant={statusBadgeVariant(subscription.status)}>{subscription.status.toUpperCase()}</Badge>}
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Gift className="h-4 w-4 text-primary" />
+                Everything&apos;s free right now
               </div>
-              {subscription?.current_period_end && (
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {subscription.cancel_at_period_end ? `Cancels on ${formatDate(subscription.current_period_end)}` : `Renews ${formatDate(subscription.current_period_end)}`}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Jellyhook is in early access — every feature on every account is unlocked, no card required.
+              </p>
+
+              <div aria-hidden className="mt-4 select-none blur-[5px]">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">{planLabel(subscription?.plan)} plan</span>
+                  {subscription?.status && <Badge variant={statusBadgeVariant(subscription.status)}>{subscription.status.toUpperCase()}</Badge>}
                 </div>
-              )}
-              {isFree && <div className="mt-1 text-xs text-muted-foreground">Upgrade to unlock more features.</div>}
+                {subscription?.current_period_end && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {subscription.cancel_at_period_end ? `Cancels on ${formatDate(subscription.current_period_end)}` : `Renews ${formatDate(subscription.current_period_end)}`}
+                  </div>
+                )}
+              </div>
+
               <Button asChild size="sm" variant="outline" className="mt-4 w-full">
-                <a href="/platform/billing">{isFree ? "Upgrade plan" : "Manage billing"}</a>
+                <a href="/pricing">See what&apos;s coming later</a>
               </Button>
             </CardContent>
           </Card>

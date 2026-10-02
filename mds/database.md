@@ -194,6 +194,20 @@ alter table public.page_views
   add column if not exists viewport_height integer null;
 ```
 
+**Realtime, for `components/dashboard/LiveTicker.tsx` (2026-10-02).** Not
+enabled yet as of writing — run once, either of these:
+```sql
+alter publication supabase_realtime add table public.page_views;
+```
+or, in the Supabase dashboard: Database → Replication → toggle `page_views`
+on under the `supabase_realtime` publication. Either does the same thing.
+RLS already applies automatically to the resulting `postgres_changes`
+events (no separate toggle for that) — the existing site_members-scoped
+SELECT policy above is what decides which signed-in browser receives which
+row's insert event. Nothing breaks if this is never run: the ticker's
+`.subscribe()` call just never fires, and it keeps working exactly as it
+already did on polling alone — see that file's header comment.
+
 **Scroll geometry — read this before touching anything that interprets these
 columns.** The single most expensive mistake available here is assuming the
 `*_scroll_depth` columns are fractions of the page. They are not:

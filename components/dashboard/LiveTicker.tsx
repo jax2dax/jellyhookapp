@@ -9,13 +9,25 @@
 //
 // Polling is coordinated across browser tabs via lib/liveTickerCache.js —
 // see that file's header for why a shared localStorage cache exists at all.
+//
+// Polling alone means a brand-new visitor only ever appears on this tab's
+// NEXT scheduled check — up to pollMs away, not "the moment it happened".
+// A Supabase Realtime subscription below pushes new page_views rows the
+// instant Postgres inserts them, over the same websocket connection, so a
+// new visitor shows up essentially immediately instead of waiting out a
+// poll interval. Polling is kept running regardless, as the backstop: if
+// Realtime isn't enabled for this table yet (see the comment on the
+// subscription effect) or a websocket drops, the ticker just continues
+// working exactly as it already did, at the usual polling pace.
 "use client";
 
 import * as React from "react";
+import { useAuth } from "@clerk/nextjs";
 import { Radio } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getRecentActivity } from "@/lib/actions/supabase.actions";
 import { getCachedActivity, setCachedActivity, liveTickerCacheKey } from "@/lib/liveTickerCache";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 interface ActivityRow {
   id: string;
@@ -72,6 +84,14 @@ export function LiveTicker({ siteId, initialRows }: { siteId: string; initialRow
   // Re-renders every second so each row's "Xs ago" keeps counting up between polls.
   const now = React.useSyncExternalStore(subscribeClock, readClock, readServerClock);
 
+  const { getToken } = useAuth();
+  // Read fresh inside the Realtime client's accessToken callback below,
+  // never a closed-over value from whichever render created the client.
+  const getTokenRef = React.useRef(getToken);
+  React.useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   const rowEls = React.useRef<Map<string, HTMLDivElement>>(new Map());
   const prevRects = React.useRef<Map<string, DOMRect>>(new Map());
 
@@ -109,6 +129,42 @@ export function LiveTicker({ siteId, initialRows }: { siteId: string; initialRow
     }
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
+  }, [siteId, mergeIncoming]);
+
+  // Realtime: push new page_views the instant Postgres inserts them, instead
+  // of waiting for this tab's next poll. Requires the `page_views` table to
+  // be added to the `supabase_realtime` publication (see
+  // mds/database.md — not applied yet as of writing this). Until that's
+  // done, .subscribe() simply never calls back and the ticker runs on
+  // polling alone, exactly as before this was added — never a regression.
+  React.useEffect(() => {
+    const supabase = createBrowserSupabaseClient(() => getTokenRef.current());
+    const channel = supabase
+      .channel(`live-ticker-${siteId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "page_views", filter: `site_id=eq.${siteId}` },
+        (payload) => {
+          const row = payload.new as Record<string, unknown>;
+          mergeIncoming([
+            {
+              id: String(row.id),
+              page_path: (row.page_path as string) ?? null,
+              visitor_id: (row.visitor_id as string) ?? null,
+              entered_at: (row.entered_at as string) ?? null,
+            },
+          ]);
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.error("[LiveTicker] realtime subscription failed, continuing on polling alone:", err ?? status);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [siteId, mergeIncoming]);
 
   React.useEffect(() => {

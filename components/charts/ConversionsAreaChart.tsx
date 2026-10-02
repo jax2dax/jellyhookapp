@@ -5,6 +5,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -106,10 +107,21 @@ export function ConversionsAreaChart({ siteId, mini = false, embedded = false }:
     );
   }
 
-  return (
+  const card = (
     <Card className={mini ? "" : "w-full"}>
       <CardHeader className={mini ? "pb-1 pt-3 px-4" : "pb-2"}>{header}</CardHeader>
       <CardContent className={mini ? "px-4 pb-3" : undefined}>{body}</CardContent>
     </Card>
   );
+
+  // mini = the dashboard-overview preview of this chart; the full version
+  // lives on /platform/conversions, so the whole tile is a shortcut there.
+  if (mini) {
+    return (
+      <Link href="/platform/conversions" className="block transition-opacity hover:opacity-80">
+        {card}
+      </Link>
+    );
+  }
+  return card;
 }

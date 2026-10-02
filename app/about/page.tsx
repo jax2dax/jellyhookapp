@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Eye, UserCheck, Flame, Users, CreditCard } from "lucide-react";
+import { ArrowRight, AlertTriangle, Eye, Footprints, Route, TrendingUp } from "lucide-react";
 import { MarketingPage } from "@/components/marketing/MarketingPage";
 import { Show } from "@clerk/nextjs";
 import { RandomIconBadge } from "@/components/RandomIconBadge";
@@ -19,31 +19,37 @@ export const metadata: Metadata = {
   },
 };
 
+// What this actually changes for the business, not a tour of small
+// features — see mds/progress_timeline.md (2026-10-01 landing-page
+// rewrite) for why: a feature list reads as a spec sheet, not a reason to
+// care. Every claim here still traces to a real, shipped capability
+// (session replay, form_engagement tracking, the New Reach/Conversions
+// charts) — nothing invented for the sake of sounding persuasive.
 const COMPONENTS = [
   {
+    icon: Footprints,
+    title: "Every lead's footprints",
+    desc: "Not a summary, the actual path: which pages, how long, how far they scrolled, before they ever filled out a form. Know what a lead saw before you ever talk to them.",
+  },
+  {
+    icon: Route,
+    title: "Conversion path tracking",
+    desc: "The exact sequence of pages that led to a conversion, for every lead who converted, replayed start to finish, not reconstructed from a guess.",
+  },
+  {
+    icon: AlertTriangle,
+    title: "Form friction, spotted",
+    desc: "See exactly where people stall out on a form, down to the field and the moment, instead of just watching your conversion rate stall and wondering why.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Marketing decisions you can check",
+    desc: "See whether a campaign or page change actually moved the needle, instead of guessing which one of five changes made the difference.",
+  },
+  {
     icon: Eye,
-    title: "Tracking & session replay",
-    desc: "A single script installed on your site captures every session: page paths, time on each page, scroll depth, and whether a visitor came back to a page they&apos;d already seen.",
-  },
-  {
-    icon: UserCheck,
-    title: "Lead intelligence",
-    desc: "The moment a form is submitted, that lead is linked back to everything they did before converting: every page, every scroll, the full path.",
-  },
-  {
-    icon: Flame,
-    title: "Page health / intent analysis",
-    desc: "An algorithmic score, built from time-on-page, scroll depth, retention and exit behavior, flags which pages are quietly failing to hold attention.",
-  },
-  {
-    icon: Users,
-    title: "Team access",
-    desc: "Invite teammates onto a site with role-based access, so more than one person can act on what the data shows.",
-  },
-  {
-    icon: CreditCard,
-    title: "Billing, handled",
-    desc: "Plans and billing run through Clerk. Cancel any time, no separate invoicing system to fight with.",
+    title: "Spot confusion before it costs you",
+    desc: "Notice which pages make visitors hesitate or leave, straight from their real sessions, not a theory about where your funnel might be leaking.",
   },
 ];
 
@@ -72,11 +78,11 @@ export default function AboutPage() {
         <div className="mx-auto max-w-[1400px] px-5 py-16 lg:px-10 lg:py-20">
           <div className="mb-12 grid grid-cols-1 gap-8 lg:grid-cols-12">
             <div className="lg:col-span-4">
-              <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">What it&apos;s built from</span>
+              <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">What it actually changes</span>
             </div>
             <div className="lg:col-span-8">
               <h2 className="ff-display text-[clamp(1.75rem,3.4vw,2.75rem)] leading-[1.05] tracking-[-0.02em] text-[#f4f2ea]">
-                One product, five working parts.
+                Not features. What you actually get.
               </h2>
             </div>
           </div>
