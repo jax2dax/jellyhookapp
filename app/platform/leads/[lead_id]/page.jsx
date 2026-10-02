@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft, Clock, Eye, Mail, MousePointerClick, Phone, Repeat, Sparkles, Timer } from "lucide-react";
-import { getAuthUser, requireSite, getPlanLabel } from "@/lib/actions/permission.actions";
+import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
 import { getLeadProfileByLeadId } from "@/lib/actions/leadProfile.actions";
 import { buildLeadProfile } from "@/lib/algorithms/leadProfile";
-import PlanGate from "@/components/PlanGate";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
@@ -20,9 +19,6 @@ export default async function LeadProfilePage({ params }) {
   const user = await getAuthUser();
   const site = await requireSite(user.id);
   const raw = await getLeadProfileByLeadId(site.id, lead_id);
-  // See app/platform/acquisition/page.jsx — user.plan/site.plan are never
-  // populated from Clerk Billing; getPlanLabel() is the real source of truth.
-  const userPlan = await getPlanLabel();
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -37,9 +33,7 @@ export default async function LeadProfilePage({ params }) {
           </CardContent>
         </Card>
       ) : (
-        <PlanGate userPlan={userPlan} required="pro">
-          <LeadProfileBody profile={buildLeadProfile({ ...raw, focusSubmission: raw.focusSubmission })} raw={raw} siteId={site.id} />
-        </PlanGate>
+        <LeadProfileBody profile={buildLeadProfile({ ...raw, focusSubmission: raw.focusSubmission })} raw={raw} siteId={site.id} />
       )}
     </div>
   );
@@ -100,7 +94,7 @@ function LeadProfileBody({ profile, raw, siteId }) {
               </div>
               {otherConversions.length > 0 && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Submitted from the same browser as {otherConversions.length} other lead{otherConversions.length === 1 ? "" : "s"} — see Conversion Events below.
+                  Submitted from the same browser as {otherConversions.length} other lead{otherConversions.length === 1 ? "" : "s"}, see Conversion Events below.
                 </p>
               )}
             </div>
@@ -223,7 +217,7 @@ function LeadProfileBody({ profile, raw, siteId }) {
             <CardTitle className="text-base">Path to Conversion</CardTitle>
             <CardDescription>
               {hasConverted
-                ? `Every page viewed before ${identity.name || "this lead"} converted, in order — bar length is time spent on that page.`
+                ? `Every page viewed before ${identity.name || "this lead"} converted, in order. Bar length is time spent on that page.`
                 : "Pages viewed so far. This visitor hasn't converted yet."}
             </CardDescription>
           </CardHeader>

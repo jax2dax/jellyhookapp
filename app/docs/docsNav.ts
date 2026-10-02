@@ -39,6 +39,8 @@ export const DOCS_NAV: DocsNavSection[] = [
       { slug: "reference/lead-profile", title: "Lead profile page" },
       { slug: "reference/conversions", title: "Conversions page" },
       { slug: "reference/settings", title: "Site settings" },
+      { slug: "reference/team", title: "Team and invites" },
+      { slug: "reference/billing", title: "Billing and plans" },
     ],
   },
   {

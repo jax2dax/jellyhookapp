@@ -20,7 +20,7 @@ const VISITOR_DATA = [
   ["Page activity", "Page paths, time spent on each page, scroll depth, and whether a page was revisited."],
   ["Technical context", "Device type, approximate country (from IP address), timezone, and referrer URL."],
   ["Form submissions", "Whatever fields your form collects, commonly name, email, and phone, tied to the page and session it came from."],
-  ["Page structure", "Heading text and position captured from your pages, used only to score page health."],
+  ["Page structure", "Heading text and position captured from your pages, used to mark headings on the session replay chart."],
 ];
 
 export default function PrivacyPage() {

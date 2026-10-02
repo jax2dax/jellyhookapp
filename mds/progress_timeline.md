@@ -1283,3 +1283,94 @@ copy were asserting things nobody has actually decided yet.
   already-flagged, not-a-real-feature claim from the 2026-10-01 landing
   page cleanup (see that entry). Left alone since this request didn't
   mention it.
+
+## 2026-10-02 (later) — Full /docs audit: new-user completeness pass
+
+User asked whether a brand new person could read the entire /docs site
+and understand + use the whole SaaS with no prior experience, with zero
+fabrication and no em dashes. Read every existing doc page, then read
+every real screen under /platform (not just the ones already documented)
+to find what was missing, comparing claims against the actual code behind
+them rather than assuming the existing prose was still accurate.
+
+**Real product bugs found and fixed along the way (not just doc issues):**
+- `/platform/leads/[lead_id]` (the Lead Profile page) was wrapped in
+  `<PlanGate required="pro">`, meaning a free-plan user's own leads list
+  (itself `required="free"`, always unlocked) led into a blurred "Pro plan
+  required" wall on every single lead. This directly contradicted
+  "everything free during early access" and would have made the already-
+  written `/docs/reference/lead-profile` page describe a feature most
+  users couldn't actually reach. Removed the gate, same fix already
+  agreed for `/platform/acquisition` earlier this session.
+- `/platform/acquisition`: per the user's decision, removed its
+  `PlanGate required="pro"` and commented its entry out of the sidebar
+  nav (`components/app-sidebar.tsx`), since it isn't considered to have
+  real content yet. Deliberately not documented anywhere, per the user's
+  explicit instruction.
+- `/platform/billing`'s "Upgrade Plan"/"Manage Plan" button linked to
+  `/platform/billing/portal`, a route that has never existed, a
+  guaranteed 404. Pointed it at `/platform/subscription`, the real
+  in-app upgrade preview page, which is obviously what it was supposed to
+  reach.
+- `app/pricing/page.tsx`, `app/privacy/page.tsx`, `app/docs/installation`:
+  removed the last remaining "page health scoring" mentions (metadata
+  description and two visible paragraphs) — the same already-flagged,
+  never-fixed fabrication from the 2026-10-01 and 2026-10-02 earlier
+  passes, now fully gone. Per `mds/documentation/roadmap.md`'s own
+  explicit writing rule, the Intent/"page health" heuristic is excluded
+  from documentation entirely (it is real code, but "if-condition
+  template sentences dressed up as analysis," not a measured fact) —
+  confirmed this rule is still correct and left it untouched rather than
+  second-guessing it.
+- Removed six rendered (not comment) em dashes found across
+  `app/platform/leads/[lead_id]/page.jsx`, `app/platform/create-site/page.jsx`,
+  and `app/platform/settings/SettingsClients.jsx`. Left the many `"—"`
+  single-character fallbacks alone (StatTile/table "no value" placeholder,
+  an existing, consistent, unrelated convention, not discourse
+  punctuation).
+
+**Doc pages added (two real screens had no doc page at all):**
+- `/docs/reference/team`: Network page, Settings' embedded team section
+  (confirmed to be the exact same underlying list, just two layouts),
+  and the invite accept/decline screen. States plainly that there is no
+  self-serve way for a member to leave a site today, even though
+  `InviteClient.jsx`'s own accept screen claims "You can leave at any
+  time from Settings" — that claim is false as of writing; documented
+  honestly rather than repeated.
+- `/docs/reference/billing`: what `/platform/billing` and
+  `/platform/subscription` show during early access. Does not describe
+  `BillingClient.tsx`'s per-feature checkmark row in detail, since during
+  early access it can show a locked ✗ next to features that are actually
+  fully unlocked for everyone, which is misleading on the page itself;
+  noted as a known, not-yet-fixed issue in `doc_source_map.md` instead of
+  silently repeating it as fact.
+
+**Existing pages updated with real, previously-undocumented features:**
+- `/docs/reference/dashboard`: added the live "Sessions online" chart
+  (Smooth/Steps/Trend, drag/pinch/zoom, the two marker checkboxes, the
+  honest 30-minute provisional-data caveat) and the "Lead footprints"
+  preview card (now frequency-ranked, not random). Corrected "Active Now"
+  to describe its current live, second-by-second behavior instead of the
+  old one-shot snapshot. Clarified "Visits over time" is a different
+  chart from the new one, not a restatement of it. Noted the mini
+  New Reach/Conversions charts now link to the full Conversions page.
+  Mentioned the Live Ticker's Realtime push alongside its polling
+  backstop.
+- `/docs/reference/settings`: added Team members (cross-linking to the
+  new Team page) and a Danger Zone section distinguishing Deactivate
+  (one-way, removes the site from your account's list, confirmed via
+  reading `deactivateSite()`: no un-delete path exists anywhere) from
+  Pause (fully reversible).
+- `/docs/installation`: mentioned multi-site support (one account can
+  switch between several sites), previously undocumented anywhere on the
+  whole docs site.
+
+**Deliberately still not documented, confirmed correct to exclude:**
+`/platform/intent` and its Engagement Score sibling (roadmap.md's
+existing rule, re-confirmed, not revisited), `/platform/visitors` (an
+empty stub, no real content), the shadcn demo stub at the `/platform`
+root route (never linked, not a real screen), `/platform/intent/debug`.
+
+`docsNav.ts`, `doc_source_map.md`, and `roadmap.md` all updated to match.
+Verified with `npx tsc --noEmit -p .` and `npx next build`, both clean,
+after every batch of changes. Not verified in a real browser.

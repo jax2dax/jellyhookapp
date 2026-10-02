@@ -35,7 +35,7 @@ const NAV_ITEMS = [
   // { title: "Intent Signals",    url: "/platform/intent",        icon: Flame,           plan: "free" },
   { title: "Leads",             url: "/platform/leads",         icon: UserCheck,       plan: "free"   },
   { title: "Conversion Paths",  url: "/platform/conversions",   icon: GitFork,         plan: "free"   },
-  { title: "Acquisition",       url: "/platform/acquisition",   icon: Globe,           plan: "free"   },
+  // { title: "Acquisition",       url: "/platform/acquisition",   icon: Globe,           plan: "free"   },
   { title: "Settings",          url: "/platform/settings",      icon: Settings,        plan: "free"  },
   { title: "Subscription",      url: "/platform/subscription",  icon: CreditCard,      plan: "free"  },
    { title: "Network",           url: "/platform/network",      icon: Network,         plan: "free"  },

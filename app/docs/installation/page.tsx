@@ -20,14 +20,14 @@ const COLLECTED: [string, string][] = [
   ["Page views", "Page path, time on page, scroll depth, max scroll depth, page height, viewport height."],
   ["Form submissions", "Name, email, phone, and any other fields the form collects, tied to the page and session it came from."],
   ["Form engagement", "When a form was viewed, when it was started, and how long was spent on each field, even if it was never submitted."],
-  ["Page structure", "Heading text and position on each page, used to score page health."],
+  ["Page structure", "Heading text and position on each page, used to mark headings on the session replay chart."],
 ];
 
 const ENDPOINTS: [string, string][] = [
   ["/api/track", "Core ingestion endpoint. Receives page view and session events from the tracker script."],
   ["/api/track-form", "Receives form submissions and stores them as leads, deduplicated within a short window."],
   ["/api/track-form-engagement", "Receives form view, start, field timing, submit, and abandon events."],
-  ["/api/track-structure", "Receives page heading and layout metadata, used by page health scoring."],
+  ["/api/track-structure", "Receives page heading and layout metadata, used on the session replay chart."],
   ["/api/site-config", "Returns per-site tracker configuration, for example whether form capture is restricted to specific forms."],
 ];
 
@@ -56,6 +56,10 @@ export default function InstallationPage() {
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Install the script on this exact domain. It is also what a teammate&apos;s work email gets matched against to join the site
             automatically, so a mismatch here can affect more than just tracking.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            One account can own or belong to more than one site. Switch between them from the site name at the top
+            of the sidebar, or add another from the same menu.
           </p>
         </div>
 

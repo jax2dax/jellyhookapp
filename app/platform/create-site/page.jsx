@@ -137,7 +137,7 @@ export default function CreateSitePage() {
             <div className="mb-3 text-2xl text-primary">✅</div>
             <h2 className="mb-3 text-xl font-bold text-foreground">Joined Existing Site</h2>
             <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
-              Your email matched <strong>{result.site.domain}</strong> — you&apos;ve been added automatically. The tracker is already installed.
+              Your email matched <strong>{result.site.domain}</strong>, so you&apos;ve been added automatically. The tracker is already installed.
             </p>
             <ScriptBlock script={script} />
             <Button asChild>
@@ -234,13 +234,13 @@ export default function CreateSitePage() {
 
           <div className="mb-5 rounded-lg border bg-muted/30 p-4">
             <p className="mb-1 text-xs text-muted-foreground">Do you have a specific conversion form?</p>
-            <p className="mb-3 text-xs text-muted-foreground">A contact form, demo request, or sign-up — not a search bar or newsletter.</p>
+            <p className="mb-3 text-xs text-muted-foreground">A contact form, demo request, or sign-up, not a search bar or newsletter.</p>
             <div className="flex gap-2.5">
               <Button size="sm" variant={!specifyForm ? "default" : "outline"} onClick={() => setSpecifyForm(false)}>
-                No — track all forms
+                No, track all forms
               </Button>
               <Button size="sm" variant={specifyForm ? "default" : "outline"} onClick={() => setSpecifyForm(true)}>
-                Yes — I&apos;ll label my form
+                Yes, I&apos;ll label my form
               </Button>
             </div>
           </div>
@@ -303,7 +303,7 @@ function PendingUI({ domain, siteId, apiKey, specifyForm, onCancel, cancelling, 
         {script && (
           <div className="mt-5">
             <p className="mb-2 block text-xs text-muted-foreground">
-              Step 1 — Paste before your closing <code className="rounded bg-muted px-1.5 py-0.5 text-xs">&lt;/body&gt;</code> tag:
+              Step 1: Paste before your closing <code className="rounded bg-muted px-1.5 py-0.5 text-xs">&lt;/body&gt;</code> tag:
             </p>
             <ScriptBlock script={script} />
           </div>
@@ -311,7 +311,7 @@ function PendingUI({ domain, siteId, apiKey, specifyForm, onCancel, cancelling, 
 
         {specifyForm && (
           <div className="mt-4">
-            <p className="mb-2 block text-xs text-muted-foreground">Step 2 — Add to your conversion form:</p>
+            <p className="mb-2 block text-xs text-muted-foreground">Step 2: Add to your conversion form:</p>
             <ScriptBlock script={`<form data-conversion="true">\n  ...\n</form>`} />
           </div>
         )}

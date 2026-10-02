@@ -1,7 +1,11 @@
 # Documentation roadmap
 
-Plan for what goes on /docs, in what order. Written for review before more
-gets built. Nothing past "Installation and Setup" exists yet.
+Plan for what goes on /docs, in what order. Originally written for review
+before more got built; as of 2026-10-02, every section below is built,
+including two pages (Team and invites, Billing and plans) added past the
+original plan once a full audit found real screens in `/platform` that
+had no doc page at all. Kept as a reference for the structure and the
+writing rules, not as a "still to do" list.
 
 ## How this is structured
 
@@ -46,12 +50,26 @@ button.
 
 ### 3. Feature reference (build after concepts exist to link to)
 One page per real screen:
-- Dashboard overview
+- Dashboard overview (including the live "Sessions online" chart added
+  2026-10-01, the Lead footprints preview, and the Live Ticker)
 - Leads page
 - Lead profile page
 - Conversions page (the three view modes, the referrer donut, leads
   origin radar)
-- Site settings (the specify-form toggle, API key)
+- Site settings (the specify-form toggle, API key, team members, and the
+  danger-zone deactivate action, distinct from pause)
+- Team and invites (added 2026-10-02: the Network page and Settings'
+  embedded team section are the same feature, two layouts; covers roles,
+  inviting, accepting/declining, and the current lack of a self-serve
+  "leave a site" control)
+- Billing and plans (added 2026-10-02: what the Billing and Subscription
+  pages show during early access, when nothing is actually charged)
+
+**Not documented, on purpose, as of 2026-10-02:** `/platform/acquisition`.
+It exists and is reachable by direct URL, but is not linked from the
+sidebar (see `components/app-sidebar.tsx`) because it isn't considered to
+have real content yet. Give it a doc page once it's actually part of the
+product again, not before.
 
 ### 4. Troubleshooting (build last, needs real support questions to be
 useful, can start with the obvious ones)

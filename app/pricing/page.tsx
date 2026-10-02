@@ -9,12 +9,12 @@ import { primaryBtn } from "@/components/marketing/MarketingTheme";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Jellyhook is free during early access. Every feature on every account, including lead intelligence, conversion paths, and page health scoring, is unlocked with no card required.",
+    "Jellyhook is free during early access. Every feature on every account, including lead intelligence, conversion paths, and session replay, is unlocked with no card required.",
   alternates: { canonical: "/pricing" },
   openGraph: {
     title: "Jellyhook Pricing",
     description:
-      "Jellyhook is free during early access. Every feature on every account, including lead intelligence, conversion paths, and page health scoring, is unlocked with no card required.",
+      "Jellyhook is free during early access. Every feature on every account, including lead intelligence, conversion paths, and session replay, is unlocked with no card required.",
     url: "/pricing",
   },
 };
@@ -48,9 +48,8 @@ export default function PricingPage() {
             Everything, free, <em className="italic text-[var(--lime)]">right now</em>.
           </h1>
           <p className="mt-5 max-w-xl ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-            Jellyhook is in early access. Every feature (full sessions, lead intelligence, conversion paths, page
-            health scoring, all of it) is unlocked on every account, no card required. Paid plans are coming later,
-            but not yet.
+            Jellyhook is in early access. Every feature (full sessions, lead intelligence, conversion paths, all of
+            it) is unlocked on every account, no card required. Paid plans are coming later, but not yet.
           </p>
 
           <div className="mt-8">

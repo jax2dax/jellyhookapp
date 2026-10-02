@@ -208,7 +208,7 @@ function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId }) {
       <CardContent className="space-y-3">
         {/* Member list */}
         <div className="flex flex-col gap-2">
-          {members.length === 0 && <div className="text-sm text-muted-foreground">No members in table yet — save first action will create your row.</div>}
+          {members.length === 0 && <div className="text-sm text-muted-foreground">No members in table yet. Your first save creates your row.</div>}
           {members.map((member) => {
             const isPending = member.user_id?.startsWith("pending:");
             const isYou = member.user_id === currentUserId;

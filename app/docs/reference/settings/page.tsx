@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Site settings",
@@ -37,7 +38,29 @@ export default function SettingsReferencePage() {
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Pause and resume</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Pausing stops the site from accepting new tracking data without removing the script or any data
-            already collected. Resume to start accepting it again.
+            already collected. Resume to start accepting it again. This is reversible, any time.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Team members</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            The site owner can, from this page, invite a teammate by email and remove anyone except themself. The{" "}
+            <Link href="/docs/reference/team" className="text-[var(--lime)] hover:underline">
+              Network page
+            </Link>{" "}
+            does the exact same thing with a different layout. Use whichever one you land on first; they share the
+            same team list.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Danger zone: deactivating a site</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            A separate, stronger action from Pause above. Deactivating stops all tracking the same way pausing
+            does, but also takes the site out of your account&apos;s site list entirely. Nothing already recorded
+            is deleted, but there is currently no button anywhere to bring a deactivated site back. Only use this
+            if you actually mean to stop using this site, not as a temporary pause.
           </p>
         </div>
 

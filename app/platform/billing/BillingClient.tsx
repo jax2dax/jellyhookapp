@@ -138,7 +138,8 @@ export default function BillingClient({ subscription, history, profile }: Props)
             </div>
 
             <Button asChild>
-              <a href="/platform/billing/portal">{isFree ? 'Upgrade Plan' : 'Manage Plan'}</a>
+              {/* /platform/billing/portal never existed as a route — this was a dead link (404) before. */}
+              <a href="/platform/subscription">{isFree ? 'Upgrade Plan' : 'Manage Plan'}</a>
             </Button>
           </div>
 
