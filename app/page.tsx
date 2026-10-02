@@ -49,7 +49,7 @@ const AUDIENCES = [
   {
     icon: Users,
     title: "Business managers",
-    desc: "Watch conversions trend over time and see, from the real session replays, exactly which pages hold attention and which ones quietly lose it — a shared, factual picture your whole team can work from.",
+    desc: "Watch conversions trend over time and see, from the real session replays, exactly which pages hold attention and which ones quietly lose it, giving your whole team a shared, factual picture to work from.",
   },
 ];
 
@@ -60,7 +60,7 @@ const TICKER = ["Session replay", "Scroll depth", "Lead intelligence", "HubSpot 
 const PROMISE_DETAILS = [
   {
     title: "Close more deals",
-    desc: "Know what a lead actually looked at and cared about before you ever pick up the phone — open with the thing that already has their attention, not a generic script.",
+    desc: "Know what a lead actually looked at and cared about before you ever pick up the phone, so you can open with the thing that already has their attention, not a generic script.",
   },
   {
     title: "Decrease form friction",
@@ -232,8 +232,8 @@ const LandingPage = () => {
                 Built for conversion tracking &amp; <em className="italic text-[var(--lime)]">intent discovery</em>.
               </h2>
               <p className="mt-5 max-w-lg ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-                Install one script and Jellyhook turns every visit into a full session replay — pages seen, time
-                spent, how far they scrolled — then links every form submission straight back to that history.
+                Install one script and Jellyhook turns every visit into a full session replay: pages seen, time
+                spent, how far they scrolled. It also links every form submission straight back to that history.
                 Here&apos;s what that means for the people who actually use it.
               </p>
             </div>
@@ -291,7 +291,7 @@ const LandingPage = () => {
               </h2>
               <p className="mt-5 max-w-lg ff-body text-[15px] leading-[1.75] text-[#8b8980]">
                 A bounce rate tells you someone left. It never tells you why. Jellyhook is built to close that
-                gap — so the four things above aren&apos;t just promises, they&apos;re what you actually get.
+                gap, so the four things above aren&apos;t just promises: they&apos;re what you actually get.
               </p>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 Canonical schema, as provided directly from Supabase. This file was empty before —
 keep it in sync with the live schema when tables/columns change.
-
+ 
 Key facts about how the app joins these tables (see `lib/actions/*`, `app/api/track*`):
 
 - There is **no `leads` table** and **no `conversions` table**. A "lead" is a
@@ -58,7 +58,24 @@ create table public.site_members (
 );
 create index if not exists site_members_user_id_idx on public.site_members using btree (user_id);
 create index if not exists site_members_site_id_idx on public.site_members using btree (site_id);
+-- Added 2026-10-01 for the main chart's "Team joined" markers. Not applied
+-- yet as of writing: run once in the Supabase SQL editor. Nullable, no
+-- default and no backfill on purpose (see below).
+alter table public.site_members add column if not exists joined_at timestamp with time zone null;
 ```
+
+**`created_at` is NOT always the join time.** Accepting an invite
+(`acceptInvite` in `lib/actions/site-management.actions.js`) UPDATES the
+existing `pending_invite` row in place, so for an invited member
+`created_at` is when the invite was *sent*. `joined_at` (set by
+`acceptInvite` from 2026-10-01) is when they actually joined. For owners and
+directly-added members the row is inserted already `active`, so
+`created_at` already is the join time and `joined_at` stays null. Readers
+use `joined_at ?? created_at`. Both `acceptInvite` and the main chart keep
+working before the column exists (they retry without it), so applying the
+SQL is not a deploy blocker, only an accuracy fix. Invites accepted before
+it was applied keep showing their invite-sent time; that history can't be
+recovered.
 
 ## visitors
 ```sql
@@ -114,7 +131,18 @@ create table public.sessions (
   constraint sessions_session_id_key unique (session_id)
 );
 create index if not exists sessions_visitor_id_idx on public.sessions using btree (visitor_id);
+-- Required by the main chart (main-chart/, 2026-10-01). Not applied yet
+-- as of writing: run these once in the Supabase SQL editor.
+create index if not exists sessions_site_started_idx on public.sessions using btree (site_id, started_at);
+create index if not exists sessions_site_last_activity_idx on public.sessions using btree (site_id, last_activity_at);
 ```
+
+**Read by the main chart (2026-10-01).** `lib/actions/mainChart.action.ts`
+reads `id, started_at, ended_at` (filtering by `site_id` + `started_at`,
+and by `site_id` + `last_activity_at` for live polling). Every query pages
+1,000 rows at a time, since PostgREST silently caps responses at 1,000
+rows. Note that other actions such as `reachOverTime.action.ts` do NOT
+page and will silently truncate once a site passes 1,000 matching rows.
 
 **UTM + referrer attribution.** `referrer` is raw `document.referrer` —
 only ever correct for a visitor who *clicked straight through* from a
@@ -223,7 +251,13 @@ create table public.form_submissions (
 );
 create index if not exists form_submissions_visitor_id_idx on public.form_submissions using btree (visitor_id);
 create index if not exists form_submissions_site_id_idx on public.form_submissions using btree (site_id);
+-- Added 2026-10-01 for the main chart's conversion markers (range + live
+-- queries filter by site_id AND submitted_at). Not applied yet as of writing.
+create index if not exists form_submissions_site_submitted_idx on public.form_submissions using btree (site_id, submitted_at);
 ```
+`submitted_at` is always the server's clock at insert (`app/api/track-form`
+sets it to `new Date()`), never a browser timestamp, so it's safe to use as
+a "since" cursor for live polling.
 `qualified` is a human sales judgment, set from `/platform/leads` or the
 lead profile page (`LeadQualifyToggle` → `lib/actions/leadQualify.action.js`)
 — null = not reviewed yet, true = qualified/real, false = junk. Not the

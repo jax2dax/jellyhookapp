@@ -990,4 +990,182 @@ it).
   `framePlate/components/FullPagePlate.tsx` still has a `console.log`
   block marked `// TEMP DEBUG — remove once the page-height investigation
   is done`, firing on every render (visible in the build output). Worth
-  removing in a future pass. 
+  removing in a future pass.
+
+## 2026-10-01 (later still) — Main chart: sessions online over time
+
+Built the TradingView-style "busiest times" chart the user specced in
+`mds/todos.md`, in its own module `main-chart/` (docs inside it:
+`overview.md`, `docs/architecture.md`, `docs/data-flow.md`,
+`docs/ui-ux.md`; renamed the pre-created `architucture.md` typo).
+
+Decisions taken with the user before building:
+- **Peak during bucket**, not sampled-at-tick. Both give identical results
+  for every example in the spec; peak additionally never hides a visit
+  that starts and ends between two ticks.
+- **uPlot + custom** (new dependency, `uplot` 1.6.32) over TradingView's
+  Lightweight Charts: Lightweight Charts spaces bars evenly and caps
+  zoom-out at ~3,000 bars, which makes "5s interval over five months"
+  (variety 1) impossible. uPlot has a continuous time axis; the chart
+  draws per-pixel high/low ranges when buckets outnumber pixels.
+- **Ghost tabs labeled, not fixed.** User pointed out history is already
+  correct (the sweep backdates `ended_at`); agreed, the effect is only on
+  the live edge before the sweep runs. Last 30 min drawn in FramePlate's
+  "live" cyan with an explanation instead of a tracker heartbeat (which
+  would multiply `/api/track` traffic).
+
+How it works: raw spans (`id, started_at, ended_at`) come from
+`lib/actions/mainChart.action.ts` (paged, carry-in for sessions open
+across a range edge, live poll by `last_activity_at` + re-read of open ids
+to catch backdated sweep closes, server clock returned for skew
+correction). Everything else is computed in the browser per frame:
+`engine/computeSeries.ts` skips event-free bucket runs in one step, so 5s
+over 5 months (2.5M buckets, 100k sessions) recomputes in ~9 ms. Placed
+full-width under the key stats on `/platform/dashboard`.
+
+Verified: engine against the spec's examples, edge cases and 40 random
+brute-force comparisons; store against a mocked DB (20 cases incl.
+reopened sessions, clock skew, empty site); `tsc`, `eslint`, `next build`
+clean. NOT verified in a real browser (behind Clerk sign-in).
+
+Open items: run the two `sessions` indexes (SQL in `mds/database.md`);
+marker layers (conversions, `users.created_at`) designed in
+architecture.md but not built; `reachOverTime.action.ts` and similar don't
+page past PostgREST's 1,000-row cap. 
+
+## 2026-10-01 (later still) — Main chart: smooth line, zoom controls, header fix
+
+User feedback on the first version:
+- **Line shape.** Wanted points joined smoothly (like the shadcn area
+  chart), not steps. Default is now a monotone cubic curve (`uPlot.paths.spline`),
+  chosen over a "natural" spline because it can't overshoot: no curve below
+  0 or above the real peak between two points. The stepped version was kept
+  as a variety (Smooth / Steps toggle); both share the same computed data.
+- **Wheel no longer zooms.** It was capturing page scroll whenever the
+  cursor was over the chart. Now only a trackpad pinch zooms (ctrl+wheel in
+  Chrome/Edge/Firefox, gesture events in Safari), plus new +/- buttons at
+  the plot's top right. Plain wheel scrolls the page.
+- **Readout line moved to its own fixed-height line**, so its changing text
+  no longer pushes the controls down.
+- **Marker placement decided by the user:** an event snaps forward to the
+  next point (10:43 on the 5s chart -> the 10:45 point). Recorded in
+  `main-chart/docs/architecture.md`; markers themselves still not built.
+
+## 2026-10-01 (later still) — Main chart: Trend variation, fetch audit
+
+**Trend line style (third variation, Smooth | Steps | Trend).** The user's
+"smooth" meant something different from a curved line: a session that
+starts at 2:30 am, with the next change at 9:30 pm, should make the line
+travel slowly between those two moments, not sit flat at 1 all day, so
+bumps only appear where many sessions arrive close together. Built as
+`main-chart/engine/computeTrend.ts`:
+- a point only in buckets where the count changed (an arrival or departure);
+  empty buckets get none, so the curve runs straight across them;
+- each point = time-weighted average online across its bucket;
+- the ends are anchored on the real change just before / just after the
+  view (or "now"), never on the view's edges. The first version used the
+  edges and would have reshaped the line while panning; caught while
+  testing the user's own example, fixed, and covered by a pan-stability
+  test (two different views agree point for point);
+- more change points than pixels: averaged per pixel column.
+Tradeoff stated in the UI and docs: being averages, a very short spike
+looks smaller in Trend than in Smooth/Steps, which never hide anything.
+
+**Fetch audit.** Confirmed: after the first load, nothing but the 15s live
+poll touches the database. Pan/zoom/interval/style/hover/clock never do,
+and the poll only asks for rows touched since the last poll plus open ids,
+never the whole history. Two fixes from the audit:
+- the store's change counter also bumped on every request start/finish,
+  forcing two full timeline rebuilds per poll even with no new data;
+  spans now carry their own counter that only moves on a real row change
+  (CPU only, not DB);
+- coming back to the dashboard waited up to 15s before catching up; it
+  now polls immediately on mount.
+
+**User question answered with numbers** (measured: 140 B/row DB->server,
+67 B/row server->browser; example site with 20k sessions, one tab open
+one hour, 240 polls): refetching everything every poll = 4,800 DB
+requests and ~672 MB DB->server per hour, growing every day; what's built
+(load once, then only changes) = ~480 requests and ~0.2 MB, flat as
+history grows. ~10x fewer requests, over 3,000x less data. Persisting to
+localStorage on top would only save the ~2-hour first load (~3 KB here),
+so not worth the quota and main-thread parse cost yet. Also recorded:
+"fetch only sessions started after X" alone would miss closes, reopens and
+backdated sweep closes. Full write-up in `main-chart/docs/architecture.md`
+("Why it fetches only what changed") and `docs/data-flow.md` (section 3b).
+
+## 2026-10-01 (later still) — Main chart: marker layers (conversions, team joins)
+
+Built the two marker layers from the plan, each behind a checkbox (off by
+default), drawn on top of the session line without ever changing it.
+
+- **Conversions:** yellow dot on the line per `form_submissions` row,
+  snapped FORWARD to the next point (10:43 on the 5s chart -> the 10:45
+  point, the user's rule). Height = the line's own height at that point;
+  in Trend it's evaluated on the drawn curve itself (`monotoneCubicAt`,
+  same Fritsch-Carlson construction uPlot uses), so dots sit exactly on the
+  line in all three styles. Several on one point = one dot with a count.
+- **Team joined:** vertical line per active `site_members` row of THIS
+  site. The user's note said `users.created_at`; asked first and the user
+  chose site team joins, because `users` is Jellyhook's global signup table
+  and would show other customers' signups on everyone's chart (a
+  cross-tenant leak).
+- **Found while building:** accepting an invite UPDATES the pending row in
+  place, so `site_members.created_at` is the invite-SENT time. Added
+  `joined_at` (SQL in mds/database.md, not yet applied), set by
+  `acceptInvite`; chart reads `joined_at ?? created_at`. Both
+  `acceptInvite` and the chart retry without the column if it doesn't exist
+  yet, so invite acceptance can never break over it.
+- **Data:** `getMarkerEvents` (range loads; team list whole, once) and
+  markers riding inside the existing live poll call, each layer with its own
+  cursor, so a layer switched off for a while catches up when switched back
+  on, and switching markers on adds no server calls. Separate maps and
+  coverage in `SpanStore`; kept in memory (the user chose in-memory over
+  IndexedDB), documented with numbers in `main-chart/docs/data-flow.md` §6.
+- **Testing caught two placement bugs before shipping:** a conversion from
+  before the view got pulled onto the first visible point, and the fix for
+  that then dropped conversions whose next point hadn't happened yet.
+  Both fixed and covered. Marker store tests: range-only loads, no
+  refetch, live arrival in the single poll call, catch-up after re-tick,
+  removed members disappear.
+- New SQL to run (none are deploy blockers): `form_submissions
+  (site_id, submitted_at)` index, `site_members.joined_at` column, plus the
+  two `sessions` indexes from before.
+- Not verified in a real browser (behind Clerk sign-in).
+
+Next, per the user: the live "now" item from `mds/todos.md`.
+
+## 2026-10-01 (later still) — "No data in the chart" + LiveTicker hydration error
+
+User report: a hydration error on the dashboard, and the main chart showing
+no data. Diagnosed with read-only queries against the real database
+(service role, the chart's exact queries) instead of guessing:
+
+- **The chart's queries were fine** (carry-in `or` filter included). The
+  test site (`localhost:3003`) had 58 sessions, latest started 6.4h ago,
+  zero in the last 2h. The chart opened on "last hour at 10s", which was
+  correctly all zeros, and looked like nothing loaded.
+- **Real bug that made it worse:** the "No sessions yet. This fills in as
+  soon as your first visitor arrives." message was keyed on
+  `store.size === 0`, i.e. *loaded* sessions, so a site with 58 sessions
+  and none in the loaded hour was told it had never had a visitor. Now
+  decided from the site's latest session time (`getSessionBounds`, renamed
+  from `getFirstSessionAt`, now also returns the latest `started_at`).
+- **Opening view:** if nobody visited in the default window, live mode
+  opens wide enough to include the most recent visit
+  (`theme.lastVisitPadding`). Panning/zooming into an empty stretch shows
+  "Nobody was online in this stretch · last visit Xh ago" with a
+  **Show the last visit** button.
+- **Hydration error (separate, pre-existing, `LiveTicker`):** each row's
+  "Xh Ym ago" was computed from `Date.now()` during render. The server said
+  "23h 48m ago", the browser a minute later "23h 49m ago", so React threw
+  away the server HTML and rebuilt the page. Now read through
+  `useSyncExternalStore` with a clock that's null on the server and during
+  hydration, then ticks every second.
+- **Also:** `storeFor()` no longer registers stores during server rendering
+  (they'd have lived in server memory forever, one per site).
+- The same check confirmed `site_members.joined_at` doesn't exist yet
+  (error 42703): exactly the case the fallback in `getMarkerEvents` and
+  `acceptInvite` handles.
+- Store tests extended with the quiet-site case. All engine, trend, marker
+  and store tests pass; tsc, eslint and `next build` clean.

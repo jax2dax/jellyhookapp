@@ -40,9 +40,22 @@ const BASE_POLL_MS = 1500;
 const MIN_NETWORK_GAP_MS = 500;
 const NEW_ROW_ANIMATION_MS = 900;
 
-function formatElapsed(dateStr: string | null): string {
+// A clock that's null during server render AND during hydration, then the
+// real time once the browser has taken over. Reading Date.now() in render
+// instead made the server print "23h 48m ago" while the browser, a moment
+// later, printed "23h 49m ago": a hydration mismatch that made React throw
+// away and rebuild the whole page. Ticks once a second.
+function subscribeClock(onTick: () => void) {
+  const id = setInterval(onTick, 1000);
+  return () => clearInterval(id);
+}
+const readClock = () => Math.floor(Date.now() / 1000) * 1000; // stable within a second, as useSyncExternalStore requires
+const readServerClock = () => null;
+
+function formatElapsed(dateStr: string | null, now: number | null): string {
+  if (now === null) return ""; // server render / hydration: filled in right after
   if (!dateStr) return "—";
-  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const diffMs = now - new Date(dateStr).getTime();
   if (diffMs < 0) return "0s ago";
   const seconds = Math.floor(diffMs / 1000);
   if (seconds < 60) return `${seconds}s ago`;
@@ -56,9 +69,8 @@ export function LiveTicker({ siteId, initialRows }: { siteId: string; initialRow
   const [rows, setRows] = React.useState<ActivityRow[]>(() => initialRows.slice(0, MAX_ROWS));
   const [pollMs, setPollMs] = React.useState(BASE_POLL_MS);
   const [justAdded, setJustAdded] = React.useState<Set<string>>(new Set());
-  // Forces a re-render every second purely so each row's "Xs ago" text keeps
-  // counting up even between polls — the rows themselves don't change.
-  const [, setTick] = React.useState(0);
+  // Re-renders every second so each row's "Xs ago" keeps counting up between polls.
+  const now = React.useSyncExternalStore(subscribeClock, readClock, readServerClock);
 
   const rowEls = React.useRef<Map<string, HTMLDivElement>>(new Map());
   const prevRects = React.useRef<Map<string, DOMRect>>(new Map());
@@ -81,11 +93,6 @@ export function LiveTicker({ siteId, initialRows }: { siteId: string; initialRow
       setJustAdded(new Set(incoming.map((r) => r.id)));
       return [...incoming, ...prev].slice(0, MAX_ROWS);
     });
-  }, []);
-
-  React.useEffect(() => {
-    const t = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(t);
   }, []);
 
   // Cross-tab: pick up another tab's poll result the instant it lands,
@@ -191,7 +198,7 @@ export function LiveTicker({ siteId, initialRows }: { siteId: string; initialRow
               >
                 <span className="min-w-0 flex-1 truncate font-mono text-foreground">{row.page_path || "/"}</span>
                 <span className="shrink-0 font-mono text-xs text-muted-foreground">{row.visitor_id ? `${row.visitor_id.slice(0, 8)}...` : "—"}</span>
-                <span className="w-20 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">{formatElapsed(row.entered_at)}</span>
+                <span className="w-20 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">{formatElapsed(row.entered_at, now)}</span>
               </div>
             ))}
           </div>

@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDuration } from "@/lib/leadFormat";
 import { LocalDate } from "@/components/LocalDate";
+import { MainChart } from "@/main-chart";
 
 export default async function OverviewPage() {
   const user = await getAuthUser();
@@ -70,6 +71,11 @@ export default async function OverviewPage() {
           value={`${uniqueConversion.rate.toFixed(1)}%`}
           sub={`${uniqueConversion.uniqueConvertingVisitors} of ${uniqueConversion.uniqueVisitors} unique visitors`}
         />
+      </div>
+
+      {/* ── Main chart: sessions online over time ───────────────────── */}
+      <div className="mb-6">
+        <MainChart siteId={site.id} />
       </div>
 
       {/* ── Visits over time + Site health ─────────────────────────── */}
