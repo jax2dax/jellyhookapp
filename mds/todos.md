@@ -40,7 +40,7 @@ Team communications, task pinning, task status and which member did it.
 #task adding,  your tasks show up (if someone added a task and included you) and you mark it as done, when it is done
 
 (ai)
-##navigator - save a undercover keyword for each chart, (possible things the user might search for. and on the navigator bot, i give a whole list of pairs of the charts-location(path#) with the: keywords might be associated with it. so then feed it to the AI, then it will rout the user to where he wanted to be routed.)
+##navigator - save a undercover keyword for each chart, (possible things the user might search for. and on the navigator bot, i give a whole list of pairs of the charts-location(path#) with the: keywords might be associated with it. so then feed it to the AI, then it will rout the user to where he wanted to be routed.) (AI customer service)
 
 # Caching and systems
 build a chache tree of what is cached, and their sequence. 
@@ -129,3 +129,24 @@ after the graph is functional (not to build now), i am also planning to add a fe
 so the person can select by month (and selects it to septemer. the chart will start from the begining of september tp the end of september and each points will display. 
 
 # hide sensitive information(hide certain charts form certain people)(these option) (for each chart/display info, if the owner hides it from sales reps) (and might get)
+
+- what if i started storing <p> tags + <h> tags with their actual coordinates. (width and height )
+
+
+  # check caching not to intersect with another one when they switch between sites
+
+
+# >> Alghorithms :
+then put it in one statement saying this page  2% contribution on average when seen on every session it was seen.  
+* Later Advanced (this page section instead of the whole page)
+
+
+
+Feature >>> 
+# + Highlight on the page info instead of displaying Bullshit. Display this instead (for the marketer/conversion page onlt):
+  -> Page Power 
+  
+  
+  (then add a table to record the page power across different times (if the alghorithm redoes it and it becomes different))
+
+  

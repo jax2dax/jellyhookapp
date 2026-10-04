@@ -1499,3 +1499,31 @@ they return.
   the instant it closes, bump back up on the next page view. All pass.
 - Verified with `npx tsc --noEmit -p .`, `npx eslint`, and
   `npx next build`, all clean. Not verified in a real browser.
+
+---
+
+## 2026-10-02 — Hook engine (/dev/hook), v1 then v2
+
+- New module `jh-hook/` (docs and engine), `lib/actions/hook.action.ts`,
+  `lib/hook/pgDb.ts`, `app/dev/hook/page.tsx`. A query is a typed JSON
+  spec (Hook's own language) that the engine compiles to one SQL statement.
+  Full decisions, trade-offs and roadmap are in `jh-hook/` (start at
+  `plan.md`).
+- Same day, rebuilt as v2 after Joshua's correction that v1 only covered
+  the literal examples: a generic typed language (`jh-hook/schema.ts` +
+  `engine/sqlmap.ts`), any operator on any field, related-row measures,
+  AND/OR/NOT, and real tunnels (any value can be another hook's output,
+  shape- and type-checked). Recursive builder in
+  `components/hook/HookBuilder.tsx`.
+- Decided with Joshua: own language compiled to SQL; direct `pg` connection
+  as a read-only `hook_reader` role (`jh-hook/setup.sql`, RLS policies, no
+  BYPASSRLS); auto AND manual order with a guard; no AI yet; credits from
+  EXPLAIN, checked before running. `/dev/hook` is Joshua's test bench; a
+  dedicated, authorized Hook page comes later.
+- New dependency `pg` (+ `@types/pg`), new env var `HOOK_DATABASE_URL`.
+- Also this session: dashboard Pages table narrowed; /conversions lead cards
+  collapsed to one short line.
+- Verified with tsc, eslint, next build, and 44 engine checks on in-memory
+  Postgres (PGlite), which caught two real bugs (NOT dropping empty values;
+  LEAST ignoring NULL making unmeasured pages read 100% seen). Not run
+  against the real database or in a browser.
