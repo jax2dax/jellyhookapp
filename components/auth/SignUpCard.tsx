@@ -116,7 +116,7 @@ export function SignUpCard() {
           <p className="mt-1.5 ff-body text-[13px] leading-relaxed text-[#8b8980]">
             Enter the 6-digit code we sent to {email}.
           </p>
-          <form onSubmit={handleVerify} className="mt-5 space-y-3">
+          <form onSubmit={handleVerify} data-conversion="true" className="mt-5 space-y-3">
             <div>
               <label className={labelClass}>Verification code</label>
               <input
