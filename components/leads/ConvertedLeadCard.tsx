@@ -87,7 +87,7 @@ export function ConvertedLeadCard({
           {/* stopPropagation — this link navigates, it must never also toggle the expand/collapse */}
           <Button asChild variant="outline" size="sm" className="shrink-0" onClick={(e) => e.stopPropagation()}>
             <Link href={`/platform/leads/${submission.id}`}>
-              View full information
+              View lead information
               <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
             </Link>
           </Button>

@@ -1,7 +1,7 @@
 // components/feedback/SupportFeedbackButton.tsx
 // Replaces the old plain NavSecondary("Support") row with one split button:
-// left half is still Support (unchanged, still a "#" placeholder — no
-// support flow was asked for), right half opens FeedbackDialog.
+// left half opens SupportDialog (a message to the team, no rating), right
+// half opens FeedbackDialog.
 //
 // The right half also gets a periodic "nudge": a soft, translucent glow
 // drifts slowly across it and fades back out over ~2.8s (jh-feedback-sweep
@@ -22,6 +22,7 @@ import * as React from "react";
 import { LifeBuoy, MessageSquareHeart } from "lucide-react";
 import { SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar";
 import { FeedbackDialog } from "./FeedbackDialog";
+import { SupportDialog } from "./SupportDialog";
 import { cn } from "@/lib/utils";
 
 const GLOW_INTERVAL_MS = 10 * 60 * 1000;
@@ -35,6 +36,7 @@ function todayStr() {
 
 export function SupportFeedbackButton() {
   const [feedbackOpen, setFeedbackOpen] = React.useState(false);
+  const [supportOpen, setSupportOpen] = React.useState(false);
   const [glowing, setGlowing] = React.useState(false);
 
   React.useEffect(() => {
@@ -73,13 +75,14 @@ export function SupportFeedbackButton() {
       <SidebarMenu>
         <SidebarMenuItem>
           <div className="flex h-8 overflow-hidden rounded-md border border-sidebar-border">
-            <a
-              href="#"
+            <button
+              type="button"
+              onClick={() => setSupportOpen(true)}
               className="flex flex-1 items-center justify-center gap-1.5 border-r border-sidebar-border text-xs text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <LifeBuoy className="size-3.5" />
               Support
-            </a>
+            </button>
             <button
               type="button"
               onClick={() => setFeedbackOpen(true)}
@@ -97,6 +100,7 @@ export function SupportFeedbackButton() {
       </SidebarMenu>
 
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} source="manual" />
+      <SupportDialog open={supportOpen} onOpenChange={setSupportOpen} />
     </>
   );
 }

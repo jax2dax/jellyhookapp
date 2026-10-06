@@ -15,6 +15,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Minus, RefreshCw, Users, BarChart2, Activity } from 'lucide-react';
 import { getConversionRateData, WindowPreset, ConversionRateResult } from '@/lib/actions/rateConversion.action';
+import { WindowStatTile } from '@/components/dashboard/WindowStatTile';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POLL INTERVALS (ms) — adjust per plan tier before enabling live fetch
@@ -382,20 +383,21 @@ export function ConversionRateChart({
           </CardContent>
         </Card>
 
-        {/* All-time total — spans full row on mobile */}
-        <Card className="col-span-2 sm:col-span-4">
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardDescription className="text-xs font-medium uppercase tracking-wide flex items-center gap-1">
-              <Users className="h-3 w-3" /> All-Time Total Conversions
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 flex items-center gap-4">
-            <p className="text-3xl font-bold">{data?.allTimeTotal ?? 0}</p>
-            <p className="text-sm text-muted-foreground">
-              total form submissions ever recorded for this site
-            </p>
-          </CardContent>
-        </Card>
+        {/* Total conversions, per window (all time by default), with the change
+            vs the window before, same tile as the dashboard's. Spans the row. */}
+        <div className="col-span-2 sm:col-span-4">
+          <WindowStatTile
+            siteId={siteId}
+            metric="leads"
+            storageId="conversions_total"
+            icon="users"
+            label="Total Conversions"
+            noun="form submissions"
+            allowAll
+            defaultWindow="all"
+            info="Every form submitted on your site in the chosen window, including repeat submissions from the same person. Pick 24h, 7d or 30d to see the change compared with the window just before."
+          />
+        </div>
       </div>
     </div>
   );

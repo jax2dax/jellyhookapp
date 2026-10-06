@@ -10,7 +10,8 @@
     "test:hook": "jiti jh-hook/tests/engine.test.ts",
     "hook:reference": "jiti jh-hook/scripts/genReference.ts",
     "test:silhouette": "jiti silhouette/tests/derive.test.ts",
-    "test:output": "jiti output/tests/output.test.ts"
+    "test:output": "jiti output/tests/output.test.ts",
+    "test:visits": "jiti lib/analytics/visitsAggregate.test.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.5",

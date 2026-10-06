@@ -8,6 +8,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { InfoTip } from "@/components/InfoTip";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { RefreshCw, Users } from "lucide-react";
 import { DateRangePicker, type DateRange } from "./DateRangePicker";
@@ -70,6 +71,7 @@ export function NewReachChart({ siteId, mini = false, embedded = false }: { site
         <div>
           <CardTitle className={mini ? "text-sm flex items-center gap-1.5" : "text-lg flex items-center gap-2"}>
             <Users className="h-3.5 w-3.5 text-muted-foreground" /> New Reach
+            <InfoTip label="About New Reach">People visiting your site for the first time ever, per day (or hour). Returning visitors are not counted again. A flat line at 0 means no new visitors.</InfoTip>
           </CardTitle>
           {!mini && <CardDescription className="mt-0.5">New unique visitors gained over time.</CardDescription>}
           {/* Mini has no controls at all, so it says what window it's actually
@@ -92,14 +94,18 @@ export function NewReachChart({ siteId, mini = false, embedded = false }: { site
       <div className={`flex items-center justify-center ${height} text-muted-foreground`}>
         <RefreshCw className="h-4 w-4 animate-spin" />
       </div>
-    ) : chartData.length === 0 || data?.totalNewVisitors === 0 ? (
+    ) : chartData.length === 0 ? (
       <div className={`flex items-center justify-center ${height} text-sm text-muted-foreground`}>No new visitors in this period.</div>
     ) : (
+      // A period with none still draws the chart: a flat line at 0 says
+      // "nothing happened" more clearly than an empty box (the caption under
+      // it says so in words).
+      <div className="relative">
       <ChartContainer config={chartConfig} className={`${height} w-full`}>
         <AreaChart data={chartData} margin={{ top: 4, right: 8, left: mini ? -20 : -10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" strokeOpacity={0.6} />
           <XAxis dataKey="label" tick={mini ? false : { fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={{ stroke: "var(--border)" }} tickLine={false} hide={mini} />
-          <YAxis allowDecimals={false} tick={mini ? false : { fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} width={mini ? 0 : 28} hide={mini} />
+          <YAxis allowDecimals={false} domain={[0, (dataMax: number) => Math.max(1, dataMax)]} tick={mini ? false : { fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} width={mini ? 0 : 28} hide={mini} />
           {!mini && <ChartTooltip content={<ChartTooltipContent />} />}
           <defs>
             <linearGradient id="newReachFill" x1="0" y1="0" x2="0" y2="1">
@@ -110,6 +116,8 @@ export function NewReachChart({ siteId, mini = false, embedded = false }: { site
           <Area type="monotone" dataKey="newVisitors" stroke="var(--color-newVisitors)" fill="url(#newReachFill)" strokeWidth={2} />
         </AreaChart>
       </ChartContainer>
+      {data?.totalNewVisitors === 0 && <p className="mt-1 text-center text-[11px] text-muted-foreground">No new visitors in this period.</p>}
+      </div>
     );
 
   // embedded = no own Card/border — used when a parent container (the

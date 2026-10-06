@@ -67,6 +67,15 @@ export default function ConversionsReferencePage() {
         </div>
 
         <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Total conversions</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Every form submitted on your site, including repeat submissions from the same person. It shows all time by
+            default; pick 24h, 7d or 30d for a recent window, with an arrow showing the change from the window just
+            before (hover it for the full sentence).
+          </p>
+        </div>
+
+        <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Conversions list</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             One card per converted lead, filterable by date range (last 3 days, last week, last month, all time, or
@@ -86,7 +95,7 @@ export default function ConversionsReferencePage() {
             Expanding a card shows only that lead&apos;s path to conversion: start of the session through the
             exact page visit they converted on, nothing after. If the real session kept going past that point, the
             rest of it is deliberately cut from this view. Click{" "}
-            <span className="text-[#f4f2ea]">View full information</span> to see the whole thing, uncut, on that
+            <span className="text-[#f4f2ea]">View lead information</span> to see the whole thing, uncut, on that
             lead&apos;s own{" "}
             <Link href="/docs/reference/lead-profile" className="text-[var(--lime)] hover:underline">
               profile page

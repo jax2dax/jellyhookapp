@@ -149,4 +149,19 @@ Feature >>>
   
   (then add a table to record the page power across different times (if the alghorithm redoes it and it becomes different))
 
-  
+  ##
+hook logs
+
+## fix local cache schema
+
+## attach goals to every chart, and only calculate percentage of up (increase) or down(decrease):
+
+#Prompt for site health (INCOMPLETE)
+-   site health should do a different thing, 
+it is a small calculation, which will have options of daily health, weekly health, montly health:
+lets start with daily health, which it does is it will find the most frequently registered " number of conversions" withing daily basis each day,:
+lets say a site had, monday-sunday) 22, 23, 20, 46,  20, 21, 19 conversions )the site health calculate a valuewith atleast 7 days of using the 
+
+* -vercel filter pinning
+
+--setting check

@@ -478,6 +478,29 @@ create table public.users (
   constraint users_pkey primary key (id)
 ) TABLESPACE pg_default;
 
+## support_requests
+Added 2026-10-06 for the sidebar's **Support** button
+(`components/feedback/SupportDialog.tsx`, `submitSupportRequest` in
+`lib/actions/feedback.actions.js`). Not created yet as of writing: run
+once in the Supabase SQL editor.
+```sql
+create table if not exists public.support_requests (
+  id uuid not null default gen_random_uuid() primary key,
+  created_at timestamp with time zone not null default now(),
+  user_id text not null,
+  message text not null check (char_length(message) between 1 and 5000),
+  page_path text null,
+  status text not null default 'open' -- 'open' | 'answered' | 'closed', for whoever answers
+);
+create index if not exists support_requests_created_idx on public.support_requests using btree (created_at desc);
+-- Written only by the server with the service role; nobody reads it from the browser.
+alter table public.support_requests enable row level security;
+```
+A free-text message to the team, no rating. It is kept out of `feedback`,
+whose rating is the point of that table. Replies go to the account's email,
+looked up from `user_id` in `users`. Until the table exists, sending shows
+"Couldn't send your message" and the server logs the error.
+
 ## Row Level Security
 
 Active as of 2026-09-30 (see `mds/progress_timeline.md` for the full story

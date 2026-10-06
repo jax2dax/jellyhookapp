@@ -1,10 +1,6 @@
-import Link from "next/link";
-import { ArrowRight, Eye, Flame, Percent, UserCheck, Users } from "lucide-react";
 import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
-import { getPageViewsLast24h, getTotalSessions, getRecentActivity, getLeads } from "@/lib/actions/supabase.actions";
+import { getRecentActivity, getLeads } from "@/lib/actions/supabase.actions";
 import { getSitePagesOverview } from "@/lib/actions/pagesOverview.action";
-import { getIntentFailureAnalysis } from "@/lib/actions/intentFailure.action";
-import { getUniqueConversionRate } from "@/lib/actions/uniqueConversionRate.action";
 import { VisitsOverTimeChart } from "@/components/charts/visitsOverTime";
 import { PageViewsBar } from "@/components/charts/pageViewsBar";
 import { NewReachChart } from "@/components/charts/NewReachChart";
@@ -12,7 +8,8 @@ import { ConversionsAreaChart } from "@/components/charts/ConversionsAreaChart";
 import { FramePlatePreviewCard } from "@/components/dashboard/FramePlatePreviewCard";
 import { ActiveNowTile } from "@/components/dashboard/ActiveNowTile";
 import { LiveTicker } from "@/components/dashboard/LiveTicker";
-import { StatTile } from "@/components/StatTile";
+import { WindowStatTile } from "@/components/dashboard/WindowStatTile";
+import { HookShortcutCard } from "@/components/dashboard/HookShortcutCard";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,24 +21,9 @@ export default async function OverviewPage() {
   const user = await getAuthUser();
   const site = await requireSite(user.id);
 
-  const [pageViews24h, totalSessions, recentActivity, leads, pages, health, uniqueConversion] = await Promise.all([
-    getPageViewsLast24h(site.id),
-    getTotalSessions(site.id),
-    getRecentActivity(site.id),
-    getLeads(site.id),
-    getSitePagesOverview(site.id),
-    getIntentFailureAnalysis(site.id).catch((err) => {
-      console.error("[dashboard] getIntentFailureAnalysis failed:", err);
-      return null;
-    }),
-    getUniqueConversionRate(site.id),
-  ]);
-
-  const totalLeads = leads.length;
-
-  const healthPages = health?.pages ?? [];
-  const avgHealthScore = healthPages.length ? healthPages.reduce((s, p) => s + p.intentFailureScore, 0) / healthPages.length : null;
-  const pagesNeedingAttention = health ? healthPages.filter((p) => p.intentFailureScore > health.adaptive_threshold) : [];
+  // The top tiles load their own numbers per time window (WindowStatTile);
+  // only the data the rest of the page renders on the server is read here.
+  const [recentActivity, leads, pages] = await Promise.all([getRecentActivity(site.id), getLeads(site.id), getSitePagesOverview(site.id)]);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -56,18 +38,40 @@ export default async function OverviewPage() {
         </div>
       </div>
 
-      {/* ── Key stats ───────────────────────────────────────────────── */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      {/* ── Key stats: each tile has its own time window and the change vs the window before ── */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[auto_repeat(4,minmax(0,1fr))]">
         <ActiveNowTile siteId={site.id} />
-        <StatTile compact icon={Eye} label="Page Views (24h)" value={pageViews24h} sub="in the last day" />
-        <StatTile compact icon={Users} label="Total Sessions" value={totalSessions} sub="all time" />
-        <StatTile compact icon={UserCheck} label="Total Leads" value={totalLeads} sub="form submissions all time" />
-        <StatTile
-          compact
-          icon={Percent}
+        <WindowStatTile
+          siteId={site.id}
+          metric="pageViews"
+          icon="eye"
+          label="Page Views"
+          noun="page views"
+          info="Every page opened on your site in the chosen window. The arrow compares with the same length of time just before it."
+        />
+        <WindowStatTile
+          siteId={site.id}
+          metric="sessions"
+          icon="users"
+          label="Sessions"
+          noun="sessions"
+          info="Visits to your site that started in the chosen window (one visit can include many pages). The arrow compares with the window just before."
+        />
+        <WindowStatTile
+          siteId={site.id}
+          metric="leads"
+          icon="userCheck"
+          label="Leads"
+          noun="form submissions"
+          info="Forms submitted in the chosen window: every submission counts, including repeat ones from the same person. The arrow compares with the window just before."
+        />
+        <WindowStatTile
+          siteId={site.id}
+          metric="conversionRate"
+          icon="percent"
           label="Conversion Rate"
-          value={`${uniqueConversion.rate.toFixed(1)}%`}
-          sub={`${uniqueConversion.uniqueConvertingVisitors} of ${uniqueConversion.uniqueVisitors} unique visitors`}
+          noun="conversions"
+          info="Different people who submitted a form, divided by different people who visited, in the chosen window. Each person counts once. The change is in percentage points."
         />
       </div>
 
@@ -76,40 +80,12 @@ export default async function OverviewPage() {
         <MainChart siteId={site.id} />
       </div>
 
-      {/* ── Visits over time + Site health ─────────────────────────── */}
+      {/* ── Visits over time + the Hook shortcut (replaced Site Health) ── */}
       <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <VisitsOverTimeChart siteId={site.id} />
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-1.5">
-              <Flame className="h-4 w-4 text-muted-foreground" /> Site Health
-            </CardTitle>
-            <CardDescription>How well pages are holding visitors&apos; attention.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!health || healthPages.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">No page data yet.</div>
-            ) : (
-              <>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-foreground">{Math.round((1 - (avgHealthScore ?? 0)) * 100)}</span>
-                  <span className="text-sm text-muted-foreground">/ 100 avg health</span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {pagesNeedingAttention.length > 0
-                    ? `${pagesNeedingAttention.length} page${pagesNeedingAttention.length === 1 ? "" : "s"} need attention`
-                    : "No pages currently flagged"}
-                </p>
-                <Link href="/platform/intent" className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                  View full analysis <ArrowRight className="h-3 w-3" />
-                </Link>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <HookShortcutCard />
       </div>
 
       {/* ── New Reach + Conversions minis — full versions live on /platform/conversions ── */}

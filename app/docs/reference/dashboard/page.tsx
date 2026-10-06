@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Dashboard overview",
-  description: "What each card on the main dashboard actually shows.",
+  description: "What each card on the main dashboard shows, and how each number is counted.",
   alternates: { canonical: "/docs/reference/dashboard" },
 };
 
@@ -17,20 +17,30 @@ export default function DashboardReferencePage() {
 
       <div className="mt-12 space-y-10">
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">The five stat tiles</h2>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">The stats row</h2>
           <ul className="space-y-2 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             <li>
-              Active Now: sessions open on the site at this exact moment. Updates on its own, every second, while
-              the tab stays open, no reload needed.
+              Active now: the round badge with the green dot. It is the number of visitors on the site at this
+              exact moment, and it updates on its own every second while the tab stays open. Hover it for the
+              description.
             </li>
-            <li>Page Views (24h): page views in the last day.</li>
-            <li>Total Sessions: all sessions ever recorded for this site.</li>
-            <li>Total Leads: all form submissions ever recorded.</li>
+            <li>Page Views: pages opened in the chosen window.</li>
+            <li>Sessions: visits that started in the chosen window.</li>
+            <li>Leads: forms submitted in the chosen window, including repeat submissions from the same person.</li>
             <li>
-              Conversion Rate: unique converting visitors divided by unique visitors, both counted once per
-              person no matter how many times they visited or submitted.
+              Conversion Rate: different people who submitted a form, divided by different people who visited,
+              in the chosen window. Each person counts once on each side.
             </li>
           </ul>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Each of these four tiles has its own small window menu: 24h, 7d or 30d (the last 24 hours, 7 days or
+            30 days, up to now). Next to the number, an arrow shows the change from the window just before:
+            the previous 24 hours, 7 days or 30 days. Green and up means more, red and down means fewer. Hover
+            the arrow for the full sentence, for example &quot;50% fewer form submissions than the previous 24
+            hours&quot;. The conversion rate changes in percentage points (&quot;1.2 pts&quot;), because a
+            percentage of a percentage is misleading. Each tile remembers its window in your browser. The (i)
+            next to each title explains how that number is counted.
+          </p>
         </div>
 
         <div>
@@ -75,8 +85,22 @@ export default function DashboardReferencePage() {
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Visits over time</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             A different chart from Sessions online above: this one is a bar chart of how many sessions started in
-            each period, not how many were open at once. Adjustable window: last 3 days, 7 days, a month, 3
-            months, or all time.
+            each period, not how many were open at once. Windows: the last 24 hours (one bar per hour), 7 days or
+            a month (one bar per day), 3 months (one bar per week), or all time.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Unique visitors: tick it to count each person once per bar, however many sessions they started in that
+            period. For example, someone who starts 3 sessions between 2:00 and 3:00 and 2 more between 3:00 and
+            4:00 adds 1 to the 2:00 bar and 1 to the 3:00 bar, not 5.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Split by: Referrer, Device or Country turns each bar into a stacked bar, one coloured part per group.
+            Hover a bar to see every colour, its group, its count and its share of the bar. The legend under the chart lists the
+            groups with their totals. The 7 biggest groups in the window get their own colour and the rest share
+            &quot;Other&quot;. A group keeps the same colour in every bar, and when Unique visitors is switched on
+            or off. With both on, a person counts once per bar under the group of their first session in it, so
+            the parts always add up to the bar. Referrers use the same names as the referrer chart: the campaign
+            source when a link was tagged, otherwise the site they came from, or Direct.
           </p>
         </div>
 
@@ -93,7 +117,16 @@ export default function DashboardReferencePage() {
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">New Reach and Conversions (mini)</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Small, fixed versions of the last 3 days, no controls. Clicking either one goes straight to the
-            Conversions page, where the full interactive versions live, with a real date range picker.
+            Conversions page, where the full interactive versions live, with a real date range picker. A period
+            with nothing in it still draws the chart, as a flat line at 0 with a short note under it.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Hook shortcut</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            The green card beside Visits over time opens Hook, where you can ask precise questions about your
+            visitors, sessions, leads and forms. (It replaced the old Site Health card.)
           </p>
         </div>
 

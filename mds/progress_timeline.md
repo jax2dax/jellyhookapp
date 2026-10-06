@@ -1596,3 +1596,34 @@ they return.
 - Verified with tsc, eslint, next build and three test suites (66 + 24 + 28
   checks). Not exercised against real data in a browser.
 
+---
+
+## 2026-10-06 (night) — Dashboard tiles, Visits over time, Hook card, Support
+
+- Dashboard: Site Health removed; a green Hook shortcut card (swinging hook,
+  white in light mode) in its place. The top tiles (Page Views, Sessions,
+  Leads, Conversion Rate) each have a 24h / 7d / 30d menu and a change vs
+  the previous window ("50% fewer form submissions than the previous 24
+  hours" on hover; the rate in percentage points). Active now is a round
+  badge with a pulsing dot; its description shows on hover. Every updated
+  tile and chart has an (i) explanation (`components/InfoTip.tsx`).
+- Fixed along the way: the old tiles read rows, so "Total Sessions" was
+  silently capped at 1,000 by PostgREST; the new ones use exact counts.
+  Visits over time also read rows unpaged; it now pages (up to 100,000 per
+  window, stated on the chart beyond that).
+- Visits over time: Unique visitors (once per person per bar) and Split by
+  referrer / device / country as stacked bars, with a legend, a tooltip
+  naming every colour, top 7 + Other, and colours fixed per group across
+  bars and the Unique toggle. Counting extracted to
+  `lib/analytics/visitsAggregate.ts` and tested (`npm run test:visits`).
+- New Reach / Conversions minis draw a flat 0 line instead of an empty
+  message.
+- Sidebar Support opens a message dialog (no rating) stored in a new
+  `support_requests` table. Joshua must run its SQL (`mds/database.md`).
+- Conversions page: the all-time total became the same windowed tile (All
+  by default); "View full information" is now "View lead information".
+- Docs: `/docs/reference/dashboard` and `/docs/reference/conversions`
+  updated; developer notes in `mds/documentation/dashboard-2026-10-06.md`.
+- Verified with tsc, eslint (new code), next build and the test suites. Not
+  checked in a browser.
+
