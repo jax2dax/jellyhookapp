@@ -12,9 +12,11 @@
 // cached. The most selective step runs first. See jh-hook/architecture.md.
 import { describeCondition, describeSpec } from "../describe";
 import { LIST_LIMIT, type Condition, type HookAnswer, type HookCost, type HookPlan, type HookResult, type HookSpec, type TunnelInfo } from "../types";
-import { Ctx, compileCondition, compileOutput, compileSpecSelect, findTunnels, outputShape, fieldDef, measureSql } from "./compile";
+import { Ctx, compileCondition, compileOutput, tunnelSelect, findTunnels, outputShape, fieldDef, measureSql } from "./compile";
 import { SQL } from "./sqlmap";
 import { validateSpec } from "./validate";
+import { HookError } from "../errors";
+import { migrateSpec } from "../migrate";
 
 export interface HookDb {
   query(sql: string, params: unknown[]): Promise<Record<string, unknown>[]>;
@@ -62,7 +64,7 @@ async function runTunnels(db: HookDb, siteId: string, spec: HookSpec): Promise<T
   const cols: string[] = [];
   const meta = found.map(({ path, value }, i) => {
     const { shape, typed } = outputShape(value.hook, `Tunnel ${path}`);
-    const body = compileSpecSelect(value.hook, ctx, { limit: false });
+    const body = tunnelSelect(value.hook, ctx);
     const name = `probe${i}`;
     ctx.tunnels.push({ name, body });
     cols.push(
@@ -90,12 +92,16 @@ function toScalar(v: unknown): number | string | null {
   return typeof v === "number" ? v : String(v); // every numeric output is cast to float8, which pg returns as a number
 }
 
-export async function runHook(db: HookDb, siteId: string, spec: HookSpec, opts: RunOptions = {}): Promise<HookResult> {
+export async function runHook(db: HookDb, siteId: string, input: HookSpec, opts: RunOptions = {}): Promise<HookResult> {
+  // Every query is upgraded to the current format first, so queries saved
+  // or shared under an older version keep running (jh-hook/migrate.ts).
+  const migrated = migrateSpec(input);
+  const spec = migrated.spec;
   validateSpec(spec);
   const t0 = Date.now();
   const entity = spec.entity;
   const steps = spec.where;
-  const notes: string[] = [];
+  const notes: string[] = migrated.upgradedFrom ? [`This query was saved in an older format (v${migrated.upgradedFrom}) and was upgraded before running.`, ...migrated.notes] : [];
 
   // Type-check the output up front, so a bad output fails before any query.
   compileOutput(entity, spec.output, "x", [], false);
@@ -103,7 +109,7 @@ export async function runHook(db: HookDb, siteId: string, spec: HookSpec, opts: 
   // 1. Tunnels first: each sub-engine runs and reports what it hands over.
   const tunnels = await runTunnels(db, siteId, spec);
   for (const t of tunnels)
-    notes.push(t.shape === "one" ? `Sub-hook at ${t.path} produced ${t.sample[0] ?? "nothing"}.` : `Sub-hook at ${t.path} produced ${t.count} value${t.count === 1 ? "" : "s"}.`);
+    notes.push(t.shape === "one" ? `Tunnel: the sub-hook at ${t.path} sent in ${t.sample[0] ?? "nothing"}.` : `Tunnel: the sub-hook at ${t.path} sent in ${t.count} value${t.count === 1 ? "" : "s"}.`);
 
   // 2. Estimate every step alone (parallel, cached).
   const est = await Promise.all(steps.map((c) => estimateRows(db, siteId, spec, c)));
@@ -164,7 +170,7 @@ export async function runHook(db: HookDb, siteId: string, spec: HookSpec, opts: 
   const { cost: pgCost } = await db.explain(sql, ctx.p.values);
   const cost: HookCost = { pgCost: Math.round(pgCost * 100) / 100, credits: Math.max(1, Math.ceil(pgCost / COST_UNITS_PER_CREDIT)) };
   if (opts.maxCredits !== undefined && cost.credits > opts.maxCredits)
-    throw new Error(`This hook is estimated at ${cost.credits} credits, over the ${opts.maxCredits} credit limit. Nothing was run.`);
+    throw new HookError(`This hook is estimated at ${cost.credits} credits, over the ${opts.maxCredits} credit limit. Nothing was run.`);
   const planMs = Date.now() - t0;
 
   // 5. Execute.
@@ -175,7 +181,7 @@ export async function runHook(db: HookDb, siteId: string, spec: HookSpec, opts: 
   const plan: HookPlan = {
     strategy,
     order: ordered.map((c) => c.id),
-    steps: ordered.map((c) => ({ id: c.id, label: describeCondition(c, entity), estRows: Math.round(estOf.get(c)!) })),
+    steps: ordered.map((c) => ({ id: c.id, label: c.meta?.name ? `${c.meta.name}: ${describeCondition(c, entity)}` : describeCondition(c, entity), estRows: Math.round(estOf.get(c)!) })),
     notes,
   };
 

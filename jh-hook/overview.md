@@ -10,8 +10,8 @@ renamed columns. It is a small language with three ideas.
 
 ## 1. Any field, any operator
 
-Every entity (page views, sessions, leads, visitors, form interactions,
-pages, away gaps) exposes its fields with a type. The type decides the
+Every entity (page views, sessions, form submissions (leads), visitors,
+form activity, form fields, pages, away periods) exposes its fields with a type. The type decides the
 operators and the value editor:
 
 | Type | Operators | Value |
@@ -34,7 +34,7 @@ percentile, compared with any operator.
 - sessions where the **number of different pages** is exactly 2
 - sessions where the **number of page views where page is /blogs and time
   on page > 5 sec** is at least 2
-- sessions where the **number of away gaps where time away > 2 min** is 1
+- sessions where the **number of away periods where time away > 2 min** is 1
 - sessions where the **total time on page** is between 10 and 20 sec
 - page views whose **session** converted (a one-to-one relation)
 
@@ -42,9 +42,17 @@ The related rows have their own conditions, which can have related rows of
 their own, and so on. "Has" (at least one) and "has none" (under NOT) are
 the shortcut forms.
 
-## 3. The tunnel: one hook's output is another hook's value
+## 3. Sub-hooks and tunnels: one hook's result flows into another
 
-Any value in a condition can be **the output of another, complete hook**.
+Two words, two ideas:
+
+- A **sub-hook** is a separate, complete hook (the same engine, every
+  output: how many, a list of ids, a breakdown...) whose job is to return
+  certain values.
+- A **tunnel** is the flow: the sub-hook's result travelling into a value of
+  another hook. The sub-hook is the source; the tunnel is the connection.
+
+Any value in a condition can come through a tunnel from a sub-hook.
 
 - page views where **visitor is any of** [the visitor ids of leads whose
   name contains "hanna"]
@@ -61,6 +69,21 @@ Rules, enforced as errors, never silently coerced:
 - Types must match: a list of session ids cannot feed a visitor id field;
   a count cannot feed a duration.
 
+## 4. Built for long questions
+
+- Name any hook, sub-hook or condition, add a note, collapse it to one
+  line, and drag space between conditions. Names and layout are saved in
+  the query itself, so links (and later saved hooks) keep them.
+- **Use this hook as a sub-hook...** wraps the whole current hook into a
+  new one, offering only the slots its result fits.
+- `</>` shows or loads the query as code.
+
+## 5. Form friction
+
+The per-field form data (which field, order, time spent in it, typed or
+not, last field touched) is its own entity, **form fields**, so "where do
+people give up on the form" is an ordinary breakdown.
+
 ## Also
 
 - **AND / OR / NOT groups**, nested to any depth. NOT treats an empty value
@@ -74,7 +97,9 @@ Rules, enforced as errors, never silently coerced:
   that is 10x worse.
 - **Cost** in credits, known before running, with a limit.
 - **Explain:** every run shows the order it used, row estimates, what each
-  sub-hook produced, the SQL, and the spec.
+  tunnel carried, the SQL, and the query.
+- **Old queries keep working:** every query is upgraded to the current
+  format on the way in (`migrate.ts`).
 
 ## Left and right
 
@@ -91,7 +116,7 @@ comparisons (plan.md).
 - **Converted session:** a `form_submissions` row carries its `session_id`.
 - **Lead:** a `form_submissions` row. Its visitor is `visitor_id`.
 - **Time on page:** milliseconds (`public/tracker.js`); typed in any unit.
-- **Away gap:** the time between one page view's end and the next one's
+- **Away period:** the time between one page view's end and the next one's
   start in the same session, when it is at least 15 seconds. Same rule
   FramePlate uses to draw an away frame.
 - **Seen %:** share of the page that was on screen, from the scroll
@@ -100,6 +125,12 @@ comparisons (plan.md).
   height was not measured.
 - **Hours and weekdays:** UTC.
 
-Files: `schema.ts` (vocabulary), `types.ts` (the language), `describe.ts`
-(spec to English), `engine/` (compiler, planner, runner), `setup.sql`.
-Read next: `architecture.md`, `data-flow.md`, `ui-ux.md`, `plan.md`.
+Files: `schema.ts` (vocabulary), `types.ts` (the language), `shape.ts`
+(what a hook returns, where it can flow), `migrate.ts` (old queries keep
+working), `describe.ts` (query to English), `engine/` (compiler, planner,
+runner), `setup.sql`.
+
+Read next: `user-guide.md` (how to use it, with examples),
+`architecture.md` (developer guide part 1, engineering), `data-flow.md`
+(part 2, data flow), `ui-ux.md`, `plan.md`, `docs-brief.md` (notes for the
+public documentation).

@@ -1,107 +1,164 @@
-# Hook: data flow
+# Hook developer guide, part 2: data flow
 
-How a query travels, how one engine hands data to another, and what is
-cached.
+How data moves through Hook, explained with as little code as possible.
+For the code, see part 1 (`architecture.md`).
 
-## One run
+## The short version
 
-```
-browser (/dev/hook)
-  state = the spec; mirrored into the URL as ?q=<base64url JSON>
-  "Run hook" -> runHookAction(spec)                         server action
-server
-  site = current site from the cookie; requireSiteAccess     never from the browser
-  runHook(pgHookDb, site, spec, {maxCredits})
-    1 validate                                               no SQL yet
-    2 type-check the output
-    3 tunnels: ONE statement computes every sub-hook          -> value, or count + first 10
-    4 estimates: EXPLAIN each top-level condition alone       parallel, cached 5 min
-    5 order + strategy                                        auto / manual + guard
-    6 compile final SQL; EXPLAIN it -> credits; gate
-    7 execute
-  -> { answer, plan, cost, tunnels, timing, sql }
-```
+A person builds a question in the builder. The question is saved as a
+small, plain description, called the query. When they press Run:
 
-Statements per run: 1 for tunnels (only if any), 1 EXPLAIN per top-level
-condition (usually cached on re-runs), 1 EXPLAIN of the final SQL, 1
-execution.
+1. The server checks who they are and which site they're looking at.
+2. Any older query format is upgraded to the current one.
+3. Every sub-hook in the question runs first, and its result is held ready.
+4. The engine asks the database how big each part of the question is,
+   without reading any data.
+5. It decides the order of work and what the run will cost.
+6. If the cost is within the limit, the database runs the whole question in
+   one go.
+7. The answer comes back with a full account of how it was found.
 
-## The tunnel: how one engine's output enters another
+## 1. Where a query lives
 
-A value in any condition can be `{ hook: <a complete spec> }`. That sub-hook
-is a full engine run with its own entity, conditions and output.
+- **In the builder** while someone edits it.
+- **In the address bar** (`?q=...`), so a link reopens the exact same
+  question, including names, notes and layout. A link never carries a
+  site. Whoever opens it runs it against their own current site.
+- **Later, in the database** as a saved hook. The query is already the
+  exact thing that will be saved, names and layout included.
 
-```
-main:  page views  where  visitor  is any of  ( sub )
-                                               |
-sub:   the values of "visitor id" of leads where name contains "hanna"
-                                               |
-WITH t1 AS MATERIALIZED (SELECT DISTINCT b.visitor_id AS v FROM leads b WHERE ...)
-SELECT count(*) FROM page_views b WHERE b.visitor_id IN (SELECT v FROM t1)
-```
+A query arriving from anywhere is treated as untrusted. It is upgraded,
+then checked for structure and size, then type-checked, on every run.
 
-- The data never leaves Postgres between engines: the sub-hook's output is a
-  materialized CTE that the parent reads. A tunnel carrying 50,000 ids is
-  still one statement, computed once.
-- **Shape contract:** a sub-hook outputs either one value (`count`, `how
-  many different`, a measure) or a list (`ids`, `values`). One value fits
-  any single-value operator (`(SELECT v FROM t1)`); a list fits only "is
-  any of" (`IN`) / "is none of" (`NOT EXISTS`). A list into a single-value
-  operator is an error that names both sides.
-- **Type contract:** the sub-hook's output type must equal the field's type,
-  and id kinds must match (`ref` in `schema.ts`): visitor ids feed visitor
-  fields, session ids feed session fields, page paths feed page fields.
-- **Nesting:** a sub-hook can contain sub-hooks. They are emitted earlier in
-  the same `WITH` list. Depth is capped (validate.ts) so nobody can build a
-  cost bomb by recursion.
-- **What the parent sees:** before the main query, every sub-hook directly
-  in the main conditions runs once in a single statement and is reported
-  (`tunnels`: path, what it is in English, one value or count plus the
-  first 10). This is what lets a later chart know "the visitors this was
-  about" without recomputing them.
+## 2. Sub-hooks and tunnels: one hook's result flowing into another
 
-## Inside one engine: steps
+Two words, two ideas:
 
-Top-level conditions are steps. Each is a predicate over the entity's rows
-(alias `b`); groups and related-row conditions are one step each.
+- **Sub-hook:** a separate, complete hook whose job is to return values. It
+  is the same engine, and it can return anything the main hook can: a
+  number, a list of ids, a list of values, a breakdown.
+- **Tunnel:** the flow. The sub-hook's result travels into one value of the
+  hook above it.
+
+Example: "page views by visitors who are leads named Hanna".
 
 ```
-fused:   SELECT <output> FROM <entity> b WHERE p1 AND p2 AND p3
-staged:  s0 AS MATERIALIZED (SELECT key FROM <entity> b WHERE p_first)
-         s1 AS MATERIALIZED (SELECT key FROM s0 JOIN <entity> b ON key = s0.k WHERE p_next)
-         SELECT <output> FROM s_last JOIN <entity> b ON key = s_last.k
+sub-hook:   form submissions where name contains "hanna"  ->  a list of visitor ids
+                     | tunnel
+main hook:  page views where visitor id is any of [ that list ]
 ```
 
-Keys: page views and leads by `id`, sessions by `session_id`, visitors by
-`id`, pages by path, away gaps by the page view that opened them.
+What happens:
 
-## Related rows
+- The sub-hook runs **once**, inside the database. Its result never travels
+  to the browser and back. A tunnel carrying fifty thousand ids still costs
+  one statement.
+- **Shape rule:** a sub-hook that returns **one value** can feed any
+  comparison ("time on page more than [the average on /pricing]"). One that
+  returns **a list** can only feed "is any of" / "is none of".
+- **Type rule:** a list of visitor ids can only feed a visitor id field. A
+  number can't feed a duration. Breaking a rule is an error that names both
+  sides, never a silent conversion.
+- **Breakdowns** hand over their keys. "The 5 pages with the most views"
+  becomes a list of 5 pages.
+- **Nesting:** a sub-hook can have its own sub-hooks. The innermost runs
+  first. How deep they can go is capped.
+- **Turning a whole hook into a sub-hook:** the builder can wrap the
+  current hook inside a new one, choosing where its result should flow.
+  Only slots that fit its type and shape are offered.
+- **Reporting:** before the main question runs, every sub-hook reports what
+  it produced: one value, or a count and the first few values. The result
+  keeps that account, which is what will let later views say who or what an
+  answer was about.
 
-`related` conditions run a correlated subquery per candidate row:
+A future animation of data moving between hooks would show exactly this:
+the sub-hook producing its result, and the result flowing along the tunnel.
 
-```
-sessions where number of page views where page = /blogs and time on page > 5 sec >= 2
-->  (SELECT count(*) FROM page_views c
-      WHERE c.session_id = b.session_id AND c.page_path = '/blogs' AND c.time_on_page > 5000) >= 2
-```
+## 3. Inside one hook: steps
 
-Joins between entities are defined once in `sqlmap.ts` (`joins`), on the
-string ids the tracker writes (`session_id`, `visitor_id`, `page_path`),
-not on uuids. Same convention as the rest of the app (`mds/database.md`).
+The top-level conditions of a hook are its steps. Before anything runs,
+the engine asks the database "about how many rows would this step alone
+keep?". That is a planning question, answered from statistics the database
+already keeps, so no data is read.
 
-## Caching
+- When the steps are of very different sizes, the smallest runs first, and
+  each next step only checks what survived. This is called step by step.
+- When they are similar, they run together and the database orders them
+  itself. This is called one pass.
+- A person can set the order by hand. If their order would be ten times
+  slower, the engine steps in and says so, unless they told it not to.
 
-| What | Where | Lifetime | Why |
-|---|---|---|---|
-| step row estimates | server memory, per (site, SQL, values) | 5 min, 500 entries | the same step recurs while someone tweaks a query |
-| value suggestions (pages, utm sources...) | none | per field, on first show | small grouped queries |
-| results | not cached | | an answer must be live. Result caching is in plan.md |
+Whatever the order, the answer is identical. Order only changes speed.
 
-No polling and no auto-run: a result is a snapshot of one run, and runs
-happen only on "Run hook", because every run is metered.
+## 4. Connected rows
 
-## The URL
+Every entity is connected to others:
+- a session has page views, away periods, form submissions and form
+  activity;
+- a form has fields;
+- a page view has a session and a visitor.
 
-`?q=` holds the whole spec (JSON, base64url). It carries no site: the
-person opening the link runs it against their own current site. A spec
-from a URL is untrusted and fully validated and type-checked every run.
+A condition can look at connected rows in two ways:
+
+- **has at least one** connected row matching some conditions ("sessions
+  that have a page view of /blogs");
+- **count or total** of the connected rows, compared with a number or a
+  range ("sessions where the number of page views of /blogs, longer than
+  5 sec, is at least 2").
+
+The connected rows' conditions apply to the same row together. "/blogs AND
+longer than 5 sec" means one page view that is both, not one of each.
+
+Connections use the ids the tracker writes (session, visitor, page
+address), the same way the rest of the app joins data.
+
+## 5. What each part hands to the next
+
+| From | To | What |
+|---|---|---|
+| builder | server | the query (plain description, no site) |
+| server check | engine | the query + the site the person may read |
+| upgrade | engine | the query in the current format, plus notes if anything changed |
+| sub-hooks | main hook | a held-ready result inside the database, plus a report (value or count + samples) |
+| estimates | planner | about how many rows each step keeps |
+| planner | compiler | the order and the strategy |
+| compiler | database | one statement; every value bound separately, every table pinned to the site |
+| database | engine | rows |
+| engine | page | the answer, how it ran, what it cost, what each tunnel carried, timings |
+
+## 6. What is kept, and for how long
+
+| What | Where | Lifetime |
+|---|---|---|
+| step size estimates | server memory | 5 minutes |
+| value suggestions in the builder (pages, campaigns, countries...) | fetched when a field is chosen | per page load |
+| answers | not kept | every run is live |
+| the query | the address bar (later: the database) | as long as the link exists |
+
+Nothing runs on its own. Every run is started by a person, because every
+run is metered.
+
+## 7. Form friction data
+
+The tracker records, for every form a visitor sees:
+- the form's progress: seen, started, submitted or abandoned;
+- the last field they touched;
+- for every field they clicked into, the order, the time spent in it,
+  whether and when they typed, and when they left it.
+
+Hook reads the per-field part as its own entity, **form fields**. So
+questions like these all use the normal conditions, measures and
+breakdowns, and need nothing special:
+- "abandoned forms where the last field was phone";
+- "average time per field";
+- "fields people clicked into but never typed in".
+
+## 8. Where things can go wrong, and what the person sees
+
+| Situation | What the person sees |
+|---|---|
+| the question can't run as written | the exact reason, and what to change |
+| over the credit limit | the estimate and the limit; nothing ran |
+| a database or server problem | a short reference code to quote; details stay in the server log |
+| no connection to the server | "Couldn't reach the server" |
+| an old or damaged link | the query is upgraded with a notice, or an empty hook with a notice |

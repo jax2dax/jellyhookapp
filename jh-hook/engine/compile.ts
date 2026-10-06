@@ -10,12 +10,14 @@
 // text are whitelisted (operators, aggregates, buckets, units) or produced
 // by the engine (aliases, CTE names).
 import {
-  AGGS_FOR, LIST_OPS, NO_VALUE_OPS, OPS_FOR, SCHEMA, TWO_VALUE_OPS, aggType,
+  AGGS_FOR, LIST_OPS, NO_VALUE_OPS, OPS_FOR, SCHEMA, TWO_VALUE_OPS,
   type Agg, type EntityKey, type FieldDef, type FieldType, type Op, type RefKind,
 } from "../schema";
 import type { Condition, HookSpec, HookValue, Literal, Measure, Output, ValueArg } from "../types";
 import { LIST_LIMIT, GROUP_LIMIT_MAX } from "../types";
 import { RELATIVE_UNITS, toMs } from "../units";
+import { HookError } from "../errors";
+import { ShapeError, returnedBy } from "../shape";
 import { Params, escapeLike } from "./sql";
 import { SQL } from "./sqlmap";
 
@@ -40,7 +42,6 @@ export class Ctx {
   }
 }
 
-export class HookError extends Error {}
 const fail = (where: string, msg: string): never => {
   throw new HookError(`${where}: ${msg}`);
 };
@@ -59,27 +60,23 @@ export function fieldDef(entity: EntityKey, field: string, where: string): Field
 
 /** What a hook's output is, so a parent knows what it can feed. */
 export function outputShape(spec: HookSpec, where = "sub-hook"): { shape: "one" | "list"; typed: Typed } {
-  const o = spec.output;
-  const e = spec.entity;
-  switch (o.kind) {
-    case "count":
-      return { shape: "one", typed: { type: "number" } };
-    case "countDistinct":
-      fieldDef(e, o.field, where);
-      return { shape: "one", typed: { type: "number" } };
-    case "aggregate": {
-      const f = fieldDef(e, o.field, where);
-      return { shape: "one", typed: { type: aggType(o.agg, f.type) } };
-    }
-    case "ids":
-      return { shape: "list", typed: { type: "text", ref: SCHEMA[e].ref } };
-    case "values": {
-      const f = fieldDef(e, o.field, where);
-      return { shape: "list", typed: { type: f.type, ref: f.ref } };
-    }
-    case "groupBy":
-      return fail(where, "a grouped table can't be used as a value. Use count, an aggregate, ids or values");
+  try {
+    const r = returnedBy(spec);
+    return { shape: r.shape, typed: { type: r.type, ref: r.ref } };
+  } catch (e) {
+    if (e instanceof ShapeError) return fail(where, e.message);
+    throw e;
   }
+}
+
+/**
+ * A hook as the SELECT a parent reads from: one column, `v`. A breakdown
+ * hands over its keys (the pages, the days...), so "the 5 pages with most
+ * views" can feed "page is any of".
+ */
+export function tunnelSelect(spec: HookSpec, ctx: Ctx): string {
+  const body = compileSpecSelect(spec, ctx, { limit: false });
+  return spec.output.kind === "groupBy" ? `SELECT k AS v FROM (${body}) g` : body;
 }
 
 // ── Values ─────────────────────────────────────────────────────────────
@@ -142,7 +139,7 @@ function tunnel(v: HookValue, target: Typed, ctx: Ctx, where: string): { name: s
   const { shape, typed } = outputShape(v.hook, where);
   if (typed.type !== target.type) fail(where, `the sub-hook returns ${typed.type}, but this needs ${target.type}`);
   if (typed.ref && target.ref && typed.ref !== target.ref) fail(where, `the sub-hook returns ${typed.ref} ids, but this needs ${target.ref} ids`);
-  const body = compileSpecSelect(v.hook, ctx, { limit: false }); // registers its own nested tunnels first
+  const body = tunnelSelect(v.hook, ctx); // registers its own nested tunnels first
   const name = ctx.tunnelName();
   ctx.tunnels.push({ name, body });
   return { name, shape };

@@ -66,6 +66,7 @@ export const SQL: Record<EntityKey, EntitySql> = {
       enteredAt: (a) => `${a}.entered_at`,
       leftAt: (a) => `${a}.left_at`,
       timeOnPage: (a) => `${a}.time_on_page`,
+      visitDuration: (a) => ms(`${a}.left_at - ${a}.entered_at`),
       isOpen: (a) => `(${a}.left_at IS NULL)`,
       seenPct: (a) => geo(a, `${seenBottom(a)} - ${seenTop(a)}`),
       seenTwicePct: (a) =>
@@ -84,6 +85,8 @@ export const SQL: Record<EntityKey, EntitySql> = {
         `((SELECT count(*) FROM ${scoped("page_views", "e")} WHERE e.session_id = ${a}.session_id AND e.entered_at < ${a}.entered_at) + 1)`,
       isLanding: (a) => `(NOT ${pvEarlier(a)})`,
       isExit: (a) => `(NOT ${pvLater(a)})`,
+      isConversionPage: (a) =>
+        `EXISTS (SELECT 1 FROM ${scoped("form_submissions", "cs")} WHERE cs.session_id = ${a}.session_id AND ${a}.id = (SELECT ce.id FROM ${scoped("page_views", "ce")} WHERE ce.session_id = ${a}.session_id AND ce.entered_at <= cs.submitted_at ORDER BY ce.entered_at DESC LIMIT 1))`,
       inConvertedSession: (a) => converted(`${a}.session_id`),
       enteredHour: (a) => `EXTRACT(HOUR FROM ${a}.entered_at AT TIME ZONE 'UTC')`,
       enteredWeekday: (a) => `EXTRACT(DOW FROM ${a}.entered_at AT TIME ZONE 'UTC')`,
@@ -91,7 +94,6 @@ export const SQL: Record<EntityKey, EntitySql> = {
     joins: {
       session: (p, c) => `${c}.session_id = ${p}.session_id`,
       visitor: (p, c) => `${c}.visitor_id = ${p}.visitor_id`,
-      pageInfo: (p, c) => `${c}.path = ${p}.page_path`,
       forms: (p, c) => `${c}.session_id = ${p}.session_id AND ${c}.page_path = ${p}.page_path`,
     },
   },
@@ -195,7 +197,50 @@ export const SQL: Record<EntityKey, EntitySql> = {
     joins: {
       session: (p, c) => `${c}.session_id = ${p}.session_id`,
       visitor: (p, c) => `${c}.visitor_id = ${p}.visitor_id`,
-      pageInfo: (p, c) => `${c}.path = ${p}.page_path`,
+      fields: (p, c) => `${c}.form_id = ${p}.id::text`,
+    },
+  },
+
+  formField: {
+    // One row per field a visitor focused in a form, unpacked from
+    // form_engagement.field_timings (jsonb, see mds/database.md "Per-field
+    // timing"). Keys are "name" / "email" / "phone" or "custom:<raw key>".
+    // Every jsonb value is type-checked before casting, so one malformed
+    // entry becomes an empty value instead of failing the whole query.
+    source: (al) =>
+      `(SELECT (f.id::text || ':' || ft.key) AS id, f.id::text AS form_id, f.session_id, f.visitor_id, f.page_path, f.status AS form_status, ` +
+      `f.last_field_type, f.last_field_key, ft.key AS field_key, ` +
+      `CASE WHEN ft.key LIKE 'custom:%' THEN 'custom' ELSE ft.key END AS field_type, ` +
+      `CASE WHEN ft.key LIKE 'custom:%' THEN substr(ft.key, 8) ELSE ft.key END AS field_name, ` +
+      `CASE WHEN jsonb_typeof(ft.value->'order') = 'number' THEN (ft.value->>'order')::float8 END AS field_order, ` +
+      `CASE WHEN jsonb_typeof(ft.value->'totalFocusedMs') = 'number' THEN (ft.value->>'totalFocusedMs')::float8 END AS focused_ms, ` +
+      `CASE WHEN (ft.value->>'firstFocusAt') ~ '^[0-9]{4}-' THEN (ft.value->>'firstFocusAt')::timestamptz END AS first_focus_at, ` +
+      `CASE WHEN (ft.value->>'firstKeydownAt') ~ '^[0-9]{4}-' THEN (ft.value->>'firstKeydownAt')::timestamptz END AS first_key_at, ` +
+      `CASE WHEN (ft.value->>'lastUnfocusAt') ~ '^[0-9]{4}-' THEN (ft.value->>'lastUnfocusAt')::timestamptz END AS last_left_at ` +
+      `FROM ${scoped("form_engagement", "f")} CROSS JOIN LATERAL jsonb_each(COALESCE(f.field_timings, '{}'::jsonb)) ft ` +
+      `WHERE jsonb_typeof(ft.value) = 'object') ${al}`,
+    key: (a) => `${a}.id`,
+    ref: (a) => `${a}.id`,
+    fields: {
+      name: (a) => `${a}.field_name`,
+      fieldType: (a) => `${a}.field_type`,
+      order: (a) => `${a}.field_order`,
+      focusedTime: (a) => `${a}.focused_ms`,
+      typed: (a) => `(${a}.first_key_at IS NOT NULL)`,
+      timeToFirstKey: (a) => ms(`${a}.first_key_at - ${a}.first_focus_at`),
+      isLastTouched: (a) =>
+        `(CASE WHEN ${a}.field_type = 'custom' THEN ${a}.last_field_type = 'custom' AND ${a}.last_field_key = ${a}.field_name ELSE ${a}.last_field_type = ${a}.field_type END)`,
+      firstFocusAt: (a) => `${a}.first_focus_at`,
+      firstKeyAt: (a) => `${a}.first_key_at`,
+      lastLeftAt: (a) => `${a}.last_left_at`,
+      formStatus: (a) => `${a}.form_status`,
+      page: (a) => `${a}.page_path`,
+      session: (a) => `${a}.session_id`,
+      visitor: (a) => `${a}.visitor_id`,
+    },
+    joins: {
+      form: (p, c) => `${c}.id::text = ${p}.form_id`,
+      session: (p, c) => `${c}.session_id = ${p}.session_id`,
     },
   },
 

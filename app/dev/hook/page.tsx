@@ -1,19 +1,23 @@
 // app/dev/hook/page.tsx
-// Developer test bench for the Hook engine (jh-hook/). Builds a HookSpec
-// with the recursive builder (components/hook/HookBuilder.tsx), runs it
-// against the signed-in user's current site, and shows the answer beside
-// what the engine did (order, estimates, tunnels, cost, SQL). The spec is
-// the state and lives in the URL (?q=), so any query is shareable.
+// Developer test bench for the Hook engine (jh-hook/). Builds a hook with
+// the recursive builder (components/hook/HookBuilder.tsx), runs it against
+// the signed-in user's current site, and shows the answer beside what the
+// engine did. The query is the state and lives in the URL (?q=), so any
+// query is shareable; old queries are upgraded on the way in
+// (jh-hook/migrate.ts). Everything a person should know about (a run, an
+// upgrade, a failure) is announced on screen, not only in the console.
 // See jh-hook/ui-ux.md.
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SEL, SpecEditor } from "@/components/hook/HookBuilder";
+import { SEL, SpecEditor, type Announce } from "@/components/hook/HookBuilder";
 import { describeCondition, describeSpec } from "@/jh-hook/describe";
+import { hookLog } from "@/jh-hook/debug";
+import { migrateSpec } from "@/jh-hook/migrate";
 import type { FieldType } from "@/jh-hook/schema";
-import type { HookResult, HookSpec } from "@/jh-hook/types";
+import { SPEC_VERSION, type HookResult, type HookSpec } from "@/jh-hook/types";
 import { formatMs } from "@/jh-hook/units";
 import { runHookAction } from "@/lib/actions/hook.action";
 
@@ -23,17 +27,12 @@ function encodeSpec(s: HookSpec): string {
   bytes.forEach((b) => (bin += String.fromCharCode(b)));
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
-function decodeSpec(q: string): HookSpec | null {
-  try {
-    const bin = atob(q.replace(/-/g, "+").replace(/_/g, "/"));
-    const j = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
-    return j?.v === 2 ? (j as HookSpec) : null;
-  } catch {
-    return null;
-  }
+function decodeSpec(q: string): unknown {
+  const bin = atob(q.replace(/-/g, "+").replace(/_/g, "/"));
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
 }
 
-const DEFAULT_SPEC: HookSpec = { v: 2, entity: "pageView", where: [], output: { kind: "count" } };
+const DEFAULT_SPEC: HookSpec = { v: SPEC_VERSION as HookSpec["v"], entity: "pageView", where: [], output: { kind: "count" } };
 
 function formatValue(v: number | string | null, t: FieldType): string {
   if (v == null) return "empty";
@@ -44,19 +43,92 @@ function formatValue(v: number | string | null, t: FieldType): string {
   return Number.isInteger(v) ? v.toLocaleString() : (+v.toFixed(4)).toLocaleString();
 }
 
+// ── On-screen announcements ─────────────────────────────────────────────
+type Notice = { id: number; tone: "info" | "success" | "error"; text: string };
+function useNotices() {
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const next = useRef(1);
+  const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+  const dismiss = useCallback((id: number) => {
+    setNotices((n) => n.filter((x) => x.id !== id));
+    const t = timers.current.get(id);
+    if (t) clearTimeout(t);
+    timers.current.delete(id);
+  }, []);
+  const announce: Announce = useCallback(
+    (tone, text) => {
+      const id = next.current++;
+      setNotices((n) => [...n.slice(-3), { id, tone, text }]); // at most 4 on screen
+      timers.current.set(id, setTimeout(() => dismiss(id), tone === "error" ? 9000 : 5000));
+    },
+    [dismiss],
+  );
+  useEffect(() => {
+    const t = timers.current;
+    return () => t.forEach(clearTimeout);
+  }, []);
+  return { notices, announce, dismiss };
+}
+
+function Notices({ notices, dismiss }: { notices: Notice[]; dismiss: (id: number) => void }) {
+  const tone = { info: "border-sky-500/40 bg-sky-500/10", success: "border-emerald-500/40 bg-emerald-500/10", error: "border-red-500/50 bg-red-500/10" };
+  return (
+    <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-80 flex-col gap-2" aria-live="polite" role="status">
+      {notices.map((n) => (
+        <div key={n.id} className={`pointer-events-auto flex items-start gap-2 rounded-md border p-3 text-sm shadow-md backdrop-blur ${tone[n.tone]}`}>
+          <span className="flex-1">{n.text}</span>
+          <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => dismiss(n.id)} aria-label="Dismiss">
+            x
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function HookPage() {
   const [spec, setSpec] = useState<HookSpec>(DEFAULT_SPEC);
   const [result, setResult] = useState<HookResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [pasted, setPasted] = useState("");
+  const { notices, announce, dismiss } = useNotices();
 
-  // spec <- URL once (the address bar is an external system), then URL <- spec
+  /** Upgrades and loads a query from anywhere (URL, paste). Returns false if it can't be read. */
+  const load = useCallback(
+    (raw: unknown, source: string): boolean => {
+      try {
+        const m = migrateSpec(raw);
+        setSpec(m.spec);
+        setResult(null);
+        setError(null);
+        if (m.upgradedFrom) announce("info", `This query was saved in an older format (v${m.upgradedFrom}) and was upgraded. ${m.notes.join(" ")}`.trim());
+        hookLog.info("query loaded", { source, upgradedFrom: m.upgradedFrom });
+        return true;
+      } catch (e) {
+        announce("error", `Couldn't load the query from the ${source}: ${e instanceof Error ? e.message : "unreadable"}`);
+        hookLog.warn("query load failed", { source, error: e });
+        return false;
+      }
+    },
+    [announce],
+  );
+
+  // query <- URL once (the address bar is an external system), then URL <- query
   useEffect(() => {
     const q = new URLSearchParams(window.location.search).get("q");
-    const s = q ? decodeSpec(q) : null;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (s) setSpec(s);
-  }, []);
+    if (!q) return;
+    let raw: unknown;
+    try {
+      raw = decodeSpec(q);
+    } catch {
+      announce("error", "The link's query is damaged and couldn't be read. Starting with an empty hook.");
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL, an external system
+    load(raw, "link");
+  }, [announce, load]);
   useEffect(() => {
     const url = new URL(window.location.href);
     url.searchParams.set("q", encodeSpec(spec));
@@ -66,13 +138,53 @@ export default function HookPage() {
   const run = async () => {
     setRunning(true);
     setError(null);
-    const res = await runHookAction(spec);
-    if (res.ok) setResult(res.result);
-    else {
+    const t0 = performance.now();
+    hookLog.debug("run start", spec);
+    try {
+      const res = await runHookAction(spec);
+      const ms = Math.round(performance.now() - t0);
+      if (res.ok) {
+        setResult(res.result);
+        hookLog.info("run done", { ms, credits: res.result.cost.credits, strategy: res.result.plan.strategy });
+        announce("success", `Done in ${ms} ms, ${res.result.cost.credits} credit${res.result.cost.credits === 1 ? "" : "s"}.`);
+      } else {
+        setResult(null);
+        setError(res.error);
+        hookLog.warn("run refused", res);
+        announce("error", res.ref ? `The run failed (reference ${res.ref}).` : "The hook can't run as written. See the message under Run.");
+      }
+    } catch (e) {
+      // network drop, server action unreachable
       setResult(null);
-      setError(res.error);
+      setError("Couldn't reach the server. Check your connection and try again.");
+      hookLog.error("run unreachable", e);
+      announce("error", "Couldn't reach the server.");
+    } finally {
+      setRunning(false);
     }
-    setRunning(false);
+  };
+
+  const loadPasted = () => {
+    let raw: unknown;
+    try {
+      raw = JSON.parse(pasted);
+    } catch {
+      announce("error", "That isn't valid JSON. Paste the query exactly as copied.");
+      return;
+    }
+    if (load(raw, "pasted text")) {
+      announce("success", "Query loaded into the builder.");
+      setCodeOpen(false);
+    }
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      announce("success", "Link copied. Anyone with access to a site can open it against their own site.");
+    } catch {
+      announce("error", "Couldn't copy. Copy the address bar instead.");
+    }
   };
 
   const orderIds = useMemo(() => {
@@ -91,31 +203,62 @@ export default function HookPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">Hook</h1>
-        <p className="text-sm text-muted-foreground">Test bench. Runs against your current site only.</p>
+      <Notices notices={notices} dismiss={dismiss} />
+      <div className="flex items-start gap-3">
+        <div className="flex-1">
+          <h1 className="text-xl font-semibold">Hook</h1>
+          <p className="text-sm text-muted-foreground">Test bench. Runs against your current site only.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={copyLink} title="Copy a link to this query">Copy link</Button>
+        <Button
+          variant={codeOpen ? "secondary" : "outline"}
+          size="sm"
+          className="font-mono"
+          onClick={() => setCodeOpen((o) => !o)}
+          aria-expanded={codeOpen}
+          title="Paste or copy the query as code"
+        >
+          &lt;/&gt;
+        </Button>
       </div>
+
+      {codeOpen && (
+        <Card>
+          <CardContent className="space-y-2 pt-4">
+            <textarea
+              className="h-40 w-full rounded-md border bg-background p-2 font-mono text-xs"
+              placeholder='Paste a query (the JSON from "The query" under a result), then Load. The builder rebuilds itself from it.'
+              value={pasted}
+              onChange={(e) => setPasted(e.target.value)}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" onClick={loadPasted} disabled={!pasted.trim()}>Load into builder</Button>
+              <Button variant="outline" size="sm" onClick={() => setPasted(JSON.stringify(spec, null, 2))}>Show the current query here</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="pt-4">
-          <SpecEditor spec={spec} onChange={setSpec} />
+          <SpecEditor spec={spec} onChange={setSpec} root announce={announce} />
           <p className="mt-3 text-xs text-muted-foreground">Reads as: {describeSpec(spec)}</p>
         </CardContent>
       </Card>
 
       {spec.where.length > 1 && (
         <Card>
-          <CardHeader><CardTitle className="text-sm">Order of the top-level conditions</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">Run order</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex flex-wrap items-center gap-3">
               <select className={SEL} value={spec.order?.mode ?? "auto"} onChange={(e) => setSpec((s) => ({ ...s, order: { ...(s.order ?? {}), mode: e.target.value as "auto" | "manual", steps: orderIds } }))}>
-                <option value="auto">Auto: the engine picks the cheapest order</option>
+                <option value="auto">Auto: the engine picks the fastest order</option>
                 <option value="manual">Manual: I pick the order</option>
               </select>
               {spec.order?.mode === "manual" && (
                 <label className="flex items-center gap-1">
                   <input type="checkbox" checked={spec.order.guard !== false} onChange={(e) => setSpec((s) => ({ ...s, order: { ...s.order!, guard: e.target.checked } }))} />
-                  guard (the engine may override an order that is 10x worse)
+                  Let the engine step in if my order is much slower (10x or more)
                 </label>
               )}
             </div>
@@ -126,7 +269,7 @@ export default function HookPage() {
                   return (
                     <li key={id} className="flex items-center gap-2">
                       <span className="w-5 text-muted-foreground">{i + 1}.</span>
-                      <span className="flex-1">{describeCondition(c, spec.entity)}</span>
+                      <span className="flex-1">{c.meta?.name ?? describeCondition(c, spec.entity)}</span>
                       <Button variant="ghost" size="sm" onClick={() => move(id, -1)}>Up</Button>
                       <Button variant="ghost" size="sm" onClick={() => move(id, 1)}>Down</Button>
                     </li>
@@ -139,7 +282,7 @@ export default function HookPage() {
       )}
 
       <Button onClick={run} disabled={running}>{running ? "Running..." : "Run hook"}</Button>
-      {error && <p className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-500">{error}</p>}
+      {error && <p role="alert" className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-500">{error}</p>}
       {result && <ResultPanel r={result} spec={spec} />}
     </div>
   );
@@ -156,7 +299,7 @@ function ResultPanel({ r, spec }: { r: HookResult; spec: HookSpec }) {
         {a.shape === "list" && (
           <div>
             <div className="mb-1 text-2xl font-semibold">{a.values.length.toLocaleString()}{a.truncated ? "+" : ""} values</div>
-            <div className="max-h-48 overflow-auto rounded border p-2 font-mono text-xs whitespace-pre">{a.values.map((v) => formatValue(v, a.type)).join("\n")}</div>
+            <div className="max-h-48 overflow-auto whitespace-pre rounded border p-2 font-mono text-xs">{a.values.map((v) => formatValue(v, a.type)).join("\n")}</div>
           </div>
         )}
         {a.shape === "table" && (
@@ -165,7 +308,7 @@ function ResultPanel({ r, spec }: { r: HookResult; spec: HookSpec }) {
               <tbody>
                 {a.rows.map((row, i) => (
                   <tr key={i} className="border-b">
-                    <td className="py-1 pr-3 whitespace-nowrap">{row.key == null ? "(empty)" : formatValue(row.key, a.keyType)}</td>
+                    <td className="whitespace-nowrap py-1 pr-3">{row.key == null ? "(empty)" : formatValue(row.key, a.keyType)}</td>
                     <td className="w-full py-1">
                       <div className="flex items-center gap-2">
                         <div className="h-2 rounded bg-primary/60" style={{ width: `${(100 * (typeof row.value === "number" ? row.value : 0)) / maxRow}%` }} />
@@ -179,14 +322,14 @@ function ResultPanel({ r, spec }: { r: HookResult; spec: HookSpec }) {
           </div>
         )}
         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <span>{r.cost.credits} credit{r.cost.credits === 1 ? "" : "s"} (pg cost {r.cost.pgCost})</span>
+          <span>{r.cost.credits} credit{r.cost.credits === 1 ? "" : "s"}</span>
           <span>plan {r.timing.planMs} ms</span>
           <span>run {r.timing.execMs} ms</span>
-          <span>strategy: {r.plan.strategy}</span>
+          <span>{r.plan.strategy === "staged" ? "ran step by step" : "ran in one pass"}</span>
         </div>
         {r.plan.steps.length > 0 && (
           <div>
-            <div className="mb-1 font-medium">What the engine did</div>
+            <div className="mb-1 font-medium">How it ran</div>
             <ol className="list-decimal space-y-0.5 pl-5">
               {r.plan.steps.map((s) => <li key={s.id}>{s.label} <span className="text-muted-foreground">(about {s.estRows} rows alone)</span></li>)}
             </ol>
@@ -195,16 +338,23 @@ function ResultPanel({ r, spec }: { r: HookResult; spec: HookSpec }) {
         {r.plan.notes.map((n, i) => <p key={i} className="text-xs text-muted-foreground">{n}</p>)}
         {r.tunnels.length > 0 && (
           <div className="text-xs">
-            <div className="mb-1 font-medium">Sub-hooks (tunnels)</div>
+            <div className="mb-1 font-medium">Tunnels: what flowed in from sub-hooks</div>
             {r.tunnels.map((t) => (
               <p key={t.path} className="text-muted-foreground">
-                {t.path}: {t.label} = {t.shape === "one" ? formatValue(t.sample[0] != null ? Number(t.sample[0]) : null, t.type) : `${t.count} values (${t.sample.slice(0, 5).join(", ")}${t.count > 5 ? ", ..." : ""})`}
+                {t.path}: {t.label} = {t.shape === "one" ? formatValue(t.sample[0] != null ? Number(t.sample[0]) : null, t.type) : `${t.count} values`}
               </p>
             ))}
           </div>
         )}
-        <details><summary className="cursor-pointer text-xs">Compiled SQL</summary><pre className="mt-1 overflow-auto rounded border p-2 text-xs">{r.sql}</pre></details>
-        <details><summary className="cursor-pointer text-xs">Spec (the Hook language)</summary><pre className="mt-1 overflow-auto rounded border p-2 text-xs">{JSON.stringify(spec, null, 2)}</pre></details>
+        <details>
+          <summary className="cursor-pointer text-xs">For developers: the SQL it ran</summary>
+          <pre className="mt-1 overflow-auto rounded border p-2 text-xs">{r.sql}</pre>
+          <p className="mt-1 text-xs text-muted-foreground">Postgres cost {r.cost.pgCost}</p>
+        </details>
+        <details>
+          <summary className="cursor-pointer text-xs">The query (the saved definition, paste it back to reload)</summary>
+          <pre className="mt-1 overflow-auto rounded border p-2 text-xs">{JSON.stringify(spec, null, 2)}</pre>
+        </details>
       </CardContent>
     </Card>
   );

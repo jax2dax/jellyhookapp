@@ -1,5 +1,34 @@
 # Hook: progress
 
+## 2026-10-06: future-proofing, form friction, canvas features, docs
+
+- Query format v3 with migrations (v1 to v2 to v3) on every entry point;
+  keys permanent, labels free (`migrate.ts`).
+- New entity **form fields** (per-field form friction from
+  `field_timings`): field, type, order, time in field, typed, time before
+  typing, last field touched, form status. Form activity gains "its fields".
+- `HookError` vs reference-code policy; `[hook]` logger; run log line per
+  run; on-screen notices.
+- Builder: names + notes + collapse for hooks, sub-hooks and conditions;
+  vertical drag spacing (no re-render while dragging); "Use this hook as a
+  sub-hook..." with fitting slots only; `</>` code panel; Copy link.
+- Tests moved into the repo: `npm run test:hook` (61 checks, PGlite and
+  jiti as dev dependencies). `npm run hook:reference`.
+- Docs: user guide with 21 examples, docs brief for the public docs,
+  developer guide split into part 1 (engineering) and part 2 (data flow).
+- Verified: tsc, eslint, `next build`, 61 checks. Not checked in a browser.
+
+## 2026-10-05: usability pass
+
+- Sub-hooks offer all six outputs. A breakdown can be a sub-hook (its keys).
+- Return type shown on every output and sub-hook, with a fit check and a
+  one-click fix; type colour on every condition.
+- Field menus grouped (`FIELD_GROUPS`), type shown in each option.
+- `reference.md` generated from the schema; `naming.md` audit (51 items,
+  options, nothing renamed yet).
+- Added fields: visit duration, is the page where they converted.
+- Verified: tsc, eslint, 46 engine checks. Browser not checked.
+
 ## 2026-10-02: v2, generic engine
 
 v1 hard-coded the example queries (one "time on page >" filter, a fixed

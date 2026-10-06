@@ -45,9 +45,39 @@ export interface Measure {
   p?: number;
 }
 
-/** A condition on one of the entity's own fields. */
-export interface FieldCondition {
+/**
+ * A person's own name and note for a hook, a sub-hook or a condition.
+ * Lives in the query itself, so saving a query (later: a database row)
+ * saves its names with it. The engine never reads it.
+ */
+export interface Meta {
+  name?: string;
+  description?: string;
+}
+
+/**
+ * Layout of a block in the builder canvas: collapsed or not, and the empty
+ * space the person dragged in above it. Also saved with the query, so a
+ * saved query reopens looking the way it was left. The engine never reads it.
+ */
+export interface BlockUi {
+  collapsed?: boolean;
+  /** px of extra vertical space above this block, 0-480. */
+  spaceBefore?: number;
+}
+
+export const MAX_SPACE_BEFORE = 480;
+
+/** What every condition carries besides its logic. */
+interface ConditionBase {
+  /** Unique within its own hook; how a manual order and the explain panel refer to it. */
   id: string;
+  meta?: Meta;
+  ui?: BlockUi;
+}
+
+/** A condition on one of the entity's own fields. */
+export interface FieldCondition extends ConditionBase {
   kind: "field";
   field: string;
   op: Op;
@@ -63,8 +93,7 @@ export interface FieldCondition {
  * least one" (and, under a NOT group, "has none"). For a "one" relation
  * (a page view's session) it means "that related row matches `where`".
  */
-export interface RelatedCondition {
-  id: string;
+export interface RelatedCondition extends ConditionBase {
   kind: "related";
   relation: string;
   where: Condition[];
@@ -75,8 +104,7 @@ export interface RelatedCondition {
 }
 
 /** AND / OR over conditions, optionally negated. */
-export interface GroupCondition {
-  id: string;
+export interface GroupCondition extends ConditionBase {
   kind: "group";
   mode: "and" | "or";
   not?: boolean;
@@ -113,8 +141,17 @@ export interface OrderSpec {
   guard?: boolean;
 }
 
+/**
+ * The query format version. Bump it ONLY for a breaking change, and add the
+ * step that upgrades the previous version in jh-hook/migrate.ts. Additive
+ * changes (a new field, a new optional property) do not bump it.
+ */
+export const SPEC_VERSION = 3;
+
 export interface HookSpec {
-  v: 2;
+  v: 3;
+  meta?: Meta;
+  ui?: BlockUi;
   entity: EntityKey;
   /** Top-level conditions, ANDed. Each one is a step the planner can reorder. */
   where: Condition[];

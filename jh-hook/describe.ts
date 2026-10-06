@@ -8,7 +8,7 @@ import type { Condition, HookSpec, Measure, Output, ValueArg } from "./types";
 function lit(v: ValueArg | undefined, type: FieldType | null): string {
   if (v === undefined) return "?";
   if (typeof v === "object" && v !== null && !Array.isArray(v)) {
-    if ("hook" in v) return `[the result of: ${describeSpec(v.hook)}]`;
+    if ("hook" in v) return `[from a sub-hook: ${describeSpec(v.hook)}]`;
     if ("amount" in v) return `${v.amount} ${v.unit}`;
     if ("ago" in v) return `${v.ago} ${v.unit}${v.ago === 1 ? "" : "s"} ago`;
   }
@@ -65,17 +65,17 @@ export function describeOutput(entity: EntityKey, o: Output): string {
   const plural = SCHEMA[entity]?.plural ?? entity;
   switch (o.kind) {
     case "count":
-      return `how many ${plural}`;
+      return `the number of ${plural}`;
     case "countDistinct":
-      return `how many different ${fieldLabel(entity, o.field)}s among ${plural}`;
+      return `the number of different ${fieldLabel(entity, o.field)} among ${plural}`;
     case "ids":
-      return `the ${plural}`;
+      return `a list of ${SCHEMA[entity]?.label ?? entity} ids of ${plural}`;
     case "values":
-      return `the ${fieldLabel(entity, o.field)} of ${plural}`;
+      return `a list of ${fieldLabel(entity, o.field)} values of ${plural}`;
     case "aggregate":
       return describeMeasure(entity, { agg: o.agg, field: o.field, p: o.p }, plural);
     case "groupBy":
-      return `${describeMeasure(entity, o.measure, plural)}, per ${o.bucket ? o.bucket + " of " : ""}${fieldLabel(entity, o.field)}`;
+      return `a breakdown: ${describeMeasure(entity, o.measure, plural)}, for each ${o.bucket ? o.bucket + " of " : ""}${fieldLabel(entity, o.field)}`;
   }
 }
 

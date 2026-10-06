@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:hook": "jiti jh-hook/tests/engine.test.ts",
+    "hook:reference": "jiti jh-hook/scripts/genReference.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.5",
@@ -28,6 +30,7 @@
     "uplot": "^1.6.32"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",
@@ -36,6 +39,7 @@
     "autoprefixer": "^10.5.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.7",
+    "jiti": "^2.7.0",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.2.4",
     "typescript": "^5"

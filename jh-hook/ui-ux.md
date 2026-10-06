@@ -2,82 +2,145 @@
 
 ## Now: `/dev/hook` (test bench)
 
-For you to test the engine. The real Hook page comes later, behind
-authorization; it will reuse the same builder and the same server action.
-Until then the bench runs against the signed-in user's current site only.
+This is Joshua's bench for testing the engine. The real Hook page comes
+later, behind authorization, and will reuse the same builder and server
+action. Until then the bench runs against the signed-in user's current
+site only.
 
 ```
-[how many v] of [sessions v] where
-| [field: started at] [after] [3 days ago v]                                   c8f2k1  Remove
-| [has / measure: number of] [page views] [at least] [2] where                  c1a9x0  Remove
-|   | [page] [is] [/blogs]
-|   | [time on page] [between] [3][sec] and [5][sec]
-|   + Field  + Related rows  + Group (or / not)
-| [not] [any of these]                                                          c7m2q4  Remove
-|   | [utm source] [is any of] [facebook x] [google x]
-| [visitor id] [is any of] [result of a sub-hook v]
-|   +- Sub-hook: its list of values becomes this text ----------------------+
-|   | [the values of] [visitor id] of [leads] where                         |
-|   |   | [name] [contains] [hanna]                                         |
-|   +-----------------------------------------------------------------------+
-+ Field  + Related rows  + Group (or / not)
-Reads as: how many sessions where started at after 3 days ago and ...
+Hook                                                  [Copy link] [</>]
+  (</> opens: paste a query -> Load into builder / Show the current query here)
 
-Order of the top-level conditions   [Auto | Manual]  [x] guard   1. Up Down ...
+> [Untitled hook (click to name it)]                              [+ note]
+  Show [the number of v] of [sessions v] where
+  Returns (number) single value: a number (how many sessions)
+  | ::  > [Name this condition]            (date and time)  [+ note]  Remove
+  |       [started at] [after] (date and time) [time ago] 3 [day] ago  [a value I type v]
+  |                                    <- dragged space, dashed guide ->
+  | ::  > [Blog readers]                         (number)  [note]   Remove
+  |       [count or total] [number of] [page views] [at least] (number) 2 where
+  |       | ::  > ...  [page] [is] (text) /blogs
+  |       | ::  > ...  [time on page] [more than] (duration) 5 [sec]
+  |       [+ Condition] [+ Look at its... v] [+ Any of / none of]
+  | ::  > [visitor id] [is any of] [the result of a sub-hook (tunnel) v]
+  |       +- Sub-hook: a separate, complete hook. Its result flows in through a tunnel -+
+  |       | > [Untitled sub-hook]                                                       |
+  |       |   Show [a list of ... values] [visitor id] values of [form submissions]    |
+  |       |   | ::  > [name] [contains] (text) hanna                                    |
+  |       | Fits: what the sub-hook returns can flow into this slot.                    |
+  |       +-----------------------------------------------------------------------------+
+  [+ Condition] [+ Look at its... v] [+ Any of / none of]
+  [Use this hook as a sub-hook...]
+Reads as: the number of sessions where ...
+
+Run order   [Auto | Manual]  [x] Let the engine step in if my order is much slower
 [Run hook]
 Result: the number / the list / a breakdown with bars
-        credits, plan ms, run ms, strategy
-        What the engine did (steps in run order, row estimates), notes
-        Sub-hooks (what each produced), Compiled SQL, Spec
+        credits, plan ms, run ms, one pass / step by step
+        How it ran (steps with row estimates), notes
+        Tunnels: what flowed in from sub-hooks
+        For developers: the SQL it ran / The query
+On-screen notices (top right): run done, failures with a reference, upgraded queries, loads, copies
 ```
 
-How it is built:
+## How it is built
 
 - **One recursive editor.** `components/hook/HookBuilder.tsx`'s
-  `SpecEditor` edits a whole spec. Related rows nest a `ConditionList` for
-  the related entity; a sub-hook nests a whole `SpecEditor`. That is why a
-  tunnel looks exactly like the main query, just inside a dashed box.
-- **Everything comes from `schema.ts`.** The field list, each field's
-  operators (by type), the value editor (number, %, px, duration with unit,
-  time as exact or "N ago", text with suggestions, enum, lists), measures
-  allowed per type, relations. A new field in the schema shows up here with
-  no UI change.
-- **Value suggestions** for text fields come from the site's own data
-  (pages, utm values, countries, browsers...), most common first.
-- **A sub-hook's output menu is filtered** to what fits: a list operator
-  offers ids / values; a single-value operator offers counts / measures.
-  The engine still checks types and explains a mismatch.
-- **Reads as:** the spec in plain English under the builder, from
-  `describe.ts`, so you can check the question before running it.
-- **Explain is always shown,** including when the engine overrides your order.
-- **Run is explicit,** since every run costs credits.
-- **The URL is the state** (`?q=`).
+  `SpecEditor` edits a whole hook. Connected rows nest a `ConditionList`
+  for the connected entity, and a sub-hook nests a whole `SpecEditor`. That
+  is why a sub-hook looks exactly like the main hook, inside a dashed box.
+- **Everything comes from `schema.ts`:**
+  - the field list, in labelled groups (`FIELD_GROUPS`);
+  - the operators for each type;
+  - the value editor for each type;
+  - the measures allowed for each type;
+  - the connections.
+
+  A new field in the schema appears here with no UI change.
+- **Type colours.** Each condition has a coloured left edge and a badge for
+  the type it tests, and every value shows its type badge. The same colour
+  means the same kind of value everywhere.
+- **Returns line.** Every hook and sub-hook says what it returns, and
+  whether that is a list or a single value.
+- **Sub-hooks are the full engine,** with all six outputs.
+  - The dashed box turns green ("Fits") or red with the reason: wrong type,
+    wrong id kind, or a list fed into a single-value operator.
+  - A list fed into a single-value operator gets a one-click fix, **Use "is
+    any of" instead**.
+  - The starting sub-hook is already chosen to fit its slot.
+- **Use this hook as a sub-hook...** wraps the whole current hook into a
+  new one. It lists every slot the result fits (`slotsFor` in `shape.ts`),
+  with matching ids first.
+- **Names, notes, collapse.** Every hook, sub-hook and condition has an
+  inline name, a **+ note** description, and an arrow that collapses it to
+  one line (name, or a plain-English summary).
+  - All of this is stored in the query (`meta`, `ui`), so saved hooks in
+    the database will keep it with no change here.
+  - The limits are 80 characters for a name and 500 for a description.
+- **Vertical space.** The dotted handle on each condition drags open space
+  above it. It snaps to 4 px, goes up to 480 px, works with arrow keys
+  (16 px steps), and double-click resets it.
+  - While dragging, only the spacer's height changes, at most once per
+    frame, with no React render. The query is updated once, on release.
+  - Horizontal layout stays fixed on purpose.
+- **Value suggestions** for text fields come from the site's own data, most
+  common first. If suggestions fail, the builder keeps working and the
+  failure is logged.
+- **Reads as:** the query in plain English under the builder, from
+  `describe.ts`.
+- **`</>`** in the header opens the code panel: paste a query to load it,
+  or show the current one. It stays out of the way until it's needed.
+- **Copy link** copies the URL, and the query lives in `?q=`. Older
+  queries are upgraded on load, with a notice.
+- **Notices.** Every event a person should know about is announced on
+  screen, at most 4 at once, auto-dismissed, and readable by screen
+  readers (`aria-live`). Errors stay longer.
+- **Debugging** (`jh-hook/debug.ts`): `localStorage.setItem("hook:debug",
+  "1")` in the browser, or `HOOK_DEBUG=1` on the server. Errors always log.
+- **Run is explicit,** because every run costs credits.
+
+Performance notes:
+- The builder holds one state object, the query.
+- Dragging does not re-render anything.
+- Suggestion fetches are per field and cancelled on unmount.
+- No polling.
 
 ## Where it is heading
 
-1. **Dedicated Hook page** behind authorization, same action and builder.
-2. **Saved hooks:** name a spec, re-run it, pin it to a dashboard card.
-3. **Result renderers (conditional charting):** a session id list renders as
-   FramePlates (the tunnels say which leads they came from); a time
-   breakdown renders as a line or bars; a page breakdown as a ranked bar
-   list; one value as a big number; two hooks as a ratio card.
-4. **Comparisons:** several named hooks plus an expression (`a / b`,
-   `a - b`) for indexes like conversion contribution (plan.md).
-5. **Cost before running:** "about 3 credits" on Run, confirmation above
-   a threshold.
-6. **Node / drag-and-drop editor:** another editor of the same JSON. Every
-   condition already has its own id and every sub-hook is already a nested
-   spec, so it is a new view, not a new engine.
-7. **Presets:** one-click starting specs for common questions. Presets are
-   specs, not code.
+1. **The output engine and the canvas.** Results are rendered as the
+   things behind them, never as ids:
+   - leads as mini profiles, with the sessions that qualified them when the
+     hook filtered on sessions;
+   - sessions as FramePlates, with the pages that matched highlighted;
+   - breakdowns as charts;
+   - comparisons inside the canvas.
+
+   Design questions are in `plan.md`.
+2. **The FramePlate silhouette sidebar** (right side). A faint, blinking
+   FramePlate fills in as the hook is described:
+   - plates appear as pages are mentioned ("4+" on a plate with no page
+     chosen; hover to see the possible pages);
+   - a yellow frame appears once "converted" is set;
+   - dashed plates appear for "any page";
+   - bulbs appear when a filter mentions them.
+
+   Planned in `plan.md`.
+3. **Dedicated Hook page** behind authorization, with the same action and
+   builder.
+4. **Saved hooks.** The query already holds names, notes and layout; the
+   remaining work is plugging in a table.
+5. **Cost before running:** "about 3 credits" shown on Run.
+6. **A node / drag-and-drop editor.** It would be another view of the same
+   query: every block already has an id, a name and a layout.
+7. **Animated tunnels:** data visibly flowing from a sub-hook into its slot.
+8. **Presets:** ready-made starting queries for common questions.
 
 ## Writing rules
 
-- Product words only. A column name never appears (no
-  `revisit_start_scroll_depth`; it is "scrolled back up").
+- Product words only. A column name never appears: not
+  `revisit_start_scroll_depth`, but "scrolled back up".
 - Don't over-bundle. If a person might want to split a grouped idea, offer
-  the parts, not one opaque switch. The test: could a curious user wish
-  they could customize it more? Then expose the parts.
-- Every derived field says what is non-obvious in its hint (for example,
-  seen % is empty on old rows).
+  the parts, not one opaque switch.
+- Every derived field says what is non-obvious in its hint.
+- Names follow `naming.md`. Field reference: `reference.md` (generated).
 - No em dashes in user-facing copy.

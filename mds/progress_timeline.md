@@ -1527,3 +1527,25 @@ they return.
   Postgres (PGlite), which caught two real bugs (NOT dropping empty values;
   LEAST ignoring NULL making unmeasured pages read 100% seen). Not run
   against the real database or in a browser.
+
+---
+
+## 2026-10-06 — Hook: future-proofing, form friction, canvas features, docs
+
+- Query format v3 + `jh-hook/migrate.ts`: every query (URL, paste, engine
+  entry) is upgraded to the current format, so saved and shared queries
+  survive shape changes. Keys are permanent ids; labels are free.
+- New Hook entity **form fields** (per-field form friction from
+  `form_engagement.field_timings`), so the product's "form friction"
+  promise is queryable in Hook.
+- Error policy (`HookError` shown verbatim, everything else as a reference
+  code), `[hook]` logging, on-screen notices. The builder gains names,
+  notes, collapse, vertical drag spacing, "Use this hook as a sub-hook", a
+  `</>` code panel and Copy link.
+- Engine tests now live in the repo: `npm run test:hook` (61 checks;
+  `@electric-sql/pglite` and `jiti` added as dev dependencies).
+- Docs: `jh-hook/user-guide.md`, `docs-brief.md` (for the public docs),
+  `architecture.md` (developer guide part 1, engineering) and
+  `data-flow.md` (part 2, data flow).
+- Verified with tsc, eslint, next build and the test suite. Not checked in
+  a browser.
