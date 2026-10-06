@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import { ConversionPathsChart } from "@/components/charts/lineConversionPath"
-import { ConversionRateChart } from "@/components/charts/conversionRate"
 import { ModeToggle } from "@/components/DarkButton"
 import { redirect } from "next/navigation";
 export default function Dashboard() {
@@ -186,7 +185,6 @@ export default function Dashboard() {
       <ConversionPathsChart siteId="1a6d1c5c-7a6a-4d39-b221-9f3dbb64c3b1" useDemo={false} permission={2} />  {/*//i removed leads={}*/}
          </div>
          <div className="my-2 mt-4 mx-1" >
-          <ConversionRateChart siteId={"1a6d1c5c-7a6a-4d39-b221-9f3dbb64c3b1"} /></div>  {/*<ConversionRateChart siteId={site.id} planLevel={planLevel} />*/}
 
 
 

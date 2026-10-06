@@ -2,6 +2,7 @@ import { getAuthUser, requireSite, getPlanLabel } from "@/lib/actions/permission
 import { getLeads } from "@/lib/actions/supabase.actions";
 import PlanGate from "@/components/PlanGate";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Suspense } from "react";
 import { LeadsTable } from "@/components/leads/LeadsTable";
 
 export default async function LeadsPage() {
@@ -19,10 +20,12 @@ export default async function LeadsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">All leads</CardTitle>
-            <CardDescription>Every form submitted on your site. Defaults to today, pick a date or search to see more.</CardDescription>
+            <CardDescription>Every form submitted on your site, newest first. Search, pick a date range or filter by status; the page address keeps your choices, so you can share the exact view. Click any row to open the lead.</CardDescription>
           </CardHeader>
           <CardContent>
-            <LeadsTable leads={leads} siteId={site.id} />
+            <Suspense fallback={<div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>}>
+              <LeadsTable leads={leads} siteId={site.id} />
+            </Suspense>
           </CardContent>
         </Card>
       </PlanGate>

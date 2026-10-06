@@ -46,6 +46,7 @@ export default async function OverviewPage() {
           metric="pageViews"
           icon="eye"
           label="Page Views"
+          allowAll
           noun="page views"
           info="Every page opened on your site in the chosen window. The arrow compares with the same length of time just before it."
         />
@@ -54,6 +55,7 @@ export default async function OverviewPage() {
           metric="sessions"
           icon="users"
           label="Sessions"
+          allowAll
           noun="sessions"
           info="Visits to your site that started in the chosen window (one visit can include many pages). The arrow compares with the window just before."
         />
@@ -62,6 +64,7 @@ export default async function OverviewPage() {
           metric="leads"
           icon="userCheck"
           label="Leads"
+          allowAll
           noun="form submissions"
           info="Forms submitted in the chosen window: every submission counts, including repeat ones from the same person. The arrow compares with the window just before."
         />
@@ -70,6 +73,7 @@ export default async function OverviewPage() {
           metric="conversionRate"
           icon="percent"
           label="Conversion Rate"
+          allowAll
           noun="conversions"
           info="Different people who submitted a form, divided by different people who visited, in the chosen window. Each person counts once. The change is in percentage points."
         />

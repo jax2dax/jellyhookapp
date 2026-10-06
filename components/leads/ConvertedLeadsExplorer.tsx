@@ -24,9 +24,12 @@ import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DateRangeField } from "@/components/ui/DateRangeField";
 import { getConvertedLeadSessions } from "@/lib/actions/conversionLeads.action";
 import { getCachedConvertedLeads, setCachedConvertedLeads } from "@/lib/convertedLeadsCache";
 import { buildSessionsRaw, truncateSessionToSubmission } from "@/lib/leadSessions/transform";
+import { formatLocal } from "@/lib/dateLocal";
+import { oneOf, useUrlState } from "@/lib/urlState";
 import { ConvertedLeadCard, type ConvertedSubmission } from "./ConvertedLeadCard";
 import type { SessionRaw } from "@/framePlate";
 
@@ -54,33 +57,25 @@ function presetToRange(preset: RangePreset, customStart: string, customEnd: stri
   return { startIso: new Date(Date.now() - days * 86_400_000).toISOString(), endIso: null };
 }
 
-// Local datetime-local input value, e.g. "2026-10-01T09:30" — a week ago by default.
-function defaultCustomStart(): string {
-  const d = new Date(Date.now() - 7 * 86_400_000);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-}
-function defaultCustomEnd(): string {
-  const d = new Date();
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-}
+const RANGE_PRESETS = ["3d", "7d", "30d", "all", "custom"] as const;
 
 export function ConvertedLeadsExplorer({ siteId }: { siteId: string }) {
-  const [preset, setPreset] = React.useState<RangePreset>("all");
-  // Empty until the effect below fills them in, never computed from
-  // Date.now() in a lazy initializer — same reason as everywhere else in
-  // this codebase: that function would run once during SSR and again on
-  // client mount, computing two different timestamps. These inputs are
-  // only ever rendered once preset === "custom" (a post-hydration user
-  // action), so it wouldn't surface as a visible mismatch today, but
-  // there's no reason to rely on that staying true.
-  const [customStart, setCustomStart] = React.useState("");
-  const [customEnd, setCustomEnd] = React.useState("");
-  const [page, setPage] = React.useState(1);
-
-  React.useEffect(() => {
-    setCustomStart(defaultCustomStart());
-    setCustomEnd(defaultCustomEnd());
-  }, []);
+  // The view lives in the URL, only when it isn't the default (lib/urlState.ts):
+  //   ?range=7d | 3d | 30d | custom      default: all
+  //   &from=2026-10-01T09:30&to=...      local date-times, with range=custom
+  //   &page=2                            default: 1
+  // so a refresh, the back button or a shared link keep the same view.
+  const [url, setUrl] = useUrlState({ range: "all", from: "", to: "", page: "1" });
+  const preset: RangePreset = oneOf(url.range, RANGE_PRESETS, "all");
+  const customStart = url.from;
+  const customEnd = url.to;
+  const page = Math.max(1, Number.parseInt(url.page, 10) || 1);
+  const setPage = (next: number | ((p: number) => number)) => setUrl({ page: String(typeof next === "function" ? next(page) : next) });
+  const setPreset = (next: RangePreset) => {
+    // choosing "Custom range" seeds the last 7 days, so the link is complete at once
+    if (next === "custom") setUrl({ range: next, from: formatLocal(new Date(Date.now() - 7 * 86_400_000)), to: formatLocal(new Date()), page: "1" });
+    else setUrl({ range: next, from: "", to: "", page: "1" });
+  };
 
   // Raw rows only — never the built SessionRaw[]. See this file's header
   // comment for why that split matters for caching.
@@ -130,11 +125,6 @@ export function ConvertedLeadsExplorer({ siteId }: { siteId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteId, startIso, endIso]);
 
-  // Reset to page 1 whenever the filter (and therefore the dataset) changes.
-  React.useEffect(() => {
-    setPage(1);
-  }, [startIso, endIso]);
-
   const sessionsRaw = React.useMemo(() => {
     if (!rawData) return [];
     return buildSessionsRaw({
@@ -182,18 +172,14 @@ export function ConvertedLeadsExplorer({ siteId }: { siteId: string }) {
             </select>
             {preset === "custom" && (
               <>
-                <input
-                  type="datetime-local"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="h-9 rounded-md border border-input bg-background px-2.5 text-sm text-foreground"
-                />
-                <span className="text-xs text-muted-foreground">to</span>
-                <input
-                  type="datetime-local"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="h-9 rounded-md border border-input bg-background px-2.5 text-sm text-foreground"
+                <DateRangeField
+                  start={customStart}
+                  end={customEnd}
+                  onChange={(s, e) => setUrl({ from: s, to: e, page: "1" })}
+                  max={new Date()}
+                  placeholder="Pick a range"
+                  className="h-9 text-sm"
+                  aria-label="Custom date range"
                 />
               </>
             )}

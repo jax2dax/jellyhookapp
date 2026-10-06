@@ -29,8 +29,10 @@ export default function LeadProfileReferencePage() {
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Activity stats</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Total visits, total page views, total time engaged, average scroll depth, and time to convert from
-            their very first visit to the moment they submitted.
+            One card with six numbers: visits, page views, pages per visit (page views divided by visits, with a
+            row of dots), time engaged, average scroll depth (with a bar), and time to convert, from their very
+            first visit to the moment they submitted (shown in yellow once they have converted). The (i) next to
+            each explains how it is counted.
           </p>
         </div>
 
@@ -65,8 +67,18 @@ export default function LeadProfileReferencePage() {
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Conversion Events</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Only appears when this same browser has submitted more than one form. A lead converts once by
-            definition, so this section stays hidden rather than showing a list of one.
+            Only appears when this same browser has submitted more than one form, so it never shows a list of
+            one. Each submission is a small badge with its page and time, laid out in a row; the one you are
+            viewing is highlighted. Past 12, the rest sit behind a &quot;+N more&quot; button.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Submitted form details</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Name, email and phone are already in the header, so this block only appears when the form had other
+            fields (a business name, a budget...). The first four are shown as plain key and value, and the rest
+            sit behind one compact &quot;+N more fields&quot; button.
           </p>
         </div>
 
@@ -74,7 +86,7 @@ export default function LeadProfileReferencePage() {
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Session History</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Every session from this visitor, including ones where they left without converting. Selecting one
-            loads the session replay chart. See{" "}
+            loads the session replay chart. The selected session is kept in the page address, so a link opens the same one. See{" "}
             <Link href="/docs/concepts/session-replay" className="text-[var(--lime)] hover:underline">
               Session replay
             </Link>{" "}

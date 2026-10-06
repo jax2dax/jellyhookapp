@@ -1,8 +1,8 @@
 // components/charts/DateRangePicker.tsx
 //
 // Quick presets (last 24 hours / 7 days / month) plus "All time" and a
-// free-form "Custom range" with two datetime-local inputs, pickable down
-// to year/month/day/time.
+// free-form "Custom range" chosen on the app's calendar
+// (components/ui/DateRangeField.tsx), down to the minute.
 //
 // Which preset is selected is tracked in its OWN state here, separate from
 // the `start`/`end` values the parent sees. Deriving "which preset is
@@ -14,6 +14,8 @@
 
 import * as React from "react";
 import { Calendar } from "lucide-react";
+import { DateRangeField } from "@/components/ui/DateRangeField";
+import { isoToLocal, localToIso } from "@/lib/dateLocal";
 
 export interface DateRange {
   /** null = beginning of this site's history (when mode is "all"), or an explicit instant otherwise */
@@ -36,13 +38,6 @@ function rangeForPreset(mode: PresetMode): DateRange {
   if (mode === "all") return { start: null, end: null };
   const days = mode === "24h" ? 1 : mode === "7d" ? 7 : 30;
   return { start: new Date(Date.now() - days * 86_400_000).toISOString(), end: null };
-}
-
-function toDatetimeLocalValue(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export function DateRangePicker({ value, onChange }: { value: DateRange; onChange: (range: DateRange) => void }) {
@@ -78,21 +73,13 @@ export function DateRangePicker({ value, onChange }: { value: DateRange; onChang
         ))}
       </select>
       {mode === "custom" && (
-        <>
-          <input
-            type="datetime-local"
-            value={toDatetimeLocalValue(value.start)}
-            onChange={(e) => onChange({ ...value, start: e.target.value ? new Date(e.target.value).toISOString() : null })}
-            className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
-          />
-          <span className="text-muted-foreground">to</span>
-          <input
-            type="datetime-local"
-            value={toDatetimeLocalValue(value.end)}
-            onChange={(e) => onChange({ ...value, end: e.target.value ? new Date(e.target.value).toISOString() : null })}
-            className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
-          />
-        </>
+        <DateRangeField
+          start={isoToLocal(value.start)}
+          end={isoToLocal(value.end)}
+          onChange={(s, e) => onChange({ start: localToIso(s), end: localToIso(e) })}
+          placeholder="Pick a range"
+          aria-label="Custom date range"
+        />
       )}
     </div>
   );

@@ -34,7 +34,7 @@ export default function DashboardReferencePage() {
           </ul>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Each of these four tiles has its own small window menu: 24h, 7d or 30d (the last 24 hours, 7 days or
-            30 days, up to now). Next to the number, an arrow shows the change from the window just before:
+            30 days, up to now) or All time (no arrow, since there is nothing before it). Next to the number, an arrow shows the change from the window just before:
             the previous 24 hours, 7 days or 30 days. Green and up means more, red and down means fewer. Hover
             the arrow for the full sentence, for example &quot;50% fewer form submissions than the previous 24
             hours&quot;. The conversion rate changes in percentage points (&quot;1.2 pts&quot;), because a

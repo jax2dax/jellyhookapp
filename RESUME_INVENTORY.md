@@ -156,7 +156,7 @@ The major subsystems are: public site and pricing; Clerk identity and billing; s
 109. Time-series aggregation: The analytics layer builds buckets for chart data and handles range boundaries. (Files: lib/analytics/bucketRange.ts, lib/analytics/visitsAggregate.ts)
 110. Acquisition grouping: The application aggregates visitor sessions by source/referrer and produces source summaries. (Files: lib/actions/supabase.actions.js, lib/analytics/classifyReferrer.js)
 111. Device/country segmentation: Dashboard queries group visitors and sessions by device and country. (Files: lib/actions/supabase.actions.js)
-112. Page segmentation: Page overview actions aggregate page views and lead submissions per path. (Files: lib/actions/pagesOverview.action.ts)
+111. Page segmentation: Page overview actions aggregate page views and lead submissions per path. (Files: lib/actions/pagesOverview.action.js)
 113. Custom query language: Hook entities expose typed fields, relations, operators, aggregates, outputs, and nested conditions. (Files: jh-hook/schema.ts, jh-hook/types.ts)
 114. Hook query migration: The engine upgrades saved specs to the current format before execution. (Files: jh-hook/migrate.ts)
 115. Hook query validation: The engine validates the query specification before planning or executing it. (Files: jh-hook/engine/validate.ts)

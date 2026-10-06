@@ -301,7 +301,7 @@ export default function UserPageClient({ profile, siteCount, subscription }: { p
                 Everything&apos;s free right now
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Jellyhook is in early access — every feature on every account is unlocked, no card required.
+                Jellyhook is in early access. Every feature on every account is unlocked, no card required.
               </p>
 
               <div aria-hidden className="mt-4 select-none blur-[5px]">

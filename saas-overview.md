@@ -104,7 +104,6 @@ The detail page is keyed by the selected submission ID; that submission anchors 
 | Activity stat tiles | Total visits, total page views, total time-on-page, average exit scroll depth, time from first seen to focused conversion | Assess observed depth, engagement, and time-to-convert. |
 | Form Engagement facts | Time to first input, time filling the submitted form, and count of other abandoned forms | Identify observed hesitation and repeat form drop-off for follow-up or UX investigation. |
 | Field Timing bar chart | `fieldTimings` dwell time per recognized/custom field, in first-observed fill order; longest field highlighted | Choose fields and form steps to usability-test. Dwell is not itself proof of friction. |
-| Engagement Score radial | Heuristic 0–100 based on views, total page time, average scroll, and a multi-session bonus | Scan activity intensity; do not treat as predicted lead quality. |
 | Path to Conversion bar chart | Page-view sequence through conversion (or current journey if not converted), bar length as time on page, with scroll and visit context | See which content was traversed and where time was spent before submission. |
 | Conversion Events list | Other submissions from the same browser, with page and timestamp | Disambiguate repeat form activity and shared-browser cases. |
 | Session History explorer | Every converted and non-converted visit, a FramePlate chart for the selected session, session summary, and selected-frame detail panel | Inspect actual recorded scroll coverage, revisit bands, gaps, live/converted/abandoned outcomes, and page-level context. |
@@ -154,7 +153,7 @@ There is no Settings UI in the inspected component to change `specify_form` afte
 | `form_top_y`/`form_bottom_y` with conversion page geometry | The location and vertical extent of the form that converted | Compare converted-form placement with seen regions and reposition or clarify calls to action. |
 | First-session `utm_source` and `document.referrer` | First-touch channel mix among unique visitors and converted visitors | Rebalance acquisition spend or investigate channels that bring reach but few submitted leads. |
 | `form_submissions` contact/raw fields and `qualified` state | Identified inbound contacts with human sales disposition | Route qualified leads to sales, filter junk, and improve campaign targeting from review outcomes. |
-| Visits, page views, time, scroll, and repeat-visit heuristic | A compact activity-intensity signal per lead | Use `engagementScore` to sort for manual review, not as an automated quality or revenue forecast. |
+| Visits, page views, pages per visit, time engaged, scroll depth and time to convert | A factual activity summary per lead (the 0-100 engagement score was removed 2026-10-06: it could not be proven from the data) | Read the numbers themselves, or ask a precise question in Hook. |
 | Session and submission counts over time | Trend-level traffic and lead volume, with unique-vs-row-based definitions visible | Compare campaign periods while avoiding apples-to-oranges comparisons between unique visitors and raw submissions. |
 
 ### Interpretation Boundaries

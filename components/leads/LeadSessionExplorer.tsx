@@ -34,6 +34,7 @@ import { formatDate, formatDuration, formatRelativeTime } from "@/lib/leadFormat
 import { FramePlateChart, resolveViewportHeightPx, type SessionRaw, type TimelineItem } from "@/framePlate";
 import { SessionSummaryDrawer } from "./SessionSummaryDrawer";
 import { ChartLegend } from "./ChartLegend";
+import { useUrlState } from "@/lib/urlState";
 import { SelectedFrameDetails } from "./SelectedFrameDetails";
 import { buildSessionsRaw } from "@/lib/leadSessions/transform";
 import { getLeadSessionRows, getLeadPageStructureRows, getLeadFormEngagementRows } from "@/lib/actions/leadSessions.action";
@@ -133,7 +134,11 @@ export function LeadSessionExplorer({
   // form is submitted its engagement row basically never changes again, so
   // a single client fetch per visitor is enough; no polling needed.
   const [formEngagementRows, setFormEngagementRows] = React.useState<FormEngagementRow[]>([]);
-  const [selectedSessionId, setSelectedSessionId] = React.useState<string | null>(null);
+  // The session being looked at lives in the URL (?session=<id>), only when chosen,
+  // so a refresh or a shared link opens the same session (lib/urlState.ts).
+  const [urlState, setUrlState] = useUrlState({ session: "" });
+  const selectedSessionId = urlState.session || null;
+  const setSelectedSessionId = (id: string | null) => setUrlState({ session: id ?? "" });
   // Click-to-pin frame details — separate from hover. Cleared whenever the
   // selected SESSION changes, since a frame id from one session's timeline
   // means nothing in another's.

@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateRangeField } from "@/components/ui/DateRangeField";
 import {
   AGGS_FOR, AGG_LABEL, FIELD_GROUPS, LIST_OPS, NO_VALUE_OPS, OPS_FOR, OP_LABEL, SCHEMA, TIME_OP_LABEL, TWO_VALUE_OPS, TYPE_LABEL,
   type Agg, type EntityKey, type FieldType, type Op,
@@ -869,11 +870,13 @@ function LiteralEditor({
               <span className="text-muted-foreground">ago</span>
             </>
           ) : (
-            <Input
-              type="datetime-local"
-              className="h-8 w-52"
-              value={typeof value === "string" ? toLocalInput(value) : ""}
-              onChange={(e) => e.target.value && onChange(new Date(e.target.value).toISOString())}
+            <DateRangeField
+              mode="single"
+              start={typeof value === "string" ? toLocalInput(value) : ""}
+              end=""
+              onChange={(s) => s && onChange(new Date(s).toISOString())}
+              placeholder="Pick a date"
+              aria-label="Exact date and time"
             />
           )}
         </span>

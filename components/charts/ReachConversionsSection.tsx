@@ -19,6 +19,7 @@ import { Card } from "@/components/ui/card";
 import { NewReachChart } from "./NewReachChart";
 import { ConversionsAreaChart } from "./ConversionsAreaChart";
 import { MergedReachConversionsChart } from "./MergedReachConversionsChart";
+import { oneOf, useUrlState } from "@/lib/urlState";
 
 type ViewMode = "separate" | "split" | "merged";
 
@@ -29,7 +30,10 @@ const VIEW_OPTIONS: { value: ViewMode; label: string; icon: React.ComponentType<
 ];
 
 export function ReachConversionsSection({ siteId }: { siteId: string }) {
-  const [viewMode, setViewMode] = React.useState<ViewMode>("separate");
+  // ?view=split | merged (default: separate), so the chosen layout survives a refresh and can be shared
+  const [url, setUrl] = useUrlState({ view: "separate" });
+  const viewMode = oneOf(url.view, ["separate", "split", "merged"] as const, "separate");
+  const setViewMode = (v: ViewMode) => setUrl({ view: v });
 
   return (
     <div className="space-y-3">

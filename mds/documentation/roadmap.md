@@ -107,7 +107,8 @@ mechanical pass, not a design decision each time.
     if-condition template sentences dressed up as analysis, not something
     to hold up as a real feature in the docs.
   - Engagement Score on the lead profile page (`LeadEngagementRadial`),
-    same reason: an arbitrary heuristic, not a fact.
+    same reason: an arbitrary heuristic, not a fact. Removed from the code
+    2026-10-06 (component, card and the score in `leadProfile.js`).
   - General rule behind all three: if a number on screen is a guess or a
     made-up scoring formula rather than a measured fact, it does not get
     a docs page treating it like one.

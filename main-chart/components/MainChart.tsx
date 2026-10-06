@@ -20,6 +20,7 @@ import { Radio, CalendarRange, ChevronsRight, Minus, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DateRangeField } from "@/components/ui/DateRangeField";
 import { storeFor } from "../data/spanStore";
 import { computeSeries, valueAt } from "../engine/computeSeries";
 import { computeTrend } from "../engine/computeTrend";
@@ -840,18 +841,16 @@ export function MainChart({ siteId }: { siteId: string }) {
 
         {mode === "custom" && (
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <input
-              type="datetime-local"
-              value={customFrom}
-              onChange={(e) => setCustomFrom(e.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
-            />
-            <span className="text-xs text-muted-foreground">to</span>
-            <input
-              type="datetime-local"
-              value={customTo}
-              onChange={(e) => setCustomTo(e.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+            <DateRangeField
+              start={customFrom}
+              end={customTo}
+              onChange={(s, e) => {
+                setCustomFrom(s);
+                setCustomTo(e);
+              }}
+              max={new Date()}
+              placeholder="Pick a range"
+              aria-label="Custom date range"
             />
             <Button size="sm" className="h-8 text-xs" onClick={() => applyCustom()}>
               Show

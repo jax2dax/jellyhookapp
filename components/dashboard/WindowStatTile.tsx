@@ -114,7 +114,7 @@ export function WindowStatTile({
             <option value="24h">24h</option>
             <option value="7d">7d</option>
             <option value="30d">30d</option>
-            {allowAll && <option value="all">All</option>}
+            {allowAll && <option value="all">All time</option>}
           </select>
         </div>
         <div className="mt-0.5 flex items-baseline gap-2">

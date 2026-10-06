@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoTip } from "@/components/InfoTip";
+import { ChartFacts } from "./ChartFacts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { RefreshCw, Users } from "lucide-react";
 import { DateRangePicker, type DateRange } from "./DateRangePicker";
@@ -79,6 +80,11 @@ export function NewReachChart({ siteId, mini = false, embedded = false }: { site
               miniRangeStart's own span below, these two are not derived from
               one shared constant. */}
           {mini && <CardDescription className="mt-0 text-[11px]">Last 3 days</CardDescription>}
+          {data && (
+            <div className="mt-1">
+              <ChartFacts values={data.buckets.map((b) => b.newVisitors)} total={data.totalNewVisitors} noun="new visitors" compact={mini} />
+            </div>
+          )}
         </div>
       </div>
       {!mini && (

@@ -192,6 +192,35 @@ render via `useMemo`, never stored pre-built.
 
 ---
 
+## 3c. SaaS dashboard: small per-browser preferences
+
+Not data caches: remembered choices. Written only on a change, always inside
+try/catch (storage can be blocked), and the page works with them missing.
+
+### `jh_tile_window_<id>` (localStorage)
+
+The time window chosen on a dashboard tile, `"24h" | "7d" | "30d" | "all"`.
+`<id>` is the tile's metric (`pageViews`, `sessions`, `leads`,
+`conversionRate`). Written by `components/dashboard/WindowStatTile.tsx`, read
+once on mount. The only tile id that differs from its metric is none today.
+
+### `hook:debug` (localStorage)
+
+`"1"` turns on Hook's debug logging in the browser (`jh-hook/debug.ts`).
+Absent or anything else: off. Set by hand in the console.
+
+### `jh_glow_*` (localStorage)
+
+The sidebar Feedback button's nudge throttle (`jh_glow_last_at`,
+`jh_glow_date`, `jh_glow_count`), see `components/feedback/SupportFeedbackButton.tsx`.
+
+**Not stored locally, on purpose:** filters, search text, date ranges and
+selected tabs live in the page address (`lib/urlState.ts`), so they survive a
+refresh, work with back/forward and can be shared. Every key is listed in
+`mds/documentation/url-state.md`.
+
+---
+
 ## 4. Tracked site (visitor's browser) — `public/tracker.js`
 
 This is what the tracker script itself keeps in an END VISITOR's browser on a

@@ -144,7 +144,7 @@ export function ChartLegend() {
           </div>
 
           <div className="border-t px-4 py-2.5">
-            <Link href="/docs/charts" className="text-sm text-primary hover:underline">
+            <Link href="/docs/concepts/session-replay" className="text-sm text-primary hover:underline">
               Read docs &gt;
             </Link>
           </div>

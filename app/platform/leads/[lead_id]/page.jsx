@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowLeft, Clock, Eye, Mail, MousePointerClick, Phone, Repeat, Sparkles, Timer } from "lucide-react";
+import { Suspense } from "react";
+import { ArrowLeft, Mail, Phone } from "lucide-react";
 import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
 import { getLeadProfileByLeadId } from "@/lib/actions/leadProfile.actions";
 import { buildLeadProfile } from "@/lib/algorithms/leadProfile";
@@ -7,10 +8,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { LeadTimeBar } from "@/components/charts/leadTimeBar";
-import { LeadEngagementRadial } from "@/components/charts/leadEngagementRadial";
 import { LeadSessionExplorer } from "@/components/leads/LeadSessionExplorer";
 import { LeadQualifyToggle } from "@/components/leads/LeadQualifyToggle";
-import { StatTile } from "@/components/StatTile";
+import { LeadStatsCard } from "@/components/leads/LeadStatsCard";
+import { ConversionEventsBadges } from "@/components/leads/ConversionEventsBadges";
+import { FormDetails } from "@/components/leads/FormDetails";
 import { LocalDate } from "@/components/LocalDate";
 import { formatDuration, formatRelativeTime } from "@/lib/leadFormat";
 
@@ -52,7 +54,6 @@ function LeadProfileBody({ profile, raw, siteId }) {
     visitorType,
     visitsBeforeConversion,
     timeToConvertMs,
-    engagementScore,
     conversions,
     primaryConversion,
     preConversionPath,
@@ -113,45 +114,22 @@ function LeadProfileBody({ profile, raw, siteId }) {
         </CardContent>
 
         {primaryConversion?.fields && (primaryConversion.fields.scalars.length > 0 || primaryConversion.fields.complex.length > 0) && (
-          <CardContent className="pt-0 space-y-3">
-            {primaryConversion.fields.scalars.length > 0 && (
-              <div>
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Submitted form details</p>
-                <div className="flex flex-wrap gap-2">
-                  {primaryConversion.fields.scalars.map((f) => (
-                    <div key={f.key} className="rounded-md border bg-muted/40 px-2.5 py-1 text-xs">
-                      <span className="text-muted-foreground">{f.key}: </span>
-                      <span className="font-medium text-foreground">{f.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {primaryConversion.fields.complex.map((f) => (
-              <details key={f.key} className="rounded-md border bg-muted/20">
-                <summary className="cursor-pointer select-none px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
-                  {f.key} (raw data)
-                </summary>
-                <pre className="max-h-64 overflow-auto border-t px-2.5 py-2 text-[11px] leading-relaxed text-foreground">{f.value}</pre>
-              </details>
-            ))}
+          <CardContent className="pt-0">
+            <FormDetails scalars={primaryConversion.fields.scalars} complex={primaryConversion.fields.complex} />
           </CardContent>
         )}
       </Card>
 
       {/* ── Section 2: Activity stats ──────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatTile icon={Repeat} label="Total Visits" value={totalVisits} sub={totalVisits === 1 ? "single-visit lead" : "sessions on this site"} />
-        <StatTile icon={Eye} label="Page Views" value={totalPageViews} sub="across all visits" />
-        <StatTile icon={Clock} label="Time Engaged" value={formatDuration(totalEngagedMs)} sub="total time on page" />
-        <StatTile icon={MousePointerClick} label="Avg Scroll" value={avgScrollPct != null ? `${avgScrollPct}%` : "—"} sub="depth per page" />
-        <StatTile
-          icon={Timer}
-          label="Time to Convert"
-          value={hasConverted ? formatDuration(timeToConvertMs) : "—"}
-          sub={hasConverted ? (visitsBeforeConversion === 0 ? "on the first visit" : `after ${visitsBeforeConversion} earlier visit${visitsBeforeConversion === 1 ? "" : "s"}`) : "not converted yet"}
-        />
-      </div>
+      <LeadStatsCard
+        totalVisits={totalVisits}
+        totalPageViews={totalPageViews}
+        totalEngagedMs={totalEngagedMs}
+        avgScrollPct={avgScrollPct}
+        hasConverted={hasConverted}
+        timeToConvertMs={timeToConvertMs}
+        visitsBeforeConversion={visitsBeforeConversion}
+      />
 
       {/* ── Section 2b: Form engagement facts — only shown when there's a real
           fact to show, never a fabricated "0 abandoned forms" for every lead ── */}
@@ -198,66 +176,32 @@ function LeadProfileBody({ profile, raw, siteId }) {
         </Card>
       )}
 
-      {/* ── Section 3: Engagement + path to conversion ─────────────────── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-1.5 text-base">
-              <Sparkles className="h-4 w-4" /> Engagement Score
-            </CardTitle>
-            <CardDescription>Pages, time on site, and scroll depth combined into one signal.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <LeadEngagementRadial score={engagementScore} />
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Path to Conversion</CardTitle>
-            <CardDescription>
-              {hasConverted
-                ? `Every page viewed before ${identity.name || "this lead"} converted, in order. Bar length is time spent on that page.`
-                : "Pages viewed so far. This visitor hasn't converted yet."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <LeadTimeBar
-              data={preConversionPath.map((pv) => ({
-                label: pv.pagePath,
-                timeMs: pv.timeOnPageMs,
-                scrollDepthPct: pv.scrollDepthPct,
-                visitNumber: pv.visitNumber,
-                highlight: !!pv.isConversionPage,
-              }))}
-            />
-          </CardContent>
-        </Card>
-      </div>
+      {/* ── Section 3: Path to conversion ───────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Path to Conversion</CardTitle>
+          <CardDescription>
+            {hasConverted
+              ? `Every page viewed before ${identity.name || "this lead"} converted, in order. Bar length is time spent on that page.`
+              : "Pages viewed so far. This visitor hasn't converted yet."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LeadTimeBar
+            data={preConversionPath.map((pv) => ({
+              label: pv.pagePath,
+              timeMs: pv.timeOnPageMs,
+              scrollDepthPct: pv.scrollDepthPct,
+              visitNumber: pv.visitNumber,
+              highlight: !!pv.isConversionPage,
+            }))}
+          />
+        </CardContent>
+      </Card>
 
       {/* ── Section 4: Conversion events (only when there is more than one) ─ */}
       {conversions.length > 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Conversion Events</CardTitle>
-            <CardDescription>{conversions.length} forms submitted from this same browser over time.</CardDescription>
-          </CardHeader>
-          <CardContent className="max-h-72 space-y-3 overflow-y-auto">
-            {conversions.map((c) => (
-              <div key={c.id} className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm ${c.isFocus ? "border-primary/50 bg-primary/5" : ""}`}>
-                <div>
-                  <span className="font-medium text-foreground">{c.pagePath}</span>
-                  <span className="ml-2 text-xs text-muted-foreground"><LocalDate value={c.submittedAt} mode="datetime" /></span>
-                  {c.isFocus && (
-                    <Badge variant="outline" className="ml-2">
-                      Viewing
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <ConversionEventsBadges events={conversions.map((c) => ({ id: c.id, pagePath: c.pagePath, submittedAt: c.submittedAt, isFocus: !!c.isFocus }))} />
       )}
 
       {/* ── Section 5: Full session history (converted + non-converted) ── */}
@@ -269,14 +213,16 @@ function LeadProfileBody({ profile, raw, siteId }) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <LeadSessionExplorer
-            siteId={siteId}
-            visitorId={raw.focusSubmission?.visitor_id || ""}
-            deviceType={raw.visitor?.device_type}
-            initialSessionRows={raw.sessions}
-            initialPageViewRows={raw.pageViews}
-            initialSubmissionRows={raw.submissions}
-          />
+          <Suspense fallback={<div className="py-6 text-center text-sm text-muted-foreground">Loading sessions…</div>}>
+            <LeadSessionExplorer
+              siteId={siteId}
+              visitorId={raw.focusSubmission?.visitor_id || ""}
+              deviceType={raw.visitor?.device_type}
+              initialSessionRows={raw.sessions}
+              initialPageViewRows={raw.pageViews}
+              initialSubmissionRows={raw.submissions}
+            />
+          </Suspense>
         </CardContent>
       </Card>
     </div>

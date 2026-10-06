@@ -1627,3 +1627,31 @@ they return.
 - Verified with tsc, eslint (new code), next build and the test suites. Not
   checked in a browser.
 
+---
+
+## 2026-10-07 — Calendar, leads, lead profile, conversions, URL state
+
+- New range calendar (`components/ui/DateRangeField.tsx`) replaces every
+  default date input: chart range pickers, the main chart, the conversions
+  list, the leads filter and Hook's exact-date fields.
+- Dashboard top tiles gained an "All time" option.
+- /platform/conversions: the Conversion Rate Over Time chart was deleted
+  (it repeated the Conversions chart); "In range" and "Growth" moved into
+  New Reach and Conversions (`ChartFacts`).
+- /platform/leads: opens on All time (not Today), a whole row opens the
+  lead, and the bottom fade only shows when there are more rows.
+- Lead profile: engagement score removed (code, chart and the score in
+  `leadProfile.js`); new "at a glance" stats card with pages per visit;
+  form details show 4 fields and a "+N more" button; conversion events are
+  one row of badges; the session chart's (i) "Read docs" now points at
+  /docs/concepts/session-replay.
+- State in the URL (`lib/urlState.ts`, keys in
+  `mds/documentation/url-state.md`): leads search/date/status, conversions
+  layout/range/page, the lead's selected session. Local cache schema updated
+  with the per-browser preferences.
+- Billing line without an em dash.
+- Docs: public pages for leads, lead profile, conversions and dashboard;
+  `mds/documentation/leads-conversions-calendar-2026-10-06.md`.
+- Verified with tsc, eslint (new code), next build. Not checked in a
+  browser.
+
