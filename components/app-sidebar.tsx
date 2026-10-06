@@ -5,8 +5,7 @@ import * as React from "react"
 import Image from "next/image"
 import {
   LayoutDashboard, Users, Flame, UserCheck,
-  GitFork, Globe, Settings, CreditCard,Network
-} from "lucide-react"
+  GitFork, Globe, Settings, CreditCard,Network, FishingHook } from "lucide-react"
 import { SiteSwitcher } from "@/components/siteSwitcher"
 
 import { NavMain } from "@/components/nav-main"
@@ -35,6 +34,7 @@ const NAV_ITEMS = [
   // { title: "Intent Signals",    url: "/platform/intent",        icon: Flame,           plan: "free" },
   { title: "Leads",             url: "/platform/leads",         icon: UserCheck,       plan: "free"   },
   { title: "Conversion Paths",  url: "/platform/conversions",   icon: GitFork,         plan: "free"   },
+  { title: "Hook",              url: "/platform/hook",          icon: FishingHook,     plan: "free"   },
   // { title: "Acquisition",       url: "/platform/acquisition",   icon: Globe,           plan: "free"   },
   { title: "Settings",          url: "/platform/settings",      icon: Settings,        plan: "free"  },
   { title: "Subscription",      url: "/platform/subscription",  icon: CreditCard,      plan: "free"  },

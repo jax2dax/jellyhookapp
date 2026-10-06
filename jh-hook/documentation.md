@@ -13,6 +13,8 @@
 | naming.md | everyone | audit of every user-facing name |
 | progress.md | Joshua | dated log |
 | setup.sql | ops | the one-time database setup |
+| ../output/ | everyone | the output engine and results canvas: overview, `rules.md` (what is shown, when), developer guide part 1 and 2, plan, docs brief |
+| ../silhouette/ | everyone | the live preview: overview, `rules.md` (when each shape is drawn), developer guide part 1 and 2, plan (v3), docs brief |
 
 Code: `jh-hook/` (schema, types, shape, describe, migrate, errors, debug,
 units, engine/, tests/, scripts/), `lib/actions/hook.action.ts`,

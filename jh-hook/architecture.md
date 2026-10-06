@@ -26,9 +26,15 @@ during the build; change it if it's wrong).
 | `jh-hook/engine/compile.ts` | server | conditions, comparisons, measures, outputs, sub-hooks into SQL |
 | `jh-hook/engine/run.ts` | server | the pipeline: migrate, validate, tunnels, estimates, order, cost gate, execute |
 | `lib/hook/pgDb.ts` | server | the database connection (`hook_reader`, TLS, pool of 3) |
-| `lib/actions/hook.action.ts` | server | the browser's only door: site check, error policy, run log, value suggestions |
+| `lib/actions/hook.action.ts` | server | the browser's only door: site resolution (same as every platform page), error policy, run log, value suggestions, the site's page list |
 | `components/hook/HookBuilder.tsx` | browser | the builder canvas (recursive) |
-| `app/dev/hook/page.tsx` | browser | the test bench page: URL state, `</>` paste, notices, results |
+| `components/hook/HookWorkspace.tsx` | browser | the whole workspace: header, `</>` panel, builder, run order, Run, result, notices, the preview column. `mode="product"` or `"dev"` |
+| `app/platform/hook/page.tsx` | server | the product page: signed-in user with a site, then `HookWorkspace mode="product"` (no SQL, no raw ids) |
+| `app/dev/hook/page.tsx` | browser | the test bench: `HookWorkspace mode="dev"` (adds the SQL, Postgres cost, raw ids) |
+| `silhouette/` | browser | the live preview beside the builder (its own developer guide: `silhouette/architecture.md`) |
+| `output/` | both | the output engine and the results canvas (its own developer guide: `output/architecture.md`) |
+| `lib/actions/canvas.action.ts` | server | run + render through the output engine, load more, compare. The workspace's Run uses this |
+| `lib/hook/site.ts` | server | the shared site rule and error policy for every Hook action |
 | `jh-hook/tests/engine.test.ts` | dev | 61 checks against a real Postgres (`npm run test:hook`) |
 | `jh-hook/scripts/genReference.ts` | dev | writes `reference.md` from the schema (`npm run hook:reference`) |
 | `jh-hook/setup.sql` | ops | the one-time database setup |
@@ -189,8 +195,10 @@ which the database can't see as separate steps.
 
 ## 8. Security
 
-- **Site from the server only.** The action reads the current site from the
-  cookie and calls `requireSiteAccess`. The browser never sends a site id.
+- **Site from the server only.** The action resolves the site exactly as
+  every /platform page does (`getUserSite`: the preferred-site cookie if the
+  user is an active member of it, otherwise their most recent site). The browser
+  never sends a site id.
 - **Tenant scoping is structural.** `scoped()` is the only code that writes
   a table name, and it always adds `site_id = $1`. The test asserts every
   table reference in every statement is scoped (255 of 255 in the last
@@ -264,6 +272,18 @@ Run it before any change to `jh-hook/` ships. Two real bugs were found this
 way, and both are now covered:
 - `NOT` dropped rows where the value was empty;
 - the `LEAST`/NULL behaviour made unmeasured visits read as 100% seen.
+
+## 11b. Sequences
+
+Page views have four sequence connections, all in the same session and
+ordered by `entered_at`:
+- `nextPage` / `previousPage` (one row): the join picks the nearest
+  page view with `ORDER BY entered_at LIMIT 1`;
+- `pagesAfter` / `pagesBefore` (many): a plain range join.
+
+Because they are ordinary connections, every measure and operator works
+on them ("exactly 3 pages after it", "has a page before it where page is
+/pricing"). 5 checks cover them.
 
 ## 12. How to extend
 

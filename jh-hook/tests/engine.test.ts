@@ -253,6 +253,21 @@ async function main() {
   try { await runHook({ ...db, query: async () => { throw new Error("connection refused at 10.0.0.1"); } }, SITE, H("pageView", [])); } catch (e) { caught = e; }
   ok(caught !== null && !isHookError(caught), "a database failure is NOT a HookError (never shown verbatim)");
 
+  // 15. sequences: next / previous page, pages after / before it
+  // sessions where some page view of /pricing is followed (anywhere later) by /contact
+  const expBefore = S_.filter((x) => { const v = pvOf(x.sid); return v.some((pp, i) => pp.path === "/contact" && v.slice(0, i).some((q) => q.path === "/pricing")); }).length;
+  ok((await one(H("session", [{ id: id(), kind: "related", relation: "pageViews", where: [
+    { id: id(), kind: "field", field: "page", op: "=", value: "/contact" },
+    { id: id(), kind: "related", relation: "pagesBefore", where: [{ id: id(), kind: "field", field: "page", op: "=", value: "/pricing" }] },
+  ] }]))) === expBefore, `sessions that visited /pricing before /contact (${expBefore})`);
+  const expNext = P_.filter((pp) => { const v = pvOf(pp.sid); const i = v.indexOf(pp); return pp.path === "/" && v[i + 1]?.path === "/blogs"; }).length;
+  ok((await one(H("pageView", [{ id: id(), kind: "field", field: "page", op: "=", value: "/" }, { id: id(), kind: "related", relation: "nextPage", where: [{ id: id(), kind: "field", field: "page", op: "=", value: "/blogs" }] }]))) === expNext, `page views of / whose NEXT page is /blogs (${expNext})`);
+  const expPrev = P_.filter((pp) => { const v = pvOf(pp.sid); const i = v.indexOf(pp); return i > 0 && v[i - 1].path === "/pricing"; }).length;
+  ok((await one(H("pageView", [{ id: id(), kind: "related", relation: "previousPage", where: [{ id: id(), kind: "field", field: "page", op: "=", value: "/pricing" }] }]))) === expPrev, "page views whose previous page is /pricing");
+  const exp3 = P_.filter((pp) => { const v = pvOf(pp.sid); return v.length - 1 - v.indexOf(pp) === 3; }).length;
+  ok((await one(H("pageView", [{ id: id(), kind: "related", relation: "pagesAfter", where: [], measure: { agg: "count" }, op: "=", value: 3 }]))) === exp3, "page views with exactly 3 pages after them");
+  ok((await one(H("pageView", [{ id: id(), kind: "related", relation: "pagesBefore", where: [], op: "=", value: 0 }]))) === S_.length, "no pages before it = the landing page (one per session)");
+
   // 10. security
   ok((await one(H("pageView", []))) === P_.length, "no conditions counts only this site");
   const all = queries.join("\n");

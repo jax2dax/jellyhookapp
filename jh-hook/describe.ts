@@ -69,7 +69,7 @@ export function describeOutput(entity: EntityKey, o: Output): string {
     case "countDistinct":
       return `the number of different ${fieldLabel(entity, o.field)} among ${plural}`;
     case "ids":
-      return `a list of ${SCHEMA[entity]?.label ?? entity} ids of ${plural}`;
+      return `a list of ${plural}`;
     case "values":
       return `a list of ${fieldLabel(entity, o.field)} values of ${plural}`;
     case "aggregate":

@@ -11,28 +11,14 @@
 // the raw message is appended, to save a trip to the terminal.
 "use server";
 
-import { getPreferredSiteId } from "@/lib/actions/site-cookie";
-import { requireSiteAccess } from "@/lib/actions/siteAccess";
 import { pgHookDb } from "@/lib/hook/pgDb";
+import { failure, siteOrThrow } from "@/lib/hook/site";
 import { runHook } from "@/jh-hook/engine/run";
 import { escapeLike, scoped } from "@/jh-hook/engine/sql";
-import { HookError, isHookError } from "@/jh-hook/errors";
-import { hookLog, refCode } from "@/jh-hook/debug";
+import { hookLog } from "@/jh-hook/debug";
 import type { HookResult, HookSpec } from "@/jh-hook/types";
 
 const DEFAULT_MAX_CREDITS = Number(process.env.HOOK_MAX_CREDITS ?? 200);
-const DEV = process.env.NODE_ENV !== "production";
-
-async function siteOrThrow(): Promise<string> {
-  const siteId = await getPreferredSiteId();
-  if (!siteId) throw new HookError("No site is selected. Pick a site from the site switcher first.");
-  try {
-    await requireSiteAccess(siteId);
-  } catch {
-    throw new HookError("You don't have access to the selected site, or you're signed out.");
-  }
-  return siteId;
-}
 
 export type HookRunResponse = { ok: true; result: HookResult } | { ok: false; error: string; ref?: string };
 
@@ -60,14 +46,7 @@ export async function runHookAction(spec: HookSpec): Promise<HookRunResponse> {
     hookLog.debug("run sql", result.sql);
     return { ok: true, result };
   } catch (e) {
-    if (isHookError(e)) {
-      hookLog.info("run refused", { site: siteId.slice(0, 8), message: e.message });
-      return { ok: false, error: e.message };
-    }
-    const ref = refCode();
-    hookLog.error("run failed", { ref, site: siteId.slice(0, 8), ms: Date.now() - t0, error: e instanceof Error ? e.message : String(e) });
-    const detail = DEV && e instanceof Error ? ` (development only: ${e.message})` : "";
-    return { ok: false, ref, error: `Something went wrong on our side. Reference ${ref}.${detail}` };
+    return failure(e, { what: "run", siteId, t0 });
   }
 }
 
@@ -114,6 +93,25 @@ export async function suggestHookValues(entity: string, field: string, text = ""
   } catch (e) {
     // Suggestions are a convenience: a failure must never break the builder.
     hookLog.warn("suggestions unavailable", { field: `${entity}.${field}`, error: e instanceof Error ? e.message : String(e) });
+    return [];
+  }
+}
+
+/**
+ * Every page address of the site with its view count (most viewed first,
+ * up to 500). The silhouette uses it for "N+" plate headers and their hover
+ * list. Empty on failure: a preview must never break the page.
+ */
+export async function listSitePages(): Promise<{ path: string; views: number }[]> {
+  try {
+    const siteId = await siteOrThrow();
+    const rows = await pgHookDb.query(
+      `SELECT x.page_path AS path, count(*)::int AS views FROM ${scoped("page_views", "x")} WHERE x.page_path IS NOT NULL GROUP BY 1 ORDER BY views DESC LIMIT 500`,
+      [siteId],
+    );
+    return rows as { path: string; views: number }[];
+  } catch (e) {
+    hookLog.warn("site pages unavailable", { error: e instanceof Error ? e.message : String(e) });
     return [];
   }
 }

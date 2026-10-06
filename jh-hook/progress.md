@@ -1,5 +1,39 @@
 # Hook: progress
 
+## 2026-10-06 (evening): the output engine and results canvas
+
+- New `output/` module: the view is chosen from the hook's shape; numbers
+  get base rates; breakdowns become bars; lists become session replays,
+  lead mini profiles, and visitor, page, form and field views.
+- Evidence: the visits that matched are ringed in the replays
+  (FramePlate's new `highlightIds`); leads show their converting session;
+  visitors show up to 2 matching sessions.
+- "Show more" uses sealed tokens (no re-run, no credits, no readable ids).
+- Two-hook comparison with a formula.
+- The workspace's Run goes through `lib/actions/canvas.action.ts`; the
+  product strips raw ids and SQL.
+- The site rule and error policy moved to `lib/hook/site.ts`, shared by
+  every Hook action.
+- Silhouette fixes: outline contrast (it was nearly invisible in dark
+  mode), and "+" after described pages.
+- Verified: tsc, eslint, `next build`, test suites (66 engine,
+  24 silhouette, 28 output), server render of both pages. Not run against
+  real data in a browser.
+
+## 2026-10-06 (later): /platform/hook, sequences, silhouette v2
+
+- `/platform/hook` product page (sidebar: Hook) and `/dev/hook` now share
+  `components/hook/HookWorkspace.tsx`; the product hides SQL and raw ids.
+- The action resolves the site exactly like every platform page
+  (`getUserSite`), so Hook always runs on the site the person is looking at.
+- "a list of ids" is now named per entity ("a list of sessions").
+- Sequences: next page, previous page, pages after it, pages before it.
+- Silhouette preview v2 in `silhouette/` (rules, tests, docs).
+- Verified: tsc, eslint, `next build`, 66 engine checks, 23 silhouette
+  checks, server render of `/dev/hook` (200, preview drawn) and
+  `/platform/hook` (redirects when signed out). Not clicked through in a
+  browser.
+
 ## 2026-10-06: future-proofing, form friction, canvas features, docs
 
 - Query format v3 with migrations (v1 to v2 to v3) on every entry point;

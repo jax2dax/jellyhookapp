@@ -95,6 +95,13 @@ export const SQL: Record<EntityKey, EntitySql> = {
       session: (p, c) => `${c}.session_id = ${p}.session_id`,
       visitor: (p, c) => `${c}.visitor_id = ${p}.visitor_id`,
       forms: (p, c) => `${c}.session_id = ${p}.session_id AND ${c}.page_path = ${p}.page_path`,
+      // Sequence joins: same session, ordered by entered_at.
+      nextPage: (p, c) =>
+        `${c}.id = (SELECT e.id FROM ${scoped("page_views", "e")} WHERE e.session_id = ${p}.session_id AND e.entered_at > ${p}.entered_at ORDER BY e.entered_at ASC LIMIT 1)`,
+      previousPage: (p, c) =>
+        `${c}.id = (SELECT e.id FROM ${scoped("page_views", "e")} WHERE e.session_id = ${p}.session_id AND e.entered_at < ${p}.entered_at ORDER BY e.entered_at DESC LIMIT 1)`,
+      pagesAfter: (p, c) => `${c}.session_id = ${p}.session_id AND ${c}.entered_at > ${p}.entered_at`,
+      pagesBefore: (p, c) => `${c}.session_id = ${p}.session_id AND ${c}.entered_at < ${p}.entered_at`,
     },
   },
 

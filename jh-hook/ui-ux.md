@@ -1,6 +1,16 @@
 # Hook: UI / UX
 
-## Now: `/dev/hook` (test bench)
+## Now: `/platform/hook` (product) and `/dev/hook` (test bench)
+
+Both pages render the same `HookWorkspace`. The product page hides the SQL
+and the Postgres cost, and never shows raw ids: lists of sessions, leads or
+page views show how many were found until the results canvas ships. The
+bench shows all of it. The layout is the builder on the left and the
+**preview** (silhouette) in a sticky right column, which stacks under the
+builder on narrow screens. The silhouette's own UI notes are in
+`silhouette/`.
+
+### The test bench
 
 This is Joshua's bench for testing the engine. The real Hook page comes
 later, behind authorization, and will reuse the same builder and server
@@ -107,15 +117,11 @@ Performance notes:
 
 ## Where it is heading
 
-1. **The output engine and the canvas.** Results are rendered as the
-   things behind them, never as ids:
-   - leads as mini profiles, with the sessions that qualified them when the
-     hook filtered on sessions;
-   - sessions as FramePlates, with the pages that matched highlighted;
-   - breakdowns as charts;
-   - comparisons inside the canvas.
-
-   Design questions are in `plan.md`.
+1. **The output engine and the canvas: built** (`output/`). Results
+   appear under the builder as numbers with a base rate, charts, session
+   replays with the matched visits ringed, lead mini profiles, and visitor,
+   page, form and field views. There is also a two-hook comparison. Next
+   steps are in `output/plan.md`.
 2. **The FramePlate silhouette sidebar** (right side). A faint, blinking
    FramePlate fills in as the hook is described:
    - plates appear as pages are mentioned ("4+" on a plate with no page

@@ -31,10 +31,13 @@ export interface SessionStripProps {
   onHoverItem?: (item: TimelineItem | null) => void;
   /** fires with the clicked visit (or null when the already-selected one is clicked again, toggling it off) */
   onSelectItem?: (item: TimelineItem | null, meta: SessionSelectMeta) => void;
+  /** See FramePlateChartProps.highlightIds. */
+  highlightIds?: ReadonlySet<string>;
   className?: string;
 }
 
-export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem, onSelectItem, className }: SessionStripProps) {
+export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem, onSelectItem, highlightIds, className }: SessionStripProps) {
+  const highlighting = !!highlightIds && highlightIds.size > 0;
   // hoveredId fires onHoverItem immediately (so consumers like an info
   // panel feel responsive); activeHoverId is what actually drives the
   // darken overlay, and only flips on after hoverDelayMs of continuous
@@ -160,7 +163,11 @@ export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem,
         <rect x={0} y={0} width={layout.totalWidth} height={layout.totalHeight} fill={theme.canvasBackground} />
 
         {timeline.map((item, i) => (
-          <g key={item.id} transform={`translate(${layout.positions[i]}, ${layout.topOffset})`}>
+          <g
+            key={item.id}
+            transform={`translate(${layout.positions[i]}, ${layout.topOffset})`}
+            opacity={highlighting && !(item.kind === "visit" && highlightIds!.has(item.id)) ? 0.28 : 1}
+          >
             <Frame
               item={item}
               width={layout.widths[i]}
@@ -171,6 +178,9 @@ export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem,
               onHover={handleHover}
               onClick={onSelectItem ? (clicked) => handleClick(clicked, i) : undefined}
             />
+            {highlighting && item.kind === "visit" && highlightIds!.has(item.id) && (
+              <rect x={-3} y={-3} width={layout.widths[i] + 6} height={layout.themeForFrames.frame.height + 6} rx={6} fill="none" stroke="#22d3ee" strokeWidth={2} pointerEvents="none" />
+            )}
           </g>
         ))}
       </svg>

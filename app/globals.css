@@ -385,3 +385,43 @@
     transition: none;
   }
 }
+
+/* Hook silhouette (silhouette/components/SilhouettePanel.tsx): faint at
+   rest, one pulse per edit of the hook, and a short glow on the exact
+   shapes that changed. Both off for people who ask for reduced motion. */
+@keyframes jh-silhouette-pulse {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.78;
+  }
+}
+@keyframes jh-silhouette-glow {
+  0% {
+    filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.95));
+  }
+  100% {
+    filter: none;
+  }
+}
+.jh-silhouette {
+  opacity: 0.78;
+  transition: opacity 200ms ease;
+}
+.jh-silhouette:hover,
+.jh-silhouette:focus-within {
+  opacity: 1;
+}
+.jh-silhouette-pulse {
+  animation: jh-silhouette-pulse 900ms ease-out;
+}
+.jh-silhouette-glow {
+  animation: jh-silhouette-glow 1200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jh-silhouette-pulse,
+  .jh-silhouette-glow {
+    animation: none;
+  }
+}

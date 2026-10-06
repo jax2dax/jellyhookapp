@@ -19,7 +19,7 @@ import { plateForDevice, resolveViewportHeightPx } from "../theme/deviceThemes";
 import { mergeDeepPartial } from "../theme/mergeThemeOverrides";
 import type { DeepPartial, FramePlateChartProps, FramePlateTheme } from "../types";
 
-export function FramePlateChart({ session, theme: themeOverride, domainEnd, minGapMs, hoverDelayMs, viewportHeightPx, deviceType, onHoverItem, onSelectItem, className }: FramePlateChartProps) {
+export function FramePlateChart({ session, theme: themeOverride, domainEnd, minGapMs, hoverDelayMs, viewportHeightPx, deviceType, onHoverItem, onSelectItem, highlightIds, className }: FramePlateChartProps) {
   const { theme: validatedTheme } = React.useMemo(() => {
     const devicePreset = plateForDevice(deviceType);
     const combined = mergeDeepPartial<DeepPartial<FramePlateTheme>>(devicePreset, themeOverride);
@@ -66,7 +66,7 @@ export function FramePlateChart({ session, theme: themeOverride, domainEnd, minG
             : undefined
         }
       >
-        <SessionStrip timeline={timeline} theme={theme} hoverDelayMs={hoverDelayMs} onHoverItem={onHoverItem} onSelectItem={onSelectItem} />
+        <SessionStrip timeline={timeline} theme={theme} hoverDelayMs={hoverDelayMs} onHoverItem={onHoverItem} onSelectItem={onSelectItem} highlightIds={highlightIds} />
       </div>
     </FramePlateErrorBoundary>
   );

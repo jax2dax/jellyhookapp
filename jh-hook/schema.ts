@@ -89,6 +89,14 @@ export const SCHEMA: Record<EntityKey, EntityDef> = {
       session: { label: "its session", target: "session", cardinality: "one" },
       visitor: { label: "its visitor", target: "visitor", cardinality: "one" },
       forms: { label: "its forms", target: "form", cardinality: "many" },
+      // Sequence: the page views around this one in the same session, by
+      // the order they were entered. "3 pages after the conversion" =
+      // a page view where converted on this page, whose pages after it
+      // number exactly 3.
+      nextPage: { label: "the next page", target: "pageView", cardinality: "one" },
+      previousPage: { label: "the previous page", target: "pageView", cardinality: "one" },
+      pagesAfter: { label: "the pages after it", target: "pageView", cardinality: "many" },
+      pagesBefore: { label: "the pages before it", target: "pageView", cardinality: "many" },
     },
   },
 

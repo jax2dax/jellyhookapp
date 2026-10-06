@@ -5,8 +5,9 @@ and forms, and get the answer in seconds. You don't need to know SQL or
 how the data is stored. You build a question out of plain choices, and
 Hook works out how to answer it.
 
-This guide matches what is on screen today, at `/dev/hook`. Labels in
-**bold** are exactly as they appear.
+Hook lives at **Hook** in the sidebar (`/platform/hook`). This guide
+matches what is on screen today. Labels in **bold** are exactly as they
+appear.
 
 ## The idea in one minute
 
@@ -87,7 +88,7 @@ All conditions at the same level must all be true.
 | **the number of** | one number | how many sessions converted |
 | **the number of different (unique)** | one number | how many different pages were visited |
 | **a calculation:** | one value: average, total, lowest, highest, median, percentile | average time on page |
-| **a list of ids** | a list | used to feed another hook |
+| **a list of sessions** (named by what you're looking at: a list of leads, of page views...) | the matching rows themselves | the sessions that match; results will show them as cards and charts. As a sub-hook it hands over their ids |
 | **a list of ... values** | the different values of one field | which campaign sources brought leads |
 | **a breakdown:** | a table: one measure per value of a field, or per hour / day / week / month | page views per page, sessions per day |
 
@@ -96,9 +97,50 @@ number single value: a number (how many sessions)".
 
 ### 5. Run it
 
-Press **Run hook**. You get the answer, its cost in credits, and **How it
-ran**: the order Hook used and a note on why. If you set the order
+Press **Run hook**. The answer appears under the builder, drawn as what it
+is (see **The results** below), with its cost in credits. **How it ran**
+(click to open) shows the order Hook used and why. If you set the order
 yourself and Hook found a much faster one, it says so.
+
+## The results
+
+What you see depends on what you asked for:
+
+- **A number:** shown big, with context: "4 out of 52 sessions overall
+  (7.7%)", or "across all page views: 12 sec" for averages and totals.
+- **A breakdown:** bars over time (per hour, day, week or month), or a
+  ranked list.
+- **A list of sessions:** the session replays, 6 at a time.
+- **A list of page views:** the sessions they happened in, with those
+  page views ringed.
+- **A list of form submissions (leads):** mini profiles. The name links to
+  the lead, and **Show form answers** reveals everything they filled in.
+- **A list of visitors:** cards with their device, when they were first
+  and last seen, and their name if they submitted a form.
+- **Pages, form activity and form fields:** tables and cards.
+- **Show N more** loads the next items. It's free: it doesn't run the hook
+  again.
+
+**Why a result is there.** When your hook looked at connected rows, the
+results show which ones made the difference:
+- sessions filtered by their pages ring the matching page visits and dim
+  the rest;
+- leads filtered by their session show the session they converted in;
+- visitors filtered by their sessions show up to 2 of those sessions.
+
+Internal ids are never shown.
+
+## Comparing two hooks
+
+**Compare with another hook** (under the builder) adds **Hook B** and a
+**Result** formula:
+- **A / B**;
+- **A / B x 100 (%)**;
+- **A - B**;
+- **change from B to A (%)**.
+
+Both hooks must return one number. Press **Run comparison** to see A, B and
+the result side by side. **Stop comparing** goes back to one hook.
 
 ## Sub-hooks and tunnels
 
@@ -120,6 +162,31 @@ dashed box.
 **Use this hook as a sub-hook...** under the main hook does the reverse.
 Your whole hook moves inside a new one. You pick where its result should
 flow, and Hook only offers places that fit.
+
+## The preview
+
+On the right of the builder, a faint picture of what your hook describes,
+drawn in the same shapes as session replay. It fills in as you build:
+
+- pages appear as you mention them. An unknown page is a **dashed white
+  plate** labelled with how many pages it could be ("12+"); hover to see
+  them;
+- **converted** turns a frame **yellow**; an abandoned form turns it
+  **orange**; time away is a **purple bar**;
+- scroll conditions draw the **green bands** and the **bulbs**;
+- ranges draw solid plates for the minimum, faint **?** plates for the
+  possible extras, and a **+** when there is no upper limit;
+- **match any (OR)** draws one picture per option; **exclude (NOT)** draws
+  a picture crossed with **red diagonal lines**;
+- sub-hooks get their own smaller pictures;
+- for page views, the big picture is the page itself; its session appears
+  next to it when your hook involves the session, with the page view you're
+  asking about **ringed in cyan**.
+
+It shows your question, not the answer: it doesn't change when you run,
+and it uses no credits. It pulses once each time you edit, and the parts
+that changed glow. **What the shapes mean** in its corner explains every
+shape.
 
 ## Names, notes, collapsing and spacing
 
@@ -216,13 +283,31 @@ Each example shows how to build it, then why it is useful.
 19. **Time from seeing a form to typing.** Show **a calculation:** median
     time from seeing to typing, of form activity.
 
+**Journeys (sequences)**
+
+Every page view has **the next page**, **the previous page**, **the pages
+after it** and **the pages before it** under **+ Look at its...**.
+
+22. **Visited /pricing before /contact.** Show the number of sessions where
+    **+ Look at its...** page views, has at least one where page is
+    /contact and **+ Look at its...** the pages before it, has at least
+    one where page is /pricing.
+23. **Three pages after converting.** Show the number of sessions where
+    **+ Look at its...** page views, has at least one where converted on
+    this page is true and **+ Look at its...** the pages after it, **count
+    or total**, number of, is 3.
+24. **What people open right after the homepage.** Show **a breakdown:**
+    number of page views, for each page, where **+ Look at its...** the
+    previous page matches, where page is /.
+
 **Comparisons (two runs)**
 
 20. **Does /pricing help conversion?** Run the number of sessions where
     converted is true and has a page view of /pricing. Then run the number
     of sessions where converted is true. The first divided by the second is
-    the share of conversions that saw /pricing. A built-in comparison view
-    is coming.
+    the share of conversions that saw /pricing. Do it in one go with
+    **Compare with another hook**: the first as Hook A, the second as
+    Hook B, result **A / B x 100 (%)**.
 21. **Above-average engagement.** Show the number of page views where time
     on page more than [sub-hook: **a calculation:** average time on page,
     of page views where page is /pricing].
@@ -235,8 +320,8 @@ Each example shows how to build it, then why it is useful.
 - **Share of page seen** is empty for older visits whose screen height was
   never recorded. Hook never guesses it.
 - **Hours and weekdays** are in UTC.
-- **Ids** are only for linking hooks together. Results will show people,
-  pages and sessions, not ids.
+- **Ids** are only for linking hooks together. Results show people,
+  pages and sessions, never ids.
 - **Credits:** every run costs at least 1 credit, and more for heavier
   questions. Hook checks the cost before running and stops if it's over
   your limit.

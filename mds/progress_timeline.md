@@ -1549,3 +1549,50 @@ they return.
   `data-flow.md` (part 2, data flow).
 - Verified with tsc, eslint, next build and the test suite. Not checked in
   a browser.
+
+---
+
+## 2026-10-06 (later) — /platform/hook, sequences, silhouette preview v2
+
+- `/platform/hook` (sidebar: Hook, all plans) and `/dev/hook` share
+  `components/hook/HookWorkspace.tsx`; the product mode hides SQL, the
+  Postgres cost and raw ids. Hook's server action now resolves the site with
+  `getUserSite`, exactly like every platform page.
+- Engine: sequence connections on page views (next page, previous page,
+  pages after it, pages before it), 5 new checks (66 total).
+- New `silhouette/` module: a live, faint FramePlate preview beside the
+  builder, derived from the hook alone (`silhouette/rules.md` is the
+  contract for when each shape is drawn; 23 checks,
+  `npm run test:silhouette`). Every shape records the condition that drew
+  it, ready for the interactive v3.
+- Decided with Joshua: sticky right sidebar; one pulse per edit; ranges as
+  minimum solid + faint "?" extras; smaller labelled sub-hook figures; page
+  results get a page figure plus a session figure only when the session is
+  involved; folder named `silhouette/`.
+- Verified with tsc, eslint, next build, both test suites, and a server
+  render of both pages. Not clicked through in a browser.
+
+---
+
+## 2026-10-06 (evening) — Hook output engine + results canvas
+
+- New `output/` module (rules in `output/rules.md`): Hook results are drawn
+  as what they are, never as ids. Numbers come with a base rate; breakdowns
+  become bars; lists become session replays (FramePlate), lead mini profiles
+  (raw form answers behind a reveal), and visitor, page, form and field
+  views.
+- Evidence, only when the hook filtered on connected rows: the matched
+  visits are ringed inside the replays, using a new optional
+  `highlightIds` prop on `FramePlateChart` (unchanged when omitted). Leads
+  show their converting session; visitors show up to 2 matching sessions.
+- "Show more" loads from sealed AES-GCM tokens (site- and view-bound, 24 h):
+  no re-run, no credits, no readable ids in the browser.
+- Two-hook comparison with a formula (A / B, %, difference, change).
+- Hook's server actions now share `lib/hook/site.ts` (same site rule as
+  every platform page, same error policy).
+- Silhouette fixes: outlines were nearly invisible in dark mode (checked by
+  rendering the SVG to images in both themes); described pages now end with
+  "+" when no page count is given.
+- Verified with tsc, eslint, next build and three test suites (66 + 24 + 28
+  checks). Not exercised against real data in a browser.
+

@@ -25,6 +25,12 @@ from the word alone? Does the same word mean the same thing everywhere?
 | builder | **Use this hook as a sub-hook...**, **Make it a sub-hook**, **+ note**, **Untitled hook (click to name it)**, **Untitled sub-hook**, **Name this condition (optional)** |
 | page header | **Copy link**, **</>**, **Load into builder**, **Show the current query here** |
 | value toggle | **a value I type** / **the result of a sub-hook (tunnel)** |
+| page view connections | **the next page**, **the previous page**, **the pages after it**, **the pages before it** |
+| output | **a list of ...** named per entity: **a list of sessions**, **a list of page views**... (was "a list of ids") |
+| preview | **Preview**, **What the shapes mean**, "Sub-hooks, flowing in through tunnels", "Not this: ...", "this page view", "converted here", "option 1 of 2" |
+| sidebar | **Hook** |
+| canvas | **Result**, **How it ran**, **Show N more (M left)**, **Show form answers (N)**, **Open the lead**, "N matching visits highlighted", "out of N sessions overall", "across all ...", "gave up here" |
+| compare | **Compare with another hook**, **Hook A**, **Hook B**, **Result** (A / B, A / B x 100 (%), A - B, change from B to A (%)), **Run comparison**, **Stop comparing** |
 
 ## 1. The big concepts
 

@@ -55,7 +55,7 @@ UI labels in bold exactly as on screen.
 - Nest freely.
 
 ## Page: Outputs (what you get back)
-- **the number of**, **the number of different (unique)**, **a calculation:** (average, total, lowest, highest, median, percentile), **a list of ids**, **a list of ... values**, **a breakdown:** (a measure per value of a field, or per hour/day/week/month; sort; top N).
+- **the number of**, **the number of different (unique)**, **a calculation:** (average, total, lowest, highest, median, percentile), **a list of sessions** (named after what you're looking at: a list of leads, a list of page views...), **a list of ... values**, **a breakdown:** (a measure per value of a field, or per hour/day/week/month; sort; top N).
 - "Returns ..." line under the menu tells you the type and whether it's one value or a list.
 - Ids exist to link hooks; results will present people/pages/sessions rather than ids (output engine, coming).
 
@@ -90,6 +90,21 @@ UI labels in bold exactly as on screen.
 - Cost is checked before running; over the limit = nothing runs, you see the estimate.
 - Plan-based allowances: to be defined (do not invent numbers).
 
+## Page: Journeys (sequences)
+- Under **+ Look at its...** on any page view: **the next page**, **the previous page**, **the pages after it**, **the pages before it**.
+- Same tools as any connected rows: has at least one, count or total, with any operator.
+- Examples: visited /pricing before /contact; exactly 3 pages after converting; what people open right after the homepage (a breakdown).
+
+## Page: Results and comparisons (the canvas)
+- Covered by its own brief: `output/docs-brief.md`.
+
+## Page: The preview (silhouette)
+- Covered by its own brief: `silhouette/docs-brief.md`.
+
+## Page: Where to find Hook
+- **Hook** in the sidebar (`/platform/hook`), every plan for now.
+- Runs on the site currently selected in the site switcher, the same one every page shows.
+
 ## Page: Sharing and reusing
 - **Copy link**: exact question; opens against the recipient's own current site; no data in the link.
 - **</>**: view or paste a query as code; **Load into builder** rebuilds it.
@@ -121,4 +136,4 @@ UI labels in bold exactly as on screen.
 - Hook, sub-hook, tunnel, condition, connected rows, group, output, breakdown, credit, run order, away period, form friction.
 
 ## Do NOT claim (not built yet)
-- Saved hooks, charts or FramePlate views of results, comparisons inside a canvas, AI / natural-language questions, visitor-local time zones, custom form answers (raw form fields), classified traffic source.
+- Saved hooks, exporting results, sorting inside a result list, overlaying two breakdowns, editing the hook by dragging the preview, AI / natural-language questions, visitor-local time zones, custom form answers as their own fields in conditions, classified traffic source.

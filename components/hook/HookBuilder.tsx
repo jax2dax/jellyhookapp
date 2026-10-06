@@ -378,7 +378,7 @@ const OUTPUT_KINDS: { k: Output["kind"]; label: string; hint: string }[] = [
   { k: "count", label: "the number of", hint: "a number: how many rows match" },
   { k: "countDistinct", label: "the number of different (unique)", hint: "a number: how many different values of one field" },
   { k: "aggregate", label: "a calculation:", hint: "one value: average, total, lowest, highest, median or percentile of one field" },
-  { k: "ids", label: "a list of ids", hint: "a list: the id of every matching row" },
+  { k: "ids", label: "a list of ...", hint: "a list of the matching rows themselves (sessions, leads...). Results show the rows, not ids; as a sub-hook it hands over their ids" },
   { k: "values", label: "a list of ... values", hint: "a list: the different values of one field among the matching rows" },
   { k: "groupBy", label: "a breakdown:", hint: "a table: one measure for each value of a field (for example, page views per page, or sessions per day). As a sub-hook it hands over its keys" },
 ];
@@ -401,7 +401,12 @@ function OutputEditor({ entity, output, onChange }: { entity: EntityKey; output:
   return (
     <div className="flex flex-wrap items-center gap-2">
       <select className={SEL} value={output.kind} onChange={(e) => setKind(e.target.value as Output["kind"])} title={OUTPUT_KINDS.find((x) => x.k === output.kind)?.hint}>
-        {OUTPUT_KINDS.map((x) => <option key={x.k} value={x.k} title={x.hint}>{x.label}</option>)}
+        {OUTPUT_KINDS.map((x) => (
+          <option key={x.k} value={x.k} title={x.hint}>
+            {/* "a list of ids" is named by what it lists: a list of sessions, a list of leads... */}
+            {x.k === "ids" ? `a list of ${SCHEMA[entity].plural}` : x.label}
+          </option>
+        ))}
       </select>
       {output.kind === "aggregate" && (
         <>

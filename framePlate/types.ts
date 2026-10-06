@@ -378,5 +378,13 @@ export interface FramePlateChartProps {
    * "exitedNormally".
    */
   onSelectItem?: (item: TimelineItem | null, meta: { isLastVisit: boolean }) => void;
+  /**
+   * Optional. Visit ids (PageVisitRaw.id) to stand out: when non-empty,
+   * those visits keep full strength with a ring, and every other frame
+   * (visits and gaps) is dimmed. Used by the Hook results canvas to show
+   * which page visits matched the hook's conditions. Omit or pass an empty
+   * set and the chart renders exactly as before.
+   */
+  highlightIds?: ReadonlySet<string>;
   className?: string;
 }

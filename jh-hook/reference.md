@@ -99,6 +99,10 @@ One row is one page view. Its id is a pageView id.
 | its session | one row: can be matched |
 | its visitor | one row: can be matched |
 | its forms | several: can be counted or measured |
+| the next page | one row: can be matched |
+| the previous page | one row: can be matched |
+| the pages after it | several: can be counted or measured |
+| the pages before it | several: can be counted or measured |
 
 
 ## sessions
