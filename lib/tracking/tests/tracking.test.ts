@@ -200,6 +200,12 @@ ok(decideCreateSite({ now: T0 + 1000, hasPendingInvite: true, sites: [mk({ verif
   ok(h.field_attr.state === "misplaced", "health: marked fields all outside forms are misplaced");
   h = by([row("click_attr", { marked: 2 }, "2026-10-07T10:00:00Z", "/a"), row("click_attr", { marked: 1 }, null, "/b")]);
   ok(h.click_attr.state === "working" && h.click_attr.pages.length === 2 && /1 page working/.test(h.click_attr.summary), "health: one working page makes the check working, per-page detail kept");
+  h = by([row("iframe_forms", { count: 1, event_tracked: 0, untracked: 1, providers: ["Pardot"] })]);
+  ok(h.iframe_forms.state === "limited" && /cannot be tracked/.test(h.iframe_forms.pages[0].problems[0]) && /Pardot/.test(h.iframe_forms.pages[0].problems[0]), "health: an iframe form nothing can listen to is a limit, named with its provider");
+  h = by([row("iframe_forms", { count: 1, event_tracked: 1, untracked: 0, providers: ["Typeform"] })]);
+  ok(h.iframe_forms.state === "waiting", "health: an iframe form that announces submissions is waiting for its first one");
+  h = by([row("iframe_forms", { count: 1, event_tracked: 1, untracked: 0, providers: ["Typeform"] }, "2026-10-07T10:00:00Z")]);
+  ok(h.iframe_forms.state === "working", "health: a real iframe submission proves it works");
   ok(by([]).click_attr.state === "none" && /Not found/.test(by([]).click_attr.summary), "health: nothing reported = not found");
 }
 

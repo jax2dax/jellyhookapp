@@ -261,6 +261,13 @@
   const sessionEndListeners = [];
   // Callbacks run each time a page view OPENS (structure capture, health report).
   const pageOpenListeners = [];
+  // Shared by the three form sections (generic capture, HubSpot, iframe providers): the site's form
+  // mode from /api/site-config, and callbacks waiting for it to arrive.
+  const jhState = { configLoaded: false, specifyFormMode: false, waiters: [] };
+  function jhWhenConfigured(fn) {
+    if (jhState.configLoaded) fn();
+    else jhState.waiters.push(fn);
+  }
 // ── MAX SCROLL TRACKING ──
   // These reset on every new page view alongside page_view_id and startTime
   // maxScrollDepth: highest scroll fraction (0–1) reached on this page view.
@@ -815,22 +822,57 @@ function firePageViewStart() {
     return null;
   }
 
+  // The text of the label a field carries (<label for>, wrapping <label>, aria-labelledby): the best
+  // hint when a plugin names its inputs input_1_3 or wpforms[fields][0][first].
+  function labelTextOf(input) {
+    try {
+      let t = "";
+      if (input.labels && input.labels.length) t = Array.from(input.labels).map(function (l) { return l.textContent; }).join(" ");
+      if (!t) {
+        const ids = input.getAttribute("aria-labelledby");
+        const el = ids ? document.getElementById(ids.split(" ")[0]) : null;
+        if (el) t = el.textContent;
+      }
+      return (t || "").trim().slice(0, 60);
+    } catch (e) {
+      return "";
+    }
+  }
+  function signalsOf(input) {
+    return [input.name, input.id, input.placeholder, input.getAttribute("aria-label"), input.getAttribute("autocomplete"), labelTextOf(input)].map(function (x) {
+      return normalize(x || "");
+    });
+  }
+  const NOT_A_PERSON = /company|business|organi[sz]ation|user_?name|file_?name|domain|project|product|brand|team|school|account/;
+  const FIRST_RE = /(^|[^a-z])(first(_?name)?|given(_?name)?|fname|forename)([^a-z]|$)/;
+  const LAST_RE = /(^|[^a-z])(last(_?name)?|family(_?name)?|surname|lname)([^a-z]|$)/;
+
+  // First + last name when the form splits them (Salesforce, Marketo, HubSpot, Gravity Forms, WPForms),
+  // otherwise the one full-name field.
   function extractName(form) {
     const tracked = form.querySelector('[data-track="name"]');
     if (tracked && getInputValue(tracked)) return getInputValue(tracked).trim();
-    const allInputs = getAllInputs(form);
-    for (const input of allInputs) {
-      const signals = [
-        input.name, input.id, input.placeholder,
-        input.getAttribute("aria-label"), input.getAttribute("autocomplete")
-      ].map(s => normalize(s || ""));
-      const isNameField = signals.some(s => NAME_KEYS.some(k => s.includes(normalize(k))));
-      if (isNameField) {
-        const val = getInputValue(input);
-        if (val) return val.trim();
+    let first = "";
+    let last = "";
+    let full = "";
+    for (const input of getAllInputs(form)) {
+      if (input.type === "email" || input.type === "tel") continue;
+      const val = getInputValue(input).trim();
+      if (!val) continue;
+      const sig = signalsOf(input);
+      if (sig.some(function (x) { return NOT_A_PERSON.test(x); })) continue;
+      if (!last && sig.some(function (x) { return LAST_RE.test(x); })) {
+        last = val;
+        continue;
       }
+      if (!first && sig.some(function (x) { return FIRST_RE.test(x); })) {
+        first = val;
+        continue;
+      }
+      if (!full && sig.some(function (x) { return NAME_KEYS.some(function (k) { return x.indexOf(normalize(k)) !== -1; }); })) full = val;
     }
-    return null;
+    if (first || last) return (first + " " + last).trim();
+    return full || null;
   }
 
   function extractPhone(form) {
@@ -838,11 +880,10 @@ function firePageViewStart() {
     if (telInput && getInputValue(telInput)) return getInputValue(telInput).trim();
     const tracked = form.querySelector('[data-track="phone"]');
     if (tracked && getInputValue(tracked)) return getInputValue(tracked).trim();
-    const allInputs = getAllInputs(form);
-    for (const input of allInputs) {
-      const signals = [input.name, input.id, input.placeholder].map(s => normalize(s || ""));
-      const isPhoneField = signals.some(s => PHONE_KEYS.some(k => s.includes(normalize(k))));
-      if (isPhoneField) {
+    for (const input of getAllInputs(form)) {
+      const sig = signalsOf(input);
+      if (sig.some(function (x) { return x.indexOf("fax") !== -1; })) continue;
+      if (sig.some(function (x) { return PHONE_KEYS.some(function (k) { return x.indexOf(normalize(k)) !== -1; }); })) {
         const val = getInputValue(input);
         if (val) return val.trim();
       }
@@ -916,13 +957,20 @@ function firePageViewStart() {
   // CORE GATE — called after config is known
   // Returns true if this form should be captured, false if it should be ignored
   // ─────────────────────────────────────────────────────────────────────
+  // data-conversion="true" on the form itself OR on any element around it. A form that a vendor's
+  // script renders (Marketo, HubSpot, Zoho, Pardot embeds) cannot be given an attribute, so the
+  // wrapper the owner controls carries it.
+  function isMarkedConversion(el) {
+    return !!(el && el.closest && el.closest('[data-conversion="true"]'));
+  }
+
   function isConversionForm(form) {
     if (!specifyFormMode) {
       // Global mode: capture everything that passes shouldSkip
       return true;
     }
     // Specify mode: ONLY forms with data-conversion="true"
-    const hasAttr = form.getAttribute("data-conversion") === "true";
+    const hasAttr = isMarkedConversion(form);
     if (!hasAttr) {
       jhLog("[Tracker] IGNORED — form missing data-conversion='true':", form);
     }
@@ -941,6 +989,9 @@ function firePageViewStart() {
 
       // Gate 1: conversion form check (respects specifyFormMode)
       if (!isConversionForm(form)) return;
+
+      // HubSpot's own form markup is captured by the HubSpot section below, once.
+      if (form.classList.contains("hs-form") || (form.id && form.id.indexOf("hsForm_") === 0)) return;
 
       // Gate 2: skip password forms, search forms, single-field non-email forms
       if (shouldSkip(form)) {
@@ -977,7 +1028,7 @@ function firePageViewStart() {
         phone: phone || null,
         confidence: email ? "high" : "low",
         raw_data: raw,
-        is_labelled_conversion: form.getAttribute("data-conversion") === "true",
+        is_labelled_conversion: isMarkedConversion(form),
       };
 
       _originalFetch(FORM_API_URL, {
@@ -1028,6 +1079,13 @@ function firePageViewStart() {
     .then(function(config) {
       specifyFormMode = config.specify_form === true;
       configLoaded = true;
+      jhState.specifyFormMode = specifyFormMode;
+      jhState.configLoaded = true;
+      jhState.waiters.splice(0).forEach(function (fn) {
+        try {
+          fn();
+        } catch (e) {}
+      });
 
       if (specifyFormMode) {
         jhLog("[Tracker] ✅ specify_form=TRUE — ONLY forms with data-conversion='true' will be captured");
@@ -1043,6 +1101,13 @@ function firePageViewStart() {
       jhLog("[Tracker] ⚠️ site-config fetch failed, defaulting to global mode:", err.message);
       specifyFormMode = false;
       configLoaded = true;
+      jhState.specifyFormMode = false;
+      jhState.configLoaded = true;
+      jhState.waiters.splice(0).forEach(function (fn) {
+        try {
+          fn();
+        } catch (e) {}
+      });
       processPendingForms();
       jhLog();
     });
@@ -1099,7 +1164,7 @@ function firePageViewStart() {
       if (method !== "GET" && method !== "HEAD" && !isOwn) {
         const f = lastFormInteraction.form;
         if (f && f.isConnected && Date.now() - lastFormInteraction.at < FETCH_FORM_WINDOW_MS && !shouldSkip(f)) {
-          const blockedBySpecifyMode = configLoaded && specifyFormMode && f.getAttribute("data-conversion") !== "true";
+          const blockedBySpecifyMode = configLoaded && specifyFormMode && !isMarkedConversion(f);
           if (!blockedBySpecifyMode && extractEmail(f)) {
             jhLog("[Tracker] fetch submission matched the form the visitor just used");
             if (!configLoaded) pendingForms.push({ form: f });
@@ -1712,13 +1777,41 @@ function firePageViewStart() {
       let wrongValue = 0;
       let wrongElement = 0;
       convAll.forEach(function (el) {
-        if (el.tagName !== "FORM") wrongElement++;
-        else if (el.getAttribute("data-conversion") === "true") marked++;
-        else wrongValue++;
+        const isTrue = el.getAttribute("data-conversion") === "true";
+        if (el.tagName === "FORM") {
+          if (isTrue) marked++;
+          else wrongValue++;
+        } else if (!isTrue) {
+          wrongValue++;
+        } else if (el.querySelector("form, iframe, .hbspt-form, [id^='hsForm_']") || el.querySelector("script[src*='hsforms'], script[src*='marketo'], script[src*='mktoForms']")) {
+          marked++; // a wrapper around a form or a vendor embed: valid, the vendor renders the form inside it
+        } else {
+          wrongElement++;
+        }
       });
       if (forms.length > 0 || convAll.length > 0) {
         report.conversion_form = { forms: forms.length, marked: marked, wrong_value: wrongValue, wrong_element: wrongElement };
       }
+
+      // Forms inside an iframe from another website are invisible to the page: the tracker can only hear the
+      // few providers that tell the parent page when a form is submitted.
+      const EVENT_PROVIDERS = [["typeform.com", "Typeform"], ["calendly.com", "Calendly"], ["jotform.com", "Jotform"], ["hsforms.", "HubSpot"]];
+      const BLIND_PROVIDERS = [["pardot.com", "Pardot"], ["zohopublic.com", "Zoho Forms"], ["zoho.com/forms", "Zoho Forms"], ["pipedrive.com", "Pipedrive"], ["docs.google.com/forms", "Google Forms"], ["forms.gle", "Google Forms"], ["tally.so", "Tally"], ["airtable.com", "Airtable"], ["forms.office.com", "Microsoft Forms"], ["salesforce.com", "Salesforce"], ["force.com", "Salesforce"], ["mailchimp.com", "Mailchimp"], ["list-manage.com", "Mailchimp"], ["wufoo.com", "Wufoo"], ["formstack.com", "Formstack"], ["cognitoforms.com", "Cognito Forms"], ["paperform.co", "Paperform"], ["fillout.com", "Fillout"]];
+      let eventTracked = 0;
+      let blind = 0;
+      const names = [];
+      document.querySelectorAll("iframe").forEach(function (fr) {
+        const src = (fr.getAttribute("src") || fr.getAttribute("data-src") || "").toLowerCase();
+        if (!src) return;
+        const ev = EVENT_PROVIDERS.find(function (p) { return src.indexOf(p[0]) !== -1; });
+        const bl = ev ? null : BLIND_PROVIDERS.find(function (p) { return src.indexOf(p[0]) !== -1; });
+        if (ev) eventTracked++;
+        else if (bl) blind++;
+        else return;
+        const n = (ev || bl)[1];
+        if (names.indexOf(n) === -1) names.push(n);
+      });
+      if (eventTracked + blind > 0) report.iframe_forms = { count: eventTracked + blind, event_tracked: eventTracked, untracked: blind, providers: names.slice(0, 5) };
 
       const fieldEls = document.querySelectorAll("[data-track-field]");
       if (fieldEls.length > 0) {
@@ -1860,7 +1953,7 @@ function firePageViewStart() {
     function isHubSpotConversionAllowed(formEl) {
       // specifyFormMode is defined in the outer FORM CAPTURE IIFE scope
       // and is accessible here because this IIFE is inside the same outer IIFE
-      if (typeof specifyFormMode === "undefined" || !specifyFormMode) {
+      if (!jhState.specifyFormMode) {
         // Global mode — always allow
         return true;
       }
@@ -1889,6 +1982,7 @@ function firePageViewStart() {
           wrapper.querySelector(".hbspt-form") ||
           wrapper.querySelector(".hs-form") ||
           wrapper.querySelector("[id^='hsForm_']") ||
+          wrapper.querySelector("iframe[src*='hsforms']") ||
           wrapper.classList.contains("hbspt-form")
         ) {
           jhLog("[Tracker][HubSpot] ✅ Found data-conversion wrapper containing HubSpot embed:", wrapper);
@@ -1957,7 +2051,15 @@ function firePageViewStart() {
     // Uses _originalFetch (captured at the very top of tracker.js)
     // so it bypasses the fetch interceptor and avoids infinite loops
     // ─────────────────────────────────────────────────────────
-    function sendHubSpotCapture({ formId, fields, formEl, eventName }) {
+    function sendHubSpotCapture(args) {
+      const { formId, fields, formEl, eventName } = args;
+      // The form mode arrives from /api/site-config a moment after load: wait for it, never guess.
+      if (!jhState.configLoaded) {
+        jhState.waiters.push(function () {
+          sendHubSpotCapture(args);
+        });
+        return;
+      }
       try {
         // Dedup check — HubSpot fires multiple events per submission
         if (isDuplicate(formId)) {
@@ -2146,7 +2248,13 @@ function firePageViewStart() {
       }
     });
 
-    _hsObserver.observe(document.body, { childList: true, subtree: true });
+    // document.body does not exist yet when the script sits in <head> (the recommended place); observing
+    // null threw here and silently disabled this whole section for every <head> install.
+    function startHsObserver() {
+      _hsObserver.observe(document.body, { childList: true, subtree: true });
+    }
+    if (document.body) startHsObserver();
+    else document.addEventListener("DOMContentLoaded", startHsObserver);
 
     // Initial scan in case HubSpot already rendered before tracker ran
     if (document.readyState === "loading") {
@@ -2158,6 +2266,85 @@ function firePageViewStart() {
     jhLog("[Tracker][HubSpot] ✅ HubSpot capture initialised — postMessage + DOM observer active");
 
   })(); // END HUBSPOT CAPTURE IIFE
+
+  // -------------------------------------------------------
+  // FORMS IN AN IFRAME (Typeform, Calendly, Jotform) — independent
+  //
+  // The page cannot read inside an iframe from another website, so name and email are out of reach.
+  // These providers do announce a completed submission to the parent page with postMessage, which is
+  // enough to count the conversion in the visit (as a lead with no name or email: an anonymous
+  // conversion). Providers that announce nothing (Pardot, Zoho, Pipedrive, Google Forms...) cannot be
+  // tracked from the page at all; the health report in Settings says so.
+  //
+  // In "labelled forms only" mode the iframe, or an element around it, must carry data-conversion="true".
+  // -------------------------------------------------------
+  (function () {
+    const FORM_API_URL = API_BASE + "/api/track-form";
+    const PROVIDERS = [
+      { id: "typeform", host: /(^|\.)typeform\.com$/, test: function (d) { return !!d && typeof d === "object" && typeof d.type === "string" && /submit/i.test(d.type); } },
+      { id: "calendly", host: /(^|\.)calendly\.com$/, test: function (d) { return !!d && typeof d === "object" && d.event === "calendly.event_scheduled"; } },
+      {
+        id: "jotform",
+        host: /(^|\.)jotform\.(com|eu)$/,
+        test: function (d) {
+          if (typeof d === "string") return d.indexOf("submission-completed") !== -1;
+          return !!d && typeof d === "object" && /submission-completed/.test(String(d.action || d.type || d.event || ""));
+        },
+      },
+    ];
+    const recent = {};
+
+    window.addEventListener("message", function (e) {
+      try {
+        let host = "";
+        try {
+          host = new URL(e.origin).hostname;
+        } catch (err) {
+          return;
+        }
+        const provider = PROVIDERS.find(function (p) { return p.host.test(host) && p.test(e.data); });
+        if (!provider) return;
+        let frame = null;
+        document.querySelectorAll("iframe").forEach(function (f) {
+          try {
+            if (f.contentWindow === e.source) frame = f;
+          } catch (err) {}
+        });
+        const marked = !!(frame && frame.closest && frame.closest('[data-conversion="true"]'));
+        const responseId = e.data && typeof e.data.responseId === "string" ? e.data.responseId.slice(0, 64) : undefined;
+
+        jhWhenConfigured(function () {
+          if (jhState.specifyFormMode && !marked) return;
+          const now = Date.now();
+          if (recent[provider.id] && now - recent[provider.id] < 5000) return;
+          recent[provider.id] = now;
+          _originalFetch(FORM_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=UTF-8" },
+            body: JSON.stringify({
+              api_key: apiKey,
+              host: window.location.host,
+              visitor_id,
+              session_id,
+              page_url: window.location.href,
+              page_path: window.location.pathname,
+              name: null,
+              email: null,
+              phone: null,
+              confidence: "low",
+              raw_data: { _source: provider.id, _kind: "iframe_submission", _response_id: responseId },
+              is_labelled_conversion: marked,
+            }),
+            credentials: "omit",
+            keepalive: true,
+          }).catch(function () {});
+          jhLog("[Tracker][iframe] " + provider.id + " submission announced by the embed");
+        });
+      } catch (err) {
+        jhLog("[Tracker][iframe] error:", err);
+      }
+    });
+  })(); // END IFRAME PROVIDERS IIFE
   
 })();
 

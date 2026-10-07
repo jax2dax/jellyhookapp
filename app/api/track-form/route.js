@@ -109,6 +109,8 @@ export async function POST(req) {
 
     // A real conversion from a marked form is the proof the attribute works.
     if (payload.is_labelled_conversion === true) await markHealthEvent(supabase, site.id, pagePath, "conversion_form", now);
+    // A conversion announced by a form inside an iframe (Typeform, Calendly, Jotform) proves that path works.
+    if (payload.raw_data && payload.raw_data._kind === "iframe_submission") await markHealthEvent(supabase, site.id, pagePath, "iframe_forms", now);
 
     after(() => flushUsage(supabase, site.id, usage, now));
     return ok();

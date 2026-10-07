@@ -59,3 +59,4 @@ values into that file. Never stamp without re-reading. Each page ends with "revi
 | `/docs/preview`, `/docs/preview/how-it-works` | `silhouette/rules.md` (the contract), `silhouette/derive.ts` (`LIMITS`), `silhouette/components/*` (legend, motion) |
 | `/docs/results`, `/docs/results/how-it-works` | `output/rules.md` (the contract), `output/plan.ts`, `output/server/render.ts` (`MAX_LIST_ITEMS`), `output/server/seal-core.ts` (`TOKEN_MAX_AGE_MS`), `output/components/Canvas.tsx` |
 | `/docs` (index), `docsNav.ts` | add a link when a Hook page is added |
+| `/docs/concepts/supported-forms` | `public/tracker.js` (form capture, HubSpot section, iframe providers section, health report), `scripts/tracker-e2e/forms.js` (the cases the page's table claims), `mds/reports/form-compatibility-2026-10-07.md`. If a row of the table changes, re-run `node scripts/tracker-e2e/forms.js`. |

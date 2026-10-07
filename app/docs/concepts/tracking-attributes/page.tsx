@@ -36,7 +36,7 @@ export default function TrackingAttributesPage() {
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">data-conversion: which form is a lead</h2>
           <p className="mb-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Put it on the <code className="ff-mono text-[#c9c7bd]">&lt;form&gt;</code> element itself. When you chose &quot;I&apos;ll label my form&quot; while creating
+            Put it on the <code className="ff-mono text-[#c9c7bd]">&lt;form&gt;</code> element itself, or on any element around it (needed for forms a tool such as HubSpot builds for you; see Supported forms). When you chose &quot;I&apos;ll label my form&quot; while creating
             the site, only forms carrying it are recorded as leads. A newsletter box or a search bar is then never mistaken for a lead.
           </p>
           <CodeBlock>{`<form data-conversion="true">\n  ...\n</form>`}</CodeBlock>

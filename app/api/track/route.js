@@ -419,7 +419,7 @@ async function recordHealthReport(supabase, siteId, event, nowIso) {
   const pagePath = cleanStr(event.page_path, 500) || "/";
   const report = event.report && typeof event.report === "object" ? event.report : {};
   const rows = [];
-  for (const checkKey of ["conversion_form", "field_attr", "click_attr"]) {
+  for (const checkKey of ["conversion_form", "field_attr", "click_attr", "iframe_forms"]) {
     const d = report[checkKey];
     if (!d || typeof d !== "object") continue;
     // Only small numbers and short strings are kept.

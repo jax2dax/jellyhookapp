@@ -40,6 +40,7 @@ function StateBadge({ state }) {
   if (state === "working") return <Badge>Working</Badge>;
   if (state === "waiting") return <Badge variant="outline">Found, waiting for activity</Badge>;
   if (state === "misplaced") return <Badge variant="destructive">Misplaced</Badge>;
+  if (state === "limited") return <Badge variant="outline">Cannot be tracked</Badge>;
   return <Badge variant="secondary">Not found</Badge>;
 }
 
@@ -200,7 +201,7 @@ export function TrackingHealthCard({ status }) {
               <StateBadge state={c.state} />
             </div>
             <div className="mt-1 text-xs text-muted-foreground">{c.summary}</div>
-            {(c.state === "misplaced" || c.state === "none" || c.state === "waiting") && <div className="mt-1 text-xs text-muted-foreground">{c.hint}</div>}
+            {(c.state === "misplaced" || c.state === "none" || c.state === "waiting" || c.state === "limited") && <div className="mt-1 text-xs text-muted-foreground">{c.hint}</div>}
 
             {c.pages.length > 0 && (
               <div className="mt-2">
@@ -219,7 +220,7 @@ export function TrackingHealthCard({ status }) {
                             </div>
                           ))}
                         </div>
-                        <div className="text-muted-foreground">{p.state === "working" ? `last event ${ago(p.lastEventAt)}` : p.state === "waiting" ? "found, no event yet" : p.state === "misplaced" ? "misplaced" : "not found"}</div>
+                        <div className="text-muted-foreground">{p.state === "working" ? `last event ${ago(p.lastEventAt)}` : p.state === "waiting" ? "found, no event yet" : p.state === "misplaced" ? "misplaced" : p.state === "limited" ? "cannot be tracked" : "not found"}</div>
                       </div>
                     ))}
                   </div>

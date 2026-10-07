@@ -28,6 +28,7 @@ export const DOCS_NAV: DocsNavSection[] = [
       { slug: "concepts/leads-qualification", title: "Leads and qualification" },
       { slug: "concepts/form-engagement", title: "Form engagement" },
       { slug: "concepts/tracking-attributes", title: "Tracking attributes" },
+      { slug: "concepts/supported-forms", title: "Supported forms" },
       { slug: "concepts/session-replay", title: "Session replay" },
       { slug: "concepts/referrers-attribution", title: "Referrers and attribution" },
     ],

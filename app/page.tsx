@@ -53,7 +53,7 @@ const AUDIENCES = [
   },
 ];
 
-const TICKER = ["Session replay", "Scroll depth", "Lead intelligence", "HubSpot forms", "Conversion paths"];
+const TICKER = ["Session replay", "Hook queries", "Scroll depth", "Lead intelligence", "HubSpot forms", "Conversion paths"];
 
 // The four hero promises, said again with the "why" behind them — outcomes
 // a reader can picture, not a feature re-explained in smaller text.
@@ -76,6 +76,24 @@ const PROMISE_DETAILS = [
   },
 ];
 
+// New: Hook. Every line is a shipped capability (see app/docs/hook). Not claimed: saved hooks, exports,
+// natural-language questions.
+const HOOK_POINTS = [
+  { title: "No SQL. No analyst.", desc: "Build a question out of plain choices. Hook reads it back to you in plain English before you run it." },
+  { title: "Questions that chain", desc: "Feed the answer of one question into another: find your Hanna leads, then see every page they viewed, in one run." },
+  { title: "See it before you run it", desc: "A live preview draws the visit your question describes in the same shapes as session replay, for free." },
+  { title: "Answers, not tables of ids", desc: "Results come back as session replays, lead profiles and numbers with context, with the pages that made each result match highlighted." },
+  { title: "Find where forms lose people", desc: "Ask which field people give up on, which they click but never type in, and how long each one takes." },
+  { title: "Compare two questions", desc: "Divide one answer by another: what share of conversions passed through your pricing page?" },
+];
+
+const HOOK_EXAMPLES = [
+  "Which pages did leads named Hanna view before converting?",
+  "How many sessions read /blogs for real, then left without converting?",
+  "Which form field do people give up on most?",
+  "What do visitors open right after the homepage?",
+];
+
 const LandingPage = () => {
   return (
     <MarketingPage>
@@ -84,7 +102,7 @@ const LandingPage = () => {
         <div className="jh-grid pointer-events-none absolute inset-0 hidden lg:block" />
 
         {/* ✦ ANIMATED ROPE + HOOK — decorative, hangs from the top */}
-        <div className="pointer-events-none absolute right-[3%] top-0 z-0 hidden xl:block">
+        <div className="pointer-events-none absolute -top-12 right-[3%] z-0 hidden xl:block">
           <div className="jh-rope">
             <Image
               src="/ropeWithHook.png"
@@ -102,11 +120,11 @@ const LandingPage = () => {
           <div className="grid grid-cols-1 gap-14 lg:grid-cols-12 lg:gap-0">
             {/* left */}
             <div className="relative lg:col-span-7 lg:pr-14">
-              {/* seasonal — a random little ghost, different one on every load */}
+              {/* seasonal — a random little ghost, different one on every load, above the headline's top-left corner */}
               <RandomIconBadge
                 images={HALLOWEEN_ICONS}
                 size={36}
-                className="pointer-events-none absolute -top-6 left-[9.5rem] -rotate-6 select-none object-contain sm:left-[13rem]"
+                className="pointer-events-none absolute -top-14 left-0 -rotate-6 select-none object-contain sm:-top-16"
               />
 
               <div className="mb-8 flex items-center gap-3">
@@ -307,10 +325,77 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* ================= HOOK ================= */}
+      <section id="hook" className="relative overflow-hidden border-b border-[#1b1b18]">
+        <div className="jh-grid pointer-events-none absolute inset-0 hidden opacity-60 lg:block" />
+        <div className="relative mx-auto max-w-[1400px] px-5 py-20 lg:px-10 lg:py-32">
+          <div className="mb-14 grid grid-cols-1 gap-8 lg:grid-cols-12">
+            <div className="lg:col-span-4">
+              <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[var(--lime)]">New / Hook</span>
+            </div>
+            <div className="lg:col-span-8">
+              <h2 className="ff-display text-[clamp(2.2rem,5vw,4rem)] leading-[0.95] tracking-[-0.02em] text-[#f4f2ea]">
+                Ask your visitors <em className="italic text-[var(--lime)]">anything</em>. Get the answer in seconds.
+              </h2>
+              <p className="mt-6 max-w-2xl ff-body text-[15px] leading-[1.75] text-[#8b8980]">
+                Meet Hook, the new way to question your own data. Dashboards answer the questions someone thought of in advance. Hook answers yours: precise questions about
+                sessions, leads, pages and forms, built from plain choices, answered live, drawn as the people and visits behind the numbers.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-px border border-[#1b1b18] bg-[#1b1b18] md:grid-cols-2 lg:grid-cols-3">
+            {HOOK_POINTS.map((p) => (
+              <div key={p.title} className="bg-[#070706] p-7">
+                <h3 className="ff-display text-xl text-[#f4f2ea]">{p.title}</h3>
+                <p className="mt-3 ff-body text-[13px] leading-[1.7] text-[#8b8980]">{p.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-14 grid grid-cols-1 gap-10 lg:grid-cols-12">
+            <div className="lg:col-span-5">
+              <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Questions Hook answers today</span>
+              <ul className="mt-5 space-y-3">
+                {HOOK_EXAMPLES.map((q) => (
+                  <li key={q} className="flex items-start gap-3 ff-display text-[18px] leading-snug text-[#f4f2ea]">
+                    <ArrowRight className="mt-1.5 h-4 w-4 shrink-0 text-[var(--lime)]" />
+                    {q}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="lg:col-span-7">
+              <div className="border border-[#1b1b18] bg-[#0a0a09] p-6">
+                <span className="ff-mono text-[10px] uppercase tracking-[0.26em] text-[#77756d]">Reads as</span>
+                <p className="mt-3 ff-display text-2xl leading-snug text-[#f4f2ea]">
+                  Show <span className="text-[var(--lime)]">the number of</span> sessions where <span className="text-[var(--lime)]">converted</span> is true and one page view is{" "}
+                  <span className="text-[var(--lime)]">/pricing</span>.
+                </p>
+                <p className="mt-4 ff-body text-[13px] leading-relaxed text-[#8b8980]">
+                  Every question reads back like a sentence, so you check it before you run it. It is included on every plan during early access.
+                </p>
+              </div>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <Link href="/sign-up">
+                  <button className={primaryBtn}>
+                    Try Hook
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+                  </button>
+                </Link>
+                <Link href="/docs/hook">
+                  <button className={ghostBtn}>Read how Hook works</button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ================= CTA ================= */}
       <section className="relative overflow-hidden border-b border-[#1b1b18] bg-[var(--lime)] text-black">
         {/* subtle vine/rope accent on the right of the CTA too */}
-        <div className="pointer-events-none absolute -right-4 top-0 hidden h-full xl:block">
+        <div className="pointer-events-none absolute -right-4 -top-12 hidden h-full xl:block">
           <div className="jh-rope" style={{ animationDelay: "2.5s" }}>
             <Image src="/ropeWithHook.png" alt="" width={130} height={480} className="h-auto w-[130px] select-none opacity-30 mix-blend-multiply" draggable={false} />
           </div>

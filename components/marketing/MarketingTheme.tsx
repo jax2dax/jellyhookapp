@@ -30,9 +30,12 @@ export function MarketingThemeStyles() {
         .ff-mono    { font-family: var(--font-mono), ui-monospace, monospace; }
 
         /* ---------- rope hook idle animation ---------- */
+        /* The rope is anchored ABOVE the section's top edge (the wrapper sits at -top-12), so its end is always
+           hidden under the header. At rest the hook is pulled up (contracted); it lowers to its old resting
+           position and the rope is still attached the whole way, never showing a cut end. */
         @keyframes jh-rope-bob {
-            0%, 68%, 100% { transform: translateY(0); }
-            78%, 90%      { transform: translateY(18px); }
+            0%, 68%, 100% { transform: translateY(-24px); }
+            78%, 90%      { transform: translateY(0); }
         }
         .jh-rope {
             animation: jh-rope-bob 9s ease-in-out infinite;
