@@ -43,7 +43,7 @@ export default function CreateSitePage() {
         specify_form: specifyForm,
       });
       if (res?.invalidDomain) {
-        setError("Enter a domain like example.com, without a path. For local testing, add the site first, then allow localhost in Settings.");
+        setError("Enter a domain like example.com, without a path.");
       } else {
         setResult(res);
       }

@@ -48,8 +48,8 @@ export default function TroubleshootingPage() {
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">&quot;We received data from another-site.com&quot;</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Your script is running on a website that is not the one this site was registered for, so its events were not recorded. If you pasted the
-            script on the wrong website, move it. If it is a staging copy or <code className="ff-mono text-[#c9c7bd]">localhost</code>, allow that host under Settings,
-            Tracking, Allowed hosts. The count and the last time are shown there.
+script on the wrong website, move it. Only allow the host under Settings, Tracking, Allowed hosts if it genuinely belongs to this site: everything from an allowed
+            host is recorded into the same real analytics. Do not allow test, staging or local copies. The count and the last time are shown there.
           </p>
         </div>
 

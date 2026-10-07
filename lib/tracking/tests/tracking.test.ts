@@ -26,7 +26,9 @@ const ok = (c, m) => {
 // hosts
 ok(normalizeHost("https://www.Example.com:8080/a?b") === "example.com", "host: url, www, port, case");
 ok(normalizeHost("WWW.example.com.") === "example.com", "host: trailing dot");
-ok(normalizeHost("localhost:3000") === "localhost", "host: localhost with port");
+ok(normalizeHost("localhost:3000") === "localhost:3000" && normalizeHost("http://localhost:3003/x") === "localhost:3003", "host: localhost keeps its port (different ports are different programs)");
+ok(normalizeHost("https://example.com:8080/a") === "example.com", "host: a real website drops its port");
+ok(!hostMatchesSite("localhost:3000", { domain: "localhost:3003" }) && hostMatchesSite("localhost:3003", { domain: "localhost:3003" }), "match: localhost:3000 is not a visitor of a site registered for localhost:3003");
 ok(normalizeHost("") === "" && normalizeHost(null) === "", "host: empty / non-string");
 ok(normalizeHost("exa mple.com") === "", "host: spaces rejected");
 const site = { domain: "example.com", allowed_hosts: ["staging.other.org"] };

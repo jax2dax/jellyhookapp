@@ -79,7 +79,7 @@ const ok = (c, m) => { console.log(c ? "ok:" : "FAIL:", m); if (!c) fails++; };
   ok(ev.filter((e) => e.type === "page_view_start").length === 1, "A: exactly one page_view_start");
   ok(ev.find((e) => e.type === "session_start")?.is_first_visit === true, "A: first visit flagged");
   ok(ev.find((e) => e.type === "page_view_start")?.viewport_width > 0, "A: viewport_width sent");
-  ok(ev.every((e) => e.host === "localhost"), "A: every event carries host");
+  ok(ev.every((e) => e.host === "localhost:4100"), "A: every event carries host");
   ok(events.filter((e) => e.path === "/api/track").every((e) => (e.ct || "").startsWith("text/plain")), "sends are text/plain (no preflight)");
   ok(!events.some((e) => e.path && e.path.startsWith("OPTIONS")), "no preflight OPTIONS requests at all");
   const health = ev.find((e) => e.type === "health");

@@ -77,6 +77,17 @@ export async function POST(req) {
     bump(usage, "requests");
     bump(usage, "bytes_in", len);
 
+    // TEMPORARY DEBUG (remove when the ghost-visitor question is settled): set JH_DEBUG_TRACK=1 in
+    // .env.local and restart. One line per event, showing exactly WHO sent it: the browser's Origin
+    // (with port), the page URL, the visitor / session / page view ids, and what the server decided.
+    if (process.env.JH_DEBUG_TRACK === "1") {
+      for (const e of events) {
+        console.log(
+          `[track-debug] ${e.type} | origin=${req.headers.get("origin")} | page=${e.page_url || e.page_path || "-"} | visitor=${String(e.visitor_id).slice(0, 8)} session=${String(e.session_id).slice(0, 8)} pv=${String(e.page_view_id || "-").slice(0, 8)} | host=${host} decision=${decision.reason} accept=${decision.accept}`
+        );
+      }
+    }
+
     const effects = await applySiteEffects(supabase, { site, key, decision, host, now });
     if (!decision.accept || !effects.verifiedOk) {
       // Silent: the tracker must never error on a customer's page. The reason

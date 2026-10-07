@@ -287,7 +287,7 @@
   // the key in the body: that is a CORS "simple request", so there is no
   // preflight OPTIONS round-trip before each one.
   function withCommon(event) {
-    return Object.assign({ api_key: apiKey, host: window.location.hostname }, event);
+    return Object.assign({ api_key: apiKey, host: window.location.host }, event);
   }
   const SEND_HEADERS = { "Content-Type": "text/plain;charset=UTF-8" };
 

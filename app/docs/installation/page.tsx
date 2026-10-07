@@ -66,8 +66,9 @@ export default function InstallationPage() {
             domain at once; whoever installs the script on the real site first wins.
           </p>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Testing on <code className="ff-mono text-[#c9c7bd]">localhost</code> or a staging site? Those are different hosts, so their data is not recorded
-            until you allow them under Settings, Tracking, Allowed hosts.
+Everything recorded goes into this site&apos;s real analytics. Do not install the script on test pages, a staging copy or a local development server
+            unless you want those visits counted with your real ones; they would be mixed in and cannot be separated afterwards. Data from any host that is not your domain is turned
+            away by default.
           </p>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             One account can own or belong to more than one site. Switch between them from the site name at the top

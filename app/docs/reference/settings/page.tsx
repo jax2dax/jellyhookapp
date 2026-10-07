@@ -51,9 +51,9 @@ export default function SettingsReferencePage() {
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Allowed hosts</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Events are recorded only from your domain and its subdomains. Add another website here, such as a staging site or{" "}
-            <code className="ff-mono text-[#c9c7bd]">localhost</code> while testing, and its events are recorded too. If the tracker has been turned away from
-            some other host, Settings says which one and offers to allow it.
+Events are recorded only from your domain and its subdomains. Add another website here only if it really is part of the site, such as a separate checkout
+            domain. Everything from an allowed host is recorded into the site&apos;s real analytics and mixed with it, so do not add test, staging or local copies. If the tracker
+            has been turned away from some other host, Settings says which one and offers to allow it.
           </p>
         </div>
 

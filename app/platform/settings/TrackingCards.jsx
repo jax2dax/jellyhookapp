@@ -128,7 +128,7 @@ export function AllowedHostsCard({ siteId, domain, status, role }) {
         <div>
           <div className="text-xs text-muted-foreground">Allowed hosts</div>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Events are only recorded from <strong className="text-foreground">{domain}</strong> and its subdomains. Add another website here, such as a staging site or <code className="rounded bg-muted px-1">localhost</code> while you test.
+            Events are only recorded from <strong className="text-foreground">{domain}</strong> and its subdomains. Add another website here only if it really is part of this site (for example a separate checkout domain). Everything from an allowed host is recorded into this site&apos;s real analytics, so do not add test or local copies.
           </p>
         </div>
 
