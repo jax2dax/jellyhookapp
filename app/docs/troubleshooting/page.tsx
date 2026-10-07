@@ -45,6 +45,46 @@ export default function TroubleshootingPage() {
         </div>
 
         <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">&quot;We received data from another-site.com&quot;</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Your script is running on a website that is not the one this site was registered for, so its events were not recorded. If you pasted the
+            script on the wrong website, move it. If it is a staging copy or <code className="ff-mono text-[#c9c7bd]">localhost</code>, allow that host under Settings,
+            Tracking, Allowed hosts. The count and the last time are shown there.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">&quot;Setup expired&quot;</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            A site that never received data from its own domain stops recording after 3 days. Nothing is lost that was recorded; nothing new is stored
+            until you press Renew (Settings, Tracking, or the setup screen) and install the script. If someone else installed theirs on the same domain first,
+            the domain is theirs and you can add a different one.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Data stopped after I changed the domain or regenerated the key</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Changing the domain means the tracker must now report from the new one, and the site is verified again; until then events from the old
+            domain are turned away. Regenerating the key leaves the old key working for 72 hours: update the script on your site within that time.
+            Settings, API key shows the time left.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">An attribute is installed but nothing happens</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Open Settings, Tracking, Attribute check. &quot;Found, waiting for activity&quot; means it is placed correctly and just has not been used;
+            submit your form or click your button once. &quot;Misplaced&quot; names what is wrong, for example <code className="ff-mono text-[#c9c7bd]">data-conversion</code> on a div
+            instead of the form. See{" "}
+            <Link href="/docs/concepts/tracking-attributes" className="text-[var(--lime)] hover:underline">
+              Tracking attributes
+            </Link>
+            .
+          </p>
+        </div>
+
+        <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">A referrer shows &quot;Direct&quot; when it shouldn&apos;t</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             This is expected in specific, real situations, not automatically a bug. See{" "}

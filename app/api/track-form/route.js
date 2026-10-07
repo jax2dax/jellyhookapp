@@ -1,127 +1,119 @@
 // api/track-form/route.js
-import { NextResponse } from "next/server";
+//
+// A form submission captured by the tracker (a lead). Same authorization as
+// /api/track: key (current or previous), then "is this from the site's own
+// host". Nothing in here logs the payload or the key: a submission is
+// personal data (name, email, phone) and the key is a credential.
+import { NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { emptyUsage, bump } from "@/lib/tracking/usage";
+import { CORS, MAX_BODY_BYTES, cleanId, cleanStr, authorizeRequest, applySiteEffects, flushUsage, markHealthEvent } from "@/lib/tracking/server";
 
-// Service role — see app/api/track/route.js's header comment for why.
 const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, x-api-key",
-  };
+export async function OPTIONS() {
+  return new Response(null, { status: 200, headers: CORS });
 }
 
-export async function OPTIONS() {
-  return new Response(null, { status: 200, headers: corsHeaders() });
+const ok = () => NextResponse.json({ success: true }, { headers: CORS });
+
+const MAX_RAW_FIELDS = 60;
+const MAX_RAW_VALUE = 2000;
+
+/** raw_data from the tracker, reduced to short string values under short keys. */
+function cleanRaw(raw) {
+  const out = {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+  for (const [k, v] of Object.entries(raw).slice(0, MAX_RAW_FIELDS)) {
+    if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") continue;
+    out[String(k).slice(0, 100)] = String(v).slice(0, MAX_RAW_VALUE);
+  }
+  return out;
 }
 
 export async function POST(req) {
+  const supabase = supabaseAdmin;
+  const usage = emptyUsage();
+  const now = Date.now();
   try {
-    const supabase = supabaseAdmin;
+    const len = Number(req.headers.get("content-length") || 0);
+    if (len > MAX_BODY_BYTES) return NextResponse.json({ error: "Payload too large" }, { status: 413, headers: CORS });
 
     let payload;
     try {
       payload = await req.json();
-    } catch (e) {
-      return NextResponse.json({ error: "Invalid JSON" }, { status: 400, headers: corsHeaders() });
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400, headers: CORS });
+    }
+    if (!payload || typeof payload !== "object") return ok();
+
+    const apiKey = req.headers.get("x-api-key") || payload.api_key || null;
+    if (!apiKey) return NextResponse.json({ error: "No API key" }, { status: 400, headers: CORS });
+
+    const auth = await authorizeRequest(supabase, { apiKey, event: payload, headers: req.headers, now });
+    if (!auth.site || !auth.key.ok) return ok();
+    const { site, key, decision, host } = auth;
+
+    bump(usage, "requests");
+    bump(usage, "bytes_in", len);
+    await applySiteEffects(supabase, { site, key, decision, host, now });
+    if (!decision.accept) {
+      bump(usage, "dropped");
+      after(() => flushUsage(supabase, site.id, usage, now));
+      return ok();
     }
 
-    console.log("FORM TRACK HIT — payload:", JSON.stringify(payload, null, 2));
-
-    const apiKey = req.headers.get("x-api-key") || payload?.api_key || null;
-    console.log("FORM API KEY:", apiKey);
-
-    if (!apiKey) {
-      return NextResponse.json({ error: "No API key" }, { status: 400, headers: corsHeaders() });
+    // specify_form = true: only forms marked data-conversion="true" are leads.
+    // Enforced here too, so a misbehaving tracker can't send the rest.
+    if (site.specify_form === true && payload.is_labelled_conversion !== true) {
+      bump(usage, "dropped");
+      after(() => flushUsage(supabase, site.id, usage, now));
+      return ok();
     }
 
-    // ── Fetch site — now also selecting specify_form ──────────────────────
-    // specify_form = true  → only accept submissions where is_labelled_conversion = true
-    // specify_form = false → accept all submissions (original global behavior)
-    const { data: site, error: siteError } = await supabase
-      .from("sites")
-      .select("id, is_active, specify_form") // ← NEW: specify_form added
-      .eq("api_key", apiKey)
-      .single();
+    const visitorId = cleanId(payload.visitor_id);
+    const email = cleanStr(payload.email, 320);
 
-    console.log("FORM SITE:", site, "ERROR:", siteError);
-
-    if (!site || siteError) {
-      console.log("FORM: site not found or error");
-      return NextResponse.json({ success: true }, { headers: corsHeaders() });
-    }
-
-    if (!site.is_active) {
-      console.log("FORM: site inactive, dropping");
-      return NextResponse.json({ success: true }, { headers: corsHeaders() });
-    }
-
-    // ── NEW: specify_form server-side guard ───────────────────────────────
-    // Even if a misbehaving tracker sends a non-labelled form submission,
-    // the server enforces the rule: when specify_form is true, only labelled
-    // conversion forms (is_labelled_conversion = true) are accepted.
-    //
-    // is_labelled_conversion is sent by the tracker as:
-    //   form.getAttribute("data-conversion") === "true"
-    //
-    // When specify_form is false this block is skipped entirely — no change
-    // to original global capture behavior.
-    if (site.specify_form === true) {
-      if (payload.is_labelled_conversion !== true) {
-        console.log("FORM: specify_form=true but submission is not a labelled conversion form — dropped");
-        return NextResponse.json({ success: true }, { headers: corsHeaders() });
-      }
-      console.log("FORM: specify_form=true and is_labelled_conversion=true — proceeding");
-    }
-
-    // Dedup check — unchanged
-    if (payload.email) {
-      const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
-      const { data: dupe } = await supabase
+    // The same person submitting the same email within a minute is one lead.
+    if (email && visitorId) {
+      const { data: dupes } = await supabase
         .from("form_submissions")
         .select("id")
         .eq("site_id", site.id)
-        .eq("visitor_id", payload.visitor_id)
-        .eq("email", payload.email)
-        .gte("submitted_at", sixtySecondsAgo)
-        .single();
-
-      if (dupe) {
-        console.log("FORM: duplicate submission dropped");
-        return NextResponse.json({ success: true }, { headers: corsHeaders() });
-      }
+        .eq("visitor_id", visitorId)
+        .eq("email", email)
+        .gte("submitted_at", new Date(now - 60_000).toISOString())
+        .limit(1);
+      if (dupes && dupes.length > 0) return ok();
     }
 
-    const { data: inserted, error: insertError } = await supabase
-      .from("form_submissions")
-      .insert({
-        site_id: site.id,
-        visitor_id: payload.visitor_id || null,
-        session_id: payload.session_id || null,
-        page_url: payload.page_url || null,
-        page_path: payload.page_path || null,
-        name: payload.name || null,
-        email: payload.email || null,
-        phone: payload.phone || null,
-        confidence: payload.confidence || "low",
-        raw_data: payload.raw_data || {},
-        submitted_at: new Date().toISOString(),
-      })
-      .select();
-
-    console.log("FORM INSERT RESULT:", inserted, "ERROR:", insertError);
-
+    bump(usage, "forms");
+    const pagePath = cleanStr(payload.page_path, 500);
+    const { error: insertError } = await supabase.from("form_submissions").insert({
+      site_id: site.id,
+      visitor_id: visitorId,
+      session_id: cleanId(payload.session_id),
+      page_url: cleanStr(payload.page_url, 1000),
+      page_path: pagePath,
+      name: cleanStr(payload.name, 200),
+      email,
+      phone: cleanStr(payload.phone, 50),
+      confidence: payload.confidence === "high" ? "high" : "low",
+      raw_data: cleanRaw(payload.raw_data),
+      submitted_at: new Date(now).toISOString(),
+    });
     if (insertError) {
-      console.error("FORM INSERT ERROR:", insertError);
-      return NextResponse.json({ error: insertError.message }, { status: 500, headers: corsHeaders() });
+      console.error("[track-form] insert error:", insertError.message);
+      return NextResponse.json({ error: "Server error" }, { status: 500, headers: CORS });
     }
 
-    return NextResponse.json({ success: true }, { headers: corsHeaders() });
+    // A real conversion from a marked form is the proof the attribute works.
+    if (payload.is_labelled_conversion === true) await markHealthEvent(supabase, site.id, pagePath, "conversion_form", now);
 
+    after(() => flushUsage(supabase, site.id, usage, now));
+    return ok();
   } catch (err) {
-    console.error("FORM TRACK ERROR:", err);
-    return NextResponse.json({ error: err.message }, { status: 500, headers: corsHeaders() });
+    console.error("[track-form] error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500, headers: CORS });
   }
 }

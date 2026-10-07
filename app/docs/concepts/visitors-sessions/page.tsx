@@ -31,14 +31,21 @@ export default function VisitorsSessionsPage() {
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Session</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            One session is one continuous visit, in one browser tab. Closing the tab ends it. Opening a new tab
-            starts a new one, even for the same visitor a second later.
+            One session is one continuous visit by one browser, however many tabs and windows of your site it has open. A session ends only
+            when the visitor has been idle for <strong className="text-[#c9c7bd]">30 minutes</strong>: no clicking, typing or scrolling in any window.
+            Closing a tab, reloading, or moving between pages does not end it.
           </p>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            A session also ends after 30 minutes of the tab being backgrounded (switched away from, or the computer
-            asleep). If someone leaves a tab open in the background and comes back three hours later, that does not
-            count as one long session. It gets split into two, and the first one is closed with the time they
-            actually stopped looking at anything, not the time you happen to notice it ended.
+            Someone who comes back after an hour starts a new session, and the old one is closed at the moment they actually stopped, not when they
+            returned. A visit that is still going sends a quiet heartbeat every 5 minutes so a long read is not mistaken for someone who left.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">The same site in two windows</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Both windows belong to the one session. Only the window the visitor last used records a page view; the other pauses until it is used
+            again. So the same person never shows up as overlapping page views or as two visitors, and time is never counted twice.
           </p>
         </div>
 
@@ -55,8 +62,8 @@ export default function VisitorsSessionsPage() {
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Why a session can show a live border but the page inside it is not blue</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            On the session replay chart, the green border around the whole chart means the session itself has not
-            formally ended yet. That is different from the blue page frame, which means the visitor is looking at
+            On the session replay chart, the green border around the whole chart means the session is still active: the visitor&apos;s tracker has
+            reported in the last few minutes. A session that has gone quiet is shown as ended even before the system has formally closed it. That is different from the blue page frame, which means the visitor is looking at
             that exact page right now. A visitor can leave a page open, switch to another tab, and still be inside a
             live session, while the page they left is no longer the one that is blue.
           </p>

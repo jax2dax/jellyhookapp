@@ -8,10 +8,15 @@ import {
   updateSiteName,
   regenerateApiKey,
   toggleSiteActive,
-  deactivateSite,
+  leaveSite,
   inviteMember,
   removeMember,
+  setMemberRole,
+  transferOwnership,
 } from "@/lib/actions/settings.actions";
+import { can, canManageMember, assignableRoles } from "@/lib/tracking/permissions";
+import { rotationStatus } from "@/lib/tracking/keys";
+import { KeyRotationNotice, TrackingStatusCard, AllowedHostsCard, TrackingHealthCard, FormModeCard } from "./TrackingCards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +64,7 @@ function CopyButton({ text }) {
 }
 
 // ─── EditableRow ──────────────────────────────────────────
-function EditableRow({ label, value, onSave, placeholder = "" }) {
+function EditableRow({ label, value, onSave, placeholder = "", readOnly = false, note = null }) {
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState(value);
   const [saving, setSaving] = useState(false);
@@ -83,7 +88,7 @@ function EditableRow({ label, value, onSave, placeholder = "" }) {
       <CardContent className={editing ? "space-y-2.5" : ""}>
         <div className="flex items-center justify-between">
           <div className="text-xs text-muted-foreground">{label}</div>
-          {!editing && (
+          {!editing && !readOnly && (
             <Button
               size="xs"
               variant="outline"
@@ -111,6 +116,7 @@ function EditableRow({ label, value, onSave, placeholder = "" }) {
               }}
               autoFocus
             />
+            {note && <div className="text-xs leading-relaxed text-muted-foreground">{note}</div>}
             {error && <div className="text-xs text-destructive">Error: {error}</div>}
             <div className="flex gap-2">
               <Button size="sm" onClick={handleSave} disabled={saving}>
@@ -135,7 +141,7 @@ function EditableRow({ label, value, onSave, placeholder = "" }) {
 }
 
 // ─── TeamMembers ──────────────────────────────────────────
-function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId }) {
+function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId, role: roleProp }) {
   const [members, setMembers] = useState(initialMembers || []);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -147,6 +153,12 @@ function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId }) {
   // This handles the case where members array has the owner row, AND the legacy case where it doesn't yet
   const isOwnerByMembership = members.some((m) => m.user_id === currentUserId && m.role === "owner");
   const isOwner = isOwnerByMembership || siteOwnerId === currentUserId;
+  // The role the server resolved; falls back to the old owner check only if it was not passed.
+  const role = roleProp || (isOwner ? "owner" : "member");
+  const roleOptions = assignableRoles(role);
+  const [inviteRole, setInviteRole] = useState("member");
+  const [busyId, setBusyId] = useState(null);
+  const [confirmTransfer, setConfirmTransfer] = useState(null);
 
   async function handleInvite() {
     if (!inviteEmail.trim()) return;
@@ -155,7 +167,7 @@ function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId }) {
     setInviteSuccess(null);
 
     try {
-      const result = await inviteMember(siteId, inviteEmail.trim());
+      const result = await inviteMember(siteId, inviteEmail.trim(), inviteRole);
 
       if (result.success) {
         const email = inviteEmail.trim().toLowerCase();
@@ -167,7 +179,7 @@ function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId }) {
             id: `temp-${Date.now()}`,
             user_id: `pending:${email}`,
             user_email: email,
-            role: "member",
+            role: inviteRole,
             invited_by: currentUserId,
             created_at: new Date().toISOString(),
           },
@@ -203,6 +215,27 @@ function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId }) {
     }
   }
 
+  async function handleSetRole(member, newRole) {
+    setBusyId(member.id);
+    setInviteError(null);
+    const result = await setMemberRole(siteId, member.id, newRole);
+    if (result.success) setMembers((prev) => prev.map((m) => (m.id === member.id ? { ...m, role: newRole } : m)));
+    else setInviteError(result.error);
+    setBusyId(null);
+  }
+
+  async function handleTransfer(member) {
+    setBusyId(member.id);
+    setInviteError(null);
+    const result = await transferOwnership(siteId, member.id);
+    if (result.success) window.location.reload();
+    else {
+      setInviteError(result.error);
+      setBusyId(null);
+      setConfirmTransfer(null);
+    }
+  }
+
   return (
     <Card>
       <CardContent className="space-y-3">
@@ -225,18 +258,40 @@ function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId }) {
                   </div>
                 </div>
 
-                {isOwner && !isYou && (
-                  <Button size="xs" variant="destructive" onClick={() => handleRemove(member)} disabled={removingId === member.id}>
-                    {removingId === member.id ? "..." : "Remove"}
-                  </Button>
-                )}
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  {!isPending && !isYou && member.role !== "owner" && can(role, "members.set_role") && canManageMember(role, member.role, "members.set_role") && roleOptions.length > 0 && (
+                    <select
+                      aria-label="Role"
+                      className="h-7 rounded-md border bg-background px-1.5 text-xs text-foreground"
+                      value={member.role}
+                      disabled={busyId === member.id}
+                      onChange={(e) => handleSetRole(member, e.target.value)}
+                    >
+                      {[...new Set([member.role, ...roleOptions])].map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {!isPending && !isYou && member.role !== "owner" && can(role, "ownership.transfer") && (
+                    <Button size="xs" variant="outline" disabled={busyId === member.id} onClick={() => setConfirmTransfer(member)}>
+                      Make owner
+                    </Button>
+                  )}
+                  {!isYou && can(role, "members.remove") && canManageMember(role, member.role, "members.remove") && (
+                    <Button size="xs" variant="destructive" onClick={() => handleRemove(member)} disabled={removingId === member.id}>
+                      {removingId === member.id ? "..." : "Remove"}
+                    </Button>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
 
         {/* Invite form — shown to owner */}
-        {isOwner && (
+        {can(role, "members.invite") && (
           <div className="border-t pt-3">
             <div className="mb-2 text-xs text-muted-foreground">Invite a team member by email</div>
             <div className="flex gap-2">
@@ -254,6 +309,15 @@ function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId }) {
                 }}
                 className="flex-1"
               />
+              {roleOptions.length > 1 && (
+                <select aria-label="Invite as" className="h-9 rounded-md border bg-background px-2 text-sm text-foreground" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
+                  {roleOptions.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              )}
               <Button onClick={handleInvite} disabled={inviteLoading || !inviteEmail.trim()} className="whitespace-nowrap">
                 {inviteLoading ? "Sending..." : "Send Invite"}
               </Button>
@@ -266,15 +330,31 @@ function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId }) {
           </div>
         )}
 
-        {!isOwner && <div className="border-t pt-2.5 text-xs text-muted-foreground">Only the site owner can invite or remove members.</div>}
+        {!can(role, "members.invite") && <div className="border-t pt-2.5 text-xs text-muted-foreground">Only the site owner or an admin can invite or remove members.</div>}
+
+        {confirmTransfer && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs leading-relaxed text-muted-foreground">
+            Make <strong className="text-foreground">{confirmTransfer.user_email}</strong> the owner? You become an admin: you keep working access but can no longer delete the site, transfer ownership, or remove the new owner.
+            <div className="mt-2 flex gap-2">
+              <Button size="xs" variant="destructive" disabled={busyId === confirmTransfer.id} onClick={() => handleTransfer(confirmTransfer)}>
+                {busyId === confirmTransfer.id ? "Transferring..." : "Transfer ownership"}
+              </Button>
+              <Button size="xs" variant="outline" onClick={() => setConfirmTransfer(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
 // ─── Main SettingsClient ──────────────────────────────────
-export default function SettingsClient({ site: initialSite, initialMembers, currentUserId, visitorCount = 0 }) {
+export default function SettingsClient({ site: initialSite, initialMembers, currentUserId, visitorCount = 0, role = null, ingestion = null }) {
   const [site, setSite] = useState(initialSite);
+  const [rotation, setRotation] = useState(ingestion?.rotation || null);
+  const leaveError = null; // errors show in the confirm dialog
   const [confirm, setConfirm] = useState(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmError, setConfirmError] = useState(null);
@@ -304,12 +384,14 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
       const result = await regenerateApiKey(site.id);
       if (result.success) {
         setSite(result.data);
+        const r = rotationStatus(result.data);
+        setRotation({ ...r, rotatedAt: result.data.key_rotated_at, deadlineIso: r.active ? new Date(r.deadline).toISOString() : null });
         setConfirm(null);
       } else setConfirmError(result.error);
     }
-    if (confirm === "deactivate") {
-      const result = await deactivateSite(site.id);
-      if (result.success) window.location.href = "/platform/create-site";
+    if (confirm === "leave") {
+      const result = await leaveSite(site.id);
+      if (result.success) window.location.href = "/platform";
       else setConfirmError(result.error);
     }
     setConfirmLoading(false);
@@ -324,9 +406,21 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
       <section>
         <SectionLabel>Site information</SectionLabel>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <EditableRow label="Site Name" value={site.name ?? ""} placeholder="My Site" onSave={handleUpdateName} />
-          <EditableRow label="Domain" value={site.domain ?? ""} placeholder="yourdomain.com" onSave={handleUpdateDomain} />
+          <EditableRow label="Site Name" value={site.name ?? ""} placeholder="My Site" onSave={handleUpdateName} readOnly={!can(role, "site.rename")} />
+          <EditableRow
+            label="Domain"
+            value={site.domain ?? ""}
+            placeholder="yourdomain.com"
+            onSave={handleUpdateDomain}
+            readOnly={!can(role, "site.change_domain")}
+            note="The tracker must report from this domain. After a change the site has to be verified again, and events from the old domain stop being recorded until then."
+          />
         </div>
+      </section>
+
+      <section>
+        <SectionLabel>Lead tracking</SectionLabel>
+        <FormModeCard siteId={site.id} initial={site.specify_form === true} role={role} onChanged={setSite} />
       </section>
 
       {/* OVERVIEW — one flexible card whose facts wrap and size to their own
@@ -338,7 +432,6 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
           <CardContent className="flex flex-wrap gap-6">
             <Fact label="Site ID" value={site.id} mono />
             <Fact label="Plan" value={site.plan ?? "free"} />
-            <Fact label="Event Limit" value={site.monthly_event_limit?.toLocaleString() ?? "—"} />
             <Fact label="Created" value={new Date(site.created_at).toLocaleDateString()} />
             <Fact
               label="Teams involved"
@@ -353,19 +446,35 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
               <div className="text-xs text-muted-foreground">Status</div>
               <div className="mt-1 flex items-center gap-2">
                 <StatusBadge active={site.is_active} />
-                <Button size="xs" variant={site.is_active ? "destructive" : "default"} onClick={handleToggleActive}>
-                  {site.is_active ? "Pause" : "Resume"}
-                </Button>
+                {can(role, "site.toggle_tracking") && (
+                  <Button size="xs" variant={site.is_active ? "destructive" : "default"} onClick={handleToggleActive}>
+                    {site.is_active ? "Pause" : "Resume"}
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
       </section>
 
+      {/* TRACKING — is the script on the right site, is data arriving, are the attributes placed correctly */}
+      {ingestion && (
+        <section>
+          <SectionLabel>Tracking</SectionLabel>
+          <div className="flex flex-col gap-4">
+            <TrackingStatusCard siteId={site.id} status={ingestion} role={role} />
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <AllowedHostsCard siteId={site.id} domain={site.domain} status={ingestion} role={role} />
+              <TrackingHealthCard status={ingestion} />
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* TEAM MEMBERS */}
       <section>
         <SectionLabel>Team members</SectionLabel>
-        <TeamMembers siteId={site.id} initialMembers={initialMembers} currentUserId={currentUserId} siteOwnerId={site.user_id} />
+        <TeamMembers siteId={site.id} initialMembers={initialMembers} currentUserId={currentUserId} siteOwnerId={site.user_id} role={role} />
       </section>
 
       {/* API KEY + TRACKER SCRIPT — side by side on wide screens instead of
@@ -377,20 +486,23 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
               <div className="text-xs text-muted-foreground">API Key</div>
               <div className="flex gap-1.5">
                 <CopyButton text={site.api_key} />
-                <Button
-                  size="xs"
-                  variant="destructive"
-                  onClick={() => {
-                    setConfirm("regenerate");
-                    setConfirmError(null);
-                  }}
-                >
-                  Regenerate
-                </Button>
+                {can(role, "site.regenerate_key") && (
+                  <Button
+                    size="xs"
+                    variant="destructive"
+                    onClick={() => {
+                      setConfirm("regenerate");
+                      setConfirmError(null);
+                    }}
+                  >
+                    Regenerate
+                  </Button>
+                )}
               </div>
             </div>
             <div className="font-mono text-sm break-all tracking-wide text-foreground">{site.api_key}</div>
-            <div className="mt-2 text-xs text-muted-foreground">⚠ Regenerating will break any live tracker scripts using the current key.</div>
+            <div className="mt-2 text-xs text-muted-foreground">Regenerating gives you a new key. The current one keeps working for 72 hours so your live site does not lose data while you update it.</div>
+            <KeyRotationNotice rotation={rotation} />
           </CardContent>
         </Card>
 
@@ -405,39 +517,35 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
         </Card>
       </section>
 
-      {/* DANGER ZONE */}
-      <section>
-        <SectionLabel>Danger zone</SectionLabel>
-        <Card className="border-destructive/40">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="mb-1 text-sm text-destructive">Deactivate Site</div>
-              <div className="text-xs text-muted-foreground">Stops all tracking. Your data is preserved.</div>
-            </div>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                setConfirm("deactivate");
-                setConfirmError(null);
-              }}
-            >
-              Deactivate
-            </Button>
-          </CardContent>
-        </Card>
-      </section>
+      {/* LEAVE — anyone but the owner */}
+      {role && role !== "owner" && (
+        <section>
+          <SectionLabel>Your access</SectionLabel>
+          <Card>
+            <CardContent className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="mb-1 text-sm text-foreground">Leave this site</div>
+                <div className="text-xs text-muted-foreground">You lose access to its data. The owner can invite you again.</div>
+                {leaveError && <div className="mt-1 text-xs text-destructive">{leaveError}</div>}
+              </div>
+              <Button size="sm" variant="destructive" onClick={() => setConfirm("leave")}>
+                Leave site
+              </Button>
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       {/* CONFIRMATION MODAL */}
       {confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
           <Card className="w-full max-w-sm">
             <CardContent>
-              <div className="mb-3 text-sm font-medium text-foreground">{confirm === "regenerate" ? "Regenerate API Key?" : "Deactivate Site?"}</div>
+              <div className="mb-3 text-sm font-medium text-foreground">{confirm === "regenerate" ? "Regenerate API Key?" : "Leave this site?"}</div>
               <div className="mb-5 text-sm leading-relaxed text-muted-foreground">
                 {confirm === "regenerate"
-                  ? "Your current API key will stop working immediately. Any tracker scripts on your site will need to be updated with the new key."
-                  : "This will stop all tracking. Your existing data will not be deleted. You can create a new site at any time."}
+                  ? "A new key is created. The current key keeps working for 72 hours, or until your site sends data with the new key, so there is no gap in tracking. Paste the new script on your site within that time."
+                  : "You will lose access to this site's data. The owner can invite you again."}
               </div>
               {confirmError && <div className="mb-3 text-xs text-destructive">Error: {confirmError}</div>}
               <div className="flex gap-2">

@@ -235,20 +235,59 @@ via what the tracker POSTs to `/api/track` / `/api/track-structure`.
 
 - Created once per browser (persists across tabs and sessions — localStorage
   survives closing the tab). This is the stable identity that ties multiple
-  sessions from the same browser together in `visitors.visitor_id`.
+  sessions from the same browser together in `visitors.visitor_id`. The
+  `crypto.randomUUID()` call has a fallback for http pages (2026-10-07). The
+  first session of a freshly created id is flagged `is_first_visit`, which is
+  what lets the server record first-touch attribution.
 
-### `jh_session_id` (sessionStorage)
+### `jh_session` (localStorage) — replaces `jh_session_id`, 2026-10-07
 
+```ts
+{ id: string, last: number, started: number }  // uuid, Date.now() of last activity, Date.now() of start
 ```
-"<uuid>"  // crypto.randomUUID(), plain string
+
+- The shared session: ONE per browser, used by every window and tab of the
+  site (sessionStorage gave each tab its own, which made one person look like
+  several). `last` is refreshed by user activity (throttled to 5 s) and the
+  heartbeat; a session whose `last` is over 30 minutes old is replaced by a new
+  one (the old one gets a `session_end`). Closing a tab does not touch it.
+- The old `jh_session_id` (sessionStorage) is no longer read or written.
+- Two windows starting a session in the same instant write, then read back and
+  adopt the winner (see `ensureSession` in the tracker).
+
+### `jh_active` (localStorage), 2026-10-07
+
+```ts
+{ tab: string, ts: number }  // which window last claimed "active", and when
 ```
 
-- One per tab/window, per browsing session — sessionStorage is cleared when
-  the tab closes, which is the intentional session boundary: a new tab (or a
-  cleared tab) is a new `sessions` row, not a continuation of the old one.
-- `isNewSession` is computed by checking for this key's ABSENCE *before*
-  `getSessionId()` has a chance to create it — reversing that order would
-  make every page look like a new session.
+- Arbitrates the one active window. Written whenever a window is used (at most
+  every 10 s); every other window hears it through the `storage` event (and a
+  BroadcastChannel) and pauses its page view. Read on load to decide whether a
+  new, unfocused window may start recording (only if no claim in the last 60 s).
+
+### `jh_sc` (localStorage), 2026-10-07
+
+```ts
+{ [pathname]: { h: string, t: number } }  // hash of the structure last sent, and when
+```
+
+- Throttle for page-structure sends: a structure is re-sent only when its hash
+  differs or 24 hours passed. Bounded to 100 paths.
+
+### `jh_hr` (localStorage), 2026-10-07
+
+```ts
+{ [pathname]: { sig: string, t: number } }  // last health report for the page
+```
+
+- Throttle for the attribute health report: re-sent when it changed or after 6
+  hours. Bounded to 100 paths.
+
+### `jh_debug` (localStorage), 2026-10-07
+
+`"1"` turns the tracker's console logging on (so does a `data-debug` attribute
+on the script tag). Absent: the tracker is silent.
 
 ### `jh_ph_<pathname>` (sessionStorage)
 

@@ -1,10 +1,33 @@
 // /public/tracker.js
+//
+// Jellyhook tracker. Install once, in <head>:
+//   <script src="https://YOUR-APP/tracker.js" data-key="YOUR_API_KEY"></script>
+// Add data-debug to the tag (or run localStorage.setItem("jh_debug","1")) to
+// see what it does in the console; otherwise it is silent.
+//
+// How the pieces fit (full write-up: mds/developers/tracker-spec.md):
+//   - ONE session per browser, shared by every window of the site, ended only
+//     by 30 minutes of idle (never by closing a tab or changing page).
+//   - ONE active window: when the same site is open in several windows, only
+//     the one the visitor last used records a page view; the others pause.
+//   - Page views follow visibility, focus, SPA route changes and idle.
+//   - Every send is a "simple" CORS request (text/plain, no custom headers),
+//     so the browser does not send a preflight OPTIONS before each one.
 (function () {
+  if (window.__jhTrackerLoaded) return; // installed twice: the second copy does nothing
+  window.__jhTrackerLoaded = true;
+
   const _originalFetch = window.fetch;
 
-  const scriptTag = document.currentScript;
+  const scriptTag = document.currentScript || document.querySelector('script[data-key][src*="tracker"]');
+  if (!scriptTag) return;
   const apiKey = scriptTag.getAttribute("data-key");
-  const API_BASE = new URL(scriptTag.src).origin;
+  let API_BASE;
+  try {
+    API_BASE = new URL(scriptTag.src, window.location.href).origin;
+  } catch (e) {
+    return;
+  }
 
   const API_URL = `${API_BASE}/api/track`;
 
@@ -12,31 +35,50 @@
     console.error("Tracker: Missing data-key");
     return;
   }
-  function getVisitorId() {
-    let id = localStorage.getItem("visitor_id");
-    if (!id) { id = crypto.randomUUID(); localStorage.setItem("visitor_id", id); }
-    return id;
+
+  // Silent unless asked: a tracker must not fill a customer's console.
+  let DEBUG = scriptTag.hasAttribute("data-debug");
+  try {
+    if (!DEBUG && localStorage.getItem("jh_debug") === "1") DEBUG = true;
+  } catch (e) {}
+  function jhLog() {
+    if (DEBUG) window.console.log.apply(window.console, arguments);
   }
 
-  // function getSessionId() {
-  //   let id = sessionStorage.getItem("session_id");
-  //   if (!id) { id = crypto.randomUUID(); sessionStorage.setItem("session_id", id); }
-  //   return id;
-  // } //with this (originally this block doesnt work/logic)
-  // Session lives in sessionStorage — same tab/window = same session
-// sessionStorage is cleared automatically when the browser tab is closed
-// This means one session = one continuous site visit, never resets on page nav
-function getSessionId() {
-  let id = sessionStorage.getItem("jh_session_id");
-  if (!id) {
-    id = crypto.randomUUID();
-    sessionStorage.setItem("jh_session_id", id);
-    console.log("🟢 NEW SESSION CREATED:", id);
-  } else {
-    console.log("🔵 EXISTING SESSION:", id);
+  // crypto.randomUUID only exists on https pages; fall back so http sites still work.
+  function uuid() {
+    try {
+      if (crypto.randomUUID) return crypto.randomUUID();
+    } catch (e) {}
+    const b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
   }
-  return id;
-}
+
+  // True only for the very first session of a brand-new visitor: it is what
+  // lets the server record first-touch attribution (source, UTM, landing page).
+  let freshVisitor = false;
+  let memoryVisitorId = null; // when storage is blocked (private modes), per page load
+  function getVisitorId() {
+    try {
+      let id = localStorage.getItem("visitor_id");
+      if (!id) {
+        id = uuid();
+        localStorage.setItem("visitor_id", id);
+        freshVisitor = true;
+      }
+      return id;
+    } catch (e) {
+      if (!memoryVisitorId) {
+        memoryVisitorId = uuid();
+        freshVisitor = true;
+      }
+      return memoryVisitorId;
+    }
+  }
 
   // Returns a fraction of the SCROLLABLE RANGE (0 = top, 1 = scrolled as far
   // as this page goes) — NOT a fraction of page height. Those differ on any
@@ -63,202 +105,141 @@ function getSessionId() {
     return window.innerHeight || document.documentElement.clientHeight || 0;
   }
 
+  function getViewportWidthPx() {
+    return window.innerWidth || document.documentElement.clientWidth || 0;
+  }
+
   // ─────────────────────────────────────────────────────────────────────
-  // TEMPORARY DEBUG HUD — REMOVE ONCE THE PAGE-HEIGHT INVESTIGATION IS DONE
+  // VISITOR + SESSION
   //
-  // On-screen readout so page_height accuracy can be checked against
-  // DevTools directly on the live page, instead of estimating from the
-  // scrollbar. Shows what firePageViewStart() actually sent (the
-  // potentially-too-early measurement) side by side with the CURRENT live
-  // value, so a mismatch between them is visible immediately, plus
-  // documentElement vs body in case those two boxes disagree.
-  //
-  // To remove: delete this whole IIFE and the two `window.__jhDebug...`
-  // writes lower down (search "TEMP DEBUG").
+  // A session is one continuous visit. It lives in localStorage so EVERY
+  // window and tab of this site, on this browser, shares it (sessionStorage
+  // gave each tab its own, which is what made one person look like several).
+  // It ends only by idle: 30 minutes with no activity in any window. Closing
+  // a tab, reloading, or moving between pages does NOT end it.
   // ─────────────────────────────────────────────────────────────────────
-  (function () {
-    try {
-      const box = document.createElement("div");
-      box.id = "jh-debug-hud";
-      box.style.cssText =
-        "position:fixed;bottom:8px;left:8px;z-index:2147483647;background:rgba(0,0,0,0.85);color:#0f0;" +
-        "font:11px/1.5 monospace;padding:8px 10px;border-radius:6px;white-space:pre;pointer-events:none;" +
-        "box-shadow:0 2px 8px rgba(0,0,0,0.5);";
-      document.documentElement.appendChild(box);
-
-      function render() {
-        const de = document.documentElement.scrollHeight;
-        const body = document.body ? document.body.scrollHeight : 0;
-        const vh = getViewportHeightPx();
-        const scrollY = window.scrollY;
-        const denom = getPageHeightPx() - vh;
-        const depth = denom > 0 ? (scrollY / denom).toFixed(3) : "0.000";
-        const sentStart = window.__jhDebugSentAtStart;
-        const sentEnd = window.__jhDebugSentAtEnd;
-        box.textContent =
-          "[JH DEBUG — page_height/viewport_height]\n" +
-          "LIVE documentElement.scrollHeight: " + de + "px\n" +
-          "LIVE body.scrollHeight:            " + body + "px" + (body !== de ? "  ⚠ DIFFERS from documentElement" : "") + "\n" +
-          "LIVE window.innerHeight (viewport): " + vh + "px\n" +
-          "LIVE scrollY:                       " + scrollY + "px\n" +
-          "LIVE computed scroll_depth:         " + depth + "\n" +
-          "---\n" +
-          "SENT at page_view_start: page_height=" + (sentStart === undefined ? "(pending)" : sentStart === null ? "null (throttled — see PAGE_HEIGHT_UPDATE_INTERVAL_MS)" : sentStart + "px") + "\n" +
-          "SENT at page_view_end:   page_height=" + (sentEnd === undefined ? "(not fired yet)" : sentEnd === null ? "null (throttled)" : sentEnd + "px");
-      }
-
-      render();
-      window.addEventListener("scroll", render, { passive: true });
-      window.addEventListener("resize", render);
-      setInterval(render, 1000); // catches async content growing the page even without a scroll/resize event
-    } catch (err) {
-      console.error("[Tracker][DEBUG HUD] failed to mount:", err);
-    }
-  })();
-  // ─────────────────────────────────────────────────────────────────────
-
   const visitor_id = getVisitorId();
- 
 
-  // -------------------------------
-// SESSION LIFECYCLE (NEW - ISOLATED)
-// -------------------------------
+  const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+  const SESSION_KEY = "jh_session";
+  let memorySession = null; // used when localStorage is blocked
+  let session_id = null; // set by ensureSession(), the first time this window is active
+  let lastSessionTouch = 0;
 
-// SESSION LIFECYCLE
-// session_start fires ONCE on first visit to the site (when sessionStorage has no id yet)
-// session_end fires ONCE when the user closes/leaves the site entirely
-// Neither fires on page navigation — session_id stays the same across all pages
-// isNewSession MUST be checked BEFORE getSessionId() writes to sessionStorage
-const isNewSession = !sessionStorage.getItem("jh_session_id");
-// let, not const — reassigned by the idle-timeout check below when a tab is
-// left open across a long background gap and needs a fresh session_id.
-let session_id = getSessionId();
-
-// SESSION IDLE TIMEOUT
-// There's no fixed, cross-browser number for "how long can a background tab
-// sit before the browser discards it" — that's driven by each browser's own
-// memory pressure, not a timer, so it can't be copied from Safari/Chrome.
-// This is a deliberate business threshold instead: 30 minutes idle, the same
-// default GA4 uses for "this visit is over, not just a glance away."
-const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
-
-function getLastHiddenAt() {
-  const raw = sessionStorage.getItem("jh_last_hidden_at");
-  return raw ? parseInt(raw, 10) : null;
-}
-function setLastHiddenAt(ts) {
-  sessionStorage.setItem("jh_last_hidden_at", String(ts));
-}
-
-// Closes the old (now-stale) session with the moment the visitor actually
-// left (hiddenAt), not "now" — "now" is whenever they happened to reopen the
-// tab, which could be days later — then hands back a fresh session_id.
-function startNewSessionAfterIdle(oldSessionId, hiddenAt) {
-  console.log("🟠 SESSION IDLE TIMEOUT — closing", oldSessionId, "as of", new Date(hiddenAt).toISOString());
-  // Runs BEFORE session_id is reassigned by the caller — sendEngagementEvent
-  // calls inside these listeners read the OUTER session_id closure variable
-  // live, so they still correctly see the OLD (ending) session here.
-  for (const fn of sessionEndListeners) {
+  function readSession() {
     try {
-      fn();
-    } catch (err) {
-      console.error("[Tracker] ❌ sessionEndListener error:", err);
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return memorySession;
+      const s = JSON.parse(raw);
+      return s && typeof s.id === "string" && typeof s.last === "number" ? s : null;
+    } catch (e) {
+      return memorySession;
     }
   }
-  sendEvent({
-    type: "session_end",
-    visitor_id,
-    session_id: oldSessionId,
-    ended_at: hiddenAt,
-  });
-  const newId = crypto.randomUUID();
-  sessionStorage.setItem("jh_session_id", newId);
-  return newId;
-}
-
-// UTM params are only ever present on the URL of the actual landing page a
-// campaign link pointed at — read here, at session_start, not per page_view,
-// since by the next internal navigation they're gone from the URL bar.
-// gclid/fbclid are Google/Meta's own click-ids, auto-appended to a clicked
-// ad link even when a marketer forgot to add UTM tags — used only as a
-// fallback source signal when utm_source itself is absent, not stored
-// separately.
-function getUtmParams() {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    let source = params.get("utm_source");
-    let medium = params.get("utm_medium");
-    const campaign = params.get("utm_campaign");
-    if (!source && params.get("gclid")) {
-      source = "google";
-      medium = medium || "cpc";
-    } else if (!source && params.get("fbclid")) {
-      source = "facebook";
-      medium = medium || "paid_social";
-    }
-    return { utm_source: source || null, utm_medium: medium || null, utm_campaign: campaign || null };
-  } catch (err) {
-    console.error("[Tracker] ❌ UTM parse error:", err);
-    return { utm_source: null, utm_medium: null, utm_campaign: null };
-  }
-}
-
-function fireSessionStart(force) {
-  // Only send if this is a brand new session — not a page navigation —
-  // unless force is set (used when the idle timeout above just minted a
-  // fresh session_id mid-visit, which isNewSession has no way to know about).
-  if (!isNewSession && !force) return;
-  console.log("🟢 SESSION START FIRING:", session_id);
-  sendEvent({
-    type: "session_start",
-    visitor_id,
-    session_id,
-    referrer: document.referrer || null,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
-    user_agent: navigator.userAgent,
-    ...getUtmParams(),
-  });
-}
-
-function fireSessionEnd() {
-  // Fires on tab close / browser navigation away from site
-  // Uses sendExitEvent (keepalive fetch) so it survives page unload
-  console.log("🔴 SESSION END FIRING:", session_id);
-  for (const fn of sessionEndListeners) {
+  function writeSession(s) {
+    memorySession = s;
     try {
-      fn();
-    } catch (err) {
-      console.error("[Tracker] ❌ sessionEndListener error:", err);
+      localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+    } catch (e) {}
+  }
+
+  // Marks the shared session alive "now". Cheap: throttled to once per 5 s.
+  function touchSession() {
+    const now = Date.now();
+    if (now - lastSessionTouch < 5000) return;
+    lastSessionTouch = now;
+    const s = readSession();
+    if (s && s.id === session_id) {
+      s.last = now;
+      writeSession(s);
     }
   }
-  const payload = [{
-    type: "session_end",
-    visitor_id,
-    session_id,
-    api_key: apiKey,
-  }];
-  const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-  // keepalive fetch first, sendBeacon fallback
-  try {
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-      body: JSON.stringify(payload),
-      keepalive: true,
+
+  // Makes session_id the live shared session, starting a new one if the last
+  // one has been idle too long. Returns true only when a NEW session started
+  // (the caller then sends session_start). A session that another window
+  // already started is simply adopted: that window announced it.
+  function ensureSession() {
+    const now = Date.now();
+    const s = readSession();
+    if (s && now - s.last < SESSION_IDLE_TIMEOUT_MS) {
+      session_id = s.id;
+      s.last = now;
+      lastSessionTouch = now;
+      writeSession(s);
+      return false;
+    }
+    if (s) {
+      // The old session ended when its last activity happened, not now (now
+      // may be days later). Finalize this window's forms, then close it.
+      for (const fn of sessionEndListeners) {
+        try {
+          fn();
+        } catch (err) {
+          jhLog("[Tracker] sessionEndListener error:", err);
+        }
+      }
+      sendEvent({ type: "session_end", visitor_id, session_id: s.id, ended_ago_ms: Math.max(0, now - s.last) });
+    }
+    const fresh = { id: uuid(), last: now, started: now };
+    writeSession(fresh);
+    // Another window may have started its own in the same instant: the one in
+    // storage wins, and we adopt it instead of making a duplicate visit.
+    const back = readSession();
+    if (back && back.id !== fresh.id && now - back.last < 5000) {
+      session_id = back.id;
+      return false;
+    }
+    session_id = fresh.id;
+    lastSessionTouch = now;
+    jhLog("[Tracker] new session:", session_id);
+    return true;
+  }
+
+  // UTM params are only on the URL of the landing page a campaign link pointed
+  // at, so they are read at session_start. gclid/fbclid are the ad networks'
+  // own click ids, used as a fallback source when utm_source is absent.
+  function getUtmParams() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      let source = params.get("utm_source");
+      let medium = params.get("utm_medium");
+      const campaign = params.get("utm_campaign");
+      if (!source && params.get("gclid")) {
+        source = "google";
+        medium = medium || "cpc";
+      } else if (!source && params.get("fbclid")) {
+        source = "facebook";
+        medium = medium || "paid_social";
+      }
+      return { utm_source: source || null, utm_medium: medium || null, utm_campaign: campaign || null };
+    } catch (err) {
+      return { utm_source: null, utm_medium: null, utm_campaign: null };
+    }
+  }
+
+  function fireSessionStart() {
+    sendEvent({
+      type: "session_start",
+      visitor_id,
+      session_id,
+      referrer: document.referrer || null,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+      user_agent: navigator.userAgent,
+      page_url: window.location.href,
+      page_path: window.location.pathname,
+      device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
+      is_first_visit: freshVisitor || undefined,
+      ...getUtmParams(),
     });
-  } catch (e) {
-    navigator.sendBeacon(API_URL, blob);
+    freshVisitor = false;
   }
-}
 
-// Fire start only on new sessions, fire end on every unload
-fireSessionStart();
-window.addEventListener("beforeunload", fireSessionEnd);
 
 
   /////////////////////////////////////////////
   // Mutable — resets on every new page view (tab return)
-  let page_view_id = crypto.randomUUID();
+  let page_view_id = uuid();
   let startTime = Date.now();
 
   // Other independent sections (e.g. form engagement, below) can register a
@@ -273,12 +254,13 @@ window.addEventListener("beforeunload", fireSessionEnd);
   // in practice visibilitychange→hidden often fires moments before a real
   // tab close too; that's incidental timing, not something to build on.
   const pageLeaveListeners = [];
-  // Fires only at a TRUE session-ending moment: fireSessionEnd() (tab
-  // closing) and startNewSessionAfterIdle() (30-min idle split closing the
-  // OLD session). Anything that must only finalize once the visitor is
+  // Fires only at a TRUE session-ending moment: ensureSession() finding the
+  // previous session idle for 30 minutes (it then closes that OLD session). Anything that must only finalize once the visitor is
   // truly gone — not just off this particular page — belongs here instead
   // of pageLeaveListeners.
   const sessionEndListeners = [];
+  // Callbacks run each time a page view OPENS (structure capture, health report).
+  const pageOpenListeners = [];
 // ── MAX SCROLL TRACKING ──
   // These reset on every new page view alongside page_view_id and startTime
   // maxScrollDepth: highest scroll fraction (0–1) reached on this page view.
@@ -300,54 +282,42 @@ window.addEventListener("beforeunload", fireSessionEnd);
   // including multiple distinct deepening phases.
   let revisitStartDepth = null;
   //////////
+  // All sends go through _originalFetch (never the patched window.fetch below,
+  // which would scan forms on the tracker's own requests) as text/plain with
+  // the key in the body: that is a CORS "simple request", so there is no
+  // preflight OPTIONS round-trip before each one.
+  function withCommon(event) {
+    return Object.assign({ api_key: apiKey, host: window.location.hostname }, event);
+  }
+  const SEND_HEADERS = { "Content-Type": "text/plain;charset=UTF-8" };
+
   function sendEvent(event) {
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-     body: JSON.stringify([event]), //, working version(session row not adding so ,)
-      keepalive: true,
-    }).catch((err) => console.error("Tracker send failed:", err));
+    try {
+      _originalFetch(API_URL, {
+        method: "POST",
+        headers: SEND_HEADERS,
+        body: JSON.stringify([withCommon(event)]),
+        keepalive: true,
+        credentials: "omit",
+      }).catch((err) => jhLog("[Tracker] send failed:", err));
+    } catch (e) {}
   }
 
-  // function sendExitEvent(event) {
-  //   const payload = [{ ...event, api_key: apiKey }];
-  //   const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-
-  //   try {
-  //     fetch(API_URL, {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-  //       body: JSON.stringify(payload),
-  //       keepalive: true,
-  //     });
-  //     sent = true;
-  //   } catch (e) {}
-
-  //   if (!sent) {
-  //     navigator.sendBeacon(API_URL, blob);
-  //   }
-  // } //was replaced with this
+  // For the moments the page is going away: keepalive fetch survives unload,
+  // sendBeacon is the fallback.
   function sendExitEvent(event) {
-  // keepalive fetch survives page unload — sendBeacon is fallback only
-  const payload = [{ ...event, api_key: apiKey }];
-  const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-  let sent = false;
-
-  try {
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-      body: JSON.stringify(payload),
-      keepalive: true,
-    });
-    sent = true;
-  } catch (e) {}
-
-  if (!sent) {
-    navigator.sendBeacon(API_URL, blob);
+    const body = JSON.stringify([withCommon(event)]);
+    let sent = false;
+    try {
+      _originalFetch(API_URL, { method: "POST", headers: SEND_HEADERS, body, keepalive: true, credentials: "omit" }).catch(function () {});
+      sent = true;
+    } catch (e) {}
+    if (!sent) {
+      try {
+        navigator.sendBeacon(API_URL, new Blob([body], { type: "text/plain;charset=UTF-8" }));
+      } catch (e) {}
+    }
   }
-}
-
 
   // ── PAGE HEIGHT TRACKER ──────────────────────────────────────────────────
 // Reads page height at start time. Throttled: only sends if height changed
@@ -377,7 +347,7 @@ function getPageHeightPayload() {
     sessionStorage.setItem(storageKey, JSON.stringify({ height: currentHeight, ts: now }));
     return currentHeight;
   } catch (err) {
-    console.error("[Tracker] page height error:", err);
+    jhLog("[Tracker] page height error:", err);
     return null;
   }
 }
@@ -409,18 +379,18 @@ function firePageViewStart() {
     device_type: /Mobi|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
     entry_scroll: entryScroll,
     viewport_height: viewportHeight,
+    viewport_width: getViewportWidthPx(),
   };
   // Only attach page_height when throttle allows
   if (pageHeight !== null) {
     event.page_height = pageHeight;
-    console.log("[Tracker] 📐 Sending page_height:", pageHeight, "for", window.location.pathname);
+    jhLog("[Tracker] 📐 Sending page_height:", pageHeight, "for", window.location.pathname);
   }
-  window.__jhDebugSentAtStart = pageHeight; // TEMP DEBUG — see HUD above
-  console.log("[Tracker] 🚩 entry_scroll:", entryScroll.toFixed(3), "| viewport_height:", viewportHeight, "for", window.location.pathname);
+  jhLog("[Tracker] 🚩 entry_scroll:", entryScroll.toFixed(3), "| viewport_height:", viewportHeight, "for", window.location.pathname);
   sendEvent(event);
 }
 
-  function firePageViewEnd() {
+  function firePageViewEnd(endAtMs) {
     // Let independent sections react to "the visitor is leaving this page"
     // before anything below changes page_view_id/page state. A listener
     // throwing must never break analytics — that's the whole reason this is
@@ -429,7 +399,7 @@ function firePageViewStart() {
       try {
         fn();
       } catch (err) {
-        console.error("[Tracker] ❌ pageLeaveListener error:", err);
+        jhLog("[Tracker] ❌ pageLeaveListener error:", err);
       }
     }
     // scroll_depth: position when leaving (existing column, keep for backward compat)
@@ -449,7 +419,7 @@ function firePageViewStart() {
     // only actually sends (and only overwrites the row) when the height
     // genuinely grew — it does not defeat the 6-minute throttle for no reason.
     const exitPageHeight = getPageHeightPayload();
-    console.log(
+    jhLog(
       "[Tracker] 📜 page_view_end scroll summary — exit:",
       exitScroll.toFixed(3),
       "| max:",
@@ -460,15 +430,16 @@ function firePageViewStart() {
       revisitStartDepth === null ? "none" : revisitStartDepth.toFixed(3)
     );
     if (exitPageHeight !== null) {
-      console.log("[Tracker] 📐 Sending corrected page_height at exit:", exitPageHeight, "for", window.location.pathname);
+      jhLog("[Tracker] 📐 Sending corrected page_height at exit:", exitPageHeight, "for", window.location.pathname);
     }
-    window.__jhDebugSentAtEnd = exitPageHeight; // TEMP DEBUG — see HUD above
     sendExitEvent({
       type: "page_view_end",
       visitor_id,
       session_id,
       page_view_id,
-      duration: Date.now() - startTime,
+      duration: Math.max(0, (endAtMs || Date.now()) - startTime),
+      // "ended N ms ago", not a clock time: the server dates it from its own clock, so a visitor whose computer clock is wrong cannot skew it.
+      ended_ago_ms: endAtMs ? Math.max(0, Date.now() - endAtMs) : undefined,
       scroll_depth: exitScroll,
       max_scroll_depth: maxScrollDepth,
       max_scroll_reached_at: maxScrollReachedAt,
@@ -482,59 +453,178 @@ function firePageViewStart() {
     });
   }
 
-  // Shared by BOTH load paths below — checked before anything else runs, so
-  // it catches a page that resumes via visibilitychange (still the same live
-  // document) AND a page that comes back via a fresh full load with
-  // sessionStorage still intact (tab restore, or the browser/OS having
-  // discarded and reloaded a backgrounded tab rather than just hiding it).
-  // The earlier version only checked this inside the visibilitychange
-  // handler, so any session that came back via a fresh load instead silently
-  // continued with no split — exactly what produced a multi-hour "away" gap
-  // inside one session instead of two separate sessions.
-  function checkIdleAndMaybeSplitSession() {
-    const hiddenAt = getLastHiddenAt();
-    if (hiddenAt !== null && Date.now() - hiddenAt > SESSION_IDLE_TIMEOUT_MS) {
-      session_id = startNewSessionAfterIdle(session_id, hiddenAt);
-      fireSessionStart(true);
+  // ─────────────────────────────────────────────────────────────────────
+  // PAGE VIEW LIFECYCLE + ONE ACTIVE WINDOW
+  //
+  // At most ONE window of this site records a page view at a time, so the
+  // same person with the site open twice never produces overlapping or
+  // doubled page views. The active window is the one the visitor last used:
+  // when a window is used it claims "active" (localStorage + BroadcastChannel);
+  // any other window with an open page view closes it and waits. Using that
+  // window again claims it back. Visibility, focus, idle and SPA route
+  // changes all go through openPageView / closePageView below.
+  // ─────────────────────────────────────────────────────────────────────
+  let pageViewOpen = false;
+  let lastInteractionAt = Date.now();
+  let lastHeartbeatAt = Date.now();
+  let lastClaimAt = 0;
+
+  const tabId = uuid();
+  const ACTIVE_KEY = "jh_active";
+  const ACTIVE_FRESH_MS = 60 * 1000;
+  const HEARTBEAT_MS = 5 * 60 * 1000;
+  let channel = null;
+  try {
+    if (typeof BroadcastChannel === "function") channel = new BroadcastChannel("jh_" + apiKey.slice(0, 8));
+  } catch (e) {}
+
+  function readActive() {
+    try {
+      const raw = localStorage.getItem(ACTIVE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
     }
   }
-
-  // INITIAL PAGE LOAD
-  // Guard: only fire if tab is visible right now.
-  // If the page loaded in a background tab, visibilitychange → "visible" will fire it.
-  // Without this guard, pages loading while hidden fire once here AND once on visibilitychange,
-  // creating a duplicate row.
-  if (document.visibilityState !== "hidden") {
-    checkIdleAndMaybeSplitSession();
-    firePageViewStart();
-    console.log("[Tracker] ✅ Initial page_view_start fired (tab visible):", page_view_id);
-  } else {
-    console.log("[Tracker] ⏳ Tab hidden on load — waiting for visibilitychange to fire page_view_start");
+  function claimActive() {
+    lastClaimAt = Date.now();
+    try {
+      localStorage.setItem(ACTIVE_KEY, JSON.stringify({ tab: tabId, ts: lastClaimAt }));
+    } catch (e) {}
+    try {
+      if (channel) channel.postMessage({ claim: tabId, ts: lastClaimAt });
+    } catch (e) {}
   }
-
-  // TAB VISIBILITY CYCLE
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") {
-      // User left — close current page_view row
-      firePageViewEnd();
-      setLastHiddenAt(Date.now());
-    } else if (document.visibilityState === "visible") {
-      // User returned — if they were away longer than the idle timeout,
-      // this isn't a continuation of the same visit anymore. Close the old
-      // session as of when they actually left and start a fresh one BEFORE
-      // opening the new page_view, so the new page_view lands under the
-      // new session_id.
-      checkIdleAndMaybeSplitSession();
-
-      // Fresh page_view_id and timer, open new row
-      page_view_id = crypto.randomUUID();
-      startTime = Date.now();
-      maxScrollDepth = getScrollDepth(); // ← seed at entry point, not 0
-      maxScrollReachedAt = null;
-      revisitStartDepth = null;
-      firePageViewStart();
+  function otherWindowRecentlyActive() {
+    const a = readActive();
+    return !!a && a.tab !== tabId && Date.now() - a.ts < ACTIVE_FRESH_MS;
+  }
+  // Another window was just used: this one steps aside until used again.
+  // It ends its page view as of the moment the other window claimed (not
+  // "now", a few ms later), so the two page views do not overlap.
+  function onOtherClaimed(claimTs) {
+    if (pageViewOpen) {
+      jhLog("[Tracker] another window is active, pausing this one");
+      closePageView(typeof claimTs === "number" && claimTs > startTime ? Math.min(claimTs, Date.now()) : undefined);
     }
+  }
+  if (channel) {
+    channel.onmessage = function (e) {
+      if (e && e.data && e.data.claim && e.data.claim !== tabId) onOtherClaimed(e.data.ts);
+    };
+  }
+  // Storage events reach every OTHER window of the origin: the fallback where
+  // BroadcastChannel is missing, and harmless (idempotent) where both fire.
+  window.addEventListener("storage", function (e) {
+    if (e.key !== ACTIVE_KEY || !e.newValue) return;
+    try {
+      const a = JSON.parse(e.newValue);
+      if (a && a.tab !== tabId) onOtherClaimed(a.ts);
+    } catch (err) {}
   });
+
+  function openPageView() {
+    if (pageViewOpen) return;
+    page_view_id = uuid();
+    startTime = Date.now();
+    maxScrollDepth = getScrollDepth(); // seed at the entry point, not 0
+    maxScrollReachedAt = null;
+    revisitStartDepth = null;
+    pageViewOpen = true;
+    firePageViewStart();
+    for (const fn of pageOpenListeners) {
+      try {
+        fn();
+      } catch (err) {
+        jhLog("[Tracker] pageOpenListener error:", err);
+      }
+    }
+  }
+
+  // endAtMs: when the visitor really stopped (idle close). Default: now.
+  function closePageView(endAtMs) {
+    if (!pageViewOpen) return;
+    pageViewOpen = false;
+    firePageViewEnd(endAtMs);
+  }
+
+  // This window becomes the active one and opens a page view if it has none.
+  function activate() {
+    if (document.visibilityState === "hidden") return;
+    claimActive();
+    if (pageViewOpen) return;
+    if (ensureSession()) fireSessionStart();
+    openPageView();
+  }
+
+  // Only things a person does count as use. (Scroll events also fire when
+  // the page scrolls itself, so they must not claim the active window.)
+  const CLAIMING_EVENTS = ["pointerdown", "keydown", "touchstart", "wheel"];
+  function onClaimingInteraction(e) {
+    if (e && e.isTrusted === false) return;
+    const now = Date.now();
+    lastInteractionAt = now;
+    if (document.visibilityState === "hidden") return;
+    if (!pageViewOpen) {
+      activate();
+      return;
+    }
+    touchSession();
+    if (now - lastClaimAt > 10000) claimActive();
+  }
+  CLAIMING_EVENTS.forEach(function (ev) {
+    window.addEventListener(ev, onClaimingInteraction, { passive: true, capture: true });
+  });
+  // Mouse movement only keeps an already-active window from going idle.
+  window.addEventListener(
+    "mousemove",
+    function () {
+      if (pageViewOpen) lastInteractionAt = Date.now();
+    },
+    { passive: true, capture: true }
+  );
+
+  // Idle + heartbeat. Idle: nothing used for 30 minutes closes the page view
+  // as of the last use; the visitor coming back starts a new session. The
+  // heartbeat tells the server the visit is still going (it is the only
+  // thing keeping a long, quiet read from being swept as idle).
+  setInterval(function () {
+    if (!pageViewOpen) return;
+    const now = Date.now();
+    if (now - lastInteractionAt >= SESSION_IDLE_TIMEOUT_MS) {
+      jhLog("[Tracker] idle, closing page view");
+      closePageView(lastInteractionAt);
+      return;
+    }
+    if (now - lastHeartbeatAt >= HEARTBEAT_MS) {
+      lastHeartbeatAt = now;
+      touchSession();
+      sendEvent({ type: "heartbeat", visitor_id, session_id });
+    }
+  }, 30 * 1000);
+
+  const mayActivateNow = () => document.hasFocus() || !otherWindowRecentlyActive();
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") closePageView();
+    else if (mayActivateNow()) activate();
+  });
+  window.addEventListener("focus", function () {
+    if (document.visibilityState !== "hidden") activate();
+  });
+  // Last chance on unload and when a page goes into the back/forward cache.
+  window.addEventListener("pagehide", function () {
+    closePageView();
+  });
+  window.addEventListener("pageshow", function (e) {
+    if (e.persisted && document.visibilityState !== "hidden" && mayActivateNow()) activate();
+  });
+
+  // INITIAL LOAD: a page that loads hidden waits for visibilitychange; a
+  // visible one that is not focused while another window is in use also waits
+  // for the visitor to actually use it.
+  if (document.visibilityState !== "hidden" && mayActivateNow()) activate();
+
 // ─────────────────────────────────────────────────────────────────────────
   // NEXT.JS CLIENT-SIDE NAVIGATION HANDLER
   //
@@ -575,25 +665,19 @@ function firePageViewStart() {
       const newPath = resolvePath(newUrl);
 
       if (newPath === oldPath) {
-        console.log("[Tracker] Path unchanged (internal history call, not a real navigation) — skipping:", newPath);
+        jhLog("[Tracker] Path unchanged (internal history call, not a real navigation) — skipping:", newPath);
         return;
       }
 
       lastTrackedPath = newPath;
-      console.log("[Tracker] 🔀 Route change detected →", oldPath, "→", newPath, "— closing page_view:", page_view_id);
-
-      // Step 1: close the current page_view with accurate duration + scroll
-      firePageViewEnd();
-
-      // Step 2: after a brief tick so window.location has updated, open new page_view
+      // A paused window records nothing now: it opens fresh on whatever URL it
+      // is on when the visitor next uses it.
+      if (!pageViewOpen) return;
+      jhLog("[Tracker] route change", oldPath, "->", newPath);
+      closePageView();
+      // a brief tick so window.location is up to date for the new page view
       setTimeout(function () {
-        page_view_id = crypto.randomUUID();
-        startTime = Date.now();
-        maxScrollDepth = getScrollDepth(); // ← seed at entry point, not 0
-        maxScrollReachedAt = null;
-        revisitStartDepth = null;
-        firePageViewStart();
-        console.log("[Tracker] ✅ New page_view_start after route change:", page_view_id, window.location.pathname);
+        openPageView();
       }, 50);
     }
 
@@ -615,7 +699,7 @@ function firePageViewStart() {
       handleRouteChange(window.location.pathname, lastTrackedPath);
     });
 
-    console.log("[Tracker] ✅ Next.js pushState route handler active");
+    jhLog("[Tracker] ✅ Next.js pushState route handler active");
   })();
 // ─────────────────────────────────────────────────────────────────────────
   // MAX SCROLL DEPTH TRACKER — fully independent, never affects other sections
@@ -649,23 +733,23 @@ function firePageViewStart() {
             // record even after the visitor descends past their old max.
             maxScrollDepth = currentDepth;
             maxScrollReachedAt = new Date().toISOString();
-            console.log("[Tracker] 📜 New max scroll depth:", maxScrollDepth.toFixed(3), "at", maxScrollReachedAt);
+            jhLog("[Tracker] 📜 New max scroll depth:", maxScrollDepth.toFixed(3), "at", maxScrollReachedAt);
           } else if (revisitStartDepth === null || currentDepth < revisitStartDepth) {
             // Not a new deepest point — climbing back up (or already at a
             // new high point of this backtrack). Only updates when they go
             // HIGHER than any point already seen during this backtrack;
             // scrolling back down without exceeding that doesn't move it.
             revisitStartDepth = currentDepth;
-            console.log("[Tracker] 🔁 New revisit-start depth:", revisitStartDepth.toFixed(3));
+            jhLog("[Tracker] 🔁 New revisit-start depth:", revisitStartDepth.toFixed(3));
           }
         } catch (err) {
-          console.error("[Tracker] ❌ Max scroll tracking error:", err);
+          jhLog("[Tracker] ❌ Max scroll tracking error:", err);
         }
       }, SCROLL_THROTTLE_MS);
     }
 
     window.addEventListener("scroll", onScroll, { passive: true });
-    console.log("[Tracker] ✅ Max scroll depth tracker active (throttle=" + SCROLL_THROTTLE_MS + "ms)");
+    jhLog("[Tracker] ✅ Max scroll depth tracker active (throttle=" + SCROLL_THROTTLE_MS + "ms)");
   })();
   // ─────────────────────────────────────────────────────────────────────────
 // -------------------------------------------------------
@@ -766,10 +850,20 @@ function firePageViewStart() {
     return null;
   }
 
+  // data-track-field: when a form has ANY marked field, only the marked ones
+  // are tracked (timings, raw_data). A form with none marked tracks every
+  // field, as before. Name/email/phone detection for the lead is NOT limited.
+  function fieldAllowed(form, input) {
+    if (!form.querySelector("[data-track-field]")) return true;
+    const host = input.closest("[data-track-field]");
+    return !!host && form.contains(host);
+  }
+
   function buildRawData(form) {
     const raw = {};
     const allInputs = getAllInputs(form);
     for (const input of allInputs) {
+      if (!fieldAllowed(form, input)) continue;
       const key = input.name || input.id || input.placeholder || "field_" + Math.random().toString(36).slice(2, 6);
       const val = getInputValue(input);
       if (normalize(key).includes("password") || normalize(key).includes("passwd")) continue;
@@ -830,7 +924,7 @@ function firePageViewStart() {
     // Specify mode: ONLY forms with data-conversion="true"
     const hasAttr = form.getAttribute("data-conversion") === "true";
     if (!hasAttr) {
-      console.log("[Tracker] IGNORED — form missing data-conversion='true':", form);
+      jhLog("[Tracker] IGNORED — form missing data-conversion='true':", form);
     }
     return hasAttr;
   }
@@ -841,7 +935,7 @@ function firePageViewStart() {
   function sendFormCapture(form) {
     try {
       if (!form || form.tagName !== "FORM") {
-        console.warn("[Tracker] sendFormCapture called with non-form element:", form);
+        jhLog("[Tracker] sendFormCapture called with non-form element:", form);
         return;
       }
 
@@ -850,7 +944,7 @@ function firePageViewStart() {
 
       // Gate 2: skip password forms, search forms, single-field non-email forms
       if (shouldSkip(form)) {
-        console.log("[Tracker] Form skipped by shouldSkip:", form);
+        jhLog("[Tracker] Form skipped by shouldSkip:", form);
         return;
       }
 
@@ -863,13 +957,13 @@ function firePageViewStart() {
       const signature = JSON.stringify([email, name, phone, window.location.pathname]);
       const now = Date.now();
       if (signature === lastCaptureSignature && now - lastCaptureAt < CAPTURE_DEDUPE_WINDOW_MS) {
-        console.log("[Tracker] Duplicate form capture suppressed (submit event + fetch interceptor both fired):", signature);
+        jhLog("[Tracker] Duplicate form capture suppressed (submit event + fetch interceptor both fired):", signature);
         return;
       }
       lastCaptureSignature = signature;
       lastCaptureAt = now;
 
-      console.log("[Tracker] ✅ Form captured:", { name, email, phone, raw });
+      jhLog("[Tracker] ✅ Form captured:", { name, email, phone, raw });
       markEngagementSubmitted(form);
 
       const payload = {
@@ -888,18 +982,18 @@ function firePageViewStart() {
 
       _originalFetch(FORM_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body: JSON.stringify(payload),
         credentials: "omit",
         keepalive: true,
       }).then(() => {
-        console.log("[Tracker] ✅ Form payload sent successfully");
+        jhLog("[Tracker] ✅ Form payload sent successfully");
       }).catch((err) => {
-        console.error("[Tracker] ❌ Form send error:", err);
+        jhLog("[Tracker] ❌ Form send error:", err);
       });
 
     } catch (err) {
-      console.error("[Tracker] ❌ Form capture error:", err);
+      jhLog("[Tracker] ❌ Form capture error:", err);
     }
   }
 
@@ -908,7 +1002,7 @@ function firePageViewStart() {
   // ─────────────────────────────────────────────────────────────────────
   function processPendingForms() {
     if (pendingForms.length === 0) return;
-    console.log("[Tracker] Processing", pendingForms.length, "queued form submission(s) now that config is loaded");
+    jhLog("[Tracker] Processing", pendingForms.length, "queued form submission(s) now that config is loaded");
     for (const { form } of pendingForms) {
       sendFormCapture(form);
     }
@@ -936,9 +1030,9 @@ function firePageViewStart() {
       configLoaded = true;
 
       if (specifyFormMode) {
-        console.log("[Tracker] ✅ specify_form=TRUE — ONLY forms with data-conversion='true' will be captured");
+        jhLog("[Tracker] ✅ specify_form=TRUE — ONLY forms with data-conversion='true' will be captured");
       } else {
-        console.log("[Tracker] ✅ specify_form=FALSE — ALL forms will be captured (global mode)");
+        jhLog("[Tracker] ✅ specify_form=FALSE — ALL forms will be captured (global mode)");
       }
 
       // Replay any submissions that queued up before config loaded
@@ -946,11 +1040,11 @@ function firePageViewStart() {
     })
     .catch(function(err) {
       // Config fetch failed — default to GLOBAL mode so no conversions are silently lost
-      console.warn("[Tracker] ⚠️ site-config fetch failed, defaulting to global mode:", err.message);
+      jhLog("[Tracker] ⚠️ site-config fetch failed, defaulting to global mode:", err.message);
       specifyFormMode = false;
       configLoaded = true;
       processPendingForms();
-      console.log();
+      jhLog();
     });
 
   // ─────────────────────────────────────────────────────────────────────
@@ -960,9 +1054,9 @@ function firePageViewStart() {
   // If config is loaded: process immediately.
   // ─────────────────────────────────────────────────────────────────────
   document.addEventListener("submit", function (e) {
-    console.log("[Tracker] Submit event fired on:", e.target);
+    jhLog("[Tracker] Submit event fired on:", e.target);
     if (!configLoaded) {
-      console.log("[Tracker] Config not yet loaded — queuing submission");
+      jhLog("[Tracker] Config not yet loaded — queuing submission");
       pendingForms.push({ form: e.target });
       return;
     }
@@ -971,36 +1065,52 @@ function firePageViewStart() {
 
   // ─────────────────────────────────────────────────────────────────────
   // METHOD 2: Fetch interceptor
-  // Catches React forms that call fetch() directly without a DOM submit event.
+  // Catches forms that submit through fetch() with no DOM submit event.
   //
-  // Same queue logic: if config isn't loaded yet, queue and replay later.
+  // Tightened 2026-10-07. It used to look at EVERY fetch on the page (images,
+  // analytics, anything) and capture the first form that had an email in it,
+  // which produced false conversions. Now it only acts when ALL of these hold:
+  //   - the request is not a GET/HEAD (a submission changes something),
+  //   - it is not one of the tracker's own requests,
+  //   - the visitor used a form in the last 15 seconds (typed in it, focused
+  //     it, or clicked inside it), and that form is still on the page,
+  //   - that form passes the same gates as any other (not a login/search form,
+  //     marked data-conversion="true" when the site is in specify mode),
+  //   - it holds an email.
+  // Only THAT form is captured, never "the first one on the page".
   // ─────────────────────────────────────────────────────────────────────
-  //const _originalFetch = window.fetch;              //moved this to the top
-  window.fetch = function (...args) {
+  let lastFormInteraction = { form: null, at: 0 };
+  function noteFormInteraction(e) {
     try {
-      const forms = document.querySelectorAll("form");
-      for (const form of forms) {
-        if (shouldSkip(form)) continue;
+      const f = e.target && e.target.closest ? e.target.closest("form") : null;
+      if (f) lastFormInteraction = { form: f, at: Date.now() };
+    } catch (err) {}
+  }
+  document.addEventListener("input", noteFormInteraction, true);
+  document.addEventListener("focusin", noteFormInteraction, true);
+  document.addEventListener("click", noteFormInteraction, true);
+  const FETCH_FORM_WINDOW_MS = 15000;
 
-        // In specify mode, skip non-labelled forms immediately (no email scan needed)
-        if (configLoaded && specifyFormMode && form.getAttribute("data-conversion") !== "true") continue;
-
-        const email = extractEmail(form);
-        if (email) {
-          console.log("[Tracker] Fetch intercepted — found form with email:", form);
-          if (!configLoaded) {
-            console.log("[Tracker] Config not yet loaded — queuing fetch-intercepted submission");
-            pendingForms.push({ form });
-          } else {
-            sendFormCapture(form);
+  window.fetch = function (input, init) {
+    try {
+      const method = String((init && init.method) || (input && input.method) || "GET").toUpperCase();
+      const url = typeof input === "string" ? input : input && input.url ? input.url : String(input);
+      const isOwn = url.indexOf(API_BASE + "/api/") === 0; // the tracker's own endpoints
+      if (method !== "GET" && method !== "HEAD" && !isOwn) {
+        const f = lastFormInteraction.form;
+        if (f && f.isConnected && Date.now() - lastFormInteraction.at < FETCH_FORM_WINDOW_MS && !shouldSkip(f)) {
+          const blockedBySpecifyMode = configLoaded && specifyFormMode && f.getAttribute("data-conversion") !== "true";
+          if (!blockedBySpecifyMode && extractEmail(f)) {
+            jhLog("[Tracker] fetch submission matched the form the visitor just used");
+            if (!configLoaded) pendingForms.push({ form: f });
+            else sendFormCapture(f);
           }
-          break; // only capture the first matching form per fetch call
         }
       }
     } catch (err) {
-      console.error("[Tracker] ❌ Fetch intercept error:", err);
+      jhLog("[Tracker] fetch intercept error:", err);
     }
-    return _originalFetch.apply(this, args);
+    return _originalFetch.apply(this, arguments);
   };
 
   // ─────────────────────────────────────────────────────────────────────
@@ -1158,11 +1268,11 @@ function firePageViewStart() {
   function sendEngagementEvent(formIndex, form, persistentPatch, transient) {
     try {
       if (!isConversionForm(form)) {
-        console.log("[Tracker] 🟡 Form engagement skipped — isConversionForm() gate failed:", { formIndex, persistentPatch });
+        jhLog("[Tracker] 🟡 Form engagement skipped — isConversionForm() gate failed:", { formIndex, persistentPatch });
         return;
       }
       if (shouldSkip(form)) {
-        console.log("[Tracker] 🟡 Form engagement skipped — shouldSkip() gate failed:", { formIndex, persistentPatch });
+        jhLog("[Tracker] 🟡 Form engagement skipped — shouldSkip() gate failed:", { formIndex, persistentPatch });
         return;
       }
       resetEngagementStateIfNewPageView();
@@ -1182,21 +1292,22 @@ function firePageViewStart() {
         last_field_key: entry.lastFieldKey || null,
         form_top_y: entry.formTopY ?? null,
         form_bottom_y: entry.formBottomY ?? null,
+        has_marked_fields: form.querySelector("[data-track-field]") ? true : undefined,
         field_timings_delta: (transient && transient.fieldTimingsDelta) || undefined,
         last_activity_at: (transient && transient.lastActivityAt) || undefined,
       };
-      console.log("[Tracker] 📋 Form engagement → sending:", payload);
+      jhLog("[Tracker] 📋 Form engagement → sending:", payload);
       _originalFetch(ENGAGEMENT_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body: JSON.stringify(payload),
         credentials: "omit",
         keepalive: true,
       })
-        .then((r) => console.log("[Tracker] ✅ Form engagement sent, status:", r.status, payload.status))
-        .catch((err) => console.error("[Tracker] ❌ Form engagement send error:", err));
+        .then((r) => jhLog("[Tracker] ✅ Form engagement sent, status:", r.status, payload.status))
+        .catch((err) => jhLog("[Tracker] ❌ Form engagement send error:", err));
     } catch (err) {
-      console.error("[Tracker] ❌ Form engagement error:", err);
+      jhLog("[Tracker] ❌ Form engagement error:", err);
     }
   }
 
@@ -1239,7 +1350,7 @@ function firePageViewStart() {
       form.__jhEngagementObservedForPv = page_view_id;
       engagementObserver.observe(form);
     } catch (err) {
-      console.error("[Tracker] ❌ Failed to observe form for engagement:", err);
+      jhLog("[Tracker] ❌ Failed to observe form for engagement:", err);
     }
   }
 
@@ -1268,7 +1379,7 @@ function firePageViewStart() {
         }
       }).observe(document.body, { childList: true, subtree: true });
     } catch (err) {
-      console.error("[Tracker] ❌ Form engagement DOM watcher setup failed:", err);
+      jhLog("[Tracker] ❌ Form engagement DOM watcher setup failed:", err);
     }
   }
 
@@ -1293,6 +1404,7 @@ function firePageViewStart() {
         if (!target || !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
         const form = target.closest("form");
         if (!form) return;
+        if (!fieldAllowed(form, target)) return;
         const formIndex = Array.from(document.forms).indexOf(form);
         if (formIndex === -1) return;
         resetEngagementStateIfNewPageView();
@@ -1320,7 +1432,7 @@ function firePageViewStart() {
           engagementState.set(formIndex, existing);
         }
       } catch (err) {
-        console.error("[Tracker] ❌ Form engagement focus handler error:", err);
+        jhLog("[Tracker] ❌ Form engagement focus handler error:", err);
       }
     },
     true
@@ -1338,6 +1450,7 @@ function firePageViewStart() {
         if (!target || !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
         const form = target.closest("form");
         if (!form) return;
+        if (!fieldAllowed(form, target)) return;
         const formIndex = Array.from(document.forms).indexOf(form);
         if (formIndex === -1) return;
         const visits = fieldVisitState.get(formIndex);
@@ -1346,7 +1459,7 @@ function firePageViewStart() {
         const state = visits.get(fieldTimingsKey(type, key));
         if (state && state.keydownAtThisVisit === null) state.keydownAtThisVisit = Date.now();
       } catch (err) {
-        console.error("[Tracker] ❌ Form engagement keydown handler error:", err);
+        jhLog("[Tracker] ❌ Form engagement keydown handler error:", err);
       }
     },
     true
@@ -1366,6 +1479,7 @@ function firePageViewStart() {
         if (!target || !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
         const form = target.closest("form");
         if (!form) return;
+        if (!fieldAllowed(form, target)) return;
         const formIndex = Array.from(document.forms).indexOf(form);
         if (formIndex === -1) return;
         const entry = engagementState.get(formIndex);
@@ -1384,7 +1498,7 @@ function firePageViewStart() {
           { fieldTimingsDelta: { [fieldKey]: delta }, lastActivityAt: delta.lastUnfocusAt }
         );
       } catch (err) {
-        console.error("[Tracker] ❌ Form engagement blur handler error:", err);
+        jhLog("[Tracker] ❌ Form engagement blur handler error:", err);
       }
     },
     true
@@ -1415,8 +1529,8 @@ function firePageViewStart() {
   });
 
   // ── SESSION END — the true finalization boundary. Fires from
-  // fireSessionEnd() (tab closing) and startNewSessionAfterIdle() (30-min
-  // idle split) — see the pageLeaveListeners registration in the outer
+  // ensureSession() closing an idle session (the only way a session ends
+  // from the browser) — see the pageLeaveListeners registration in the outer
   // scope for why session-ending is tracked completely separately from
   // ordinary page-leave. Finalizes THIS page's own form(s) immediately,
   // for precision in the common case; a form left mid-fill on a page the
@@ -1443,9 +1557,9 @@ function firePageViewStart() {
   function markEngagementSubmitted(form) {
     try {
       const formIndex = Array.from(document.forms).indexOf(form);
-      console.log("[Tracker] 🔎 markEngagementSubmitted called, formIndex:", formIndex, form);
+      jhLog("[Tracker] 🔎 markEngagementSubmitted called, formIndex:", formIndex, form);
       if (formIndex === -1) {
-        console.log("[Tracker] 🟡 Form engagement skipped — form not found in document.forms");
+        jhLog("[Tracker] 🟡 Form engagement skipped — form not found in document.forms");
         return;
       }
       const nowMs = Date.now();
@@ -1453,7 +1567,7 @@ function firePageViewStart() {
       const nowIso = new Date(nowMs).toISOString();
       sendEngagementEvent(formIndex, form, { status: "submitted" }, { fieldTimingsDelta: openDelta || undefined, lastActivityAt: nowIso });
     } catch (err) {
-      console.error("[Tracker] ❌ Form engagement submit-mark error:", err);
+      jhLog("[Tracker] ❌ Form engagement submit-mark error:", err);
     }
   }
 
@@ -1461,69 +1575,237 @@ function firePageViewStart() {
 
 //////////////////////////////////////////
 
-// -------------------------------------------------------
-  // PAGE STRUCTURE TRACKING — independent, never breaks analytics or forms
   // -------------------------------------------------------
- (function () {
+  // PAGE STRUCTURE TRACKING — independent, never breaks analytics or forms
+  //
+  // Reports the page's headings (and where they sit) so the dashboard can
+  // draw a visit on the page as the visitor saw it. Runs for EVERY page view
+  // (including SPA route changes), a moment after the page settles, and
+  // resends only when the structure changed since the last send for that
+  // path or 24 hours passed (so the server can see "still the same"). The
+  // server fingerprints it and keeps each distinct structure as a version:
+  // see app/api/track-structure/route.js.
+  // -------------------------------------------------------
+  (function () {
     const STRUCTURE_API_URL = `${API_BASE}/api/track-structure`;
+    const CACHE_KEY = "jh_sc";
+    const RESEND_AFTER_MS = 24 * 60 * 60 * 1000;
+    const SETTLE_MS = 2500; // lazy content and fonts need a moment to move headings
+    const MAX_HEADERS = 80;
 
-    function capturePageStructure() {
+    function hashOf(str) {
+      let h = 5381;
+      for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+      return String(h);
+    }
+    function readCache() {
       try {
-        const headers = document.querySelectorAll("h1, h2, h3");
-        if (headers.length === 0) return;
+        return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}") || {};
+      } catch (e) {
+        return {};
+      }
+    }
+    function writeCache(c) {
+      try {
+        const keys = Object.keys(c);
+        if (keys.length > 100) delete c[keys[0]]; // bounded
+        localStorage.setItem(CACHE_KEY, JSON.stringify(c));
+      } catch (e) {}
+    }
 
-        // documentElement, not body — matches getPageHeightPx() used
-        // everywhere else. The two boxes can disagree, and this value is
-        // joined against page_views.page_height (framePlate's fallback
-        // chain in resolvePageHeight) — reading from two different boxes in
-        // two different places would make that fallback inconsistent with
-        // itself.
+    function capturePageStructure(forPageViewId) {
+      try {
+        // The visitor moved on (or this window paused) before the page settled.
+        if (!pageViewOpen || page_view_id !== forPageViewId) return;
+
+        const nodes = Array.from(document.querySelectorAll("h1, h2, h3")).slice(0, MAX_HEADERS);
+        if (nodes.length === 0) return;
+
+        // documentElement, not body: matches getPageHeightPx() used everywhere
+        // else, so page_height reads from one box in every place.
         const pageHeight = getPageHeightPx();
         const structures = [];
-
-        headers.forEach((h, index) => {
-          const text = h.innerText?.trim();
+        nodes.forEach((h, index) => {
+          const text = (h.innerText || "").trim();
           if (!text) return;
           structures.push({
             header_index: index,
-            header_text: text,
+            header_text: text.slice(0, 200),
             header_tag: h.tagName.toLowerCase(),
             position_y: Math.round(h.getBoundingClientRect().top + window.scrollY),
           });
         });
-
         if (structures.length === 0) return;
 
-        fetch(STRUCTURE_API_URL, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    api_key: apiKey,
-    visitor_id,
-    page_path: window.location.pathname,
-    page_height: pageHeight,
-    structures,
-  }),
-  credentials: "omit",
-  keepalive: true
-}).then(() => {
-  console.log("[Tracker] Structure sent:", structures.length, "headers");
-}).catch((err) => {
-  console.error("[Tracker] Structure send error:", err);
-});
+        const path = window.location.pathname;
+        const hash = hashOf(JSON.stringify([structures.map((s) => [s.header_tag, s.header_text, Math.round(s.position_y / 50)]), Math.round(pageHeight / 100)]));
+        const cache = readCache();
+        const now = Date.now();
+        if (cache[path] && cache[path].h === hash && now - cache[path].t < RESEND_AFTER_MS) return; // unchanged, recently reported
 
+        _originalFetch(STRUCTURE_API_URL, {
+          method: "POST",
+          headers: SEND_HEADERS,
+          body: JSON.stringify({
+            api_key: apiKey,
+            host: window.location.hostname,
+            page_url: window.location.href,
+            visitor_id,
+            page_view_id: forPageViewId,
+            page_path: path,
+            page_height: pageHeight,
+            viewport_width: getViewportWidthPx(),
+            structures,
+          }),
+          credentials: "omit",
+          keepalive: true,
+        })
+          .then(function () {
+            cache[path] = { h: hash, t: now };
+            writeCache(cache);
+            jhLog("[Tracker] structure sent:", structures.length, "headers");
+          })
+          .catch(function (err) {
+            jhLog("[Tracker] structure send error:", err);
+          });
       } catch (err) {
-        console.error("[Tracker] Structure capture error:", err);
+        jhLog("[Tracker] structure capture error:", err);
       }
     }
 
-    // Wait for DOM to fully render before scanning headers
-    if (document.readyState === "complete") {
-      capturePageStructure();
-    } else {
-      window.addEventListener("load", capturePageStructure);
+    function schedule() {
+      const forPageViewId = page_view_id;
+      const run = function () {
+        setTimeout(function () {
+          capturePageStructure(forPageViewId);
+        }, SETTLE_MS);
+      };
+      if (document.readyState === "complete") run();
+      else window.addEventListener("load", run, { once: true });
     }
 
+    pageOpenListeners.push(schedule);
+    if (pageViewOpen) schedule(); // the first page view opened before this block ran
+  })();
+
+  // -------------------------------------------------------
+  // TRACKING HEALTH + CLICK TRACKING — independent
+  //
+  // data-conversion (on a <form>), data-track-field (on a field inside a form)
+  // and data-track-click (on anything clickable) are easy to put in the wrong
+  // place and assume they work. So the tracker reports, once per page per 6
+  // hours, what it FOUND: how many were placed correctly and how many sit in a
+  // wrong place. The server pairs that with real events (a real conversion,
+  // real field timings, real clicks) to show "found" vs "proven working" in
+  // Settings. See app/api/track/route.js (health events).
+  // -------------------------------------------------------
+  (function () {
+    const HEALTH_KEY = "jh_hr";
+    const REPORT_EVERY_MS = 6 * 60 * 60 * 1000;
+    const SETTLE_MS = 3000;
+
+    function buildReport() {
+      const report = {};
+      const forms = document.querySelectorAll("form");
+      const convAll = document.querySelectorAll("[data-conversion]");
+      let marked = 0;
+      let wrongValue = 0;
+      let wrongElement = 0;
+      convAll.forEach(function (el) {
+        if (el.tagName !== "FORM") wrongElement++;
+        else if (el.getAttribute("data-conversion") === "true") marked++;
+        else wrongValue++;
+      });
+      if (forms.length > 0 || convAll.length > 0) {
+        report.conversion_form = { forms: forms.length, marked: marked, wrong_value: wrongValue, wrong_element: wrongElement };
+      }
+
+      const fieldEls = document.querySelectorAll("[data-track-field]");
+      if (fieldEls.length > 0) {
+        let inForm = 0;
+        fieldEls.forEach(function (el) {
+          if (el.closest("form")) inForm++;
+        });
+        report.field_attr = { marked: fieldEls.length, in_form: inForm, outside_form: fieldEls.length - inForm };
+      }
+
+      const clickEls = document.querySelectorAll("[data-track-click]");
+      if (clickEls.length > 0) report.click_attr = { marked: clickEls.length };
+      return report;
+    }
+
+    function sendReport(forPageViewId) {
+      try {
+        if (!pageViewOpen || page_view_id !== forPageViewId) return;
+        const report = buildReport();
+        if (Object.keys(report).length === 0) return;
+        const path = window.location.pathname;
+        let seen = {};
+        try {
+          seen = JSON.parse(localStorage.getItem(HEALTH_KEY) || "{}") || {};
+        } catch (e) {}
+        const now = Date.now();
+        const sig = JSON.stringify(report);
+        if (seen[path] && seen[path].sig === sig && now - seen[path].t < REPORT_EVERY_MS) return;
+        sendEvent({ type: "health", visitor_id, session_id, page_path: path, page_url: window.location.href, report: report });
+        seen[path] = { sig: sig, t: now };
+        try {
+          const keys = Object.keys(seen);
+          if (keys.length > 100) delete seen[keys[0]];
+          localStorage.setItem(HEALTH_KEY, JSON.stringify(seen));
+        } catch (e) {}
+      } catch (err) {
+        jhLog("[Tracker] health report error:", err);
+      }
+    }
+
+    pageOpenListeners.push(function () {
+      const forPageViewId = page_view_id;
+      const run = function () {
+        setTimeout(function () {
+          sendReport(forPageViewId);
+        }, SETTLE_MS);
+      };
+      if (document.readyState === "complete") run();
+      else window.addEventListener("load", run, { once: true });
+    });
+    if (pageViewOpen) {
+      const id = page_view_id;
+      setTimeout(function () {
+        sendReport(id);
+      }, SETTLE_MS);
+    }
+
+    // CLICKS on elements the owner marked: data-track-click="signup-button".
+    // An empty value falls back to the element's id, then its visible text.
+    // Rate-limited per name so a double-click or a loop cannot flood.
+    const lastClickAt = {};
+    let clicksThisPageView = 0;
+    let clicksForPageViewId = null;
+    document.addEventListener(
+      "click",
+      function (e) {
+        try {
+          if (e.isTrusted === false) return;
+          const el = e.target && e.target.closest ? e.target.closest("[data-track-click]") : null;
+          if (!el || !pageViewOpen) return;
+          if (clicksForPageViewId !== page_view_id) {
+            clicksForPageViewId = page_view_id;
+            clicksThisPageView = 0;
+          }
+          if (clicksThisPageView >= 100) return;
+          const name = (el.getAttribute("data-track-click") || el.id || (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 40) || "unnamed").slice(0, 80);
+          const now = Date.now();
+          if (lastClickAt[name] && now - lastClickAt[name] < 1000) return;
+          lastClickAt[name] = now;
+          clicksThisPageView++;
+          sendEvent({ type: "click", visitor_id, session_id, page_view_id, page_path: window.location.pathname, name: name });
+        } catch (err) {
+          jhLog("[Tracker] click error:", err);
+        }
+      },
+      true
+    );
   })();
     //hubbb
 
@@ -1589,12 +1871,12 @@ function firePageViewStart() {
         let el = formEl;
         while (el && el !== document.body) {
           if (el.getAttribute && el.getAttribute("data-conversion") === "true") {
-            console.log("[Tracker][HubSpot] ✅ Found data-conversion='true' wrapper:", el);
+            jhLog("[Tracker][HubSpot] ✅ Found data-conversion='true' wrapper:", el);
             return true;
           }
           el = el.parentElement;
         }
-        console.log("[Tracker][HubSpot] IGNORED — no data-conversion='true' parent found for form:", formEl);
+        jhLog("[Tracker][HubSpot] IGNORED — no data-conversion='true' parent found for form:", formEl);
         return false;
       }
 
@@ -1609,12 +1891,12 @@ function firePageViewStart() {
           wrapper.querySelector("[id^='hsForm_']") ||
           wrapper.classList.contains("hbspt-form")
         ) {
-          console.log("[Tracker][HubSpot] ✅ Found data-conversion wrapper containing HubSpot embed:", wrapper);
+          jhLog("[Tracker][HubSpot] ✅ Found data-conversion wrapper containing HubSpot embed:", wrapper);
           return true;
         }
       }
 
-      console.log("[Tracker][HubSpot] IGNORED — specify_form=true but no HubSpot form inside a data-conversion='true' wrapper");
+      jhLog("[Tracker][HubSpot] IGNORED — specify_form=true but no HubSpot form inside a data-conversion='true' wrapper");
       return false;
     }
 
@@ -1679,7 +1961,7 @@ function firePageViewStart() {
       try {
         // Dedup check — HubSpot fires multiple events per submission
         if (isDuplicate(formId)) {
-          console.log("[Tracker][HubSpot] Dedup — already sent formId:", formId);
+          jhLog("[Tracker][HubSpot] Dedup — already sent formId:", formId);
           return;
         }
 
@@ -1688,7 +1970,7 @@ function firePageViewStart() {
 
         const { email, name, phone } = extractContactFromFields(fields);
 
-        console.log("[Tracker][HubSpot] ✅ Capturing submission:", {
+        jhLog("[Tracker][HubSpot] ✅ Capturing submission:", {
           formId,
           eventName,
           email,
@@ -1720,20 +2002,20 @@ function firePageViewStart() {
 
         _originalFetch(HS_FORM_API_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "text/plain;charset=UTF-8" },
           body: JSON.stringify(payload),
           credentials: "omit",
           keepalive: true,
         })
           .then(function () {
-            console.log("[Tracker][HubSpot] ✅ Payload sent for formId:", formId);
+            jhLog("[Tracker][HubSpot] ✅ Payload sent for formId:", formId);
           })
           .catch(function (err) {
-            console.error("[Tracker][HubSpot] ❌ Send error:", err);
+            jhLog("[Tracker][HubSpot] ❌ Send error:", err);
           });
 
       } catch (err) {
-        console.error("[Tracker][HubSpot] ❌ sendHubSpotCapture error:", err);
+        jhLog("[Tracker][HubSpot] ❌ sendHubSpotCapture error:", err);
       }
     }
 
@@ -1762,12 +2044,12 @@ function firePageViewStart() {
         const eventName = msg.eventName;
         const formId = msg.id || msg.formId || "unknown";
 
-        console.log("[Tracker][HubSpot] postMessage event:", eventName, "formId:", formId);
+        jhLog("[Tracker][HubSpot] postMessage event:", eventName, "formId:", formId);
 
         if (eventName === "onFormSubmit") {
           // msg.data is an array of {name, value} field objects
           const fields = normaliseFields(msg.data);
-          console.log("[Tracker][HubSpot] onFormSubmit fields:", fields);
+          jhLog("[Tracker][HubSpot] onFormSubmit fields:", fields);
           sendHubSpotCapture({ formId, fields, formEl: null, eventName });
         }
 
@@ -1776,12 +2058,12 @@ function firePageViewStart() {
           const fields = normaliseFields(
             msg.data && msg.data.submissionValues ? msg.data.submissionValues : msg.data
           );
-          console.log("[Tracker][HubSpot] onFormSubmitted fields:", fields);
+          jhLog("[Tracker][HubSpot] onFormSubmitted fields:", fields);
           sendHubSpotCapture({ formId, fields, formEl: null, eventName });
         }
 
       } catch (err) {
-        console.error("[Tracker][HubSpot] ❌ postMessage handler error:", err);
+        jhLog("[Tracker][HubSpot] ❌ postMessage handler error:", err);
       }
     });
 
@@ -1801,7 +2083,7 @@ function firePageViewStart() {
       if (_attachedHsForms.has(form)) return; // already attached
       _attachedHsForms.add(form);
 
-      console.log("[Tracker][HubSpot] Attaching submit listener to direct DOM hs-form:", form);
+      jhLog("[Tracker][HubSpot] Attaching submit listener to direct DOM hs-form:", form);
 
       form.addEventListener("submit", function (e) {
         try {
@@ -1821,10 +2103,10 @@ function firePageViewStart() {
             rawFields[key] = input.value || "";
           }
 
-          console.log("[Tracker][HubSpot] Direct DOM form submit, fields:", rawFields);
+          jhLog("[Tracker][HubSpot] Direct DOM form submit, fields:", rawFields);
           sendHubSpotCapture({ formId, fields: rawFields, formEl: form, eventName: "directDOMSubmit" });
         } catch (err) {
-          console.error("[Tracker][HubSpot] ❌ Direct DOM submit handler error:", err);
+          jhLog("[Tracker][HubSpot] ❌ Direct DOM submit handler error:", err);
         }
       }, true); // capture phase
     }
@@ -1832,7 +2114,7 @@ function firePageViewStart() {
     // Scan existing DOM for any hs-form elements already present
     function scanForHsForms() {
       const hsForms = document.querySelectorAll("form.hs-form, form[id^='hsForm_']");
-      console.log("[Tracker][HubSpot] DOM scan found", hsForms.length, "HubSpot form(s)");
+      jhLog("[Tracker][HubSpot] DOM scan found", hsForms.length, "HubSpot form(s)");
       for (const form of hsForms) {
         attachToHsForm(form);
       }
@@ -1873,7 +2155,7 @@ function firePageViewStart() {
       scanForHsForms();
     }
 
-    console.log("[Tracker][HubSpot] ✅ HubSpot capture initialised — postMessage + DOM observer active");
+    jhLog("[Tracker][HubSpot] ✅ HubSpot capture initialised — postMessage + DOM observer active");
 
   })(); // END HUBSPOT CAPTURE IIFE
   

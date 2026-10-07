@@ -35,11 +35,16 @@ export async function GET(req) {
 
     const supabase = supabaseAdmin;
 
-    const { data: site, error } = await supabase
+    // The key may be the previous one for up to 72 h after a regeneration
+    // (see lib/tracking/keys.js), so both columns are matched. The shape check
+    // keeps anything but a plain token out of the filter.
+    if (!/^[A-Za-z0-9_-]{8,64}$/.test(apiKey)) return NextResponse.json({ specify_form: false }, { headers: corsHeaders() });
+    const { data: sites, error } = await supabase
       .from("sites")
       .select("specify_form, is_active")
-      .eq("api_key", apiKey)
-      .single();
+      .or(`api_key.eq.${apiKey},previous_api_key.eq.${apiKey}`)
+      .limit(1);
+    const site = sites?.[0];
 
     if (error || !site || !site.is_active) {
       // Site not found or inactive — return safe default

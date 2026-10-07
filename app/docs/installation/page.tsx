@@ -16,8 +16,10 @@ function CodeBlock({ children }: { children: string }) {
 }
 
 const COLLECTED: [string, string][] = [
-  ["Session data", "Session start and end, referrer, timezone, device type, approximate country from IP."],
-  ["Page views", "Page path, time on page, scroll depth, max scroll depth, page height, viewport height."],
+  ["Session data", "Session start and end, referrer, timezone, device type and approximate country. The IP address is kept only as a one-way hash, never in the clear."],
+  ["First touch", "For a new visitor's first visit only: the referrer, UTM campaign and landing page that brought them. Kept on the visitor, never overwritten."],
+  ["Page views", "Page path, time on page, scroll depth, max scroll depth, page height, viewport height and width."],
+  ["Clicks", "Only on elements you mark with data-track-click. Nothing else is clicked-tracked."],
   ["Form submissions", "Name, email, phone, and any other fields the form collects, tied to the page and session it came from."],
   ["Form engagement", "When a form was viewed, when it was started, and how long was spent on each field, even if it was never submitted."],
   ["Page structure", "Heading text and position on each page, used to mark headings on the session replay chart."],
@@ -54,8 +56,18 @@ export default function InstallationPage() {
             data under your site.
           </p>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Install the script on this exact domain. It is also what a teammate&apos;s work email gets matched against to join the site
-            automatically, so a mismatch here can affect more than just tracking.
+            Install the script on this exact domain. Jellyhook only records events that come from this domain (and its subdomains), and it is
+            what proves the site is yours: the first site to receive real data from a domain is verified and owns it. It is also what a
+            teammate&apos;s work email gets matched against to join the site automatically.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Adding a domain starts a claim that lasts <strong className="text-[#c9c7bd]">3 days</strong>. If the script has not reported from your site by
+            then, the setup expires and records nothing until you renew it with one click, or start again. Two people can set up the same
+            domain at once; whoever installs the script on the real site first wins.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Testing on <code className="ff-mono text-[#c9c7bd]">localhost</code> or a staging site? Those are different hosts, so their data is not recorded
+            until you allow them under Settings, Tracking, Allowed hosts.
           </p>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             One account can own or belong to more than one site. Switch between them from the site name at the top
@@ -69,7 +81,7 @@ export default function InstallationPage() {
             <h2 className="ff-display text-xl text-[#f4f2ea]">Install the tracker</h2>
           </div>
           <p className="mb-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Paste this before the closing <code className="ff-mono text-[#c9c7bd]">&lt;/body&gt;</code> tag. Your setup page has the exact
+            Paste this inside the <code className="ff-mono text-[#c9c7bd]">&lt;head&gt;</code> of your site. Your setup page has the exact
             snippet with your real API key already filled in.
           </p>
           <CodeBlock>{`<script\n  src="your-domain/tracker.js"\n  data-key="YOUR_SITE_API_KEY"\n></script>`}</CodeBlock>
@@ -102,6 +114,14 @@ export default function InstallationPage() {
             recorded as leads. Everything else on the page is ignored, so a newsletter box or a search bar never shows up as a lead by
             mistake.
           </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Two more optional attributes choose which fields of a form are measured and which buttons are counted. Settings shows whether each one
+            is installed correctly and actually working. See{" "}
+            <Link href="/docs/concepts/tracking-attributes" className="text-[var(--lime)] hover:underline">
+              Tracking attributes
+            </Link>
+            .
+          </p>
         </div>
 
         <div>
@@ -111,14 +131,18 @@ export default function InstallationPage() {
           </div>
           <p className="mb-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Right after creating a site, the dashboard shows a &quot;Listening for connection...&quot; screen and checks every few
-            seconds whether the tracker has ever actually run on your site. The instant one real event arrives with the right API key,
-            the site is marked verified and the page moves on by itself. There is no separate approval step and nothing to wait on beyond
-            the script actually loading.
+            seconds. The instant one real event arrives with the right API key <em>from your own domain</em>, the site is marked verified and
+            the page moves on by itself. There is no separate approval step. An event from any other website does not verify the site, even with
+            the right key.
           </p>
           <p className="mb-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">If it stays on this screen, check, in order:</p>
           <ul className="mb-3 list-disc space-y-1.5 pl-5 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             <li>The script is actually deployed and live, not just saved locally or sitting in a preview build.</li>
-            <li>The page you are viewing is the same domain you registered, not a staging URL or a different subdomain.</li>
+            <li>
+              The page you are viewing is the domain you registered. If the screen says &quot;We received data from another-site.com&quot;, the
+              script is on a different website than the one you registered: move it, or allow that host if it is a test copy.
+            </li>
+            <li>The setup has not expired. After 3 days without data it stops recording until renewed; the screen shows a Renew button.</li>
             <li>
               The <code className="ff-mono text-[#c9c7bd]">data-key</code> in the snippet matches exactly, no extra spaces or a key copied
               from a different site.
@@ -138,6 +162,10 @@ export default function InstallationPage() {
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             The tracker identifies each visitor and session, records every page view with scroll depth and time on page, and picks up
             form activity on its own from here. No further setup is required.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Settings, Tracking shows the last time data arrived, any other website that sent data and was turned away, and whether your
+            attributes are working. If you ever regenerate the API key, the old one keeps working for 72 hours so there is no gap in tracking.
           </p>
         </div>
       </div>

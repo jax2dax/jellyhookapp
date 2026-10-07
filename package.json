@@ -11,7 +11,10 @@
     "hook:reference": "jiti jh-hook/scripts/genReference.ts",
     "test:silhouette": "jiti silhouette/tests/derive.test.ts",
     "test:output": "jiti output/tests/output.test.ts",
-    "test:visits": "jiti lib/analytics/visitsAggregate.test.ts"
+    "test:visits": "jiti lib/analytics/visitsAggregate.test.ts",
+    "test:tracking": "jiti lib/tracking/tests/tracking.test.ts",
+    "test:tracking-sql": "jiti lib/tracking/tests/migration.test.ts",
+    "bench:storage": "jiti lib/tracking/bench/storage.bench.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.5",

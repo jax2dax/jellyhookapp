@@ -1655,3 +1655,28 @@ they return.
 - Verified with tsc, eslint (new code), next build. Not checked in a
   browser.
 
+---
+
+## 2026-10-07 — Tracker and backend audit, ingestion hardening
+
+Full write-up: `mds/reports/tracker-backend-audit-2026-10-07.md`.
+
+- **Audit.** Read the tracker, all ingestion routes, sweeps, site and settings actions. Ten high and eleven medium findings; the worst: a debug overlay
+  shipped on every customer page, any hit from any website verifying a site, PII and API keys in server logs, another account's API key returned when a
+  domain was "taken", and a visitor-insert race that created unbounded duplicates.
+- **Tracker.** Debug HUD removed; silent unless `data-debug`; shared session in localStorage ended only by 30 min idle (no end on unload); one active window
+  (BroadcastChannel + storage fallback); heartbeat every 5 min; `text/plain` sends (no CORS preflight); `host` and the key in the body; tightened fetch
+  interceptor; `data-track-field`, `data-track-click`; viewport width; first-touch flag; structure on every page view; health reports; guards for http pages,
+  async loads, blocked storage and double install. Verified in real Chrome (`scripts/tracker-e2e/run.js`).
+- **Routes.** `/api/track` rewritten (visitor upsert, no cross-session closing, reopen, validation, usage counters, host and key checks, no PII logging);
+  `/api/track-structure` writes versions; `/api/track-form*` validated and quiet; `/api/close-stale-sessions` needs `CRON_SECRET`; `/api/debug-site` deleted.
+- **Sites, keys, roles.** Claims with 3-day expiry and first-to-verify ownership; host matching and allowed hosts; 72 h key grace; owner / admin / member with
+  one permission table; ownership transfer; Settings "Tracking" section (status, allowed hosts, attribute check); Event Limit removed from Settings.
+- **Replay.** Each visit drawn with the structure version it was recorded under; a quiet session is drawn as ended, not live; leftover TEMP DEBUG logging removed.
+- **Usage.** `site_usage_daily`, `/dev/usage` (per-event cost, measured table and column sizes, capacity calculator).
+- **Storage.** Measured: `page_views` +34 B per row (+5.4%), `visitors` +202 B per visitor, inserts about +6%. An index that would have added 88 B per
+  page view was removed from the migration because of the measurement.
+- **Docs.** Developer docs in `mds/documentation/*-2026-10-07.md`, audit in `mds/reports/`; public pages for installation, tracking attributes (new), settings,
+  team, sessions and troubleshooting; privacy copy; `database.md`, `local_cache_schema.md`, `doc_source_map.md`.
+- **To do by hand before deploying matching code:** run the migration; set `IP_HASH_SALT` and `CRON_SECRET`; in production set `DEV_USAGE_USER_IDS`.
+- **Not built:** `<p>` tag statistics (to be discussed first). Not verified: the Settings and create-site screens in a browser against a real Supabase.

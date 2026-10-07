@@ -204,7 +204,11 @@ export function LeadSessionExplorer({
     if (paths.length === 0) return;
 
     const cached = getCachedPageStructure(siteId);
-    if (cached && !cached.isStale) {
+    // A visit recorded AFTER the cache was filled may belong to a newer
+    // structure version the cache doesn't have: refetch rather than draw it
+    // with an older version's headers.
+    const newestVisitMs = rawRows.pageViews.reduce((m, pv) => Math.max(m, pv.entered_at ? new Date(pv.entered_at as string).getTime() : 0), 0);
+    if (cached && !cached.isStale && cached.fetchedAt >= newestVisitMs) {
       // Populated here, post-mount, instead of a lazy initializer — see the
       // state declaration above for why that distinction matters. This is
       // the exact external-system-read case the lint rule's own guidance

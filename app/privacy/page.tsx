@@ -18,7 +18,9 @@ const YOUR_ACCOUNT_DATA = [
 const VISITOR_DATA = [
   ["Visitor & session identity", "A random ID generated in the visitor&apos;s browser (not tied to a real name unless they submit a form) plus session timing."],
   ["Page activity", "Page paths, time spent on each page, scroll depth, and whether a page was revisited."],
-  ["Technical context", "Device type, approximate country (from IP address), timezone, and referrer URL."],
+  ["Technical context", "Device type, screen width, approximate country, timezone, and referrer URL. The country comes from the hosting platform, or from a one-time IP lookup when it is not available. The IP address itself is not kept: it is stored only as a salted one-way hash that identifies a repeat device but cannot be turned back into an address."],
+  ["First visit", "For a new visitor, the referrer, campaign tags (UTM) and landing page of their very first visit, kept to show where visitors originally came from."],
+  ["Clicks", "Only on elements you mark with data-track-click on your own pages."],
   ["Form submissions", "Whatever fields your form collects, commonly name, email, and phone, tied to the page and session it came from."],
   ["Page structure", "Heading text and position captured from your pages, used to mark headings on the session replay chart."],
 ];

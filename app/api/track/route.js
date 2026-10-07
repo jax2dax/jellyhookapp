@@ -1,501 +1,426 @@
 // api/track/route.js
+//
+// The tracker's main ingestion endpoint: sessions, page views, clicks,
+// heartbeats and tracking-health reports. Rewritten 2026-10-07; the audit and
+// every decision behind it are in mds/audit/tracker-backend-audit-2026-10-07.md
+// and mds/developers/ingestion.md.
+//
+// Order of work for one request:
+//   1. cheap rejects (size, JSON, bots) before touching the database
+//   2. find the site by key (current key, or previous key during a rotation)
+//   3. decide: is this event from the site's own host? (lib/tracking/verification.js)
+//   4. write, event by event, with one visitor upsert per request
+//   5. usage counters + housekeeping AFTER the response (after())
+//
+// Service role, not the Clerk-JWT client: every request here is an anonymous
+// visitor on a CUSTOMER's site, never someone logged in to Jellyhook. The key
+// check in step 2 is the authorization, before any write.
 import { NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { resolvePendingCountries } from "@/lib/resolvePendingCountries";
-import { closeStaleSessions } from "@/lib/closeStaleSessions";
-import { closeStaleFormEngagement } from "@/lib/closeStaleFormEngagement";
+import { sweepIfDue } from "@/lib/tracking/sweep";
+import { hashIp, countryNameFromCode } from "@/lib/tracking/ip";
+import { deviceClassFromWidth } from "@/lib/tracking/structure";
+import { emptyUsage, bump } from "@/lib/tracking/usage";
+import {
+  CORS, MAX_BODY_BYTES, MAX_EVENTS_PER_REQUEST,
+  cleanId, cleanStr, cleanNum, cleanTime,
+  authorizeRequest, applySiteEffects, flushUsage, clientIp, markHealthEvent,
+} from "@/lib/tracking/server";
 
-// Service role, not the Clerk-JWT client — every request hitting this route
-// is an anonymous visitor on a CUSTOMER's site, never someone logged into
-// Jellyhook itself. There is no Clerk session to attach here, ever, by
-// design. Authorization already happens below (the api_key lookup) before
-// any write — this just lets that already-authorized write actually reach
-// tables that no longer grant anon/authenticated anything directly. See
-// mds/progress_timeline.md for the full RLS rewrite this is part of.
 const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, x-api-key",
-  };
-}
-
 export async function OPTIONS() {
-  return new Response(null, { status: 200, headers: corsHeaders() });
+  return new Response(null, { status: 200, headers: CORS });
 }
 
-// Bot detection — filter before any DB writes
 const BOT_PATTERNS = /bot|crawl|spider|slurp|mediapartners|googlebot|bingbot|yandex|baidu|duckduck|facebookexternalhit|linkedinbot|twitterbot|whatsapp|telegram|applebot|semrush|ahrefs|mj12bot|dotbot|petalbot/i;
+const isBot = (ua) => !ua || BOT_PATTERNS.test(ua);
 
-function isBot(userAgent) {
-  if (!userAgent) return true; // no UA = bot
-  return BOT_PATTERNS.test(userAgent);
-}
+const EVENT_TYPES = new Set(["session_start", "session_end", "page_view_start", "page_view_end", "heartbeat", "click", "health"]);
+const MAX_DURATION_MS = 24 * 3600_000;
+const MAX_CLICK_NAME = 80;
+
+const ok = () => NextResponse.json({ success: true }, { headers: CORS });
 
 export async function POST(req) {
+  const supabase = supabaseAdmin;
+  const usage = emptyUsage();
+  let siteId = null;
+  const now = Date.now();
+
   try {
-    const supabase = supabaseAdmin;
+    const len = Number(req.headers.get("content-length") || 0);
+    if (len > MAX_BODY_BYTES) return NextResponse.json({ error: "Payload too large" }, { status: 413, headers: CORS });
 
     let events;
     try {
       events = await req.json();
-    } catch (e) {
-      return NextResponse.json({ error: "Invalid JSON" }, { status: 400, headers: corsHeaders() });
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400, headers: CORS });
+    }
+    if (!Array.isArray(events)) return NextResponse.json({ error: "Events must be array" }, { status: 400, headers: CORS });
+    events = events.filter((e) => e && typeof e === "object" && EVENT_TYPES.has(e.type)).slice(0, MAX_EVENTS_PER_REQUEST);
+    if (events.length === 0) return ok();
+
+    const userAgent = events[0].user_agent || req.headers.get("user-agent") || "";
+    if (isBot(userAgent)) return ok(); // silent drop, never reaches the database
+
+    const apiKey = req.headers.get("x-api-key") || events[0].api_key || null;
+    if (!apiKey) return NextResponse.json({ error: "No API key" }, { status: 400, headers: CORS });
+
+    const auth = await authorizeRequest(supabase, { apiKey, event: events[0], headers: req.headers, now });
+    if (!auth.site || !auth.key.ok) return NextResponse.json({ error: "Invalid site" }, { status: 403, headers: CORS });
+    const { site, key, decision, host } = auth;
+    siteId = site.id;
+
+    bump(usage, "requests");
+    bump(usage, "bytes_in", len);
+
+    const effects = await applySiteEffects(supabase, { site, key, decision, host, now });
+    if (!decision.accept || !effects.verifiedOk) {
+      // Silent: the tracker must never error on a customer's page. The reason
+      // is visible to the owner in Settings (unmatched host, claim expired).
+      bump(usage, "dropped", events.length);
+      after(() => flushUsage(supabase, siteId, usage, now));
+      return ok();
     }
 
-    if (!Array.isArray(events)) {
-      return NextResponse.json({ error: "Events must be array" }, { status: 400, headers: corsHeaders() });
-    }
+    // ── per-request context ───────────────────────────────────────────────
+    const ip = clientIp(req.headers);
+    const ipHash = hashIp(ip);
+    const country = countryNameFromCode(req.headers.get("x-vercel-ip-country"));
+    // The raw IP is only kept when nothing else can give us a country, and is
+    // erased by resolvePendingCountries as soon as the lookup is done.
+    const ipForLookup = !country && ip !== "unknown" ? ip : null;
 
-    // Bot check — kill the request before touching DB
-    const userAgent = events?.[0]?.user_agent || req.headers.get("user-agent") || "";
-    if (isBot(userAgent)) {
-      return NextResponse.json({ success: true }, { headers: corsHeaders() }); // silent drop
-    }
-
-    const apiKey = req.headers.get("x-api-key") || events?.[0]?.api_key || null;
-
-    if (!apiKey) {
-      return NextResponse.json({ error: "No API key" }, { status: 400, headers: corsHeaders() });
-    }
-
-    const { data: site, error: siteError } = await supabase
-      .from("sites")
-      .select("*")
-      .eq("api_key", apiKey)
-      .single();
-
-    if (!site || siteError) {
-      return NextResponse.json({ error: "Invalid site" }, { status: 403, headers: corsHeaders() });
-    }
-    if (!site.verified) {
-      const { error: verifyError } = await supabase
-        .from("sites")
-        .update({ verified: true })
-        .eq("id", site.id);
-      if (verifyError) {
-        console.error("🔴 SITE VERIFY ERROR:", verifyError.message);
-      } else {
-        console.log("✅ SITE VERIFIED on first tracker hit:", site.id);
-      }
-    }
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    // Country is NOT resolved here anymore — it used to block every single
-    // request on a 3rd-party HTTP call. sessions.country is left null on
-    // insert and backfilled separately after the response is sent (see
-    // resolvePendingCountries below), so a slow or down geolocation API
-    // never adds latency to a real visitor's request.
+    const visitorsSeen = new Set();
+    const nowIso = new Date(now).toISOString();
 
     for (const event of events) {
+      const visitorId = cleanId(event.visitor_id);
+      const sessionId = cleanId(event.session_id);
+      if (!visitorId || !sessionId) {
+        bump(usage, "dropped");
+        continue;
+      }
+      bump(usage, "events");
 
-      // VISITOR
-      const { data: existingVisitor } = await supabase
-        .from("visitors")
-        .select("id")
-        .eq("visitor_id", event.visitor_id)
-        .eq("site_id", site.id)
-        .single();
-
-      if (!existingVisitor) {
-        await supabase.from("visitors").insert({
-          visitor_id: event.visitor_id,
+      // ── VISITOR: one upsert + one conditional touch per visitor per request ──
+      if (!visitorsSeen.has(visitorId)) {
+        visitorsSeen.add(visitorId);
+        const first = event.type === "session_start" && event.is_first_visit === true;
+        const insertRow = {
           site_id: site.id,
-          ip_address: ip,
-          first_seen: new Date(),
-          last_seen: new Date(),
-          device_type: event.device_type || null,
-        });
-      } else {
-        // device_type only arrives on page_view_start/page_view_end, never
-        // session_start — whichever event's network call happened to reach
-        // the server FIRST decided whether the visitor's insert ever got a
-        // device_type at all, and this branch never backfilled it
-        // afterward. Opportunistically set it here whenever a later event
-        // does carry one, instead of only ever setting it once at insert.
-        const visitorUpdate = { last_seen: new Date() };
-        if (event.device_type) visitorUpdate.device_type = event.device_type;
-        await supabase.from("visitors").update(visitorUpdate).eq("id", existingVisitor.id);
+          visitor_id: visitorId,
+          ip_address: ipForLookup,
+          ip_hash: ipHash,
+          first_seen: nowIso,
+          last_seen: nowIso,
+          device_type: cleanStr(event.device_type, 20),
+        };
+        if (first) {
+          insertRow.first_referrer = cleanStr(event.referrer, 500);
+          insertRow.first_utm_source = cleanStr(event.utm_source, 200);
+          insertRow.first_utm_medium = cleanStr(event.utm_medium, 200);
+          insertRow.first_utm_campaign = cleanStr(event.utm_campaign, 200);
+          insertRow.first_landing_path = cleanStr(event.page_path, 500);
+          insertRow.first_touch_at = nowIso;
+        }
+        const { error: vErr } = await supabase.from("visitors").upsert(insertRow, { onConflict: "site_id,visitor_id", ignoreDuplicates: true });
+        if (vErr) console.error("[track] visitor upsert error:", vErr.message);
+
+        // Touch last_seen at most once a minute, backfill device_type / ip_hash if missing.
+        const touch = { last_seen: nowIso };
+        const dt = cleanStr(event.device_type, 20);
+        if (dt) touch.device_type = dt;
+        if (ipHash) touch.ip_hash = ipHash;
+        if (ipForLookup) touch.ip_address = ipForLookup; // re-armed for the lookup of this visitor's next session
+        await supabase
+          .from("visitors")
+          .update(touch)
+          .eq("site_id", site.id)
+          .eq("visitor_id", visitorId)
+          .lt("last_seen", new Date(now - 60_000).toISOString());
+
+        // A visitor's first touch, if their very first event arrived out of
+        // order (a page view before the session start): fill it once.
+        if (first) {
+          await supabase
+            .from("visitors")
+            .update({
+              first_referrer: cleanStr(event.referrer, 500),
+              first_utm_source: cleanStr(event.utm_source, 200),
+              first_utm_medium: cleanStr(event.utm_medium, 200),
+              first_utm_campaign: cleanStr(event.utm_campaign, 200),
+              first_landing_path: cleanStr(event.page_path, 500),
+              first_touch_at: nowIso,
+            })
+            .eq("site_id", site.id)
+            .eq("visitor_id", visitorId)
+            .is("first_touch_at", null);
+        }
       }
 
-      // SESSION
-      // const { data: existingSession } = await supabase
-      //   .from("sessions")
-      //   .select("id")
-      //   .eq("session_id", event.session_id)
-      //   .limit(1).maybeSingle()    //.single();
-      /////////////////////with this 
-      // SESSION (CORRECT — INACTIVITY BASED)
-// ─── SESSION ───────────────────────────────────────────────
-// session_start → insert one row, only fires on first visit
-// session_end   → update that row with ended_at timestamp
-// page_view_*   → update last_activity_at only, never insert
-// This means sessions table has exactly 1 row per site visit
-
-// if (event.type === "session_start") {
-//   // Check if session already exists (dedup — tracker might retry)
-//   const { data: existing } = await supabase
-//     .from("sessions")
-//     .select("id")
-//     .eq("session_id", event.session_id)
-//     .eq("site_id", site.id)
-//     .maybeSingle();
-
-//   if (!existing) {
-//     const { error } = await supabase.from("sessions").insert({
-//       session_id: event.session_id,
-//       visitor_id: event.visitor_id,
-//       site_id: site.id,
-//       started_at: new Date(),
-//       last_activity_at: new Date(),
-//       referrer: event.referrer || null,
-//       country: country || null,
-//       timezone: event.timezone || null,
-//     });
-//     if (error) console.error("🔴 SESSION INSERT ERROR:", error.message);
-//     else console.log("✅ SESSION CREATED:", event.session_id);
-//   } else {
-//     console.log("🔵 SESSION ALREADY EXISTS (dedup):", event.session_id);
-//   }
-// }   //with this 
-if (event.type === "session_start") {
-  // TIMEOUT = 3 minutes of inactivity = session is considered closed
-  const TIMEOUT_MS = 3 * 60 * 1000;
-  const timeoutThreshold = new Date(Date.now() - TIMEOUT_MS).toISOString();
-
-  // Step 1 — check if THIS exact session_id already exists (same tab, page nav dedup)
-  const { data: exactMatch } = await supabase
-    .from("sessions")
-    .select("id, last_activity_at, ended_at")
-    .eq("session_id", event.session_id)
-    .eq("site_id", site.id)
-    .maybeSingle();
-
-  if (exactMatch) {
-    // Same session_id already in DB — this is a dedup (tracker retried or reloaded)
-    // Just refresh last_activity_at and clear ended_at if it was closed
-    const { error } = await supabase
-      .from("sessions")
-      .update({ last_activity_at: new Date(), ended_at: null })
-      .eq("id", exactMatch.id);
-    if (error) console.error("🔴 SESSION REFRESH ERROR:", error.message);
-    else console.log("🔵 SESSION REFRESHED (same session_id):", event.session_id);
-    // Skip to page view processing
-  } else {
-    // Step 2 — no exact match, check if visitor has an OPEN session within timeout window
-    // An open session = ended_at is null AND last_activity_at is within 3 minutes
-    const { data: openSession } = await supabase
-      .from("sessions")
-      .select("id, session_id, last_activity_at")
-      .eq("visitor_id", event.visitor_id)
-      .eq("site_id", site.id)
-      .is("ended_at", null)
-      .gte("last_activity_at", timeoutThreshold)
-      .order("last_activity_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (openSession) {
-      // Visitor came back within 3 min — close old session, open new one
-      // We close the old one because the session_id changed (new sessionStorage)
-      // meaning the user opened a new tab or cleared storage
-      const { error: closeError } = await supabase
-        .from("sessions")
-        .update({ ended_at: new Date(), last_activity_at: new Date() })
-        .eq("id", openSession.id);
-      if (closeError) console.error("🔴 OLD SESSION CLOSE ERROR:", closeError.message);
-      else console.log("🟡 OLD SESSION CLOSED (new tab detected):", openSession.session_id);
-    } else {
-      // Step 3 — check if there's a stale open session older than timeout, close it
-      const { data: staleSession } = await supabase
-        .from("sessions")
-        .select("id, session_id")
-        .eq("visitor_id", event.visitor_id)
-        .eq("site_id", site.id)
-        .is("ended_at", null)
-        .lt("last_activity_at", timeoutThreshold)
-        .order("last_activity_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (staleSession) {
-        // Lazy close — visitor was gone longer than 3 min, close the old session
-        const { error: staleError } = await supabase
-          .from("sessions")
-          .update({ ended_at: new Date(Date.now() - TIMEOUT_MS) })
-          .eq("id", staleSession.id);
-        if (staleError) console.error("🔴 STALE SESSION CLOSE ERROR:", staleError.message);
-        else console.log("🟡 STALE SESSION LAZILY CLOSED:", staleSession.session_id);
+      // ── SESSION START ────────────────────────────────────────────────────
+      // A session is one continuous visit: it ends only by 30 minutes of
+      // idle, never because a tab closed or a page changed. So a start for an
+      // id we already have is a repeat (another window joining the same
+      // session, a retry): it just marks the session alive again. Another
+      // open session of the same visitor is NEVER closed from here.
+      if (event.type === "session_start") {
+        bump(usage, "session_starts");
+        const { data: existing } = await supabase.from("sessions").select("id, site_id").eq("session_id", sessionId).maybeSingle();
+        if (existing) {
+          if (existing.site_id === site.id) {
+            await supabase.from("sessions").update({ last_activity_at: nowIso, ended_at: null }).eq("id", existing.id);
+          }
+        } else {
+          const { error } = await supabase.from("sessions").insert({
+            session_id: sessionId,
+            visitor_id: visitorId,
+            site_id: site.id,
+            started_at: nowIso,
+            last_activity_at: nowIso,
+            referrer: cleanStr(event.referrer, 500),
+            country: country, // null when unknown: backfilled by resolvePendingCountries
+            timezone: cleanStr(event.timezone, 100),
+            utm_source: cleanStr(event.utm_source, 200),
+            utm_medium: cleanStr(event.utm_medium, 200),
+            utm_campaign: cleanStr(event.utm_campaign, 200),
+          });
+          // 23505: two windows started the same session at once. Harmless.
+          if (error && error.code !== "23505") console.error("[track] session insert error:", error.message);
+        }
+        continue;
       }
-    }
 
-    // Step 4 — insert fresh session
-    const { error: insertError } = await supabase.from("sessions").insert({
-      session_id: event.session_id,
-      visitor_id: event.visitor_id,
-      site_id: site.id,
-      started_at: new Date(),
-      last_activity_at: new Date(),
-      referrer: event.referrer || null,
-      country: null, // backfilled by resolvePendingCountries, see note above
-      timezone: event.timezone || null,
-      utm_source: event.utm_source || null,
-      utm_medium: event.utm_medium || null,
-      utm_campaign: event.utm_campaign || null,
-    });
-    if (insertError) console.error("🔴 SESSION INSERT ERROR:", insertError.message);
-    else console.log("✅ SESSION CREATED:", event.session_id);
-  }
-}
-//////////////////////////////////////////////////////////////IK THIS Is a lo t 
-if (event.type === "session_end") {
-  // Guard: never close a session that started less than 5 seconds ago
-  // This prevents beforeunload firing on the same page that just created the session
-  // (happens on full page reloads, 404s, and some Next.js navigation edge cases)
-  const { data: sessionToClose } = await supabase
-    .from("sessions")
-    .select("id, started_at")
-    .eq("session_id", event.session_id)
-    .eq("site_id", site.id)
-    .maybeSingle();
+      // ── SESSION END (idle split from the tracker, or an old tracker's unload) ──
+      if (event.type === "session_end") {
+        bump(usage, "session_ends");
+        const { data: sessionToClose } = await supabase.from("sessions").select("id, started_at, ended_at").eq("session_id", sessionId).eq("site_id", site.id).maybeSingle();
+        if (!sessionToClose || sessionToClose.ended_at) continue;
 
-  if (!sessionToClose) {
-    console.log("🟡 SESSION END: session not found, skipping:", event.session_id);
-  } else {
-    const ageMs = Date.now() - new Date(sessionToClose.started_at).getTime();
-    if (ageMs < 5000) {
-      // Session is younger than 5 seconds — this is a false close from beforeunload
-      // firing immediately after session_start on the same page load
-      console.log("🟡 SESSION END IGNORED (too young, age=" + ageMs + "ms):", event.session_id);
-    } else {
-      // event.ended_at is set by the tracker's idle-timeout path (tab left
-      // in the background past SESSION_IDLE_TIMEOUT_MS) — it's the real
-      // moment the visitor went idle, not "now" (whenever they happened to
-      // come back, which can be hours or days later). A normal beforeunload
-      // close has no such moment to report, so it falls back to "now".
-      const endedAt = event.ended_at ? new Date(event.ended_at) : new Date();
-      const { error } = await supabase
-        .from("sessions")
-        .update({
-          ended_at: endedAt,
-          last_activity_at: endedAt,
-        })
-        .eq("id", sessionToClose.id);
-      if (error) console.error("🔴 SESSION END ERROR:", error.message);
-      else console.log("✅ SESSION CLOSED (age=" + ageMs + "ms):", event.session_id);
+        const startedMs = new Date(sessionToClose.started_at).getTime();
+        // "ended N ms ago" is measured against the server's own clock, so a visitor's wrong
+        // computer clock cannot skew it. (ended_at is what older trackers sent.)
+        const agoMs = cleanNum(event.ended_ago_ms, 0, 48 * 3600_000);
+        const reported = agoMs !== null ? new Date(now - agoMs) : cleanTime(event.ended_at, now);
+        // Old trackers sent a session_end on every page unload. A session that
+        // young is a navigation, not a visit ending.
+        if (!reported && now - startedMs < 5000) continue;
+        const endedAt = reported && reported.getTime() >= startedMs ? reported : new Date(now);
 
-      // page_view_end should normally have already fired (visibilitychange
-      // hidden fires before beforeunload in effectively every browser), but
-      // nothing guarantees that ordering. Any page_view still sitting at
-      // left_at = null when the session closes would otherwise keep
-      // recomputing its own duration against "now" forever, every time
-      // anyone opens that lead's session replay chart — see
-      // lib/closeStaleSessions.js's identical fix for the same root cause.
-      const { data: openPageViews, error: openPvError } = await supabase
-        .from("page_views")
-        .select("id, entered_at")
-        .eq("session_id", event.session_id)
-        .is("left_at", null);
-      if (openPvError) {
-        console.error("🔴 SESSION END — page_views sweep fetch error:", openPvError.message);
-      } else {
+        const { error } = await supabase.from("sessions").update({ ended_at: endedAt.toISOString(), last_activity_at: endedAt.toISOString() }).eq("id", sessionToClose.id).is("ended_at", null);
+        if (error) {
+          console.error("[track] session end error:", error.message);
+          continue;
+        }
+        // Close what the session still had open, dated to the session's end.
+        const { data: openPageViews } = await supabase.from("page_views").select("id, entered_at").eq("session_id", sessionId).is("left_at", null);
         for (const pv of openPageViews ?? []) {
           const timeOnPage = Math.max(0, endedAt.getTime() - new Date(pv.entered_at).getTime());
-          const { error: pvError } = await supabase.from("page_views").update({ left_at: endedAt, time_on_page: timeOnPage }).eq("id", pv.id);
-          if (pvError) console.error("🔴 SESSION END — page_view close error:", pvError.message);
+          await supabase.from("page_views").update({ left_at: endedAt.toISOString(), time_on_page: timeOnPage }).eq("id", pv.id);
         }
-      }
-
-      // Any form on THIS session still sitting at viewed/started (started
-      // but never submitted) is finalized as abandoned right here — this is
-      // the authoritative sweep, since a form left mid-fill on a page the
-      // visitor has since navigated away from has no live JS context left
-      // to finalize itself. ended_at is the form's own last real recorded
-      // activity, never "now" — a form last touched hours before the
-      // session actually closed must not look like it was abandoned at the
-      // moment of closing.
-      const { data: openForms, error: openFormsError } = await supabase
-        .from("form_engagement")
-        .select("id, last_activity_at, viewed_at")
-        .eq("session_id", event.session_id)
-        .in("status", ["viewed", "started"]);
-      if (openFormsError) {
-        console.error("🔴 SESSION END — form_engagement sweep fetch error:", openFormsError.message);
-      } else {
+        const { data: openForms } = await supabase.from("form_engagement").select("id, last_activity_at, viewed_at").eq("session_id", sessionId).in("status", ["viewed", "started"]);
         for (const f of openForms ?? []) {
-          const formEndedAt = f.last_activity_at || f.viewed_at;
-          const { error: abandonError } = await supabase.from("form_engagement").update({ status: "abandoned", ended_at: formEndedAt }).eq("id", f.id);
-          if (abandonError) console.error("🔴 SESSION END — form_engagement abandon error:", abandonError.message);
+          await supabase.from("form_engagement").update({ status: "abandoned", ended_at: f.last_activity_at || f.viewed_at }).eq("id", f.id);
         }
+        continue;
       }
-    }
-  }
-}
 
-if (event.type === "page_view_start" || event.type === "page_view_end") {
-  // Page navigation — just keep last_activity_at fresh, never insert
-  await supabase
-    .from("sessions")
-    .update({ last_activity_at: new Date() })
-    .eq("session_id", event.session_id)
-    .eq("site_id", site.id);
-}
-// ───────────────────────────────────────────────────────────
-//////////////////////////////////////////////////////////////
+      // ── HEARTBEAT: "this visit is still going", nothing else ─────────────
+      if (event.type === "heartbeat") {
+        await supabase.from("sessions").update({ last_activity_at: nowIso, ended_at: null }).eq("session_id", sessionId).eq("site_id", site.id);
+        continue;
+      }
 
-      // if (!existingSession) {
-      //   await supabase.from("sessions").insert({
-      //     session_id: event.session_id,
-      //     visitor_id: event.visitor_id,
-      //     site_id: site.id,
-      //     started_at: new Date(),
-      //     last_activity_at: new Date(),
-      //     referrer: event.referrer || null,
-      //     country: country || null,
-      //     timezone: event.timezone || null,
-      //   });
-      // } else {
-      //   const sessionUpdates = { last_activity_at: new Date() };
-      //   if (event.type === "page_view_end") sessionUpdates.ended_at = new Date();
-      //   await supabase
-      //     .from("sessions")
-      //     .update(sessionUpdates)
-      //     .eq("id", existingSession.id);
-      // } //replaced with above
-
-      // PAGE VIEW START
+      // ── PAGE VIEW START ──────────────────────────────────────────────────
       if (event.type === "page_view_start") {
-        const { data: existing } = await supabase
-          .from("page_views")
-          .select("id")
-          .eq("page_view_id", event.page_view_id)
-          .single();
+        bump(usage, "page_view_starts");
+        const pageViewId = cleanId(event.page_view_id);
+        if (!pageViewId) continue;
 
-        if (!existing) {
-          // TEMP DEBUG: this insert (and every other page_views write in this
-          // file) previously discarded its error silently — if PostgREST's
-          // schema cache is still stale for the write path specifically, the
-          // whole insert could be failing (or failing to include an unknown
-          // column) with zero visibility. Remove this logging once
-          // viewport_height is confirmed landing correctly.
-          const { error: insertPvError } = await supabase.from("page_views").insert({
-            page_view_id: event.page_view_id,
-            session_id: event.session_id,
-            visitor_id: event.visitor_id,
-            site_id: site.id,
-            page_url: event.page_url || "",
-            page_path: event.page_path || "",
-            page_title: event.page_title || "",
-            entered_at: new Date(),
-            // page_height was already being measured and sent by tracker.js
-            // (document.documentElement.scrollHeight — real content height,
-            // not viewport) but silently dropped here; now persisted.
-            page_height: event.page_height ?? null,
-            // Never assume the visitor entered at the top of the page — a
-            // page_view_start can fire mid-scroll (tab regains focus without
-            // reloading the DOM).
-            entry_scroll_depth: event.entry_scroll ?? null,
-            // Required to interpret every scroll_depth on this row: those are
-            // fractions of (page_height - viewport_height), so without this
-            // a scroll fraction can't be mapped back onto the page at all.
-            viewport_height: event.viewport_height ?? null,
-          });
-          if (insertPvError) {
-            console.error("[JH DEBUG][track route] page_view_start insert error:", insertPvError.message, insertPvError.details, insertPvError.hint);
+        // Any page view proves the visit is alive. This also reopens a session
+        // an idle sweep closed a moment too early.
+        await supabase.from("sessions").update({ last_activity_at: nowIso, ended_at: null }).eq("session_id", sessionId).eq("site_id", site.id);
+
+        const viewportWidth = cleanNum(event.viewport_width, 1, 20000);
+        const deviceClass = deviceClassFromWidth(viewportWidth);
+        const pagePath = cleanStr(event.page_path, 500) || "";
+        const structureId = await latestStructureId(supabase, site.id, pagePath, deviceClass);
+
+        const row = {
+          page_view_id: pageViewId,
+          session_id: sessionId,
+          visitor_id: visitorId,
+          site_id: site.id,
+          page_url: cleanStr(event.page_url, 1000) || "",
+          page_path: pagePath,
+          page_title: cleanStr(event.page_title, 300) || "",
+          entered_at: nowIso,
+          page_height: cleanNum(event.page_height, 0, 10_000_000),
+          entry_scroll_depth: cleanNum(event.entry_scroll, 0, 1),
+          viewport_height: cleanNum(event.viewport_height, 0, 100000),
+          viewport_width: viewportWidth,
+          device_class: deviceClass,
+          structure_id: structureId,
+        };
+        const { error } = await supabase.from("page_views").insert(row);
+        if (error) {
+          if (error.code === "23505") {
+            // The end arrived first and made a placeholder row: fill in what only the start knows.
+            await supabase
+              .from("page_views")
+              .update({ page_url: row.page_url, page_path: row.page_path, page_title: row.page_title, viewport_width: row.viewport_width, device_class: row.device_class, structure_id: row.structure_id, entry_scroll_depth: row.entry_scroll_depth })
+              .eq("page_view_id", pageViewId)
+              .eq("site_id", site.id);
           } else {
-            console.log("[JH DEBUG][track route] page_view_start insert OK — sent viewport_height:", event.viewport_height, "page_height:", event.page_height, "for page_view_id:", event.page_view_id);
+            console.error("[track] page_view insert error:", error.message);
           }
         }
+        continue;
       }
 
-      // PAGE VIEW END
+      // ── PAGE VIEW END ────────────────────────────────────────────────────
       if (event.type === "page_view_end") {
-        const { data: existing } = await supabase
-          .from("page_views")
-          .select("id")
-          .eq("page_view_id", event.page_view_id)
-          .single();
+        bump(usage, "page_view_ends");
+        const pageViewId = cleanId(event.page_view_id);
+        if (!pageViewId) continue;
 
-        if (existing) {
-          // Build update — max_scroll_depth and max_scroll_reached_at are new columns
-          // Only set them if the tracker sent them (guards against old tracker versions)
-          const updatePayload = {
-            time_on_page: event.duration || 0,
-            scroll_depth: event.scroll_depth || 0,
-            left_at: new Date(),
-          };
+        const duration = cleanNum(event.duration, 0, MAX_DURATION_MS) ?? 0;
+        const endAgoMs = cleanNum(event.ended_ago_ms, 0, 48 * 3600_000);
+        const leftAt = endAgoMs !== null ? new Date(now - endAgoMs) : (cleanTime(event.left_at, now) ?? new Date(now));
+        const update = {
+          time_on_page: duration,
+          scroll_depth: cleanNum(event.scroll_depth, 0, 1) ?? 0,
+          left_at: leftAt.toISOString(),
+        };
+        const maxScroll = cleanNum(event.max_scroll_depth, 0, 1);
+        if (maxScroll !== null) update.max_scroll_depth = maxScroll;
+        const maxAt = cleanTime(event.max_scroll_reached_at, now);
+        if (maxAt) update.max_scroll_reached_at = maxAt.toISOString();
+        // null means "never revisited": a real value, so it is sent as null, not left out.
+        if (event.revisit_start_scroll !== undefined) update.revisit_start_scroll_depth = cleanNum(event.revisit_start_scroll, 0, 1);
+        const vh = cleanNum(event.viewport_height, 0, 100000);
+        if (vh !== null) update.viewport_height = vh;
+        const ph = cleanNum(event.page_height, 0, 10_000_000);
+        if (ph !== null) update.page_height = ph;
 
-          if (event.max_scroll_depth != null) {
-            updatePayload.max_scroll_depth = event.max_scroll_depth;
-            console.log(`[track] page_view_end max_scroll_depth=${event.max_scroll_depth} for page_view_id=${event.page_view_id}`);
-          }
-          if (event.max_scroll_reached_at != null) {
-            updatePayload.max_scroll_reached_at = new Date(event.max_scroll_reached_at);
-          }
-          // revisit_start_scroll is only present once the visitor has
-          // backtracked at all — null (never sent as undefined) means "never
-          // revisited," which is a real, meaningful value, not a missing one.
-          if (event.revisit_start_scroll !== undefined) {
-            updatePayload.revisit_start_scroll_depth = event.revisit_start_scroll;
-          }
-          if (event.viewport_height != null) {
-            updatePayload.viewport_height = event.viewport_height;
-          }
-          // Re-measured at exit (see tracker.js firePageViewEnd) — the start
-          // measurement can be taken before lazy/below-the-fold content has
-          // loaded and grown the page. Only present when the tracker's own
-          // 50px-changed/6-minute throttle decided it was worth resending,
-          // so this never overwrites a good value with a stale/throttled one.
-          if (event.page_height != null) {
-            updatePayload.page_height = event.page_height;
-          }
-
-          // TEMP DEBUG — remove once viewport_height is confirmed landing correctly.
-          const { error: updatePvError } = await supabase
-            .from("page_views")
-            .update(updatePayload)
-            .eq("page_view_id", event.page_view_id);
-          if (updatePvError) {
-            console.error("[JH DEBUG][track route] page_view_end update error:", updatePvError.message, updatePvError.details, updatePvError.hint, "payload:", updatePayload);
-          } else {
-            console.log("[JH DEBUG][track route] page_view_end update OK — payload:", updatePayload);
-          }
-            ///////////
-        } else {
-          await supabase.from("page_views").insert({
-            page_view_id: event.page_view_id,
-            session_id: event.session_id,
-            visitor_id: event.visitor_id,
+        const { data: updated, error } = await supabase.from("page_views").update(update).eq("page_view_id", pageViewId).eq("site_id", site.id).select("id");
+        if (error) {
+          console.error("[track] page_view_end update error:", error.message);
+        } else if (!updated || updated.length === 0) {
+          // The start never arrived (or is still in flight): keep the data as a placeholder row.
+          const { error: insErr } = await supabase.from("page_views").insert({
+            page_view_id: pageViewId,
+            session_id: sessionId,
+            visitor_id: visitorId,
             site_id: site.id,
             page_url: "",
             page_path: "",
             page_title: "",
-            entered_at: new Date(Date.now() - (event.duration || 0)),
-            left_at: new Date(),
-            time_on_page: event.duration || 0,
-            scroll_depth: event.scroll_depth || 0,
-            max_scroll_depth: event.max_scroll_depth ?? null,
-            max_scroll_reached_at: event.max_scroll_reached_at ? new Date(event.max_scroll_reached_at) : null,
-            revisit_start_scroll_depth: event.revisit_start_scroll ?? null,
-            viewport_height: event.viewport_height ?? null,
-            page_height: event.page_height ?? null,
+            entered_at: new Date(leftAt.getTime() - duration).toISOString(),
+            ...update,
           });
+          if (insErr && insErr.code !== "23505") console.error("[track] page_view_end placeholder error:", insErr.message);
         }
+
+        // Only moves the activity clock of a session that is still open.
+        await supabase.from("sessions").update({ last_activity_at: nowIso }).eq("session_id", sessionId).eq("site_id", site.id).is("ended_at", null);
+        continue;
+      }
+
+      // ── CLICK on an element the owner marked with data-track-click ───────
+      if (event.type === "click") {
+        const name = cleanStr(event.name, MAX_CLICK_NAME);
+        if (!name) continue;
+        bump(usage, "clicks");
+        const pagePath = cleanStr(event.page_path, 500);
+        const { error } = await supabase.from("click_events").insert({
+          site_id: site.id,
+          visitor_id: visitorId,
+          session_id: sessionId,
+          page_view_id: cleanId(event.page_view_id),
+          page_path: pagePath,
+          name,
+          clicked_at: nowIso,
+        });
+        if (error) console.error("[track] click insert error:", error.message);
+        else await markHealthEvent(supabase, site.id, pagePath, "click_attr", now);
+        continue;
+      }
+
+      // ── HEALTH: what the tracker SAW on this page (not events: nothing is counted) ──
+      if (event.type === "health") {
+        await recordHealthReport(supabase, site.id, event, nowIso);
+        continue;
       }
     }
 
-    // Runs after the response has already been sent to the visitor — rides
-    // along on real traffic instead of needing a cron job, and a slow/down
-    // provider here never delays anyone's actual tracking request.
+    after(() => flushUsage(supabase, siteId, usage, now));
+    // Housekeeping rides on real traffic; a slow provider never delays a visitor.
     after(() => resolvePendingCountries(supabase));
-    after(() => closeStaleSessions(supabase));
-    after(() => closeStaleFormEngagement(supabase));
+    after(() => sweepIfDue(supabase));
 
-    return NextResponse.json({ success: true }, { headers: corsHeaders() });
-
+    return ok();
   } catch (err) {
-    console.error("TRACK ERROR:", err);
-    return NextResponse.json({ error: err.message }, { status: 500, headers: corsHeaders() });
+    console.error("[track] error:", err);
+    if (siteId) after(() => flushUsage(supabase, siteId, { ...usage, dropped: usage.dropped + 1 }, now));
+    return NextResponse.json({ error: "Server error" }, { status: 500, headers: CORS });
   }
+}
+
+// ── helpers ────────────────────────────────────────────────────────────────
+
+/** Newest known structure version for a page, remembered for a minute per server instance. */
+const structureCache = new Map();
+const STRUCTURE_CACHE_MS = 60_000;
+
+async function latestStructureId(supabase, siteId, pagePath, deviceClass) {
+  if (!pagePath) return null;
+  const k = `${siteId}|${deviceClass}|${pagePath}`;
+  const hit = structureCache.get(k);
+  if (hit && Date.now() - hit.at < STRUCTURE_CACHE_MS) return hit.id;
+  const { data } = await supabase
+    .from("page_structure_versions")
+    .select("id")
+    .eq("site_id", siteId)
+    .eq("page_path", pagePath)
+    .eq("device_class", deviceClass)
+    .order("last_seen_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const id = data?.id ?? null;
+  if (structureCache.size > 2000) structureCache.clear();
+  structureCache.set(k, { id, at: Date.now() });
+  return id;
+}
+
+/**
+ * The tracker reports what it found: marked forms, marked fields, marked
+ * click targets, and the wrong places it found the attributes. Stored
+ * per page; "working" is proven separately by a real event
+ * (markHealthEvent) so a page showing "found" but never "working" is exactly
+ * the misinstalled case the Settings card is there to catch.
+ */
+async function recordHealthReport(supabase, siteId, event, nowIso) {
+  const pagePath = cleanStr(event.page_path, 500) || "/";
+  const report = event.report && typeof event.report === "object" ? event.report : {};
+  const rows = [];
+  for (const checkKey of ["conversion_form", "field_attr", "click_attr"]) {
+    const d = report[checkKey];
+    if (!d || typeof d !== "object") continue;
+    // Only small numbers and short strings are kept.
+    const details = {};
+    for (const [k, v] of Object.entries(d).slice(0, 12)) {
+      if (typeof v === "number" && Number.isFinite(v)) details[k] = v;
+      else if (typeof v === "string") details[k] = v.slice(0, 120);
+      else if (Array.isArray(v)) details[k] = v.slice(0, 5).map((x) => String(x).slice(0, 80));
+    }
+    rows.push({ site_id: siteId, page_path: pagePath, check_key: checkKey, details, last_seen_at: nowIso });
+  }
+  if (rows.length === 0) return;
+  const { error } = await supabase.from("tracking_health").upsert(rows, { onConflict: "site_id,page_path,check_key", ignoreDuplicates: false });
+  if (error) console.error("[track] health upsert error:", error.message);
 }

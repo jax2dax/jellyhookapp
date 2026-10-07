@@ -49,7 +49,7 @@ export function PricingCards() {
 
               <span className="absolute right-4 top-4 ff-mono text-[9px] uppercase tracking-[0.18em] text-[var(--lime)]">Free now</span>
               <h3 className="ff-display text-2xl text-[#f4f2ea]">{tier.name}</h3>
-              <p className="mt-2 ff-body text-[13px] leading-relaxed text-[#8b8980]">{tier.blurb}</p>
+              <p className="mt-2 ff-body text-[13px] leading-relaxed text-[#8b8980] select-none blur-sm" aria-hidden>{tier.blurb}</p>
 
               <ul className="mt-6 flex-1 space-y-3">
                 {tier.features.map((f) => (

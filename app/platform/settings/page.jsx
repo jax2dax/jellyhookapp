@@ -5,7 +5,7 @@
 import { getAuthUser } from "@/lib/actions/permission.actions";
 // import { getUserSite } from "@/lib/actions/site-management.actions";
 import { getUserSite } from "@/lib/actions/permission.actions";
-import { getMembers } from "@/lib/actions/settings.actions";
+import { getMembers, getMySiteRole, getIngestionStatus } from "@/lib/actions/settings.actions";
 import { getVisitorCount } from "@/lib/actions/supabase.actions";
 import SettingsClient from "./SettingsClients";
 import {
@@ -27,8 +27,9 @@ export default async function SettingsPage() {
   // Fetch members — will find the owner row that getUserSite just backfilled
   const members = site ? await getMembers(site.id) : [];
   const visitorCount = site ? await getVisitorCount(site.id) : 0;
+  const role = site ? await getMySiteRole(site.id) : null;
+  const ingestion = site ? await getIngestionStatus(site.id) : null;
 
-  console.log(`[settings/page] members count=${members.length}`, members.map(m => ({ email: m.user_email, role: m.role })));
 
   return (
     <>
@@ -62,6 +63,8 @@ export default async function SettingsPage() {
             initialMembers={members}
             currentUserId={user.id}
             visitorCount={visitorCount}
+            role={role}
+            ingestion={ingestion}
           />
         )}
       </div>

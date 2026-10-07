@@ -501,6 +501,37 @@ whose rating is the point of that table. Replies go to the account's email,
 looked up from `user_id` in `users`. Until the table exists, sending shows
 "Couldn't send your message" and the server logs the error.
 
+## Ingestion hardening (2026-10-07)
+
+One migration, `mds/migrations/2026-10-07-ingestion-hardening.sql`, run once in the
+Supabase SQL editor (read the checks at its top first). It is safe to run twice
+(tested on a real Postgres). Developer write-ups: `mds/documentation/ingestion-flow-2026-10-07.md`
+(tables, columns, flow), `mds/documentation/sites-keys-roles-2026-10-07.md`,
+`mds/documentation/usage-and-limits-2026-10-07.md`. Audit: `mds/reports/tracker-backend-audit-2026-10-07.md`.
+
+| Table | Change |
+|---|---|
+| `visitors` | + `ip_hash`, `first_referrer`, `first_utm_source/medium/campaign`, `first_landing_path`, `first_touch_at`. Duplicates merged, then unique `(site_id, visitor_id)`. `ip_address` is now only a temporary input to a country lookup and is erased after it |
+| `page_views` | + `viewport_width`, `device_class`, `structure_id` (references `page_structure_versions`). No new index (measured: it would cost about 88 bytes per row) |
+| `page_structure_versions` | NEW. One row per distinct structure per page per device class: `fingerprint`, `headers jsonb`, `page_height`, `first_seen_at`, `last_seen_at`, `seen_count`. Backfilled from `page_structure` as one `legacy` version per page |
+| `page_structure` | Kept, equal to the newest desktop version, for readers that only need the current page |
+| `sites` | + `previous_api_key`, `previous_key_expires_at`, `key_rotated_at`, `new_key_first_hit_at`, `allowed_hosts text[]`, `last_event_at`, `last_unmatched_host/at`, `unmatched_count`, `claim_started_at`. Partial unique `lower(domain)` where verified and not deleted. NOTE: `verified` and `specify_form` exist in production but are not in the create-table block above |
+| `tracking_health` | NEW. What the tracker found per page per attribute, and the last real event that proves it works |
+| `click_events` | NEW. Clicks on `data-track-click` elements |
+| `site_usage_daily` | NEW. Per site per day counters; written by `jh_usage_add()`; no read policy (service role only) |
+
+Functions (service role only): `jh_usage_add`, `jh_close_stale`, `jh_storage_report`,
+`jh_column_report`. Optional, commented in the migration: a pg_cron schedule for the sweep, and
+hashing then erasing the raw IPs already stored.
+
+RLS: `page_structure_versions`, `click_events` and `tracking_health` get the same "active member of the
+site" select policy as the other data tables (`auth.jwt() ->> 'sub'`, never `auth.uid()`). Tested.
+
+Semantics that changed without a column change: a `sessions` row now ends only by 30 minutes of idle
+(never on tab close or navigation) and is reopened (`ended_at = null`) by any later page view or
+heartbeat; `last_activity_at` is moved by heartbeats; `country` is set at insert from the hosting
+platform's country header when present.
+
 ## Row Level Security
 
 Active as of 2026-09-30 (see `mds/progress_timeline.md` for the full story

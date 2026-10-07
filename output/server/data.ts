@@ -13,6 +13,7 @@ import "server-only";
 import { createSupabaseClient } from "@/lib/supabase";
 import { pgHookDb } from "@/lib/hook/pgDb";
 import { buildSessionsRaw } from "@/lib/leadSessions/transform";
+import { fetchStructureRows } from "@/lib/leadSessions/structureRows";
 import { scoped } from "../../jh-hook/engine/sql";
 import { SQL } from "../../jh-hook/engine/sqlmap";
 import type { RelatedCondition } from "../../jh-hook/types";
@@ -133,7 +134,7 @@ export async function sessionReplays(siteId: string, sessionIds: string[]): Prom
   const paths = [...new Set(pageViews.map((p) => str(p.page_path)).filter((p): p is string => !!p))];
   const visitorIds = [...new Set(sessions.map((s) => str(s.visitor_id)).filter((v): v is string => !!v))];
   const [pageStructure, visitors] = await Promise.all([
-    paths.length ? supabase.from("page_structure").select("*").eq("site_id", siteId).in("page_path", paths).then((r) => check<Row[]>(r, "page_structure")) : Promise.resolve([] as Row[]),
+    fetchStructureRows(supabase, siteId, paths) as Promise<Row[]>,
     visitorIds.length ? supabase.from("visitors").select("visitor_id, device_type").eq("site_id", siteId).in("visitor_id", visitorIds).then((r) => check<Row[]>(r, "visitors")) : Promise.resolve([] as Row[]),
   ]);
   const device = new Map(visitors.map((v) => [String(v.visitor_id), str(v.device_type)]));

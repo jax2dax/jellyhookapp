@@ -51,7 +51,7 @@ export function DashboardPricingCards() {
                     Free now
                   </Badge>
                 </div>
-                <p className="mt-1.5 text-sm text-muted-foreground">{tier.blurb}</p>
+                <p className="mt-1.5 select-none text-sm text-muted-foreground blur-sm" aria-hidden>{tier.blurb}</p>
 
                 <ul className="mt-4 space-y-2">
                   {tier.features.map((f) => (

@@ -2,6 +2,7 @@
 import { getAuthUser } from '@/lib/actions/permission.actions'
 import { getCurrentSubscription, getBillingHistory, getUserProfile } from '@/lib/actions/billing.actions'
 import BillingClient from './BillingClient'
+import { ComingSoonVeil } from '@/components/billing/ComingSoonVeil'
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
@@ -31,12 +32,14 @@ export default async function BillingPage() {
       </header>
 
       <div className="flex flex-1 flex-col gap-6 p-6 pt-2">
-        <BillingClient
-          subscription={subscription}
-          history={history}
-          profile={profile}
-          clerkUserId={user.id}
-        />
+        <ComingSoonVeil>
+          <BillingClient
+            subscription={subscription}
+            history={history}
+            profile={profile}
+            clerkUserId={user.id}
+          />
+        </ComingSoonVeil>
       </div>
     </>
   )

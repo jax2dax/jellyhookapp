@@ -4,7 +4,8 @@
 import { useState, useEffect } from "react";
 import { createSite, cancelVerification } from "@/lib/actions/site-management.actions";
 import { useSearchParams } from "next/navigation";
-import { getSiteVerifiedStatus } from "@/lib/actions/site-management.actions";
+import { getSiteVerificationStatus, renewClaim } from "@/lib/actions/site-management.actions";
+import { addAllowedHost } from "@/lib/actions/settings.actions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,7 @@ export default function CreateSitePage() {
   const domainParam = searchParams.get("domain");
 
   const [domain, setDomain] = useState("");
-  const [specifyForm, setSpecifyForm] = useState(false);
+  const [specifyForm, setSpecifyForm] = useState(true); // recommended: label the form
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -41,7 +42,11 @@ export default function CreateSitePage() {
         domain: domain.trim(),
         specify_form: specifyForm,
       });
-      setResult(res);
+      if (res?.invalidDomain) {
+        setError("Enter a domain like example.com, without a path. For local testing, add the site first, then allow localhost in Settings.");
+      } else {
+        setResult(res);
+      }
     } catch (err) {
       setError(err.message || "Something went wrong");
     } finally {
@@ -182,9 +187,10 @@ export default function CreateSitePage() {
             <h2 className="mb-3 text-xl font-bold text-foreground">Site Reclaimed</h2>
             <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
               You previously registered <strong>{result.site.domain}</strong> but never installed the script. Your API key is unchanged.
+              {result.renewed && " Your earlier setup had expired, so it has been renewed for 3 more days."}
             </p>
             <p className="mb-2 block text-xs text-muted-foreground">
-              Paste before your closing <code className="rounded bg-muted px-1.5 py-0.5 text-xs">&lt;/body&gt;</code>:
+              Paste inside the <code className="rounded bg-muted px-1.5 py-0.5 text-xs">&lt;head&gt;</code> of your site:
             </p>
             <ScriptBlock script={script} />
             {result.site.specify_form && (
@@ -210,6 +216,7 @@ export default function CreateSitePage() {
           domain={result.site.domain}
           siteId={result.site.id}
           apiKey={result.site.api_key}
+          competing={result.competing || 0}
           specifyForm={specifyForm}
           onCancel={handleCancelVerification}
           cancelling={cancelling}
@@ -224,31 +231,63 @@ export default function CreateSitePage() {
     <PageShell>
       <Card className="w-full max-w-lg">
         <CardContent>
-          <h1 className="mb-5 text-xl font-bold text-foreground">Add Your Site</h1>
+          <h1 className="text-xl font-bold text-foreground">Add your site</h1>
+          <p className="mt-1 mb-6 text-sm text-muted-foreground">Two small steps and you are tracking. No SDK, nothing to configure.</p>
 
-          <div className="mb-5">
+          <div className="mb-6">
             <label className="mb-2 block text-xs text-muted-foreground">Your domain</label>
-            <Input placeholder="yourdomain.com" value={domain} onChange={(e) => setDomain(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
+            <Input placeholder="yourdomain.com" value={domain} onChange={(e) => setDomain(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} autoFocus />
             <p className="mt-1 text-xs text-muted-foreground">Without https:// or www</p>
           </div>
 
-          <div className="mb-5 rounded-lg border bg-muted/30 p-4">
-            <p className="mb-1 text-xs text-muted-foreground">Do you have a specific conversion form?</p>
-            <p className="mb-3 text-xs text-muted-foreground">A contact form, demo request, or sign-up, not a search bar or newsletter.</p>
-            <div className="flex gap-2.5">
-              <Button size="sm" variant={!specifyForm ? "default" : "outline"} onClick={() => setSpecifyForm(false)}>
-                No, track all forms
-              </Button>
-              <Button size="sm" variant={specifyForm ? "default" : "outline"} onClick={() => setSpecifyForm(true)}>
-                Yes, I&apos;ll label my form
-              </Button>
+          <div className="mb-6">
+            <div className="mb-2 text-xs text-muted-foreground">Which forms count as leads?</div>
+            <div role="radiogroup" className="flex flex-col gap-2">
+              <ChoiceCard
+                selected={specifyForm}
+                onSelect={() => setSpecifyForm(true)}
+                title="Only the form I label"
+                badge="Recommended"
+                description="Add one attribute to your contact or demo form. Newsletter and search boxes are never mistaken for leads."
+              />
+              <ChoiceCard
+                selected={!specifyForm}
+                onSelect={() => setSpecifyForm(false)}
+                title="Every form on my site"
+                description="Nothing to label. Any form with an email counts, newsletter boxes included."
+              />
             </div>
+          </div>
+
+          <div className="mb-6 rounded-lg border bg-muted/30 p-4">
+            <div className="mb-3 text-xs font-medium text-foreground">How it works</div>
+            <ol className="space-y-3 text-xs text-muted-foreground">
+              <li className="flex gap-3">
+                <StepDot n={1} />
+                <span>
+                  Paste one line inside the <code className="rounded bg-muted px-1 py-0.5">&lt;head&gt;</code> of your site.
+                </span>
+              </li>
+              {specifyForm && (
+                <li className="flex gap-3">
+                  <StepDot n={2} />
+                  <span>
+                    Add <code className="rounded bg-muted px-1 py-0.5">data-conversion=&quot;true&quot;</code> to the form you want tracked. Every field of that form is tracked by default (recommended).
+                    To track only some fields, add <code className="rounded bg-muted px-1 py-0.5">data-track-field</code> to those inputs.
+                  </span>
+                </li>
+              )}
+              <li className="flex gap-3">
+                <StepDot n={specifyForm ? 3 : 2} />
+                <span>That is it. We notice the first visit by ourselves and open your dashboard.</span>
+              </li>
+            </ol>
           </div>
 
           {error && <p className="mb-3 text-xs text-destructive">{error}</p>}
 
-          <Button onClick={handleSubmit} disabled={loading || !domain.trim()}>
-            {loading ? "Checking..." : "Continue"}
+          <Button onClick={handleSubmit} disabled={loading || !domain.trim()} className="w-full">
+            {loading ? "Checking..." : "Get my script"}
           </Button>
         </CardContent>
       </Card>
@@ -256,23 +295,81 @@ export default function CreateSitePage() {
   );
 }
 
+function ChoiceCard({ selected, onSelect, title, badge, description }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors ${selected ? "border-primary bg-primary/5" : "hover:bg-muted/40"}`}
+    >
+      <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${selected ? "border-primary" : "border-muted-foreground/50"}`}>
+        {selected && <span className="h-2 w-2 rounded-full bg-primary" />}
+      </span>
+      <span className="flex flex-col gap-0.5">
+        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+          {title}
+          {badge && <Badge variant="outline" className="border-primary/40 text-primary">{badge}</Badge>}
+        </span>
+        <span className="text-xs leading-relaxed text-muted-foreground">{description}</span>
+      </span>
+    </button>
+  );
+}
+
+function StepDot({ n }) {
+  return <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">{n}</span>;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PendingUI — shown after site creation OR when redirected from gated pages
 // Shows script to install, pending badge, and cancel button
 // ─────────────────────────────────────────────────────────────────────────────
-function PendingUI({ domain, siteId, apiKey, specifyForm, onCancel, cancelling, cancelError }) {
+function PendingUI({ domain, siteId, apiKey, competing = 0, specifyForm, onCancel, cancelling, cancelError }) {
   const trackerBase = process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000";
+  const [status, setStatus] = useState(null);
+  const [actionError, setActionError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
   useEffect(() => {
     if (!siteId) return;
-    const interval = setInterval(async () => {
-      const verified = await getSiteVerifiedStatus(siteId);
-      if (verified) {
-        clearInterval(interval);
+    let stopped = false;
+    const check = async () => {
+      const st = await getSiteVerificationStatus(siteId);
+      if (stopped || !st) return;
+      setStatus(st);
+      if (st.verified) {
+        stopped = true;
         window.location.href = "/platform/dashboard";
       }
-    }, 3000); // check every 3 seconds
-    return () => clearInterval(interval);
+    };
+    check();
+    const interval = setInterval(check, 3000); // check every 3 seconds
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
   }, [siteId]);
+
+  async function handleRenew() {
+    setBusy(true);
+    setActionError(null);
+    const res = await renewClaim(siteId);
+    if (!res.success) setActionError(res.error);
+    else setStatus((st) => (st ? { ...st, expired: false, expiresAt: new Date(Date.now() + 3 * 86400000).toISOString() } : st));
+    setBusy(false);
+  }
+
+  async function handleAllow(host) {
+    setBusy(true);
+    setActionError(null);
+    const res = await addAllowedHost(siteId, host);
+    if (!res.success) setActionError(res.error);
+    else setStatus((st) => (st ? { ...st, unmatchedHost: null } : st));
+    setBusy(false);
+  }
+
   const script = apiKey ? `<script src="${trackerBase}/tracker.js" data-key="${apiKey}"></script>` : null;
 
   return (
@@ -299,11 +396,43 @@ function PendingUI({ domain, siteId, apiKey, specifyForm, onCancel, cancelling, 
           </div>
         </div>
 
+        {competing > 0 && (
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+            {competing === 1 ? "Someone else is" : `${competing} other people are`} also setting up <strong>{domain}</strong>. Whoever installs the script on the real website first is verified and owns it.
+          </p>
+        )}
+
+        {status?.unmatchedHost && (
+          <div className="mt-4 rounded-lg border border-warning/40 bg-warning/5 p-3 text-xs leading-relaxed text-muted-foreground">
+            We received data from <strong className="text-foreground">{status.unmatchedHost}</strong>, but this site is set up for <strong className="text-foreground">{domain}</strong>, so it was not recorded.
+            If {status.unmatchedHost} is a test or staging copy of your site, you can allow it. If you pasted the script on the wrong website, move it to {domain}.
+            <div className="mt-2">
+              <Button size="xs" variant="outline" disabled={busy} onClick={() => handleAllow(status.unmatchedHost)}>
+                Allow {status.unmatchedHost}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {status?.expired ? (
+          <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs leading-relaxed text-muted-foreground">
+            This setup expired because the script was not installed within 3 days. Nothing is recorded until you renew it.
+            <div className="mt-2">
+              <Button size="xs" disabled={busy} onClick={handleRenew}>
+                Renew for 3 more days
+              </Button>
+            </div>
+          </div>
+        ) : (
+          status && <p className="mt-4 text-xs text-muted-foreground">Install the script before {new Date(status.expiresAt).toLocaleString()}. After that, this setup expires and you can start again.</p>
+        )}
+        {actionError && <p className="mt-2 text-xs text-destructive">{actionError}</p>}
+
         {/* Script install instructions */}
         {script && (
           <div className="mt-5">
             <p className="mb-2 block text-xs text-muted-foreground">
-              Step 1: Paste before your closing <code className="rounded bg-muted px-1.5 py-0.5 text-xs">&lt;/body&gt;</code> tag:
+              1. Paste inside the <code className="rounded bg-muted px-1.5 py-0.5 text-xs">&lt;head&gt;</code> of your site:
             </p>
             <ScriptBlock script={script} />
           </div>
@@ -311,8 +440,11 @@ function PendingUI({ domain, siteId, apiKey, specifyForm, onCancel, cancelling, 
 
         {specifyForm && (
           <div className="mt-4">
-            <p className="mb-2 block text-xs text-muted-foreground">Step 2: Add to your conversion form:</p>
+            <p className="mb-2 block text-xs text-muted-foreground">2. Add this to the form you want tracked. All its fields are tracked by default:</p>
             <ScriptBlock script={`<form data-conversion="true">\n  ...\n</form>`} />
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Optional: to track only some fields, add <code className="rounded bg-muted px-1.5 py-0.5">data-track-field</code> to those inputs.
+            </p>
           </div>
         )}
 
@@ -330,7 +462,7 @@ function PendingUI({ domain, siteId, apiKey, specifyForm, onCancel, cancelling, 
 }
 
 function ScriptBlock({ script }) {
-  return <pre className="mb-4 overflow-x-auto rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-wrap break-all text-primary">{script}</pre>;
+  return <pre className="mb-4 overflow-x-auto rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-wrap break-all text-sky-400">{script}</pre>;
 }
 
 function PageShell({ children }) {
