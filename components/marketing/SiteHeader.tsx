@@ -81,7 +81,7 @@ export function SiteHeader() {
             </Show>
 
             <Show when="signed-in">
-              <Link href="/dashboard">
+              <Link href="/platform/dashboard">
                 <button className="group inline-flex h-10 items-center gap-2.5 bg-[var(--lime)] px-5 ff-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-black transition-colors hover:bg-[var(--lime-bright)]">
                   Dashboard
                   <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1" />
@@ -133,7 +133,7 @@ export function SiteHeader() {
               </Show>
 
               <Show when="signed-in">
-                <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/platform/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
                   <button className="inline-flex w-full items-center justify-center bg-[var(--lime)] py-4 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-black">
                     Dashboard
                   </button>

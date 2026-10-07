@@ -180,12 +180,17 @@ export async function POST(req: NextRequest) {
         user.email_addresses?.[0]?.email_address ??
         null
 
-      const { error } = await supabase.from('users').insert({
-        id: user.id,
-        email: primaryEmail,
-        first_name: user.first_name ?? null,
-        last_name: user.last_name ?? null,
-      })
+      // upsert + ignoreDuplicates: Clerk can deliver the same event more than once (retries, manual
+      // replays). A repeat must succeed quietly, not fail on the duplicate id and trigger more retries.
+      const { error } = await supabase.from('users').upsert(
+        {
+          id: user.id,
+          email: primaryEmail,
+          first_name: user.first_name ?? null,
+          last_name: user.last_name ?? null,
+        },
+        { onConflict: 'id', ignoreDuplicates: true }
+      )
 
       if (error) {
         console.error('[webhook] user.created — DB insert error:', error.message)

@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { CodeBox, InstallSteps } from "./InstallSteps";
 
 export default function CreateSitePage() {
   const searchParams = useSearchParams();
@@ -178,7 +179,6 @@ export default function CreateSitePage() {
 
   // ── RECLAIMED (unverified, original owner) ───────────────────────────────
   if (result?.reclaimed) {
-    const script = `<script src="${process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000"}/tracker.js" data-key="${result.site.api_key}"></script>`;
     return (
       <PageShell>
         <Card className="w-full max-w-lg">
@@ -189,16 +189,8 @@ export default function CreateSitePage() {
               You previously registered <strong>{result.site.domain}</strong> but never installed the script. Your API key is unchanged.
               {result.renewed && " Your earlier setup had expired, so it has been renewed for 3 more days."}
             </p>
-            <p className="mb-2 block text-xs text-muted-foreground">
-              Paste inside the <code className="rounded bg-muted px-1.5 py-0.5 text-xs">&lt;head&gt;</code> of your site:
-            </p>
-            <ScriptBlock script={script} />
-            {result.site.specify_form && (
-              <>
-                <p className="mb-2 block text-xs text-muted-foreground">Add to your conversion form:</p>
-                <ScriptBlock script={`<form data-conversion="true">\n  ...\n</form>`} />
-              </>
-            )}
+            <InstallSteps apiKey={result.site.api_key} trackerBase={process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000"} specifyForm={!!result.site.specify_form} />
+            <div className="mb-4" />
             <Button asChild>
               <a href="/platform">Go to Dashboard →</a>
             </Button>
@@ -260,28 +252,31 @@ export default function CreateSitePage() {
           </div>
 
           <div className="mb-6 rounded-lg border bg-muted/30 p-4">
-            <div className="mb-3 text-xs font-medium text-foreground">How it works</div>
+            <div className="mb-3 text-xs font-medium text-foreground">{specifyForm ? "Get done in 2 steps" : "Get done in 1 step"}</div>
             <ol className="space-y-3 text-xs text-muted-foreground">
               <li className="flex gap-3">
                 <StepDot n={1} />
                 <span>
-                  Paste one line inside the <code className="rounded bg-muted px-1 py-0.5">&lt;head&gt;</code> of your site.
+                  Paste one line in the <code className="rounded bg-muted px-1 py-0.5">&lt;head&gt;</code> of your site.
                 </span>
               </li>
               {specifyForm && (
                 <li className="flex gap-3">
                   <StepDot n={2} />
-                  <span>
-                    Add <code className="rounded bg-muted px-1 py-0.5">data-conversion=&quot;true&quot;</code> to the form you want tracked. Every field of that form is tracked by default (recommended).
-                    To track only some fields, add <code className="rounded bg-muted px-1 py-0.5">data-track-field</code> to those inputs.
-                  </span>
+                  <span>Mark your form with one attribute:</span>
                 </li>
               )}
-              <li className="flex gap-3">
-                <StepDot n={specifyForm ? 3 : 2} />
-                <span>That is it. We notice the first visit by ourselves and open your dashboard.</span>
-              </li>
             </ol>
+            {specifyForm && (
+              <div className="mt-3 rounded-md border bg-background/60 p-3 font-mono text-xs">
+                <span className="text-muted-foreground">&lt;form </span>
+                <span className="font-semibold text-emerald-400">data-conversion=&quot;true&quot;</span>
+                <span className="text-muted-foreground">&gt;</span>
+                <div className="pl-4 text-muted-foreground">...</div>
+                <span className="text-muted-foreground">&lt;/form&gt;</span>
+              </div>
+            )}
+            <p className="mt-3 text-[11px] text-muted-foreground">{specifyForm ? "Every field is tracked by default. That is it: we notice the first visit and open your dashboard." : "Every form is tracked. We notice the first visit and open your dashboard."}</p>
           </div>
 
           {error && <p className="mb-3 text-xs text-destructive">{error}</p>}
@@ -370,7 +365,6 @@ function PendingUI({ domain, siteId, apiKey, competing = 0, specifyForm, onCance
     setBusy(false);
   }
 
-  const script = apiKey ? `<script src="${trackerBase}/tracker.js" data-key="${apiKey}"></script>` : null;
 
   return (
     <Card className="w-full max-w-lg">
@@ -405,7 +399,7 @@ function PendingUI({ domain, siteId, apiKey, competing = 0, specifyForm, onCance
         {status?.unmatchedHost && (
           <div className="mt-4 rounded-lg border border-warning/40 bg-warning/5 p-3 text-xs leading-relaxed text-muted-foreground">
             We received data from <strong className="text-foreground">{status.unmatchedHost}</strong>, but this site is set up for <strong className="text-foreground">{domain}</strong>, so it was not recorded.
-            If {status.unmatchedHost} is a test or staging copy of your site, you can allow it. If you pasted the script on the wrong website, move it to {domain}.
+            If {status.unmatchedHost} really is part of this site, you can allow it. If you pasted the script on the wrong website, move it to {domain}. Do not allow test or local copies: their visits would be mixed into your real analytics.
             <div className="mt-2">
               <Button size="xs" variant="outline" disabled={busy} onClick={() => handleAllow(status.unmatchedHost)}>
                 Allow {status.unmatchedHost}
@@ -424,29 +418,12 @@ function PendingUI({ domain, siteId, apiKey, competing = 0, specifyForm, onCance
             </div>
           </div>
         ) : (
-          status && <p className="mt-4 text-xs text-muted-foreground">Install the script before {new Date(status.expiresAt).toLocaleString()}. After that, this setup expires and you can start again.</p>
+          status && <p className="mt-4 text-xs text-muted-foreground">Setup expires on {new Date(status.expiresAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}.</p>
         )}
         {actionError && <p className="mt-2 text-xs text-destructive">{actionError}</p>}
 
-        {/* Script install instructions */}
-        {script && (
-          <div className="mt-5">
-            <p className="mb-2 block text-xs text-muted-foreground">
-              1. Paste inside the <code className="rounded bg-muted px-1.5 py-0.5 text-xs">&lt;head&gt;</code> of your site:
-            </p>
-            <ScriptBlock script={script} />
-          </div>
-        )}
-
-        {specifyForm && (
-          <div className="mt-4">
-            <p className="mb-2 block text-xs text-muted-foreground">2. Add this to the form you want tracked. All its fields are tracked by default:</p>
-            <ScriptBlock script={`<form data-conversion="true">\n  ...\n</form>`} />
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              Optional: to track only some fields, add <code className="rounded bg-muted px-1.5 py-0.5">data-track-field</code> to those inputs.
-            </p>
-          </div>
-        )}
+        {/* Install steps */}
+        {apiKey && <InstallSteps apiKey={apiKey} trackerBase={trackerBase} specifyForm={specifyForm} />}
 
         {/* Cancel option */}
         <div className="mt-6 border-t pt-5">
@@ -462,7 +439,7 @@ function PendingUI({ domain, siteId, apiKey, competing = 0, specifyForm, onCance
 }
 
 function ScriptBlock({ script }) {
-  return <pre className="mb-4 overflow-x-auto rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-wrap break-all text-sky-400">{script}</pre>;
+  return <CodeBox code={script} tone="ours" />;
 }
 
 function PageShell({ children }) {

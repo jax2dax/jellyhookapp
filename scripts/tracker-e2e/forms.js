@@ -23,9 +23,21 @@ let SPECIFY = false;
 const captured = [];
 const health = [];
 
+// The starter form offered on the create-site screen: the harness uses the very same text the screen shows.
+const STARTER_FORM = fs.readFileSync(path.resolve(__dirname, "../../app/platform/create-site/starterForm.mjs"), "utf8").match(/STARTER_FORM = `([^`]*)`;/)[1];
+
 const FORM_SUBMIT = "document.addEventListener('submit', e => { e.preventDefault(); }, false);"; // vendors submit through their own JS
 
 const CASES = [
+  {
+    id: "jellyhook-starter-form",
+    label: "Jellyhook starter form (the one offered on the create-site screen)",
+    selfMarked: true,
+    html: STARTER_FORM,
+    fill: { name: "Ada Lovelace", email: "ada@example.com", phone: "555-0101", message: "Hello" },
+    submit: "button[type=submit]",
+    expect: { email: "ada@example.com", name: "Ada Lovelace", phone: "555-0101" },
+  },
   {
     id: "salesforce-web-to-lead",
     label: "Salesforce Web-to-Lead (plain HTML form, posts to webto.salesforce.com)",
@@ -215,7 +227,7 @@ const verdict = (name, ok, extra = "") => rows.push({ name, ok, extra });
         await sleep(900);
         const got = captured.filter((x) => x && x.page_path);
         const cap = got[0];
-        const expectCapture = mode === "global" || wrapped || c.id === "hubspot-embed";
+        const expectCapture = mode === "global" || wrapped || c.id === "hubspot-embed" || c.selfMarked;
         const label = `${c.id}${mode === "labelled" ? (wrapped ? " [wrapper marked]" : " [not marked]") : ""}`;
         if (!expectCapture) {
           verdict(label, got.length === 0, got.length === 0 ? "correctly ignored" : `captured ${got.length} but should be ignored`);

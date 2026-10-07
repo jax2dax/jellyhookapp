@@ -143,7 +143,7 @@ export default function AboutPage() {
               </Link>
             </Show>
             <Show when="signed-in">
-              <Link href="/dashboard">
+              <Link href="/platform/dashboard">
                 <button className="group inline-flex h-14 w-full items-center justify-center gap-3 bg-black px-7 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--lime)] transition-colors hover:bg-[#151515] sm:w-auto">
                   Go to dashboard
                   <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
