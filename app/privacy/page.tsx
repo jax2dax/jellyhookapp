@@ -16,13 +16,13 @@ const YOUR_ACCOUNT_DATA = [
 ];
 
 const VISITOR_DATA = [
-  ["Visitor & session identity", "A random ID generated in the visitor&apos;s browser (not tied to a real name unless they submit a form) plus session timing."],
+  ["Visitor & session identity", "A random ID generated in the visitor's browser (not tied to a real name unless they submit a form) plus session timing."],
   ["Page activity", "Page paths, time spent on each page, scroll depth, and whether a page was revisited."],
-  ["Technical context", "Device type, screen width, approximate country, timezone, and referrer URL. The country comes from the hosting platform, or from a one-time IP lookup when it is not available. The IP address itself is not kept: it is stored only as a salted one-way hash that identifies a repeat device but cannot be turned back into an address."],
+  ["Technical context", "Device type, screen width, approximate country, timezone, and referrer URL. The country normally comes from the hosting platform's own header. When that is missing, the visitor's IP address is held briefly, sent over HTTPS to a third-party lookup service (ipwho.is) to get the country, and then deleted whether or not the lookup worked. We also keep a salted one-way hash of the IP, which can recognise a repeat device but cannot be turned back into an address. Our hosting provider's own request logs are outside Jellyhook's control."],
   ["First visit", "For a new visitor, the referrer, campaign tags (UTM) and landing page of their very first visit, kept to show where visitors originally came from."],
   ["Clicks", "Only on elements you mark with data-track-click on your own pages."],
   ["Form submissions", "Whatever fields your form collects, commonly name, email, and phone, tied to the page and session it came from."],
-  ["Page structure", "Heading text and position captured from your pages, used to mark headings on the session replay chart."],
+  ["Page structure", "Heading text and position captured from your pages, used to mark headings on the visit chart."],
 ];
 
 export default function PrivacyPage() {
@@ -78,9 +78,24 @@ export default function PrivacyPage() {
 
       <section className="border-b border-[#1b1b18]">
         <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
+          <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">Consent and your responsibilities</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            The tracker stores a random visitor ID and session details in the visitor&apos;s browser (local storage) and sends the data
+            above to Jellyhook. It does not include a consent banner, but it respects the visitor&apos;s browser: when Global Privacy Control or Do Not Track is on, the tracker does nothing at all. A site owner can also switch on consent mode, where the tracker stays off until the site&apos;s own cookie banner says yes, and erases what it stored if the visitor says no.
+          </p>
+          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            If your site has visitors in the EU, the UK or anywhere else that requires consent for this kind of storage or tracking, you
+            are responsible for getting that consent before the script loads, and for describing the tracking in your own privacy notice.
+            Jellyhook does not claim compliance on your behalf, and nothing here is legal advice.
+          </p>
+        </div>
+      </section>
+
+      <section className="border-b border-[#1b1b18]">
+        <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">How it&apos;s used</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Solely to run the product you signed up for: showing you your own site&apos;s traffic, session replays, leads,
+            Solely to run the product you signed up for: showing you your own site&apos;s traffic, visit charts, leads,
             and page-health analysis. We don&apos;t sell tracked data, and we don&apos;t share it across accounts. Every query
             in the dashboard is scoped to sites you own or have been invited to.
           </p>

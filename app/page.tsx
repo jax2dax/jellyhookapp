@@ -49,11 +49,11 @@ const AUDIENCES = [
   {
     icon: Users,
     title: "Business managers",
-    desc: "Watch conversions trend over time and see, from the real session replays, exactly which pages hold attention and which ones quietly lose it, giving your whole team a shared, factual picture to work from.",
+    desc: "Watch conversions trend over time and see, from the real visit charts, exactly which pages hold attention and which ones quietly lose it, giving your whole team a shared, factual picture to work from.",
   },
 ];
 
-const TICKER = ["Session replay", "Hook queries", "Scroll depth", "Lead intelligence", "HubSpot forms", "Conversion paths"];
+const TICKER = ["Visit chart", "Hook queries", "Scroll depth", "Lead intelligence", "HubSpot forms", "Conversion paths"];
 
 // The four hero promises, said again with the "why" behind them — outcomes
 // a reader can picture, not a feature re-explained in smaller text.
@@ -81,8 +81,8 @@ const PROMISE_DETAILS = [
 const HOOK_POINTS = [
   { title: "No SQL. No analyst.", desc: "Build a question out of plain choices. Hook reads it back to you in plain English before you run it." },
   { title: "Questions that chain", desc: "Feed the answer of one question into another: find your Hanna leads, then see every page they viewed, in one run." },
-  { title: "See it before you run it", desc: "A live preview draws the visit your question describes in the same shapes as session replay, for free." },
-  { title: "Answers, not tables of ids", desc: "Results come back as session replays, lead profiles and numbers with context, with the pages that made each result match highlighted." },
+  { title: "See it before you run it", desc: "A live preview draws the visit your question describes in the same shapes as the visit chart, for free." },
+  { title: "Answers, not tables of ids", desc: "Results come back as visit charts, lead profiles and numbers with context, with the pages that made each result match highlighted." },
   { title: "Find where forms lose people", desc: "Ask which field people give up on, which they click but never type in, and how long each one takes." },
   { title: "Compare two questions", desc: "Divide one answer by another: what share of conversions passed through your pricing page?" },
 ];
@@ -211,7 +211,7 @@ const LandingPage = () => {
           {/* hero footer strip */}
           <div className="mt-20 flex flex-wrap items-center justify-between gap-x-8 gap-y-4 border-t border-[#1b1b18] py-5 md:mt-28">
             <span className="ff-mono text-[10px] uppercase tracking-[0.22em] text-[#77756d]">
-              One tracker script. Every session, replayed. Not sampled or estimated.
+              One tracker script. Every visit, charted page by page. Not sampled or estimated.
             </span>
 
             <div className="flex items-center gap-6 ff-mono text-[10px] uppercase tracking-[0.22em] text-[#5f5d57]">
@@ -250,7 +250,7 @@ const LandingPage = () => {
                 Built for conversion tracking &amp; <em className="italic text-[var(--lime)]">intent discovery</em>.
               </h2>
               <p className="mt-5 max-w-lg ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-                Install one script and Jellyhook turns every visit into a full session replay: pages seen, time
+                Install one script and Jellyhook turns every visit into a page-by-page chart: pages seen, time
                 spent, how far they scrolled. It also links every form submission straight back to that history.
                 Here&apos;s what that means for the people who actually use it.
               </p>
@@ -414,7 +414,7 @@ const LandingPage = () => {
 
             <div className="lg:col-span-5">
               <p className="max-w-sm ff-body text-[15px] leading-[1.75] text-black/65">
-                Create a site, drop the tracker script in, and watch your first session replay come in. Free to start.
+                Create a site, drop the tracker script in, and watch your first visit appear. Free to start.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">

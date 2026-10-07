@@ -114,7 +114,7 @@ export default function SupportedFormsPage() {
         />
         <Callout title="Leads without a name or email">
           <p>
-            A lead counted from Typeform, Calendly or Jotform has no name or email, because the iframe never shares them. It still counts as a conversion and ties to the visitor&apos;s whole visit, so session replay and conversion paths work. It shows a dash in the Leads list. Your CRM holds the person&apos;s details.
+            A lead counted from Typeform, Calendly or Jotform has no name or email, because the iframe never shares them. It still counts as a conversion and ties to the visitor&apos;s whole visit, so the visit chart and conversion paths work. It shows a dash in the Leads list. Your CRM holds the person&apos;s details.
           </p>
         </Callout>
       </Section>

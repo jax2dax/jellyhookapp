@@ -37,7 +37,7 @@ export default function ResultsHowItWorksPage() {
         </P>
         <UL>
           <li>A page-view condition under <B>exclude (NOT)</B>, or a count of 0, highlights nothing: those visits are absent by definition.</li>
-          <li>A session filter with no page-view condition shows the replay as it is.</li>
+          <li>A session filter with no page-view condition shows the visit chart as it is.</li>
           <li>Visitors show at most 2 matching sessions each, newest first.</li>
         </UL>
       </Section>
@@ -49,7 +49,7 @@ export default function ResultsHowItWorksPage() {
         <DataTable
           head={["List", "First batch"]}
           rows={[
-            ["Session replays", "6"],
+            ["Visit charts", "6"],
             ["Lead profiles, visitor cards, form activity", "12"],
             ["Pages", "24"],
             ["Form fields", "50"],

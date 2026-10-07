@@ -9,12 +9,12 @@ import { primaryBtn } from "@/components/marketing/MarketingTheme";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Jellyhook is free during early access. Every feature on every account, including lead intelligence, conversion paths, and session replay, is unlocked with no card required.",
+    "Jellyhook is free during early access. Every feature on every account, including lead intelligence, conversion paths, and visit charts, is unlocked with no card required.",
   alternates: { canonical: "/pricing" },
   openGraph: {
     title: "Jellyhook Pricing",
     description:
-      "Jellyhook is free during early access. Every feature on every account, including lead intelligence, conversion paths, and session replay, is unlocked with no card required.",
+      "Jellyhook is free during early access. Every feature on every account, including lead intelligence, conversion paths, and visit charts, is unlocked with no card required.",
     url: "/pricing",
   },
 };

@@ -15,7 +15,6 @@
 //     so the browser does not send a preflight OPTIONS before each one.
 (function () {
   if (window.__jhTrackerLoaded) return; // installed twice: the second copy does nothing
-  window.__jhTrackerLoaded = true;
 
   const _originalFetch = window.fetch;
 
@@ -35,6 +34,79 @@
     console.error("Tracker: Missing data-key");
     return;
   }
+
+  // ── PRIVACY GATES: nothing is read, stored or sent before these pass ──────────────────────────────
+  //  1. The visitor's browser says no: Global Privacy Control, or Do Not Track. Always honoured.
+  //  2. The site asks for consent: with data-require-consent on the script tag, the tracker stays off until
+  //     the site calls  window.jellyhook.consent(true)  (for example from its cookie banner). consent(false)
+  //     turns it off again and erases what the tracker stored in this browser. The choice is remembered.
+  // Details for site owners: /docs/concepts/privacy-consent
+  function browserSaysNo() {
+    try {
+      return navigator.globalPrivacyControl === true || navigator.doNotTrack === "1" || window.doNotTrack === "1" || navigator.msDoNotTrack === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+  function storedConsent() {
+    try {
+      return localStorage.getItem("jh_consent");
+    } catch (e) {
+      return null;
+    }
+  }
+  function eraseStoredData() {
+    try {
+      ["visitor_id", "jh_session", "jh_active", "jh_sc", "jh_hr"].forEach(function (k) {
+        localStorage.removeItem(k);
+      });
+      Object.keys(sessionStorage).forEach(function (k) {
+        if (k.indexOf("jh_") === 0) sessionStorage.removeItem(k);
+      });
+    } catch (e) {}
+  }
+  if (browserSaysNo()) return;
+  if (scriptTag.hasAttribute("data-require-consent")) {
+    const state = storedConsent();
+    if (state === "denied") {
+      eraseStoredData();
+    }
+    if (state !== "granted") {
+      window.jellyhook = window.jellyhook || {
+        consent: function (granted) {
+          try {
+            localStorage.setItem("jh_consent", granted ? "granted" : "denied");
+          } catch (e) {}
+          if (granted) {
+            if (browserSaysNo()) return;
+            // start the tracker now: a fresh copy of this same tag, with consent on record
+            const again = document.createElement("script");
+            again.src = scriptTag.src;
+            again.setAttribute("data-key", apiKey);
+            again.setAttribute("data-require-consent", "");
+            document.head.appendChild(again);
+          } else {
+            eraseStoredData();
+          }
+        },
+      };
+      return;
+    }
+    // consent already granted: run, and let the site withdraw it later
+    window.jellyhook = {
+      consent: function (granted) {
+        try {
+          localStorage.setItem("jh_consent", granted ? "granted" : "denied");
+        } catch (e) {}
+        if (!granted) {
+          eraseStoredData();
+          // the running tracker cannot be unwound piece by piece: reloading is the one clean way to stop it
+          window.location.reload();
+        }
+      },
+    };
+  }
+  window.__jhTrackerLoaded = true;
 
   // Silent unless asked: a tracker must not fill a customer's console.
   let DEBUG = scriptTag.hasAttribute("data-debug");

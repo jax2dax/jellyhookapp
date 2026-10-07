@@ -40,7 +40,7 @@ export default function BuildingPage() {
           rows={(Object.keys(SCHEMA) as EntityKey[]).map((k) => [<B key={k}>{SCHEMA[k].plural}</B>, ENTITY_DOCS[k].means, ENTITY_DOCS[k].asks])}
         />
         <P>
-          An <B>away period</B> is the time between one page view ending and the next starting in the same session, when it lasts 15 seconds or more. It is the same rule the session replay uses to draw a purple away bar.
+          An <B>away period</B> is the time between one page view ending and the next starting in the same session, when it lasts 15 seconds or more. It is the same rule the visit chart useslay uses to draw a purple away bar.
         </P>
         <P>
           <B>Form fields</B> has one row per field someone clicked into. That is the data behind questions about where people give up on a form. See{" "}
@@ -105,7 +105,7 @@ export default function BuildingPage() {
             [<B key="a">the number of</B>, "One number.", "How many sessions converted."],
             [<B key="b">the number of different (unique)</B>, "One number, counting each value once.", "How many different pages were visited."],
             [<B key="c">a calculation:</B>, "One value: average, total, lowest, highest, median or percentile of a field.", "Average time on page."],
-            [<B key="d">a list of sessions</B>, "The matching rows themselves. The name follows what you look at (a list of leads, a list of page views). Results draw them as cards and replays; as a sub-hook the list is handed over as ids.", "The sessions that match."],
+            [<B key="d">a list of sessions</B>, "The matching rows themselves. The name follows what you look at (a list of leads, a list of page views). Results draw them as cards and visit charts; as a sub-hook the list is handed over as ids.", "The sessions that match."],
             [<B key="e">a list of ... values</B>, "The different values of one field.", "Which campaign sources brought leads."],
             [<B key="f">a breakdown:</B>, "A table: one measure per value of a field, or per hour, day, week or month. Sort it, and keep the top N.", "Page views per page; sessions per day."],
           ]}
@@ -155,7 +155,7 @@ export default function BuildingPage() {
       <Section title="Good to know">
         <Callout title="Time on page: two fields">
           <p>
-            <B>Time on page</B> is what the session replay shows. <B>Time on page (browser timer)</B> is the browser&apos;s own stopwatch, and the two can differ by a second or more. Use <B>time on page</B> to match what you see in replays.
+            <B>Time on page</B> is what the visit chart shows. <B>Time on page (browser timer)</B> is the browser&apos;s own stopwatch, and the two can differ by a second or more. Use <B>time on page</B> to match what you see in the visit chart.
           </p>
         </Callout>
         <Callout title="Share of page seen is sometimes empty">

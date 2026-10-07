@@ -133,7 +133,7 @@ export default function DashboardReferencePage() {
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Lead footprints</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Two small session replay charts, each labeled with one specific lead&apos;s name or email. The leads
+            Two small visit charts, each labeled with one specific lead&apos;s name or email. The leads
             shown are whichever two have submitted the most forms on this site, since someone who has shown up
             repeatedly is the most useful example to preview. A link below takes you to the full leads list.
           </p>

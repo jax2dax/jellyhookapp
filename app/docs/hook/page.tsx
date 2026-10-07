@@ -16,7 +16,7 @@ const MAP: [string, string, string][] = [
   ["/docs/hook/examples", "Worked examples", "Twenty-four questions for marketing, content, sales, forms and journeys."],
   ["/docs/hook/field-reference", "Field reference", "Every field, type, operator and measure. Always matches what the builder offers."],
   ["/docs/preview", "The preview", "The live picture beside the builder that shows what your question describes."],
-  ["/docs/results", "The results", "How the answer is drawn: numbers, replays, lead profiles, comparisons."],
+  ["/docs/results", "The results", "How the answer is drawn: numbers, visit charts, lead profiles, comparisons."],
   ["/docs/hook/how-it-works", "How Hook works", "What happens between pressing Run and seeing the answer. Read this to trust it."],
   ["/docs/hook/glossary", "Glossary", "Every term in one place."],
 ];

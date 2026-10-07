@@ -105,7 +105,7 @@ export default function RootLayout({
             url: SITE_URL,
             logo: `${SITE_URL}/mainLogo.png`,
             description:
-              "Jellyhook is a lead intelligence and conversion insight platform offering session replay, linked form submissions,  conversion path tracking and form friction analysis.",
+              "Jellyhook is a lead intelligence and conversion insight platform offering visit charts, linked form submissions,  conversion path tracking and form friction analysis.",
           })}
         </Script>
 

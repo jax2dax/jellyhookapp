@@ -18,7 +18,7 @@ export default function TroubleshootingPage() {
 
       <div className="mt-12 space-y-12">
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">A page in the session replay chart shows an impossible duration</h2>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">A page in the visit chart shows an impossible duration</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             A blue frame (still open) with a duration in the tens or hundreds of thousands of minutes means a
             page view that was never properly closed, from before a specific fix, and its duration is being

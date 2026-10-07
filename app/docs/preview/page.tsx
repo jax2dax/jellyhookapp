@@ -14,7 +14,7 @@ export default function PreviewPage() {
       <DocHeader
         eyebrow="Hook"
         title="The preview"
-        intro="Beside the Hook builder, a live picture shows what your question describes, drawn in the same shapes as session replay. It answers one question before you spend a credit: is this the session I mean?"
+        intro="Beside the Hook builder, a live picture shows what your question describes, drawn in the same shapes as the visit chart. It answers one question before you spend a credit: is this the session I mean?"
       />
 
       <Section title="What it is, and what it is not">

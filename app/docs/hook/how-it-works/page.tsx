@@ -138,8 +138,8 @@ export default function HookHowItWorksPage() {
             [<B key="a">Page</B>, "A page address of your site, as recorded for the page view."],
             [<B key="b">Converted session</B>, "A session that has a form submission."],
             [<B key="c">Lead</B>, "A form submission. Its visitor is the browser that submitted it."],
-            [<B key="d">Time on page</B>, "Left at minus entered at, both stamped by our server. This is the figure session replay shows. The browser timer is a separate field."],
-            [<B key="e">Away period</B>, "The time between one page view ending and the next starting in the same session, when it is 15 seconds or more. The same rule session replay uses for its away bars."],
+            [<B key="d">Time on page</B>, "Left at minus entered at, both stamped by our server. This is the figure the visit chart shows. The browser timer is a separate field."],
+            [<B key="e">Away period</B>, "The time between one page view ending and the next starting in the same session, when it is 15 seconds or more. The same rule the visit chart uses for its away bars."],
             [<B key="f">Share of page seen</B>, "The share of the page that was on screen, from the recorded scroll positions and screen height. Empty, never guessed, when the screen height was not recorded."],
             [<B key="g">Hours and weekdays</B>, "UTC."],
           ]}
@@ -151,7 +151,7 @@ export default function HookHowItWorksPage() {
           <li>Custom form answers are not available as fields in conditions yet.</li>
           <li>The referrer is raw text; the classified traffic source is not a field yet.</li>
           <li>Hours and weekdays are UTC, not the visitor&apos;s local time.</li>
-          <li>Share of page seen uses where the visitor entered, went deepest, and scrolled back to. The session replay chart can show finer detail.</li>
+          <li>Share of page seen uses where the visitor entered, went deepest, and scrolled back to. The visit chart can show finer detail.</li>
           <li>Very large questions make long links. Saved hooks will remove this.</li>
         </UL>
         <Callout title="Want the engineering detail?">

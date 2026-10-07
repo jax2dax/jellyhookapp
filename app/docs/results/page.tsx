@@ -4,7 +4,7 @@ import { DocHeader, Section, H3, P, UL, OL, B, Callout, Example, DataTable, DocF
 
 export const metadata: Metadata = {
   title: "The results",
-  description: "How Hook draws its answers: numbers with context, breakdowns, session replays, lead profiles, why a result is there, and comparing two hooks.",
+  description: "How Hook draws its answers: numbers with context, breakdowns, visit charts, lead profiles, why a result is there, and comparing two hooks.",
   alternates: { canonical: "/docs/results" },
 };
 
@@ -26,8 +26,8 @@ export default function ResultsPage() {
             [<B key="c">a breakdown by hour, day, week or month</B>, "Bars over time. Hover for values."],
             [<B key="d">a breakdown by anything else</B>, "A ranked bar list."],
             [<B key="e">a list of ... values</B>, "Value chips."],
-            [<B key="f">a list of sessions</B>, "Full session replays, 6 at a time."],
-            [<B key="g">a list of page views / away periods</B>, "The sessions they belong to, as replays, with the returned visits highlighted."],
+            [<B key="f">a list of sessions</B>, "Full visit charts, 6 at a time."],
+            [<B key="g">a list of page views / away periods</B>, "The sessions they belong to, as visit charts, with the returned visits highlighted."],
             [<B key="h">a list of form submissions (leads)</B>, "Lead mini profiles, 12 at a time."],
             [<B key="i">a list of visitors</B>, "Visitor cards, 12 at a time."],
             [<B key="j">a list of pages</B>, "A table of views and form submissions per page."],
@@ -69,7 +69,7 @@ export default function ResultsPage() {
         <DataTable
           head={["Your hook", "What you see"]}
           rows={[
-            ["Sessions filtered by their page views", "Inside each replay, the matching visits are ringed in cyan and the rest is dimmed. The header says how many visits matched."],
+            ["Sessions filtered by their page views", "Inside each visit chart, the matching visits are ringed in cyan and the rest is dimmed. The header says how many visits matched."],
             ["Page views or away periods returned", "Each session shown once, with the returned visits highlighted."],
             ["Leads filtered by their session", "Under each lead, the session they converted in, with your page conditions highlighted."],
             ["Visitors filtered by their sessions", "Under each visitor, up to 2 matching sessions, newest first, highlighted."],

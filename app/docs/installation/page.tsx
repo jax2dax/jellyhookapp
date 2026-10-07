@@ -22,14 +22,14 @@ const COLLECTED: [string, string][] = [
   ["Clicks", "Only on elements you mark with data-track-click. Nothing else is clicked-tracked."],
   ["Form submissions", "Name, email, phone, and any other fields the form collects, tied to the page and session it came from."],
   ["Form engagement", "When a form was viewed, when it was started, and how long was spent on each field, even if it was never submitted."],
-  ["Page structure", "Heading text and position on each page, used to mark headings on the session replay chart."],
+  ["Page structure", "Heading text and position on each page, used to mark headings on the visit chart."],
 ];
 
 const ENDPOINTS: [string, string][] = [
   ["/api/track", "Core ingestion endpoint. Receives page view and session events from the tracker script."],
   ["/api/track-form", "Receives form submissions and stores them as leads, deduplicated within a short window."],
   ["/api/track-form-engagement", "Receives form view, start, field timing, submit, and abandon events."],
-  ["/api/track-structure", "Receives page heading and layout metadata, used on the session replay chart."],
+  ["/api/track-structure", "Receives page heading and layout metadata, used on the visit chart."],
   ["/api/site-config", "Returns per-site tracker configuration, for example whether form capture is restricted to specific forms."],
 ];
 

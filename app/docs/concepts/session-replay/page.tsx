@@ -4,8 +4,8 @@ import { ExampleFramePlate } from "./ExampleFramePlate";
 import { TerminologyDiagram } from "./TerminologyDiagram";
 
 export const metadata: Metadata = {
-  title: "Session replay",
-  description: "How to read the session replay chart on a lead's page, with a real interactive example.",
+  title: "Visit chart",
+  description: "How to read the visit chart on a lead's page, with a real interactive example.",
   alternates: { canonical: "/docs/concepts/session-replay" },
 };
 
@@ -32,11 +32,16 @@ export default function SessionReplayPage() {
   return (
     <div>
       <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Core concepts</span>
-      <h1 className="mt-3 ff-display text-3xl text-[#f4f2ea]">Session replay</h1>
+      <h1 className="mt-3 ff-display text-3xl text-[#f4f2ea]">Visit chart</h1>
       <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
         Every page a lead visited is drawn as a small rectangle, in order, left to right, scaled to that page&apos;s
         real height. Below is a made-up example session with four pages, built to show every signal in one place.
         It is interactive: click a frame.
+      </p>
+      <p className="mt-4 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+        This is a chart, not a video. Jellyhook does not record your visitors&apos; screens, mouse movements or keystrokes. A submitted form is the one place typed values are kept.
+        It draws the measurements it does collect (which pages, for how long, how far down they scrolled,
+        which headings they reached) so you can read a visit at a glance.
       </p>
 
       <div className="mt-8">

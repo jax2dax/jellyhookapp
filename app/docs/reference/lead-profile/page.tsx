@@ -86,9 +86,9 @@ export default function LeadProfileReferencePage() {
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Session History</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Every session from this visitor, including ones where they left without converting. Selecting one
-            loads the session replay chart. The selected session is kept in the page address, so a link opens the same one. See{" "}
+            loads the visit chart. The selected session is kept in the page address, so a link opens the same one. See{" "}
             <Link href="/docs/concepts/session-replay" className="text-[var(--lime)] hover:underline">
-              Session replay
+              Visit chart
             </Link>{" "}
             for how to read it.
           </p>

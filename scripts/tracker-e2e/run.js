@@ -40,6 +40,7 @@ const server = http.createServer((req, res) => {
   if (req.url.startsWith("/tracker.js")) { res.writeHead(200, { "Content-Type": "application/javascript" }); return res.end(TRACKER); }
   if (req.url.startsWith("/api/site-config")) { res.writeHead(200, { ...cors, "Content-Type": "application/json" }); return res.end('{"specify_form":false}'); }
   if (req.url.startsWith("/fast")) { res.writeHead(200, { "Content-Type": "text/html" }); return res.end(PAGE("fast").replace("tracker.js", "tracker-fast.js")); }
+  if (req.url.startsWith("/consent")) { res.writeHead(200, { "Content-Type": "text/html" }); return res.end(PAGE("consent").replace("data-debug", "data-debug data-require-consent")); }
   if (req.url.startsWith("/page")) { res.writeHead(200, { "Content-Type": "text/html" }); return res.end(PAGE(req.url)); }
   if (req.method === "POST") {
     let body = "";
@@ -186,6 +187,62 @@ const ok = (c, m) => { console.log(c ? "ok:" : "FAIL:", m); if (!c) fails++; };
   ok(fe.some((e) => e.type === "session_end" && e.ended_ago_ms > 0), "the old session is closed with how long ago it really ended");
   ok(starts2[0].session_id !== starts2[1].session_id && starts2[1].is_first_visit !== true, "new session id; not flagged as a first visit");
   await ctx2.close();
+
+  // ── privacy gates ──
+  {
+    events.length = 0;
+    const evCount = () => track().length;
+    // 1. Global Privacy Control on: nothing at all
+    const c1 = await browser.createBrowserContext();
+    const p1 = await c1.newPage();
+    await p1.evaluateOnNewDocument(() => Object.defineProperty(navigator, "globalPrivacyControl", { get: () => true }));
+    await p1.goto("http://localhost:4100/page-gpc", { waitUntil: "load" });
+    await p1.mouse.click(10, 300);
+    await sleep(1500);
+    const stored1 = await p1.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("jh_") || k === "visitor_id").length);
+    ok(evCount() === 0 && stored1 === 0, "privacy: Global Privacy Control on = no events sent and nothing stored");
+    await c1.close();
+
+    // 2. Do Not Track on
+    events.length = 0;
+    const c2 = await browser.createBrowserContext();
+    const p2 = await c2.newPage();
+    await p2.evaluateOnNewDocument(() => Object.defineProperty(navigator, "doNotTrack", { get: () => "1" }));
+    await p2.goto("http://localhost:4100/page-dnt", { waitUntil: "load" });
+    await p2.mouse.click(10, 300);
+    await sleep(1500);
+    ok(evCount() === 0, "privacy: Do Not Track on = no events sent");
+    await c2.close();
+
+    // 3. consent mode: silent until the site grants consent, then tracks, then withdrawal erases
+    events.length = 0;
+    const c3 = await browser.createBrowserContext();
+    const p3 = await c3.newPage();
+    await p3.goto("http://localhost:4100/consent", { waitUntil: "load" });
+    await p3.mouse.click(10, 300);
+    await sleep(1200);
+    const before = evCount();
+    const storedBefore = await p3.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("jh_") || k === "visitor_id").length);
+    ok(before === 0 && storedBefore === 0, "consent mode: before consent, nothing sent and nothing stored");
+    ok(await p3.evaluate(() => typeof window.jellyhook === "object" && typeof window.jellyhook.consent === "function"), "consent mode: window.jellyhook.consent() is available");
+    await p3.evaluate(() => window.jellyhook.consent(true));
+    await sleep(1800);
+    ok(evCount() > 0 && track().some((e) => e.type === "session_start"), "consent mode: after consent(true) the tracker starts (session_start sent)");
+    // returning later with consent on record starts by itself
+    events.length = 0;
+    await p3.goto("http://localhost:4100/consent", { waitUntil: "load" });
+    await sleep(1500);
+    ok(evCount() > 0, "consent mode: with consent on record, the next visit tracks without asking again");
+    // withdrawal erases
+    await Promise.all([p3.waitForNavigation({ waitUntil: "load" }), p3.evaluate(() => window.jellyhook.consent(false))]);
+    await sleep(800);
+    events.length = 0;
+    await p3.mouse.click(10, 300);
+    await sleep(1200);
+    const storedAfter = await p3.evaluate(() => Object.keys(localStorage).filter((k) => k === "visitor_id" || k === "jh_session").length);
+    ok(storedAfter === 0 && evCount() === 0, "consent mode: consent(false) erases stored ids and stops sending");
+    await c3.close();
+  }
 
   // ── form paths ──
   events.length = 0;

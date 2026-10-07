@@ -62,7 +62,7 @@ export default function VisitorsSessionsPage() {
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Why a session can show a live border but the page inside it is not blue</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            On the session replay chart, the green border around the whole chart means the session is still active: the visitor&apos;s tracker has
+            On the visit chart, the green border around the whole chart means the session is still active: the visitor&apos;s tracker has
             reported in the last few minutes. A session that has gone quiet is shown as ended even before the system has formally closed it. That is different from the blue page frame, which means the visitor is looking at
             that exact page right now. A visitor can leave a page open, switch to another tab, and still be inside a
             live session, while the page they left is no longer the one that is blue.

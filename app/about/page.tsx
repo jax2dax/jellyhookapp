@@ -34,7 +34,7 @@ const COMPONENTS = [
   {
     icon: Route,
     title: "Conversion path tracking",
-    desc: "The exact sequence of pages that led to a conversion, for every lead who converted, replayed start to finish, not reconstructed from a guess.",
+    desc: "The exact sequence of pages that led to a conversion, for every lead who converted, laid out start to finish, not reconstructed from a guess.",
   },
   {
     icon: AlertTriangle,

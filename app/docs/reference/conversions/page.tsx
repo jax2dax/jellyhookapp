@@ -88,7 +88,7 @@ export default function ConversionsReferencePage() {
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             A lead&apos;s name in this list is colored the same yellow the{" "}
             <Link href="/docs/concepts/session-replay" className="text-[var(--lime)] hover:underline">
-              session replay chart
+              visit chart
             </Link>{" "}
             itself uses for a converted page, since that color means the same thing everywhere in the dashboard, not
             just here.
@@ -104,7 +104,7 @@ export default function ConversionsReferencePage() {
             </Link>
             . Clicking a frame inside any card&apos;s chart works exactly like it does there too. See{" "}
             <Link href="/docs/concepts/session-replay" className="text-[var(--lime)] hover:underline">
-              Session replay
+              Visit chart
             </Link>
             .
           </p>
