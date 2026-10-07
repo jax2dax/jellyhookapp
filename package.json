@@ -14,7 +14,9 @@
     "test:visits": "jiti lib/analytics/visitsAggregate.test.ts",
     "test:tracking": "jiti lib/tracking/tests/tracking.test.ts",
     "test:tracking-sql": "jiti lib/tracking/tests/migration.test.ts",
-    "bench:storage": "jiti lib/tracking/bench/storage.bench.ts"
+    "bench:storage": "jiti lib/tracking/bench/storage.bench.ts",
+    "docs:check": "jiti scripts/docs-sync.ts",
+    "docs:stamp": "jiti scripts/docs-sync.ts --stamp"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.5",

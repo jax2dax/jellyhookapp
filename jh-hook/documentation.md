@@ -21,3 +21,10 @@ units, engine/, tests/, scripts/), `lib/actions/hook.action.ts`,
 `lib/hook/pgDb.ts`, `components/hook/HookBuilder.tsx`,
 `app/dev/hook/page.tsx`. When the code changes, update the doc that claims
 something about it, and regenerate `reference.md`.
+
+## Public documentation (the pages customers read)
+
+Hook, the preview and the results have public pages under `app/docs/hook`, `app/docs/preview` and `app/docs/results`, each split into
+"how to use it" and "how it works". **Whenever Hook, the preview or the results change, those pages change in the same commit.**
+`npm run docs:check` fails until they are re-read and re-stamped (`app/docs/docsSync.ts`). The field reference page is generated from
+`schema.ts`, so it never needs editing. The page-to-source table is in `mds/documentation/doc_source_map.md`.

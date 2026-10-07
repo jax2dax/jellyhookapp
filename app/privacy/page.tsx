@@ -91,7 +91,7 @@ export default function PrivacyPage() {
         <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">Retention & deletion</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Data for an active site is retained for as long as that site is active. Deactivating a site stops new
+            Data for an active site is retained for as long as that site is active. Pausing a site stops new
             data collection but doesn&apos;t automatically erase history already collected. If you want a site&apos;s data
             fully deleted, reach out through your dashboard&apos;s support channel and we&apos;ll process the request.
           </p>

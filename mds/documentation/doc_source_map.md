@@ -37,3 +37,25 @@ tied to specific code (pure narrative, like the Introduction), it doesn't
 need a row.
 
 | Developer docs, 2026-10-07 | `mds/reports/tracker-backend-audit-2026-10-07.md` (findings), `mds/documentation/tracker-spec-2026-10-07.md` (`public/tracker.js`), `mds/documentation/ingestion-flow-2026-10-07.md` (`app/api/track*/route.js`, `lib/tracking/server.js`, the migration), `mds/documentation/sites-keys-roles-2026-10-07.md` (`lib/tracking/{hosts,keys,verification,claims,permissions}.js`, `lib/actions/{settings,site-management}.actions.js`), `mds/documentation/usage-and-limits-2026-10-07.md` (`lib/tracking/costModel.js`, `app/dev/usage/`, `components/dev/UsageLab.tsx`, `lib/tracking/bench/storage.bench.ts`) |
+
+## Hook, preview and results docs (written 2026-10-07)
+
+The rule: **when you change Hook, the preview (Silhouette) or the results canvas, update the matching public docs in the same change.**
+`npm run docs:check` enforces it: it fingerprints the Hook schema, the query format version, `silhouette/rules.md` and `output/rules.md`, and
+fails when any differs from `app/docs/docsSync.ts`. After re-reading the pages below and fixing them, run `npm run docs:stamp` and paste the
+values into that file. Never stamp without re-reading. Each page ends with "reviewed on <date>" from the same file.
+
+| Doc page | Depends on |
+|---|---|
+| `/docs/hook` | `jh-hook/overview.md`, `jh-hook/user-guide.md` (the sentence, entities, where Hook lives), `components/hook/HookWorkspace.tsx` |
+| `/docs/hook/building` | `jh-hook/schema.ts` (entity list is generated; a new entity is a compile error until described), `components/hook/HookBuilder.tsx` (button and menu labels), `jh-hook/shape.ts` (output names, the "Returns" line) |
+| `/docs/hook/connected-rows` | `jh-hook/schema.ts` (relations, sequences), `jh-hook/engine/compile.ts` (NOT keeps empty values, same-row rule), `HookBuilder.tsx` |
+| `/docs/hook/sub-hooks` | `jh-hook/shape.ts` (fit rules), `jh-hook/engine/run.ts` (tunnels), `HookBuilder.tsx` (Fits, Use "is any of" instead, Use this hook as a sub-hook...) |
+| `/docs/hook/organizing` | `jh-hook/engine/validate.ts` (limits table: 60 conditions, 6 levels, 500 list values, 200 chars, 80/500 names, 8 s), `jh-hook/types.ts` (`LIST_LIMIT`, `GROUP_LIMIT_MAX`), `jh-hook/engine/run.ts` (credits, guard factor 10x), `jh-hook/migrate.ts` |
+| `/docs/hook/examples` | `jh-hook/user-guide.md` examples; every field named must still exist in `jh-hook/schema.ts` |
+| `/docs/hook/field-reference` | GENERATED from `jh-hook/schema.ts`: never stale, nothing to edit |
+| `/docs/hook/how-it-works` | `jh-hook/architecture.md`, `jh-hook/data-flow.md`, `jh-hook/engine/*`, `lib/hook/pgDb.ts`, `jh-hook/setup.sql` (read-only login, 8 s timeout) |
+| `/docs/hook/glossary` | any term added to the above |
+| `/docs/preview`, `/docs/preview/how-it-works` | `silhouette/rules.md` (the contract), `silhouette/derive.ts` (`LIMITS`), `silhouette/components/*` (legend, motion) |
+| `/docs/results`, `/docs/results/how-it-works` | `output/rules.md` (the contract), `output/plan.ts`, `output/server/render.ts` (`MAX_LIST_ITEMS`), `output/server/seal-core.ts` (`TOKEN_MAX_AGE_MS`), `output/components/Canvas.tsx` |
+| `/docs` (index), `docsNav.ts` | add a link when a Hook page is added |

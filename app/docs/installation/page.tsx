@@ -102,7 +102,7 @@ export default function InstallationPage() {
           </p>
           <p className="mb-2 ff-body text-[13px] text-[#8b8980]">
             <span className="ff-mono text-[11px] text-[var(--lime)]">Step 1</span> &nbsp;Turn on &quot;I&apos;ll label my form&quot; when
-            creating the site. This choice is made once, at creation, and cannot currently be changed afterward.
+            creating the site (it is preselected, and you can switch it any time in Settings).
           </p>
           <p className="mb-3 ff-body text-[13px] text-[#8b8980]">
             <span className="ff-mono text-[11px] text-[var(--lime)]">Step 2</span> &nbsp;Add one attribute to the form that should count as

@@ -27,6 +27,12 @@ export default function DocsIndexPage() {
         It does not close deals for you, and it does not tell a sales team who to call first. What it does is give
         them the context a name and email address alone never do.
       </p>
+      <p className="mt-4 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+        Once data is flowing, <Link href="/docs/hook" className="text-[var(--lime)] hover:underline">Hook</Link> lets you ask precise questions of it:
+        which sessions converted, which pages lose people, where a form is abandoned. Its{" "}
+        <Link href="/docs/preview" className="text-[var(--lime)] hover:underline">preview</Link> shows what a question describes before you run it, and its{" "}
+        <Link href="/docs/results" className="text-[var(--lime)] hover:underline">results</Link> draw the answer as people, sessions and pages.
+      </p>
       <p className="mt-8 ff-body text-[14px] leading-relaxed text-[#8b8980]">
         Start with{" "}
         <Link href="/docs/installation" className="text-[var(--lime)] hover:underline">

@@ -33,6 +33,29 @@ export const DOCS_NAV: DocsNavSection[] = [
     ],
   },
   {
+    title: "Hook",
+    items: [
+      { slug: "hook", title: "What is Hook" },
+      { slug: "hook/building", title: "Build a question" },
+      { slug: "hook/connected-rows", title: "Connected rows, groups, journeys" },
+      { slug: "hook/sub-hooks", title: "Sub-hooks and tunnels" },
+      { slug: "hook/organizing", title: "Organize, share and run" },
+      { slug: "hook/examples", title: "Worked examples" },
+      { slug: "hook/field-reference", title: "Field reference" },
+      { slug: "hook/how-it-works", title: "How Hook works" },
+      { slug: "hook/glossary", title: "Glossary" },
+    ],
+  },
+  {
+    title: "Preview and results",
+    items: [
+      { slug: "preview", title: "The preview" },
+      { slug: "preview/how-it-works", title: "How the preview works" },
+      { slug: "results", title: "The results" },
+      { slug: "results/how-it-works", title: "How the results work" },
+    ],
+  },
+  {
     title: "Feature reference",
     items: [
       { slug: "reference/dashboard", title: "Dashboard overview" },

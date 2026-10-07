@@ -13,8 +13,8 @@ export default function SettingsReferencePage() {
       <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Feature reference</span>
       <h1 className="mt-3 ff-display text-3xl text-[#f4f2ea]">Site settings</h1>
       <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-        A smaller list than it might seem. Some choices made when the site was first created cannot be changed
-        here later.
+        What you can change about a site after it is created, and who is allowed to. Owners and admins change
+        most of it; members can only view.
       </p>
 
       <div className="mt-12 space-y-10">

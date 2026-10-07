@@ -1,3 +1,4 @@
+/* eslint-disable */
 // End-to-end check of public/tracker.js in a REAL Chrome, against a mock server
 // (nothing touches your database or Supabase).
 //
