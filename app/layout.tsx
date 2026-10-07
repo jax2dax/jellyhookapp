@@ -130,7 +130,7 @@ export default function RootLayout({
           </ClerkProvider>
         </ThemeProvider>
         {/**got jz92@gmail, Localhost:3k */}
-        <Script src="https://jellyhook.com/tracker.js" data-key="3dd16744-dfe1-42b2-864e-bf3eb946ea78" strategy="afterInteractive" />
+        {/* <Script src="https://jellyhook.com/tracker.js" data-key="3dd16744-dfe1-42b2-864e-bf3eb946ea78" strategy="afterInteractive" /> */}
       </body>
     </html>
   );
