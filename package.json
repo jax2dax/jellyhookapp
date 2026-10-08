@@ -15,6 +15,8 @@
     "test:tracking": "jiti lib/tracking/tests/tracking.test.ts",
     "test:tracking-sql": "jiti lib/tracking/tests/migration.test.ts",
     "bench:storage": "jiti lib/tracking/bench/storage.bench.ts",
+    "test:ai": "jiti jh-ai/tests/ai.test.ts",
+    "ai:eval": "jiti jh-ai/eval/run.ts",
     "docs:check": "jiti scripts/docs-sync.ts",
     "docs:stamp": "jiti scripts/docs-sync.ts --stamp"
   },

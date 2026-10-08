@@ -1,0 +1,338 @@
+{
+  "model": "gpt-5.6-terra",
+  "at": "2026-10-08T08:27:09.452Z",
+  "exact": 37,
+  "total": 41,
+  "valid": 39,
+  "usd": 0.095597,
+  "rows": [
+    {
+      "id": "leads-7-days",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001915,
+      "ms": 1788
+    },
+    {
+      "id": "pricing-views",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001853,
+      "ms": 1590
+    },
+    {
+      "id": "mobile-visitors",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.01251,
+      "ms": 1692
+    },
+    {
+      "id": "google-sessions",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001837,
+      "ms": 1614
+    },
+    {
+      "id": "germany-sessions",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001819,
+      "ms": 1207
+    },
+    {
+      "id": "median-session",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001717,
+      "ms": 1120
+    },
+    {
+      "id": "distinct-pages",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001693,
+      "ms": 2232
+    },
+    {
+      "id": "qualified-leads",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001785,
+      "ms": 1133
+    },
+    {
+      "id": "leads-no-phone",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001791,
+      "ms": 1417
+    },
+    {
+      "id": "chrome-visitors",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001819,
+      "ms": 1378
+    },
+    {
+      "id": "campaigns-leads",
+      "match": false,
+      "verdict": "valid but different (review)",
+      "attempts": 1,
+      "usd": 0.002001,
+      "ms": 1626
+    },
+    {
+      "id": "sessions-per-week",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002179,
+      "ms": 1553
+    },
+    {
+      "id": "long-session-exits",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002133,
+      "ms": 1423
+    },
+    {
+      "id": "median-away",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001733,
+      "ms": 1107
+    },
+    {
+      "id": "read-blog-no-convert",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002687,
+      "ms": 1628
+    },
+    {
+      "id": "pricing-before-contact",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002357,
+      "ms": 1368
+    },
+    {
+      "id": "three-after-convert",
+      "match": false,
+      "verdict": "valid but different (review)",
+      "attempts": 1,
+      "usd": 0.002209,
+      "ms": 1523
+    },
+    {
+      "id": "after-homepage",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002201,
+      "ms": 1608
+    },
+    {
+      "id": "bounced-fast",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002233,
+      "ms": 1610
+    },
+    {
+      "id": "returning-visitors",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001953,
+      "ms": 1319
+    },
+    {
+      "id": "mobile-never-back",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002137,
+      "ms": 1726
+    },
+    {
+      "id": "qualified-google-leads",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002137,
+      "ms": 2079
+    },
+    {
+      "id": "converted-first-page",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002309,
+      "ms": 1502
+    },
+    {
+      "id": "pricing-half-seen",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002077,
+      "ms": 1652
+    },
+    {
+      "id": "blog-scrolled-back",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002051,
+      "ms": 1425
+    },
+    {
+      "id": "both-pages",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002367,
+      "ms": 1455
+    },
+    {
+      "id": "either-page",
+      "match": false,
+      "verdict": "valid but different (review)",
+      "attempts": 1,
+      "usd": 0.002341,
+      "ms": 1725
+    },
+    {
+      "id": "never-pricing",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002187,
+      "ms": 1563
+    },
+    {
+      "id": "long-mobile",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002249,
+      "ms": 1469
+    },
+    {
+      "id": "slowest-fields",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001901,
+      "ms": 1188
+    },
+    {
+      "id": "click-no-type",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001805,
+      "ms": 1371
+    },
+    {
+      "id": "abandoned-on-phone",
+      "match": false,
+      "verdict": "valid but different (review)",
+      "attempts": 1,
+      "usd": 0.002253,
+      "ms": 1909
+    },
+    {
+      "id": "median-to-type",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001761,
+      "ms": 1361
+    },
+    {
+      "id": "abandoned-forms",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001835,
+      "ms": 1346
+    },
+    {
+      "id": "above-average",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002363,
+      "ms": 1633
+    },
+    {
+      "id": "hanna-sessions",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002265,
+      "ms": 1432
+    },
+    {
+      "id": "last-month-leads",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001911,
+      "ms": 1646
+    },
+    {
+      "id": "off-topic",
+      "match": true,
+      "verdict": "unsupported",
+      "attempts": 1,
+      "usd": 0.001645,
+      "ms": 1576
+    },
+    {
+      "id": "avg-pages-per-session",
+      "match": true,
+      "verdict": "unsupported",
+      "attempts": 2,
+      "usd": 0.003578,
+      "ms": 2642
+    },
+    {
+      "id": "edit-per-day",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.002183,
+      "ms": 1376
+    },
+    {
+      "id": "edit-qualified",
+      "match": true,
+      "verdict": "exact",
+      "attempts": 1,
+      "usd": 0.001817,
+      "ms": 1099
+    }
+  ]
+}

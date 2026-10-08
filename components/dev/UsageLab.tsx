@@ -12,6 +12,22 @@ type Day = { day: string; requests: number; events: number; session_starts: numb
 type Totals = Record<string, number>;
 type Model = { events: number; totalBytes: number; bytesPerEvent: number; byKind: Record<string, { count: number; bytesEach: number; bytesTotal: number; queriesEach: number }> };
 type StorageRow = { table_name: string; approx_rows: number; total_bytes: number; table_bytes: number; index_bytes: number };
+type AiGroup = { name: string; requests: number; usd: number; credits: number };
+export type AiSummary = {
+  requests: number;
+  usd: number;
+  credits: number;
+  inputTokens: number;
+  cachedTokens: number;
+  outputTokens: number;
+  repaired: number;
+  medianMs: number;
+  todayUsd: number;
+  byStatus: AiGroup[];
+  byModel: AiGroup[];
+  byFeature: AiGroup[];
+  byDay: Array<{ day: string; requests: number; usd: number; credits: number }>;
+};
 type ColumnRow = { table_name: string; column_name: string; avg_bytes: number; null_fraction: number };
 
 const fmt = (n: number, digits = 0) => (Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: digits }) : "-");
@@ -81,7 +97,7 @@ function NumberField({ label, value, onChange, step = 1, suffix }: { label: stri
   );
 }
 
-export function UsageLab(props: { domain: string; days: Day[]; totals: Totals; model: Model; queriesPerEvent: number; storage: StorageRow[]; columns: ColumnRow[]; storageAvailable: boolean; usageAvailable: boolean }) {
+export function UsageLab(props: { domain: string; days: Day[]; totals: Totals; model: Model; queriesPerEvent: number; storage: StorageRow[]; columns: ColumnRow[]; storageAvailable: boolean; usageAvailable: boolean; ai: AiSummary | null }) {
   const { domain, days, totals, model, storage, columns } = props;
 
   const activeDays = days.filter((d) => d.events > 0 || d.requests > 0).length || 1;
@@ -200,6 +216,8 @@ export function UsageLab(props: { domain: string; days: Day[]; totals: Totals; m
         })}
       </Section>
 
+      <AiSection ai={props.ai} />
+
       <Section
         title="Setting event limits"
         hint="Fill in what your plans actually give you (these are inputs: check the current Supabase and Vercel plan pages). The result is how many events per month a site can send before it eats the budget, using this site's measured cost per event."
@@ -231,5 +249,52 @@ export function UsageLab(props: { domain: string; days: Day[]; totals: Totals; m
         </p>
       </Section>
     </div>
+  );
+}
+
+// AI spend: the whole product (not one site), last 30 days, from the ai_requests ledger. "Feature" is the label
+// that will later become the general events table (ai credit vs hook run vs ...): today only hook_translate.
+function AiSection({ ai }: { ai: AiSummary | null }) {
+  const usd = (n: number) => "$" + n.toFixed(n < 1 ? 4 : 2);
+  return (
+    <Section
+      title="AI (Ask Hook)"
+      hint="Every question people ask Ask Hook, from the ai_requests ledger: whole product, last 30 days. Cost is computed from the provider's token counts and the model's price in jh-ai/models.ts. Credits are what the person was charged in Hook credits (AI_USD_PER_CREDIT dollars each, at least 1). Cached input is the part of the prompt the provider served from its cache at a fraction of the price."
+    >
+      {!ai && <p className="text-xs text-destructive">ai_requests could not be read. Has mds/migrations/2026-10-08-ai-requests.sql been run?</p>}
+      {ai && ai.requests === 0 && <p className="text-xs text-muted-foreground">No questions asked yet.</p>}
+      {ai && ai.requests > 0 && (
+        <>
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              ["Questions", fmt(ai.requests)],
+              ["Cost (30 days)", usd(ai.usd)],
+              ["Cost today (UTC)", usd(ai.todayUsd)],
+              ["Cost per question", usd(ai.usd / ai.requests)],
+              ["Hook credits charged", fmt(ai.credits)],
+              ["Input from cache", fmt((ai.cachedTokens / Math.max(1, ai.inputTokens)) * 100) + "%"],
+              ["Needed a repair retry", fmt(ai.repaired) + " (" + fmt((ai.repaired / ai.requests) * 100) + "%)"],
+              ["Median answer time", fmt(ai.medianMs) + " ms"],
+            ].map(([k, v]) => (
+              <div key={k} className="rounded-md border bg-muted/30 p-3">
+                <div className="text-[11px] text-muted-foreground">{k}</div>
+                <div className="mt-0.5 text-lg font-semibold tabular-nums text-foreground">{v}</div>
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Table head={["Feature", "Questions", "Cost", "Credits"]} rows={ai.byFeature.map((g) => [g.name, fmt(g.requests), usd(g.usd), fmt(g.credits)])} />
+            <Table head={["Model", "Questions", "Cost", "Credits"]} rows={ai.byModel.map((g) => [g.name, fmt(g.requests), usd(g.usd), fmt(g.credits)])} />
+            <Table head={["Outcome", "Questions", "Cost", "Credits"]} rows={ai.byStatus.map((g) => [g.name, fmt(g.requests), usd(g.usd), fmt(g.credits)])} />
+          </div>
+          <div className="mt-4">
+            <Table head={["Day", "Questions", "Cost", "Credits"]} rows={ai.byDay.map((d) => [d.day, fmt(d.requests), usd(d.usd), fmt(d.credits)])} />
+          </div>
+          <p className="mt-3 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+            Outcomes: ok = a query was produced; clarify = it asked the person a question first; unsupported = Hook cannot answer that; failed = the model could not produce a valid query even after one repair; error = the provider was unreachable. Tokens: {fmt(ai.inputTokens)} in ({fmt(ai.cachedTokens)} cached), {fmt(ai.outputTokens)} out.
+          </p>
+        </>
+      )}
+    </Section>
   );
 }

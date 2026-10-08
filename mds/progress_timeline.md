@@ -1680,3 +1680,12 @@ Full write-up: `mds/reports/tracker-backend-audit-2026-10-07.md`.
   team, sessions and troubleshooting; privacy copy; `database.md`, `local_cache_schema.md`, `doc_source_map.md`.
 - **To do by hand before deploying matching code:** run the migration; set `IP_HASH_SALT` and `CRON_SECRET`; in production set `DEV_USAGE_USER_IDS`.
 - **Not built:** `<p>` tag statistics (to be discussed first). Not verified: the Settings and create-site screens in a browser against a real Supabase.
+
+## 2026-10-08 - Ask Hook (AI question to Hook query)
+
+- **What.** A box above the Hook builder: the person types a question, GPT-5.6 Terra returns a Hook spec (never SQL), it is normalized and validated (validateSpec + dry compile) with one repair retry, and the builder fills in. Nothing runs until the person presses Run. Vague questions get one clarifying question; impossible ones get an explanation.
+- **Built.** `jh-ai/` (prompt, generated schema card, glossary, 52 examples, model registry, OpenAI provider, normalize, check, translate, tests, eval), `lib/ai/ledger.ts`, `lib/actions/hookAi.action.ts`, `components/hook/AskHook.tsx`, AI section on `/dev/usage`, migration `2026-10-08-ai-requests.sql`, docs in `mds/build/ai-hook-translate/`.
+- **Measured (real API).** 39/39 valid queries, 90% exact on the honest set (37/41), about $0.0023 per question, 97% of input cached, median 1.5 s. 50 offline checks pass (`npm run test:ai`).
+- **Decisions.** Spec not SQL; Terra default with `AI_HOOK_MODEL` to swap; thinking off; AI cost charged in Hook credits (recorded and shown, not yet deducted: no balance exists); a person gets 20 questions a day, the product $25 a day; fails closed; vague question means ask back.
+- **To do by hand.** Run the migration; set `OPENAI_API_KEY` in Vercel (plus a spend limit in the OpenAI dashboard); redeploy.
+- **Not built / not verified.** Events table with labels, credit balance, assistant, docs wizard, tiers, BYOK (see roadmap.md). The UI and `/dev/usage` section were type-checked and linted but not exercised in a browser. Luna was never called. Public docs page and privacy-policy mention of OpenAI not written yet.

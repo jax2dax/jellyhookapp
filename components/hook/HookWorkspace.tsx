@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEL, SpecEditor, type Announce } from "@/components/hook/HookBuilder";
+import { AskHook } from "@/components/hook/AskHook";
 import { describeCondition, describeSpec } from "@/jh-hook/describe";
 import { hookLog } from "@/jh-hook/debug";
 import { migrateSpec } from "@/jh-hook/migrate";
@@ -244,6 +245,16 @@ export function HookWorkspace({ mode }: { mode: WorkspaceMode }) {
           &lt;/&gt;
         </Button>
       </div>
+
+      <AskHook
+        spec={spec}
+        announce={announce}
+        onApply={(s) => {
+          setSpec(s);
+          setOutcome(null);
+          setError(null);
+        }}
+      />
 
       {codeOpen && (
         <Card>
