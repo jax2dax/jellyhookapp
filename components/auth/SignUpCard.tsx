@@ -154,7 +154,7 @@ export function SignUpCard() {
         <div className="h-px flex-1 bg-[#1b1b18]" />
       </div>
 
-      <form onSubmit={handleCreate} className="mt-5 space-y-3">
+      <form onSubmit={handleCreate} data-conversion="true" className="mt-5 space-y-3">
         <div className="flex gap-3">
           <div className="flex-1">
             <label className={labelClass}>First name</label>

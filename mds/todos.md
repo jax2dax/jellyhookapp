@@ -160,8 +160,24 @@ hook logs
 -   site health should do a different thing, 
 it is a small calculation, which will have options of daily health, weekly health, montly health:
 lets start with daily health, which it does is it will find the most frequently registered " number of conversions" withing daily basis each day,:
-lets say a site had, monday-sunday) 22, 23, 20, 46,  20, 21, 19 conversions )the site health calculate a valuewith atleast 7 days of using the 
+lets say a site had, monday-sunday) 22, 23, 20, 46,  20, 21, 19 conversions )the site health calculate a valuewith atleast 7 days of using the:
 
 * -vercel filter pinning
 
---setting check
+--setting check:
+
+--reinnovate the calendar make it custom. 
+
+-test frame plate with a long page
+
+--timeline chart
+
+--start tracking the <p> tag and save the info.
+
+--HUBSPOT integration 
+--salesforce forms
+--90% crm forms
++ add it int he setup
++update docs
+
+__notify me when a lead visits 20% if  the site converted
