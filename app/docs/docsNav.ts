@@ -42,6 +42,7 @@ export const DOCS_NAV: DocsNavSection[] = [
       { slug: "hook/connected-rows", title: "Connected rows, groups, journeys" },
       { slug: "hook/sub-hooks", title: "Sub-hooks and tunnels" },
       { slug: "hook/organizing", title: "Organize, share and run" },
+      { slug: "hook/ask", title: "Ask Hook" },
       { slug: "hook/examples", title: "Worked examples" },
       { slug: "hook/field-reference", title: "Field reference" },
       { slug: "hook/how-it-works", title: "How Hook works" },

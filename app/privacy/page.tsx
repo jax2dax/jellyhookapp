@@ -93,6 +93,15 @@ export default function PrivacyPage() {
 
       <section className="border-b border-[#1b1b18]">
         <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
+          <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">Ask Hook (AI)</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            When you use Ask Hook, your typed question, the query currently in the builder, today&apos;s date and up to 25 page paths of your site are sent to OpenAI, our AI processor, to turn the question into a Hook query. Your visitors&apos; data, query results, names, emails and IP addresses are never sent. We record how many questions each account asks and what they cost, not the text of the questions.
+          </p>
+        </div>
+      </section>
+
+      <section className="border-b border-[#1b1b18]">
+        <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">How it&apos;s used</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Solely to run the product you signed up for: showing you your own site&apos;s traffic, visit charts, leads,

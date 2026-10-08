@@ -246,16 +246,6 @@ export function HookWorkspace({ mode }: { mode: WorkspaceMode }) {
         </Button>
       </div>
 
-      <AskHook
-        spec={spec}
-        announce={announce}
-        onApply={(s) => {
-          setSpec(s);
-          setOutcome(null);
-          setError(null);
-        }}
-      />
-
       {codeOpen && (
         <Card>
           <CardContent className="space-y-2 pt-4">
@@ -353,7 +343,18 @@ export function HookWorkspace({ mode }: { mode: WorkspaceMode }) {
         </div>
 
         <div className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-          <SilhouettePanel spec={spec} />
+          <div className="space-y-3">
+    <AskHook
+            spec={spec}
+            announce={announce}
+            onApply={(s) => {
+              setSpec(s);
+              setOutcome(null);
+              setError(null);
+            }}
+          />
+            <SilhouettePanel spec={spec} />
+          </div>
         </div>
       </div>
     </div>

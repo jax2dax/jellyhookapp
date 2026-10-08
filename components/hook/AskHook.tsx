@@ -6,7 +6,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import type { Announce } from "@/components/hook/HookBuilder";
 import { hookLog } from "@/jh-hook/debug";
 import type { HookSpec } from "@/jh-hook/types";
@@ -27,6 +26,7 @@ export function AskHook({ spec, onApply, announce }: { spec: HookSpec; onApply: 
   const [shown, setShown] = useState<Shown | null>(null);
   const [status, setStatus] = useState<{ available: boolean; usedToday: number; limitToday: number } | null>(null);
   const [adjust, setAdjust] = useState(true);
+  const [info, setInfo] = useState(false);
   const before = useRef<HookSpec | null>(null);
   const asked = useRef("");
 
@@ -91,97 +91,97 @@ export function AskHook({ spec, onApply, announce }: { spec: HookSpec; onApply: 
   const left = status ? Math.max(0, status.limitToday - status.usedToday) : null;
 
   return (
-    <Card>
-      <CardContent className="space-y-3 pt-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium">Ask Hook</span>
-          <span className="text-xs text-muted-foreground">Describe what you want in your own words. It fills in the builder; you check it and press Run.</span>
-          {left !== null && <span className="ml-auto text-xs text-muted-foreground">{left} of {status!.limitToday} questions left today</span>}
-        </div>
-
-        <form
-          className="flex flex-col gap-2 sm:flex-row"
-          onSubmit={(e) => {
-            e.preventDefault();
-            ask(text);
-          }}
-        >
-          <textarea
-            className="min-h-[2.5rem] w-full flex-1 resize-y rounded-md border bg-background p-2 text-sm"
-            rows={2}
-            maxLength={600}
-            placeholder={EXAMPLES[0]}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                ask(text);
-              }
-            }}
-            aria-label="Ask Hook"
-          />
-          <Button type="submit" disabled={busy || !text.trim() || left === 0}>
-            {busy ? "Thinking..." : "Ask"}
-          </Button>
-        </form>
-
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {!builderIsEmpty && (
-            <label className="flex items-center gap-1.5">
-              <input type="checkbox" checked={adjust} onChange={(e) => setAdjust(e.target.checked)} />
-              Adjust the query below (untick to start from scratch)
-            </label>
-          )}
-          {text === "" &&
-            EXAMPLES.map((ex) => (
-              <button key={ex} type="button" className="rounded-full border px-2 py-0.5 hover:bg-muted" onClick={() => setText(ex)}>
-                {ex}
-              </button>
-            ))}
-        </div>
-
-        {shown?.kind === "ok" && (
-          <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
-            <div className="text-xs text-muted-foreground">Reads as</div>
-            <div>{shown.reads}</div>
-            {shown.assumptions.length > 0 && (
-              <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs text-muted-foreground">
-                {shown.assumptions.map((a) => (
-                  <li key={a}>{a}</li>
+    <div className="w-full rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 shadow-[0_0_18px_-4px_rgba(16,185,129,0.45)]">
+      <form
+        className="flex flex-wrap items-center gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          ask(text);
+        }}
+      >
+        <span className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 fill-emerald-500 drop-shadow-[0_0_5px_rgba(16,185,129,0.95)]" aria-hidden="true">
+            <path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z" />
+            <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
+          </svg>
+          Enter Hook with AI
+        </span>
+        <div className="relative">
+          <button type="button" aria-label="About Enter Hook with AI" aria-expanded={info} onClick={() => setInfo((v) => !v)} className="flex h-5 w-5 items-center justify-center rounded-full border border-emerald-500/50 text-[11px] italic text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300">
+            i
+          </button>
+          {info && (
+            <div className="absolute left-0 top-7 z-20 w-72 rounded-md border bg-popover p-3 text-xs leading-relaxed text-popover-foreground shadow-md">
+              Describe what you want in your own words. It fills in the builder below; you check it and press Run. Nothing runs by itself.
+              <div className="mt-2 text-muted-foreground">Try:</div>
+              <ul className="mt-1 space-y-1">
+                {EXAMPLES.map((ex) => (
+                  <li key={ex}>
+                    <button
+                      type="button"
+                      className="text-left underline-offset-2 hover:underline"
+                      onClick={() => {
+                        setText(ex);
+                        setInfo(false);
+                      }}
+                    >
+                      {ex}
+                    </button>
+                  </li>
                 ))}
               </ul>
-            )}
-            <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-              <span>{shown.credits} credit{shown.credits === 1 ? "" : "s"}</span>
-              <button type="button" className="underline-offset-2 hover:underline" onClick={undo}>
-                Undo
-              </button>
+              {left !== null && <div className="mt-2 text-muted-foreground">{left} of {status!.limitToday} questions left today. Each costs a few Hook credits.</div>}
             </div>
-          </div>
+          )}
+        </div>
+        <input
+          className="order-4 h-8 min-w-0 flex-1 basis-40 rounded-md border bg-background px-2 text-sm"
+          maxLength={600}
+          placeholder={"e.g. " + EXAMPLES[0]}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          aria-label="Enter Hook with AI"
+        />
+        {!builderIsEmpty && (
+          <label className="ml-auto flex shrink-0 items-center gap-1 text-xs text-muted-foreground" title="Change the query already in the builder instead of starting a new one">
+            <input type="checkbox" checked={adjust} onChange={(e) => setAdjust(e.target.checked)} />
+            Edit current
+          </label>
         )}
+        <Button type="submit" size="sm" className="order-5 bg-emerald-600 text-white hover:bg-emerald-500" disabled={busy || !text.trim() || left === 0}>
+          {busy ? "Thinking..." : "Ask"}
+        </Button>
+      </form>
 
-        {shown?.kind === "clarify" && (
-          <form
-            className="space-y-2 rounded-md border border-sky-500/30 bg-sky-500/5 p-3 text-sm"
-            onSubmit={(e) => {
-              e.preventDefault();
-              ask(`${asked.current}\nYou asked me: ${shown.question}\nMy answer: ${answer}`);
-            }}
-          >
-            <div>{shown.question}</div>
-            <div className="flex gap-2">
-              <input className="flex-1 rounded-md border bg-background p-2 text-sm" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Your answer" aria-label="Your answer" />
-              <Button type="submit" size="sm" disabled={busy || !answer.trim()}>
-                Answer
-              </Button>
-            </div>
-          </form>
-        )}
+      {shown?.kind === "ok" && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span className="text-foreground">Filled in below. Check it, then press Run.</span>
+          <span>{shown.credits} credit{shown.credits === 1 ? "" : "s"}</span>
+          <button type="button" className="underline-offset-2 hover:underline" onClick={undo}>
+            Undo
+          </button>
+          {shown.assumptions.length > 0 && <span>Assumed: {shown.assumptions.join(" ")}</span>}
+        </div>
+      )}
 
-        {shown?.kind === "unsupported" && <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm">{shown.reason}</div>}
-        {shown?.kind === "error" && <div className="rounded-md border border-red-500/40 bg-red-500/5 p-3 text-sm">{shown.text}</div>}
-      </CardContent>
-    </Card>
+      {shown?.kind === "clarify" && (
+        <form
+          className="mt-2 flex flex-wrap items-center gap-2 text-sm"
+          onSubmit={(e) => {
+            e.preventDefault();
+            ask([asked.current, "You asked me: " + shown.question, "My answer: " + answer].join("\n"));
+          }}
+        >
+          <span>{shown.question}</span>
+          <input className="h-8 min-w-[10rem] flex-1 rounded-md border bg-background px-2 text-sm" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Your answer" aria-label="Your answer" />
+          <Button type="submit" size="sm" disabled={busy || !answer.trim()}>
+            Answer
+          </Button>
+        </form>
+      )}
+
+      {shown?.kind === "unsupported" && <p className="mt-2 text-xs text-muted-foreground">{shown.reason}</p>}
+      {shown?.kind === "error" && <p className="mt-2 text-xs text-destructive">{shown.text}</p>}
+    </div>
   );
 }

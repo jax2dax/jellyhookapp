@@ -153,16 +153,18 @@ export function SilhouettePanel({ spec }: { spec: HookSpec }) {
     <aside aria-label="Preview of what the hook describes" className="jh-silhouette rounded-xl border bg-card p-3 shadow-sm">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">Preview</h2>
-        <details className="text-[11px] text-muted-foreground">
-          <summary className="cursor-pointer select-none">What the shapes mean</summary>
-          <ul className="mt-1 space-y-0.5">
+        <div className="group relative">
+          <button type="button" aria-label="What the shapes mean" className="flex h-5 w-5 items-center justify-center rounded-full border text-[11px] italic text-muted-foreground hover:bg-muted focus:bg-muted">
+            i
+          </button>
+          <ul className="invisible absolute right-0 top-7 z-20 w-72 space-y-0.5 rounded-md border bg-popover p-3 text-[11px] leading-relaxed text-muted-foreground shadow-md group-focus-within:visible group-hover:visible">
             {LEGEND.map(([k, v]) => (
               <li key={k}>
                 <span className="font-medium text-foreground">{k}</span>: {v}
               </li>
             ))}
           </ul>
-        </details>
+        </div>
       </div>
       <SilhouetteBoundary resetKey={spec}>
         <SilhouetteContent spec={spec} />
