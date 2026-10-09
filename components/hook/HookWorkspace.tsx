@@ -233,38 +233,38 @@ export function HookWorkspace({ mode }: { mode: WorkspaceMode }) {
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-4 p-4 md:p-6">
       <Notices notices={notices} dismiss={dismiss} />
-      <div className="flex flex-wrap items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">Hook{dev ? " (test bench)" : ""}</h1>
-          <p className="text-sm text-muted-foreground">
-            {dev ? "Runs against your current site only. Shows the SQL and raw ids." : "Ask precise questions about your visitors, sessions, leads and forms."}
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={copyLink} title="Copy a link to this query">Copy link</Button>
-        <Button variant={codeOpen ? "secondary" : "outline"} size="sm" className="font-mono" onClick={() => setCodeOpen((o) => !o)} aria-expanded={codeOpen} title="Paste or copy the query as code">
-          &lt;/&gt;
-        </Button>
-      </div>
-
-      {codeOpen && (
-        <Card>
-          <CardContent className="space-y-2 pt-4">
-            <textarea
-              className="h-40 w-full rounded-md border bg-background p-2 font-mono text-xs"
-              placeholder='Paste a query (the JSON from "The query" under a result), then Load. The builder rebuilds itself from it.'
-              value={pasted}
-              onChange={(e) => setPasted(e.target.value)}
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" onClick={loadPasted} disabled={!pasted.trim()}>Load into builder</Button>
-              <Button variant="outline" size="sm" onClick={() => setPasted(JSON.stringify(spec, null, 2))}>Show the current query here</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
         <div className="min-w-0 space-y-4">
+        <div className="flex flex-wrap items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-semibold">Hook{dev ? " (test bench)" : ""}</h1>
+            <p className="text-sm text-muted-foreground">
+              {dev ? "Runs against your current site only. Shows the SQL and raw ids." : "Ask precise questions about your visitors, sessions, leads and forms."}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={copyLink} title="Copy a link to this query">Copy link</Button>
+          <Button variant={codeOpen ? "secondary" : "outline"} size="sm" className="font-mono" onClick={() => setCodeOpen((o) => !o)} aria-expanded={codeOpen} title="Paste or copy the query as code">
+            &lt;/&gt;
+          </Button>
+        </div>
+
+        {codeOpen && (
+          <Card>
+            <CardContent className="space-y-2 pt-4">
+              <textarea
+                className="h-40 w-full rounded-md border bg-background p-2 font-mono text-xs"
+                placeholder='Paste a query (the JSON from "The query" under a result), then Load. The builder rebuilds itself from it.'
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" onClick={loadPasted} disabled={!pasted.trim()}>Load into builder</Button>
+                <Button variant="outline" size="sm" onClick={() => setPasted(JSON.stringify(spec, null, 2))}>Show the current query here</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
           <Card>
             {compare && <CardHeader className="pb-0"><CardTitle className="text-sm">Hook A</CardTitle></CardHeader>}
             <CardContent className="pt-4">

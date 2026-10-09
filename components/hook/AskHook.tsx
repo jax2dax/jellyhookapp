@@ -11,6 +11,8 @@ import { hookLog } from "@/jh-hook/debug";
 import type { HookSpec } from "@/jh-hook/types";
 import { askHookAction, askHookStatus } from "@/lib/actions/hookAi.action";
 
+const MAX_BOX = 160; // px: the card grows with the text up to this height, then the input scrolls
+
 const EXAMPLES = ["How many sessions from google read the pricing page and didn't convert?", "Which form field do people give up on most?", "Leads per day over the last 30 days"];
 
 type Shown =
@@ -29,6 +31,17 @@ export function AskHook({ spec, onApply, announce }: { spec: HookSpec; onApply: 
   const [info, setInfo] = useState(false);
   const before = useRef<HookSpec | null>(null);
   const asked = useRef("");
+  const box = useRef<HTMLTextAreaElement>(null);
+
+  // the box grows with what is typed, up to its max height, then scrolls
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const full = el.scrollHeight + 2;
+    el.style.height = Math.min(full, MAX_BOX) + "px";
+    el.style.overflowY = full > MAX_BOX ? "auto" : "hidden"; // scrollbar only once the card stops growing
+  }, [text]);
 
   useEffect(() => {
     let live = true;
@@ -134,12 +147,20 @@ export function AskHook({ spec, onApply, announce }: { spec: HookSpec; onApply: 
             </div>
           )}
         </div>
-        <input
-          className="order-4 h-8 min-w-0 flex-1 basis-40 rounded-md border bg-background px-2 text-sm"
+        <textarea
+          ref={box}
+          rows={1}
+          className="order-4 min-h-8 min-w-0 flex-1 basis-40 resize-none overflow-y-hidden rounded-md border bg-background px-2 py-1.5 text-sm leading-snug"
           maxLength={600}
           placeholder={"e.g. " + EXAMPLES[0]}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              ask(text);
+            }
+          }}
           aria-label="Enter Hook with AI"
         />
         {!builderIsEmpty && (
