@@ -9,12 +9,12 @@ import { primaryBtn } from "@/components/marketing/MarketingTheme";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Jellyhook is free during early access. Every feature on every account, including lead intelligence, conversion paths, and visit charts, is unlocked with no card required.",
+    "Jellyhook is free during early access. Every feature is on every account, including lead visit charts, form field timing and conversion paths. No card required.",
   alternates: { canonical: "/pricing" },
   openGraph: {
     title: "Jellyhook Pricing",
     description:
-      "Jellyhook is free during early access. Every feature on every account, including lead intelligence, conversion paths, and visit charts, is unlocked with no card required.",
+      "Jellyhook is free during early access. Every feature is on every account, including lead visit charts, form field timing and conversion paths. No card required.",
     url: "/pricing",
   },
 };
@@ -34,7 +34,7 @@ const FAQS = [
   },
   {
     q: "What's the difference between upgrading a site and upgrading just me?",
-    a: "Once paid plans launch, every paid tier will offer both. Upgrading a SITE upgrades it for everyone on it: anyone you invite as a team member inherits that tier's access, and upgrading is what unlocks inviting team members at all. Upgrading PERSONALLY gives just you that tier's access, solo, with no team invites. We haven't finalized whether the two will be priced and featured identically, so don't assume a site upgrade and a personal upgrade will end up giving exactly the same power; expect at least some differences once this is actually built out.",
+    a: "Once paid plans launch, each paid tier will come in two forms. Upgrading a site gives that tier to everyone you invite to it, and it is what unlocks team invites. Upgrading personally gives just you that tier, with no team invites. Pricing is not final, so the two may not cost or include the same things.",
   },
 ];
 
@@ -48,8 +48,8 @@ export default function PricingPage() {
             Everything, free, <em className="italic text-[var(--lime)]">right now</em>.
           </h1>
           <p className="mt-5 max-w-xl ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-            Jellyhook is in early access. Every feature (full sessions, lead intelligence, conversion paths, all of
-            it) is unlocked on every account, no card required. Paid plans are coming later, but not yet.
+            Jellyhook is in early access. Every feature (lead visit charts, form field timing, conversion paths, all
+            of it) is on every account, no card required. Paid plans are coming later, but not yet.
           </p>
 
           <div className="mt-8">
@@ -58,6 +58,9 @@ export default function PricingPage() {
                 <button className={primaryBtn}>Get started free</button>
               </Link>
             </Show>
+            <p className="mt-4 max-w-xl ff-body text-[13px] leading-relaxed text-[#77756d]">
+              In return we ask for feedback and a short call. Setup is one script tag.
+            </p>
           </div>
         </div>
       </section>

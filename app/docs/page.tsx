@@ -1,45 +1,104 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DocHeader, Section, P, UL, B, DataTable } from "./ui";
 
 export const metadata: Metadata = {
   title: "Docs",
-  description: "Documentation for Jellyhook: installation, how the tracker works, and what each part of the dashboard shows.",
+  description:
+    "Jellyhook shows what each form lead did on your website before they contacted you. Start here: what it is, who it is for, and where to read next.",
   alternates: { canonical: "/docs" },
   openGraph: {
     title: "Jellyhook Docs",
-    description: "Documentation for Jellyhook: installation, how the tracker works, and what each part of the dashboard shows.",
+    description:
+      "Jellyhook shows what each form lead did on your website before they contacted you. Start here: what it is, who it is for, and where to read next.",
     url: "/docs",
   },
 };
 
+const link = "text-[var(--lime)] hover:underline";
+
 export default function DocsIndexPage() {
   return (
     <div>
-      <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Docs</span>
-      <h1 className="mt-3 ff-display text-3xl text-[#f4f2ea]">Introduction</h1>
-      <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-        Jellyhook is a tracking script and dashboard for businesses that get leads through their website. It records
-        what a visitor actually did before they filled out a form: which pages they read, how long they spent on
-        each one, how far they scrolled, and where they came from. When a lead converts, you can see their whole
-        visit laid out, and compare it against other leads who converted the same way.
-      </p>
-      <p className="mt-4 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-        It does not close deals for you, and it does not tell a sales team who to call first. What it does is give
-        them the context a name and email address alone never do.
-      </p>
-      <p className="mt-4 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-        Once data is flowing, <Link href="/docs/hook" className="text-[var(--lime)] hover:underline">Hook</Link> lets you ask precise questions of it:
-        which sessions converted, which pages lose people, where a form is abandoned. Its{" "}
-        <Link href="/docs/preview" className="text-[var(--lime)] hover:underline">preview</Link> shows what a question describes before you run it, and its{" "}
-        <Link href="/docs/results" className="text-[var(--lime)] hover:underline">results</Link> draw the answer as people, sessions and pages.
-      </p>
-      <p className="mt-8 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-        Start with{" "}
-        <Link href="/docs/installation" className="text-[var(--lime)] hover:underline">
-          Installation and setup
-        </Link>
-        .
-      </p>
+      <DocHeader
+        eyebrow="Docs"
+        title="Introduction"
+        intro={
+          <>
+            Jellyhook is one script tag and a dashboard for websites whose main job is to produce form leads. When someone fills in your
+            form, you can open that lead and see what they did on your site first: which pages they read, how long they stayed, how far they
+            scrolled and how long they spent on each form field. It also shows where people start your form and leave.
+          </>
+        }
+      />
+
+      <Section title="What it is, and what it is not">
+        <P>
+          It is built for a person who reads each lead and decides what to do next. It does not follow up for you and it does not rank
+          leads. Visitors are anonymous until they submit a form, so it does not tell you who an unknown visitor is.
+        </P>
+        <P>
+          Want to see one first? Open the{" "}
+          <Link href="/demo" className={link}>sample lead page</Link>. It uses made-up data and needs no sign-up.
+        </P>
+      </Section>
+
+      <Section title="Where to go next">
+        <DataTable
+          head={["If you want to", "Read"]}
+          rows={[
+            [
+              "Know if it fits your site, and what it will not do",
+              <Link key="a" href="/docs/use-cases" className={link}>What Jellyhook is for</Link>,
+            ],
+            [
+              "Install it",
+              <Link key="b" href="/docs/installation" className={link}>Installation and setup</Link>,
+            ],
+            [
+              "Understand a number on the first screen",
+              <Link key="c" href="/docs/reference/dashboard" className={link}>Dashboard overview</Link>,
+            ],
+            [
+              "Understand one lead and read its visit chart",
+              <span key="d">
+                <Link href="/docs/reference/lead-profile" className={link}>Lead profile page</Link>
+                {", "}
+                <Link href="/docs/concepts/session-replay" className={link}>Visit chart</Link>
+              </span>,
+            ],
+            [
+              "See where visitors and leads came from",
+              <Link key="e" href="/docs/reference/conversions" className={link}>Conversions page</Link>,
+            ],
+            [
+              "Ask a question across all your data",
+              <Link key="f" href="/docs/hook" className={link}>What is Hook</Link>,
+            ],
+            [
+              "Check what is stored and how consent works",
+              <Link key="g" href="/docs/concepts/privacy-consent" className={link}>Privacy and consent</Link>,
+            ],
+            [
+              "Fix something that looks empty or wrong",
+              <Link key="h" href="/docs/troubleshooting" className={link}>Troubleshooting</Link>,
+            ],
+          ]}
+        />
+      </Section>
+
+      <Section title="Two words to know first">
+        <UL>
+          <li>
+            A <B>lead</B> is one form submission. A <B>visitor</B> is one browser. The same person on a phone and a laptop is two visitors.
+            More in <Link href="/docs/concepts/visitors-sessions" className={link}>Visitors, sessions, and page views</Link>.
+          </li>
+          <li>
+            <B>Leads</B> counts every submission, while <B>Conversions</B> and <B>Conversion Rate</B> count each person once.
+            An example is on <Link href="/docs/use-cases" className={link}>What Jellyhook is for</Link>.
+          </li>
+        </UL>
+      </Section>
     </div>
   );
 }

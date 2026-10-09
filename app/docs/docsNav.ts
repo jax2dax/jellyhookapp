@@ -18,6 +18,7 @@ export const DOCS_NAV: DocsNavSection[] = [
     title: "Getting started",
     items: [
       { slug: "", title: "Introduction" },
+      { slug: "use-cases", title: "What Jellyhook is for" },
       { slug: "installation", title: "Installation and setup" },
     ],
   },

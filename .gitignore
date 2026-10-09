@@ -60,3 +60,6 @@ saas-overview.md
 
 jh-hook/setup.sql
 business-validation.mdjh-ai/eval/last-run.json
+
+# marketing: personal data about outreach targets
+/marketing/targets.csv

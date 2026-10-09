@@ -9,24 +9,26 @@ import { RandomIconBadge } from "@/components/RandomIconBadge";
 import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
 
 export const metadata: Metadata = {
-  title: "Lead Intelligence & Conversion Insights",
+  title: "See what each lead did before they contacted you",
   description:
-    "Jellyhook shows you what a lead saw before they converted, exactly where your forms lose people, and which pages are actually turning visitors into leads.",
+    "Add one script to your site. For every form lead, see the pages they read, how long they stayed, how far they scrolled and how long they spent on each form field. Free during early access.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Jellyhook: Lead Intelligence & Conversion Insights",
+    title: "Jellyhook: See what each lead did before they contacted you",
     description:
-      "Jellyhook shows you what a lead saw before they converted, exactly where your forms lose people, and which pages are actually turning visitors into leads.",
+      "Add one script to your site. For every form lead, see the pages they read, how long they stayed, how far they scrolled and how long they spent on each form field. Free during early access.",
     url: "/",
   },
 };
 
-// Promises, not features — the hero makes the case for what the business
-// gets out of this. The mechanism (one tracker script → session replay →
-// linked form submissions) is explained once, lower down, right before the
-// per-team breakdown it enables. See SAAS_PRODUCT_AUDIT.md §3 for what each
-// team-facing claim below is actually backed by.
-const HERO_PROMISES = ["Close more deals", "Decrease form friction", "Increase conversions", "Grow your business"];
+// Hero proof points: plain statements of what you see for each lead. Every line maps to a row in
+// marketing/claims-ledger.md (rows 2, 3, 4). No outcome promises.
+const HERO_PROMISES = [
+  "Pages read, time and scroll for each lead",
+  "Time spent on every form field",
+  "Forms started but never submitted",
+  "Which headings they reached",
+];
 
 // Who actually uses this and what it does for them — not a list of
 // standalone features. Every claim here is traceable to a real, shipped
@@ -39,40 +41,40 @@ const AUDIENCES = [
   {
     icon: UserCheck,
     title: "Sales",
-    desc: "Walk into every call already knowing what a lead saw: which pages, how long, and what was on screen right before they converted. Wear their shoes before you ever say hello.",
+    desc: "Before the call, open the lead's page. See which pages they read, how long they stayed, how far they scrolled and which headings they reached. Start from what they read.",
   },
   {
     icon: TrendingUp,
     title: "Marketing",
-    desc: "Spot the pages and moments that actually push visitors to convert, see whether a campaign change really moved the needle, and put budget behind the channels proven to bring in leads.",
+    desc: "See the path each converted lead took, from the start of the visit to the form. See where new visitors and converted leads came from, and split visits by referrer, device or country.",
   },
   {
     icon: Users,
     title: "Business managers",
-    desc: "Watch conversions trend over time and see, from the real visit charts, exactly which pages hold attention and which ones quietly lose it, giving your whole team a shared, factual picture to work from.",
+    desc: "See visitors online now, page views, leads and conversion rate against the previous period. A pages table shows views, average time and average scroll for every page, so the team works from the same numbers.",
   },
 ];
 
-const TICKER = ["Visit chart", "Hook queries", "Scroll depth", "Lead intelligence", "HubSpot forms", "Conversion paths"];
+const TICKER = ["Field timing", "Visit chart", "Scroll depth", "Abandoned forms", "Conversion paths"];
 
-// The four hero promises, said again with the "why" behind them — outcomes
-// a reader can picture, not a feature re-explained in smaller text.
+// What you get, in four lines. No outcome promises (see marketing/banned-claims.md).
+// Claims-ledger rows 2, 3, 4, 5.
 const PROMISE_DETAILS = [
   {
-    title: "Close more deals",
-    desc: "Know what a lead actually looked at and cared about before you ever pick up the phone, so you can open with the thing that already has their attention, not a generic script.",
+    title: "Read the visit before the call",
+    desc: "Open a lead and see the pages they viewed, the time on each page, and how far they scrolled.",
   },
   {
-    title: "Decrease form friction",
-    desc: "Stop guessing why your conversion rate won't move. See exactly where people stall out on a form, down to the field and the moment, every time it happens.",
+    title: "See where the form loses people",
+    desc: "See how long people spend on each form field, and which forms a visitor started but never submitted.",
   },
   {
-    title: "Increase conversions",
-    desc: "Find the pages and paths quietly doing the work, and the ones quietly losing you leads, so every change you make is aimed at something real.",
+    title: "See which headings they reached",
+    desc: "The visit chart shows which parts of each page were scrolled past, and whether each heading was reached.",
   },
   {
-    title: "Grow your business",
-    desc: "Give sales, marketing, and leadership the same real picture of what's happening on your site, instead of three different guesses pulling in three different directions.",
+    title: "Follow each lead's path",
+    desc: "Conversion Paths shows the route each converted lead took, from the start of the visit to the form submission.",
   },
 ];
 
@@ -129,16 +131,20 @@ const LandingPage = () => {
 
               <div className="mb-8 flex items-center gap-3">
                 <span className="h-1.5 w-1.5 animate-pulse bg-[var(--lime)]" />
-                <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#8b8980]">Lead intelligence, conversion insights &amp; form friction</span>
+                <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#8b8980]">For websites whose main job is to produce form leads</span>
               </div>
 
-              <h1 className="ff-display text-[clamp(3rem,7.5vw,6.25rem)] leading-[0.9] tracking-[-0.025em] text-[#f4f2ea]">
-                Stop chasing.
-                <br />
-                Start <em className="italic text-[var(--lime)]">hooking</em>.
+              <h1 className="ff-display text-[clamp(2.5rem,6vw,5rem)] leading-[0.95] tracking-[-0.025em] text-[#f4f2ea]">
+                See what every lead did <em className="italic text-[var(--lime)]">before they contacted you</em>.
               </h1>
 
-              <ul className="mt-8 grid max-w-md grid-cols-1 gap-y-3 sm:grid-cols-2 sm:gap-x-6">
+              <p className="mt-6 max-w-xl ff-body text-[16px] leading-[1.7] text-[#8b8980]">
+                Add one script to your site. When someone fills in your form, you get the pages they read, how long
+                they stayed, how far they scrolled and how long they spent on each form field. You also see the forms
+                people started and never sent.
+              </p>
+
+              <ul className="mt-8 grid max-w-xl grid-cols-1 gap-y-3 sm:grid-cols-2 sm:gap-x-6">
                 {HERO_PROMISES.map((promise) => (
                   <li key={promise} className="flex items-center gap-2 ff-display text-[17px] leading-tight text-[#f4f2ea]">
                     <ArrowRight className="h-4 w-4 shrink-0 text-[var(--lime)]" />
@@ -151,7 +157,7 @@ const LandingPage = () => {
                 <Show when="signed-out">
                   <Link href="/sign-up">
                     <button className={primaryBtn}>
-                      Start tracking your site
+                      Start free
                       <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
                     </button>
                   </Link>
@@ -173,23 +179,32 @@ const LandingPage = () => {
                   </div>
                 </Show>
               </div>
+
+              <Show when="signed-out">
+                <p className="mt-4 ff-mono text-[10px] uppercase tracking-[0.22em] text-[#77756d]">
+                  Free during early access. No card. One script tag.
+                </p>
+                <Link href="/demo" className="mt-3 inline-flex items-center gap-1.5 ff-mono text-[11px] uppercase tracking-[0.2em] text-[var(--lime)] hover:underline">
+                  See a sample lead page <ArrowRight className="h-3 w-3" />
+                </Link>
+              </Show>
             </div>
 
-            {/* right — sample session panel */}
+            {/* right — illustration of what a lead page shows (placeholder, not real data) */}
             <div className="flex flex-col justify-end lg:col-span-5 lg:border-l lg:border-[#1b1b18] lg:pl-14">
               <div className="relative border border-[#1b1b18] bg-[#0a0a09]">
                 <div className="flex items-center justify-between border-b border-[#1b1b18] px-4 py-3">
-                  <span className="ff-mono text-[10px] uppercase tracking-[0.26em] text-[#77756d]">Sample dashboard</span>
+                  <span className="ff-mono text-[10px] uppercase tracking-[0.26em] text-[#77756d]">What each lead&apos;s page shows</span>
                   <span className="flex items-center gap-2 ff-mono text-[10px] uppercase tracking-[0.26em] text-[#5f5d57]">
                     <span className="h-1.5 w-1.5 bg-[var(--lime)]/60" />
-                    preview
+                    illustration
                   </span>
                 </div>
 
                 {[
-                  { label: "Sessions", value: "tracked" },
-                  { label: "Scroll depth", value: "captured" },
-                  { label: "Form fills", value: "linked to visitor" },
+                  { label: "Pages", value: "read, in order" },
+                  { label: "Scroll depth", value: "per page" },
+                  { label: "Form fields", value: "time on each" },
                 ].map((row, i) => (
                   <div key={row.label} className="flex items-center gap-4 border-b border-[#141412] px-4 py-4">
                     <span className="w-28 shrink-0 ff-mono text-[10px] uppercase tracking-[0.18em] text-[#8b8980]">{row.label}</span>
@@ -202,7 +217,7 @@ const LandingPage = () => {
 
                 <div className="flex items-center justify-between px-4 py-4">
                   <span className="ff-mono text-[10px] uppercase tracking-[0.26em] text-[#77756d]">Conversion path</span>
-                  <span className="ff-display text-2xl leading-none text-[var(--lime)]">mapped end-to-end</span>
+                  <span className="ff-display text-2xl leading-none text-[var(--lime)]">start to submit</span>
                 </div>
               </div>
             </div>
@@ -211,7 +226,7 @@ const LandingPage = () => {
           {/* hero footer strip */}
           <div className="mt-20 flex flex-wrap items-center justify-between gap-x-8 gap-y-4 border-t border-[#1b1b18] py-5 md:mt-28">
             <span className="ff-mono text-[10px] uppercase tracking-[0.22em] text-[#77756d]">
-              One tracker script. Every visit, charted page by page. Not sampled or estimated.
+              One script tag. Visitors stay anonymous until they submit a form.
             </span>
 
             <div className="flex items-center gap-6 ff-mono text-[10px] uppercase tracking-[0.22em] text-[#5f5d57]">
@@ -247,12 +262,12 @@ const LandingPage = () => {
             </div>
             <div className="lg:col-span-8">
               <h2 className="ff-display text-[clamp(2rem,4.2vw,3.5rem)] leading-[1.02] tracking-[-0.02em] text-[#f4f2ea]">
-                Built for conversion tracking &amp; <em className="italic text-[var(--lime)]">intent discovery</em>.
+                One lead. Their whole visit, <em className="italic text-[var(--lime)]">before the form</em>.
               </h2>
               <p className="mt-5 max-w-lg ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-                Install one script and Jellyhook turns every visit into a page-by-page chart: pages seen, time
-                spent, how far they scrolled. It also links every form submission straight back to that history.
-                Here&apos;s what that means for the people who actually use it.
+                Install one script and Jellyhook draws each visit as a page-by-page chart: pages read, time spent,
+                how far they scrolled and which headings they reached. When someone submits a form, that visit is
+                attached to the lead. Here&apos;s what that means for the people who use it.
               </p>
             </div>
           </div>
@@ -289,9 +304,17 @@ const LandingPage = () => {
             <span className="text-[#5f5d57]">Works with</span>
             <span className="text-[#f4f2ea]">plain HTML forms</span>
             <span className="text-[#5f5d57]">·</span>
-            <span className="text-[#f4f2ea]">HubSpot embeds</span>
+            <span className="text-[#f4f2ea]">HubSpot</span>
             <span className="text-[#5f5d57]">·</span>
-            <span className="text-[#f4f2ea]">most other form builders</span>
+            <span className="text-[#f4f2ea]">Gravity Forms</span>
+            <span className="text-[#5f5d57]">·</span>
+            <span className="text-[#f4f2ea]">WPForms</span>
+            <span className="text-[#5f5d57]">·</span>
+            <span className="text-[#f4f2ea]">Contact Form 7</span>
+            <span className="text-[#5f5d57]">·</span>
+            <Link href="/docs/concepts/supported-forms" className="text-[#77756d] underline underline-offset-4 hover:text-[#f4f2ea]">
+              full list and limits
+            </Link>
           </div>
         </div>
       </section>
@@ -305,11 +328,12 @@ const LandingPage = () => {
             </div>
             <div className="lg:col-span-8">
               <h2 className="ff-display text-[clamp(2rem,4.2vw,3.5rem)] leading-[1.02] tracking-[-0.02em] text-[#f4f2ea]">
-                Every lost lead had a reason. <em className="italic text-[var(--lime)]">You just never saw it.</em>
+                You see the leads. <em className="italic text-[var(--lime)]">You never see who quit the form.</em>
               </h2>
               <p className="mt-5 max-w-lg ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-                A bounce rate tells you someone left. It never tells you why. Jellyhook is built to close that
-                gap, so the four things above aren&apos;t just promises: they&apos;re what you actually get.
+                A bounce rate tells you someone left. It does not tell you where. Jellyhook shows how long people
+                spend on each form field and which forms were started but never submitted, next to what each lead
+                read.
               </p>
             </div>
           </div>
@@ -335,11 +359,11 @@ const LandingPage = () => {
             </div>
             <div className="lg:col-span-8">
               <h2 className="ff-display text-[clamp(2.2rem,5vw,4rem)] leading-[0.95] tracking-[-0.02em] text-[#f4f2ea]">
-                Ask your visitors <em className="italic text-[var(--lime)]">anything</em>. Get the answer in seconds.
+                Ask your own data a <em className="italic text-[var(--lime)]">precise</em> question.
               </h2>
               <p className="mt-6 max-w-2xl ff-body text-[15px] leading-[1.75] text-[#8b8980]">
-                Meet Hook, the new way to question your own data. Dashboards answer the questions someone thought of in advance. Hook answers yours: precise questions about
-                sessions, leads, pages and forms, built from plain choices, answered live, drawn as the people and visits behind the numbers.
+                Hook filters your visits and leads by what they did: pages, time, scroll and forms. You build the
+                question from plain choices, and the results come back as visit charts and lead profiles.
               </p>
             </div>
           </div>
@@ -355,7 +379,7 @@ const LandingPage = () => {
 
           <div className="mt-14 grid grid-cols-1 gap-10 lg:grid-cols-12">
             <div className="lg:col-span-5">
-              <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Questions Hook answers today</span>
+              <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Questions you can ask Hook</span>
               <ul className="mt-5 space-y-3">
                 {HOOK_EXAMPLES.map((q) => (
                   <li key={q} className="flex items-start gap-3 ff-display text-[18px] leading-snug text-[#f4f2ea]">
@@ -406,15 +430,15 @@ const LandingPage = () => {
             <div className="lg:col-span-7">
               <span className="mb-6 block ff-mono text-[10px] uppercase tracking-[0.3em] text-black/50">04 / Get started</span>
               <h3 className="ff-display text-[clamp(2.5rem,6vw,4.75rem)] leading-[0.94] tracking-[-0.025em]">
-                Ready to <em className="italic">hook</em>
+                See what your next
                 <br />
-                your leads?
+                lead <em className="italic">did</em>.
               </h3>
             </div>
 
             <div className="lg:col-span-5">
               <p className="max-w-sm ff-body text-[15px] leading-[1.75] text-black/65">
-                Create a site, drop the tracker script in, and watch your first visit appear. Free to start.
+                Create a site, add one script tag, and your next form submission arrives with the visit behind it. Free during early access, no card.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">

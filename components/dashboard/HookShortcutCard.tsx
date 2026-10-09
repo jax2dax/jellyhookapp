@@ -10,7 +10,7 @@ export function HookShortcutCard() {
   return (
     <Link
       href="/platform/hook"
-      className="group relative flex h-full min-h-48 flex-col justify-between overflow-hidden rounded-xl bg-emerald-500 p-5 text-black shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:bg-emerald-400"
+      className="group relative flex h-full min-h-48 flex-col justify-between overflow-hidden rounded-xl bg-primary p-5 text-black shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       <div>
         <p className="text-xs font-semibold uppercase tracking-widest text-black/70">Hook</p>

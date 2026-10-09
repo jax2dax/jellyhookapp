@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 const DESCRIPTION =
-  "Jellyhook is a lead intelligence and conversion insight platform. See every visitor's full session, exactly where your forms lose people, and which leads are actually worth chasing.";
+  "Add one script to your site. For every form lead, see the pages they read, how long they stayed, how far they scrolled and how long they spent on each form field. Free during early access.";
 
 // Root defaults. Every marketing page under app/ sets its own title and
 // description, which override these via Next's metadata merging; the title
@@ -27,7 +27,7 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME}: Lead Intelligence & Conversion Insights`,
+    default: `${SITE_NAME}: See what each lead did before they contacted you`,
     template: `%s | ${SITE_NAME}`,
   },
   description: DESCRIPTION,
@@ -51,13 +51,13 @@ export const metadata: Metadata = {
     type: "website",
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: `${SITE_NAME}: Lead Intelligence & Conversion Insights`,
+    title: `${SITE_NAME}: See what each lead did before they contacted you`,
     description: DESCRIPTION,
     images: [{ url: "/mainLogo.png", width: 1024, height: 1024, alt: SITE_NAME }],
   },
   twitter: {
     card: "summary",
-    title: `${SITE_NAME}: Lead Intelligence & Conversion Insights`,
+    title: `${SITE_NAME}: See what each lead did before they contacted you`,
     description: DESCRIPTION,
     images: ["/mainLogo.png"],
   },
@@ -105,7 +105,7 @@ export default function RootLayout({
             url: SITE_URL,
             logo: `${SITE_URL}/mainLogo.png`,
             description:
-              "Jellyhook is a lead intelligence and conversion insight platform offering visit charts, linked form submissions,  conversion path tracking and form friction analysis.",
+              "Jellyhook shows what each form lead did on a website before they contacted the owner: pages read, time, scroll depth, conversion paths and time spent on each form field.",
           })}
         </Script>
 
@@ -131,7 +131,7 @@ export default function RootLayout({
         </ThemeProvider>
         {/**got jz92@gmail, Localhost:3k */}
         {/* <Script src="https://jellyhook.com/tracker.js" data-key="3dd16744-dfe1-42b2-864e-bf3eb946ea78" strategy="afterInteractive" /> */}
-        <script src="https://jellyhook.com/tracker.js" data-key="0b4ba5bf-b233-48d2-ad22-4fcbef07018c"></script>
+        {/* jellyhook.com's own tracker now loads from components/marketing/MarketingPage.tsx, so it only runs on the public pages, not inside /platform */}
       </body>
     </html>
   );

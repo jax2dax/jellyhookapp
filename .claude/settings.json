@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(/marketing/**)",
+      "Write(/marketing/**)",
+      "Edit(/app/page.tsx)",
+      "Edit(/app/pricing/page.tsx)",
+      "Edit(/app/about/page.tsx)",
+      "Edit(/app/docs/**)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm run docs:check)",
+      "Bash(git log:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(date)"
+    ],
+    "deny": [
+      "Read(.env*)",
+      "Edit(.env*)",
+      "Edit(/public/tracker.js)",
+      "Edit(/app/api/**)",
+      "Edit(/lib/**)"
+    ]
+  }
+}
