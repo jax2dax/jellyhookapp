@@ -85,7 +85,11 @@ Everything recorded goes into this site&apos;s real analytics. Do not install th
             Paste this inside the <code className="ff-mono text-[#c9c7bd]">&lt;head&gt;</code> of your site. Your setup page has the exact
             snippet with your real API key already filled in.
           </p>
-          <CodeBlock>{`<script\n  src="your-domain/tracker.js"\n  data-key="YOUR_SITE_API_KEY"\n></script>`}</CodeBlock>
+          <CodeBlock>{`<script\n  defer\n  src="https://jellyhook.com/tracker.js"\n  data-key="YOUR_SITE_API_KEY"\n></script>`}</CodeBlock>
+          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            <code className="ff-mono text-[#c9c7bd]">defer</code> lets the browser draw your page first and run the tracker right after, so the
+            script never holds your page up. A snippet you copied earlier without it keeps working.
+          </p>
           <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             By default, with nothing else configured, the tracker assumes there is one form on the site that matters and listens for a
             submission on any form, anywhere on the site. That is enough for a simple site with a single contact form.

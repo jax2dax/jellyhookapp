@@ -26,6 +26,7 @@ Each row = a claim that is true in the code today. If it is not here, do not say
 | 19 | IPs are stored as a salted hash; a raw IP is held only briefly when the host gives no country, then deleted. | `lib/tracking/ip.js`, `lib/resolvePendingCountries.js` | Deployed with the 2026-10-08 fix; `IP_HASH_SALT` set in production: UNVERIFIED |
 | 20 | It works next to a CRM; it does not replace one. | Product scope (no CRM features) | Do NOT say "integrates with" |
 | 21 | A sample lead page with made-up data is public at /demo, no signup. It uses the same chart as a real lead page. | `app/demo/`, `components/leads/SelectedFrameDetails.tsx`, `framePlate/` | Always label it sample data |
+| 22 | The tracker does nothing when the browser sends Global Privacy Control or Do Not Track, and a site can switch on a consent mode (`data-require-consent`) so it stays off until the site's own banner calls `window.jellyhook.consent(true)`. It has no banner of its own. | `public/tracker.js` (PRIVACY GATES), `app/docs/concepts/privacy-consent/page.tsx` | Site owner wires their banner. Never say "compliant". |
 
 ## Allowed comparisons
 Describe what Jellyhook does. Never name competitors in ads. In honest 1:1 replies you may say "Zuko does form

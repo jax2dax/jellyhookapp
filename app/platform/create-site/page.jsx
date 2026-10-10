@@ -91,13 +91,10 @@ export default function CreateSitePage() {
             <div className="mb-3 text-2xl text-warning">⚠</div>
             <h2 className="mb-3 text-xl font-bold text-foreground">Site Limit Reached</h2>
             <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
-              Your current plan only allows <strong>1 site</strong>. Upgrade to <strong>Elite</strong> to manage multiple sites.
+              During early access an account can have up to <strong>{result.siteCap ?? 5} sites</strong>. Need more? Tell us through Support in the sidebar.
             </p>
             <div className="flex gap-2.5">
               <Button asChild>
-                <a href="/platform/billing">Upgrade to Elite</a>
-              </Button>
-              <Button variant="outline" asChild>
                 <a href="/platform">Back to Dashboard</a>
               </Button>
             </div>
@@ -135,7 +132,7 @@ export default function CreateSitePage() {
 
   // ── AUTO-JOINED VIA EMAIL DOMAIN MATCH ──────────────────────────────────
   if (result?.joined) {
-    const script = `<script src="${process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000"}/tracker.js" data-key="${result.site.api_key}"></script>`;
+    const script = `<script defer src="${process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000"}/tracker.js" data-key="${result.site.api_key}"></script>`;
     return (
       <PageShell>
         <Card className="w-full max-w-lg">
@@ -157,7 +154,7 @@ export default function CreateSitePage() {
 
   // ── ALREADY A MEMBER ─────────────────────────────────────────────────────
   if (result?.alreadyMember) {
-    const script = result.site?.api_key ? `<script src="${process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000"}/tracker.js" data-key="${result.site.api_key}"></script>` : null;
+    const script = result.site?.api_key ? `<script defer src="${process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000"}/tracker.js" data-key="${result.site.api_key}"></script>` : null;
     return (
       <PageShell>
         <Card className="w-full max-w-lg">

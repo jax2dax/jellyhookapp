@@ -97,7 +97,7 @@ export function CodeBox({ code, copyText, tone = "context", tabs }) {
 }
 
 function scriptTag(base, key) {
-  return `<script src="${base}/tracker.js" data-key="${key}"></script>`;
+  return `<script defer src="${base}/tracker.js" data-key="${key}"></script>`;
 }
 
 function stepOneSnippets(base, key) {

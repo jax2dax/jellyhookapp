@@ -25,6 +25,15 @@ const VISITOR_DATA = [
   ["Page structure", "Heading text and position captured from your pages, used to mark headings on the visit chart."],
 ];
 
+const PROVIDERS = [
+  ["Supabase", "Database. Stores the tracked visit, form and lead data for each site, and your account settings."],
+  ["Vercel", "Hosting. Serves the website, the dashboard and the tracker script, and keeps its own request logs."],
+  ["Clerk", "Sign-in and accounts for Jellyhook customers. It does not receive data about your site's visitors."],
+  ["ipwho.is", "Country lookup, only when the hosting platform did not provide a country. Receives the visitor's IP address over HTTPS; the IP is deleted afterwards."],
+  ["Google Analytics and Vercel Analytics", "Measure visits to jellyhook.com and the Jellyhook dashboard (our own pages). They are not installed on your site and do not receive your visitors' data."],
+  ["OpenAI", "Only when you use Ask Hook: receives your typed question, the list of fields Hook can use, up to 25 of your site's page paths, and the question already in the builder. It never receives visitor records."],
+];
+
 export default function PrivacyPage() {
   return (
     <MarketingPage>
@@ -93,9 +102,9 @@ export default function PrivacyPage() {
 
       <section className="border-b border-[#1b1b18]">
         <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
-          <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">Ask Hook (AI)</h2>
+          <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">Enter Hook with AI</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            When you use Ask Hook, your typed question, the query currently in the builder, today&apos;s date and up to 25 page paths of your site are sent to OpenAI, our AI processor, to turn the question into a Hook query. Your visitors&apos; data, query results, names, emails and IP addresses are never sent. We record how many questions each account asks and what they cost, not the text of the questions.
+            When you use Enter Hook with AI, your typed question, the query currently in the builder, today&apos;s date and up to 25 page paths of your site are sent to OpenAI, our AI processor, to turn the question into a Hook query. Your visitors&apos; data, query results, names, emails and IP addresses are never sent. We record how many questions each account asks and what they cost, not the text of the questions.
           </p>
         </div>
       </section>
@@ -116,9 +125,28 @@ export default function PrivacyPage() {
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">Retention & deletion</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Data for an active site is retained for as long as that site is active. Pausing a site stops new
-            data collection but doesn&apos;t automatically erase history already collected. If you want a site&apos;s data
-            fully deleted, reach out through your dashboard&apos;s support channel and we&apos;ll process the request.
+            data collection but doesn&apos;t erase history already collected. Removing a site or a teammate hides it from
+            the dashboard but does not erase the data on its own. If you want a site&apos;s data fully deleted, ask through the
+            Support button in your dashboard and we will permanently delete it within 30 days of your request.
           </p>
+        </div>
+      </section>
+
+      <section className="border-t border-[#1b1b18]">
+        <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
+          <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">Service providers we rely on</h2>
+          <p className="mb-6 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Jellyhook runs on these providers. Each one only receives what it needs to do its job. Our database and hosting run in
+            the United States (US West, Oregon).
+          </p>
+          <div className="divide-y divide-[#1b1b18] border-t border-b border-[#1b1b18]">
+            {PROVIDERS.map(([title, desc]) => (
+              <div key={title} className="flex flex-col gap-1 py-4 sm:flex-row sm:gap-6">
+                <span className="ff-mono text-[11px] uppercase tracking-[0.18em] text-[var(--lime)] sm:w-44 sm:shrink-0">{title}</span>
+                <span className="ff-body text-[13px] leading-relaxed text-[#8b8980]">{desc}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     </MarketingPage>

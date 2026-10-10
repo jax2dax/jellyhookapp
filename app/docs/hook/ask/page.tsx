@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { DocHeader, Section, P, UL, B, Callout, DocFooter } from "../../ui";
 
 export const metadata: Metadata = {
-  title: "Ask Hook",
+  title: "Enter Hook with AI",
   description: "Describe what you want to know in your own words and Hook fills in the question for you to check and run.",
   alternates: { canonical: "/docs/hook/ask" },
 };
@@ -10,15 +10,15 @@ export const metadata: Metadata = {
 export default function AskHookPage() {
   return (
     <div>
-      <DocHeader eyebrow="Hook" title="Ask Hook" intro="Type your question in plain words. Hook turns it into a question in the builder, which you check and run like any other." />
+      <DocHeader eyebrow="Hook" title="Enter Hook with AI" intro="Type your question in plain words. Hook turns it into a question in the builder, which you check and run like any other." />
 
       <Section title="How to use it">
         <UL>
-          <li>Type a question in the <B>Ask Hook</B> row above the builder, for example &quot;How many sessions from google read the pricing page and didn&apos;t convert?&quot;, and press <B>Ask</B>.</li>
+          <li>Type a question in the <B>Enter Hook with AI</B> card above the builder, for example &quot;How many sessions from google read the pricing page and didn&apos;t convert?&quot;, and press <B>Ask</B>.</li>
           <li>The builder fills in below. Read it, change anything you like, then press <B>Run</B>. Asking never runs anything by itself.</li>
           <li><B>Undo</B> puts back the question that was in the builder before.</li>
           <li>With <B>Edit current</B> ticked, your words change the question already in the builder (&quot;only from google&quot;). Untick it to start a new one.</li>
-          <li>If something needed is missing (&quot;between this and this&quot; with no dates), Ask Hook asks you one short question first.</li>
+          <li>If something needed is missing (&quot;between this and this&quot; with no dates), Enter Hook with AI asks you one short question first.</li>
           <li>If Hook cannot answer something (for example comparing two periods in one question), it says so and suggests what to do instead.</li>
         </UL>
       </Section>
@@ -28,7 +28,7 @@ export default function AskHookPage() {
       </Section>
 
       <Section title="Check the answer">
-        <P>Ask Hook is a translator, and it can misread you. The <B>Reads as</B> line under the builder says in words what the question will do, so read it before you run. If it is wrong, edit it in the builder or ask again with more detail.</P>
+        <P>Enter Hook with AI is a translator, and it can misread you. The <B>Reads as</B> line under the builder says in words what the question will do, so read it before you run. If it is wrong, edit it in the builder or ask again with more detail.</P>
       </Section>
 
       <Section title="What is sent to the AI">

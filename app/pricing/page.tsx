@@ -30,7 +30,7 @@ const FAQS = [
   },
   {
     q: "Can I install it on more than one site?",
-    a: "Each tracked site is its own workspace inside your account, with its own tracker script and dashboard.",
+    a: "Yes. During early access one account can have up to 5 sites, each its own workspace with its own tracker script and dashboard.",
   },
   {
     q: "What's the difference between upgrading a site and upgrading just me?",

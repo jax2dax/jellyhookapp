@@ -398,7 +398,7 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
   }
 
   const trackerBase = process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000";
-  const trackerScript = `<script src="${trackerBase}/tracker.js" data-key="${site.api_key}"></script>`;
+  const trackerScript = `<script defer src="${trackerBase}/tracker.js" data-key="${site.api_key}"></script>`;
 
   return (
     <div className="flex w-full max-w-6xl flex-col gap-6">

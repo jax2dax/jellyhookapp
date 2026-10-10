@@ -104,6 +104,14 @@ minted: it is what lets the server record first-touch attribution.
 
 `page_height` is throttled: sent only when it changed by more than 50 px or 6 minutes passed.
 
+**Page height is the tallest the page was during the page view** (2026-10-09). A height read at one instant is often too short:
+images and lazy content load after first paint, and a single-page app renders the new route after the URL changes. The tracker
+keeps `observedMaxHeight`: updated when the page loads (and 1.5 s later), when the `<html>`/`<body>` box changes size
+(ResizeObserver, debounced 300 ms) and while the visitor scrolls. It starts empty on every page view (so a new route never inherits the
+previous route's height) and `page_view_end` reports the larger of the current height and this maximum. Install snippets now carry
+`defer` (the tracker finds itself with `document.currentScript`, which works with `defer`). Test: a page that grows after load, and
+an app that swaps in the next route before changing the URL (old tracker reported 800 px for a 3480 px page; new reports 3480).
+
 ## Other endpoints it calls
 
 | Endpoint | When | Sent |

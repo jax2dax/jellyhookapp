@@ -31,7 +31,7 @@ Concrete segments (from `mds/reports/saas_validation.md`, an unverified AI-writt
 ## Known gaps (do not hide them from founder)
 - No CRM link: reps live in the CRM. A visit-link field in the CRM record would fix it.
 - No demo mode: someone must install and wait for traffic before seeing value.
-- No consent banner in the tracker (site owner's responsibility; stated on /privacy).
+- No banner of its own. The tracker now honours GPC/Do Not Track and has an optional consent mode; consent remains the site owner's responsibility (ledger row 22).
 - Hook works in production: UNVERIFIED.
 - The landing hero ("Stop chasing. Start hooking.") does not say what the product does.
 
@@ -60,3 +60,11 @@ ASSUMED US Pacific (PT) on 2026-10-08 (machine clock). Not confirmed by founder.
 ## Update 2026-10-09: product-led, not sales-led
 Founder decision: there is no paywall, so the ask is self-serve. Every message links to jellyhook.com/demo and the sign-up; a call or install help is offered only if the person asks. Do not put a call as the main ask or the success metric. Success = sign-ups and sites verified. Calls are optional learning.
 Jellyhook's own tracker on jellyhook.com now loads only on public pages (MarketingPage), not inside /platform.
+
+## Update 2026-10-09: who it is for, refined by the founder (SEO is a weak fit)
+SEO roles optimise for rankings and traffic (before the click). Jellyhook is about what happens after the click. Better description of the buyer:
+- **Primary: people whose job is to convert visitors into leads.** Titles: CRO (Conversion Rate Optimization) Specialist / Manager, Conversion Optimizer, Growth Marketing Manager, Digital Marketing Manager, Demand Generation Manager, Marketing Manager at a lead-gen site, Head of Growth. They study how converters behave and change page copy, layout or forms (psychology-driven), or tell the web team what to change.
+- **Second: sales people who follow up on inbound leads.** SDR (inbound qualification), Inside Sales / Account Executive, and the marketing-automation or lead-nurturing owner who writes the follow-up. Use: read the lead's visit before the call, narrow the pitch if the visit shows a clear interest, go general if it does not.
+- **SEO** stays a minor angle: only "which content do my leads read before they contact us".
+- Honest gaps for these groups: no A/B testing, no converters-vs-non-converters comparison screen, no CRM link, no export/report for clients.
+- Never claim Jellyhook reveals intent or psychology. It shows behaviour; the person draws the inference.

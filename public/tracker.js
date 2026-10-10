@@ -173,6 +173,44 @@
     return document.documentElement.scrollHeight || document.body.scrollHeight || 0;
   }
 
+  // TALLEST the page has been during this page view. A height read at one instant is often too short: images and
+  // lazy content load after the first paint, and in a single-page app the new route's content renders after the URL
+  // changes. Reading only the first value drew those pages as short plates. noteHeight() is called when the page
+  // loads, when its size changes (ResizeObserver, below) and while the visitor scrolls; getPageHeightPayload()
+  // reports the larger of "now" and this. It resets in openPageView().
+  let observedMaxHeight = 0;
+  function noteHeight() {
+    try {
+      const h = getPageHeightPx();
+      if (h > observedMaxHeight) observedMaxHeight = h;
+    } catch (e) {}
+  }
+
+  // Keep observedMaxHeight current without polling: when the page's box changes size (content loaded, route rendered,
+  // accordion opened) and once the page has fully loaded. Debounced; costs nothing while the page is still.
+  (function () {
+    let timer = null;
+    function schedule() {
+      if (timer) return;
+      timer = setTimeout(function () {
+        timer = null;
+        noteHeight();
+      }, 300);
+    }
+    try {
+      if (typeof ResizeObserver === "function") {
+        const ro = new ResizeObserver(schedule);
+        ro.observe(document.documentElement);
+        if (document.body) ro.observe(document.body);
+        else document.addEventListener("DOMContentLoaded", function () { if (document.body) ro.observe(document.body); schedule(); });
+      }
+    } catch (e) {}
+    window.addEventListener("load", function () {
+      schedule();
+      setTimeout(noteHeight, 1500); // late images and embeds
+    });
+  })();
+
   function getViewportHeightPx() {
     return window.innerHeight || document.documentElement.clientHeight || 0;
   }
@@ -406,7 +444,7 @@ const PAGE_HEIGHT_UPDATE_INTERVAL_MS = 6 * 60 * 1000; // 6 minutes
 
 function getPageHeightPayload() {
   try {
-    const currentHeight = getPageHeightPx();
+    const currentHeight = Math.max(getPageHeightPx(), observedMaxHeight);
     const storageKey = "jh_ph_" + window.location.pathname;
     const stored = sessionStorage.getItem(storageKey);
     const now = Date.now();
@@ -609,6 +647,10 @@ function firePageViewStart() {
     maxScrollDepth = getScrollDepth(); // seed at the entry point, not 0
     maxScrollReachedAt = null;
     revisitStartDepth = null;
+    // Start empty, NOT from the current height: in a single-page app the previous route's content is still in the page for a
+    // moment after the URL changes, and seeding from it would make this page look as tall as the last one. The size observer
+    // (above) and the scroll sampler fill it in once this page's own content is there.
+    observedMaxHeight = 0;
     pageViewOpen = true;
     firePageViewStart();
     for (const fn of pageOpenListeners) {
@@ -796,6 +838,7 @@ function firePageViewStart() {
       if (_scrollThrottleTimer) return; // already scheduled
       _scrollThrottleTimer = setTimeout(function () {
         _scrollThrottleTimer = null;
+        noteHeight();
         try {
           var scrolled = window.scrollY;
           var height = getPageHeightPx() - window.innerHeight; // same basis as getScrollDepth()

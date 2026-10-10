@@ -52,7 +52,7 @@ export default function PrivacyConsentPage() {
         <P>
           If your visitors need to give consent first, add <C>data-require-consent</C> to the script tag. The tracker then stays completely off: nothing is stored and nothing is sent. When your banner records a yes, call:
         </P>
-        <Code>{`<script src="https://jellyhook.com/tracker.js" data-key="YOUR_KEY" data-require-consent></script>\n\n// in your cookie banner's code, when the visitor accepts:\nwindow.jellyhook.consent(true);\n\n// when they decline, or later withdraw:\nwindow.jellyhook.consent(false);`}</Code>
+        <Code>{`<script defer src="https://jellyhook.com/tracker.js" data-key="YOUR_KEY" data-require-consent></script>\n\n// in your cookie banner's code, when the visitor accepts:\nwindow.jellyhook.consent(true);\n\n// when they decline, or later withdraw:\nwindow.jellyhook.consent(false);`}</Code>
         <UL>
           <li>
             <C>consent(true)</C> starts the tracker straight away, and remembers the choice, so the visitor is not asked on later visits.
