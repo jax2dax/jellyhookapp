@@ -18,9 +18,24 @@
 
   const _originalFetch = window.fetch;
 
-  const scriptTag = document.currentScript || document.querySelector('script[data-key][src*="tracker"]');
+  const scriptTag = document.currentScript || document.querySelector('script[data-key][src*="tracker"], script[src*="tracker.js"]');
   if (!scriptTag) return;
-  const apiKey = scriptTag.getAttribute("data-key");
+
+  // SETTINGS: read from the script tag's attributes (data-key, data-require-consent, data-debug) OR, when an attribute is
+  // missing, from the script's address (tracker.js?key=...&require-consent&debug). The address form exists because Google
+  // Tag Manager's Custom HTML tag rebuilds a pasted <script> and copies only id, text, charset, type and src, so every
+  // data- attribute is lost (observed 2026-10-10: the element in the page had no data-key). The address survives.
+  // Returns the value ("" for a bare flag), or null when the setting is not given either way.
+  function setting(name) {
+    const attr = scriptTag.getAttribute("data-" + name);
+    if (attr !== null) return attr;
+    try {
+      const v = new URL(scriptTag.src, window.location.href).searchParams.get(name);
+      if (v !== null && v !== "0" && v !== "false") return v;
+    } catch (e) {}
+    return null;
+  }
+  const apiKey = setting("key");
   let API_BASE;
   try {
     API_BASE = new URL(scriptTag.src, window.location.href).origin;
@@ -66,7 +81,7 @@
     } catch (e) {}
   }
   if (browserSaysNo()) return;
-  if (scriptTag.hasAttribute("data-require-consent")) {
+  if (setting("require-consent") !== null) {
     const state = storedConsent();
     if (state === "denied") {
       eraseStoredData();
@@ -109,7 +124,7 @@
   window.__jhTrackerLoaded = true;
 
   // Silent unless asked: a tracker must not fill a customer's console.
-  let DEBUG = scriptTag.hasAttribute("data-debug");
+  let DEBUG = setting("debug") !== null;
   try {
     if (!DEBUG && localStorage.getItem("jh_debug") === "1") DEBUG = true;
   } catch (e) {}

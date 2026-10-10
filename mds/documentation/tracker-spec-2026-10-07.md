@@ -6,6 +6,18 @@ disagree, the code wins; fix this file in the same change. Audit and reasons:
 
 ## Install
 
+### Settings can come from the script's address (added 2026-10-10)
+
+`data-key`, `data-require-consent` and `data-debug` are read from the script tag's attributes. If an attribute is missing, the tracker reads the
+same setting from the script's address: `tracker.js?key=KEY&require-consent&debug` (`setting()` in `public/tracker.js`; `0` and `false` count as off).
+
+**Why:** Google Tag Manager's Custom HTML tag does not insert a pasted `<script>` as written. It rebuilds the element and copies only `id`, `text`,
+`charset`, `type` and `src`, so every `data-` attribute is lost. Observed on a real container (2026-10-10): the element in the page was
+`<script id="" text="" charset="" type="text/javascript" src="https://jellyhook.com/tracker.js">` and the tracker logged "Missing data-key". The
+address survives, so the install snippet for GTM is `<script src="https://jellyhook.com/tracker.js?key=KEY"></script>`.
+Tests: reproduced with a rebuilt element (old tracker: "Missing data-key"; new tracker with `?key=`: starts; consent flag and debug flag
+via the address also work).
+
 ```html
 <script src="https://YOUR-APP/tracker.js" data-key="API_KEY"></script>
 ```
