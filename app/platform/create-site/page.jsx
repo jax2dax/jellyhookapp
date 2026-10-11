@@ -1,7 +1,7 @@
 // app/platform/create-site/page.jsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createSite, cancelVerification } from "@/lib/actions/site-management.actions";
 import { useSearchParams } from "next/navigation";
 import { getSiteVerificationStatus, renewClaim } from "@/lib/actions/site-management.actions";
@@ -31,8 +31,10 @@ export default function CreateSitePage() {
   // If redirected here with pending status, show pending UI immediately
   const showPendingFromParam = statusParam === "pending" && siteIdParam && domainParam;
 
+  const submitting = useRef(false);
   const handleSubmit = async () => {
-    if (!domain.trim()) return;
+    if (!domain.trim() || submitting.current) return; // a double click or a held Enter must not create two claims
+    submitting.current = true;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -51,6 +53,7 @@ export default function CreateSitePage() {
     } catch (err) {
       setError(err.message || "Something went wrong");
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -175,24 +178,21 @@ export default function CreateSitePage() {
   }
 
   // ── RECLAIMED (unverified, original owner) ───────────────────────────────
+  // Same waiting screen as a new claim: it checks for the first tracker hit and only lets the person into the
+  // dashboard once the domain is verified. Never a "Go to Dashboard" shortcut for an unverified site.
   if (result?.reclaimed) {
     return (
       <PageShell>
-        <Card className="w-full max-w-lg">
-          <CardContent>
-            <div className="mb-3 text-2xl text-primary">✅</div>
-            <h2 className="mb-3 text-xl font-bold text-foreground">Site Reclaimed</h2>
-            <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
-              You previously registered <strong>{result.site.domain}</strong> but never installed the script. Your API key is unchanged.
-              {result.renewed && " Your earlier setup had expired, so it has been renewed for 3 more days."}
-            </p>
-            <InstallSteps apiKey={result.site.api_key} trackerBase={process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000"} specifyForm={!!result.site.specify_form} />
-            <div className="mb-4" />
-            <Button asChild>
-              <a href="/platform">Go to Dashboard →</a>
-            </Button>
-          </CardContent>
-        </Card>
+        <PendingUI
+          domain={result.site.domain}
+          siteId={result.site.id}
+          apiKey={result.site.api_key}
+          specifyForm={!!result.site.specify_form}
+          notice={"You already started setting up this site and the script has not reported yet. Your API key is unchanged." + (result.renewed ? " Your earlier setup had expired, so it has been renewed for 3 more days." : "")}
+          onCancel={handleCancelVerification}
+          cancelling={cancelling}
+          cancelError={cancelError}
+        />
       </PageShell>
     );
   }
@@ -318,11 +318,13 @@ function StepDot({ n }) {
 // PendingUI — shown after site creation OR when redirected from gated pages
 // Shows script to install, pending badge, and cancel button
 // ─────────────────────────────────────────────────────────────────────────────
-function PendingUI({ domain, siteId, apiKey, competing = 0, specifyForm, onCancel, cancelling, cancelError }) {
+function PendingUI({ domain, siteId, apiKey, competing = 0, specifyForm, notice, onCancel, cancelling, cancelError }) {
   const trackerBase = process.env.NEXT_PUBLIC_TRACKER_URL || "http://localhost:3000";
   const [status, setStatus] = useState(null);
   const [actionError, setActionError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkedAt, setCheckedAt] = useState(null);
 
   useEffect(() => {
     if (!siteId) return;
@@ -344,6 +346,21 @@ function PendingUI({ domain, siteId, apiKey, competing = 0, specifyForm, onCance
     };
   }, [siteId]);
 
+  // The same check the page runs every 3 seconds, on demand, with an answer the person can see.
+  async function handleCheckNow() {
+    setChecking(true);
+    setActionError(null);
+    try {
+      const st = await getSiteVerificationStatus(siteId);
+      if (st) setStatus(st);
+      if (st?.verified) window.location.href = "/platform/dashboard";
+      else setCheckedAt(new Date());
+    } catch {
+      setActionError("Couldn't check right now. Try again in a moment.");
+    }
+    setChecking(false);
+  }
+
   async function handleRenew() {
     setBusy(true);
     setActionError(null);
@@ -364,7 +381,7 @@ function PendingUI({ domain, siteId, apiKey, competing = 0, specifyForm, onCance
 
 
   return (
-    <Card className="w-full max-w-lg">
+    <Card className="w-full max-w-2xl">
       <CardContent>
         <div className="mb-5 flex items-center gap-2.5">
           <Badge variant="outline" className="border-warning/40 text-warning">
@@ -373,6 +390,7 @@ function PendingUI({ domain, siteId, apiKey, competing = 0, specifyForm, onCance
         </div>
 
         <h2 className="mb-3 text-xl font-bold text-foreground">{domain}</h2>
+        {notice && <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{notice}</p>}
         <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
           Waiting for the first tracker hit from your site. Once the script loads on your site, your dashboard will activate automatically.
         </p>
@@ -384,6 +402,16 @@ function PendingUI({ domain, siteId, apiKey, competing = 0, specifyForm, onCance
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" style={{ animationDelay: `${i * 0.2}s` }} />
             ))}
+          </div>
+          <div className="mt-3 flex flex-col items-center gap-1">
+            <Button size="sm" variant="outline" onClick={handleCheckNow} disabled={checking}>
+              {checking ? "Checking..." : "Check verification"}
+            </Button>
+            {checkedAt && !status?.verified && (
+              <span className="text-xs text-muted-foreground">
+                Not verified yet (checked {checkedAt.toLocaleTimeString()}). Load a page of {domain} that has the script in its head, then check again.
+              </span>
+            )}
           </div>
         </div>
 

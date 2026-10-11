@@ -1,0 +1,488 @@
+{
+  "started": "2026-10-11T06:54:07.200Z",
+  "finished": "2026-10-11T06:56:49.295Z",
+  "runsPerMode": 5,
+  "machine": {
+    "cpu": "Intel(R) Core(TM) Ultra 5 226V",
+    "cores": 8,
+    "ramGb": 16,
+    "os": "win32 10.0.26200",
+    "node": "v24.13.0"
+  },
+  "database": "PGlite (in-memory Postgres, WebAssembly)",
+  "data": {
+    "visitors": 100000,
+    "sessions": 300000,
+    "pageViews": 1000000,
+    "leads": 6046
+  },
+  "seedSeconds": 52,
+  "queries": [
+    {
+      "id": "H1",
+      "kind": "high-spread",
+      "desc": "sessions from the newsletter (rare) with 3+ page views",
+      "engineStrategy": "staged",
+      "baselineStrategy": "fused",
+      "engineOrder": [
+        "nl",
+        "pv3"
+      ],
+      "answer": 566,
+      "sameAnswer": true,
+      "credits": 71,
+      "pgCost": 35355.05,
+      "engineMedianMs": 91.5,
+      "fusedMedianMs": 76.9,
+      "speedup": 0.8,
+      "engineMaxMs": 154.1,
+      "fusedMaxMs": 124.7,
+      "planColdMs": 11,
+      "planWarmMedianMs": 4,
+      "execMedianMs": 90,
+      "steps": [
+        {
+          "id": "nl",
+          "est": 870,
+          "actual": 904,
+          "q": 1.0390804597701149
+        },
+        {
+          "id": "pv3",
+          "est": 100000,
+          "actual": 194144,
+          "q": 1.94144
+        }
+      ],
+      "engineRuns": [
+        131.6,
+        154.1,
+        87.7,
+        86.7,
+        91.5
+      ],
+      "fusedRuns": [
+        124.7,
+        72,
+        64.3,
+        78.9,
+        76.9
+      ],
+      "notes": [
+        "Step sizes differ by about 115x, so the most selective step runs first and each next step only looks at what survived."
+      ]
+    },
+    {
+      "id": "H2",
+      "kind": "high-spread",
+      "desc": "sessions from Ethiopia (rare) that viewed the most common page",
+      "engineStrategy": "staged",
+      "baselineStrategy": "fused",
+      "engineOrder": [
+        "et",
+        "p0"
+      ],
+      "answer": 891,
+      "sameAnswer": true,
+      "credits": 56,
+      "pgCost": 27817.49,
+      "engineMedianMs": 223.5,
+      "fusedMedianMs": 67.4,
+      "speedup": 0.3,
+      "engineMaxMs": 293.5,
+      "fusedMaxMs": 81.1,
+      "planColdMs": 12,
+      "planWarmMedianMs": 5,
+      "execMedianMs": 217,
+      "steps": [
+        {
+          "id": "et",
+          "est": 1550,
+          "actual": 1498,
+          "q": 1.034712950600801
+        },
+        {
+          "id": "p0",
+          "est": 237984,
+          "actual": 178254,
+          "q": 1.3350836446867953
+        }
+      ],
+      "engineRuns": [
+        223.5,
+        279.1,
+        149.2,
+        154,
+        293.5
+      ],
+      "fusedRuns": [
+        81.1,
+        67.4,
+        71.3,
+        60.9,
+        66.4
+      ],
+      "notes": [
+        "Step sizes differ by about 154x, so the most selective step runs first and each next step only looks at what survived."
+      ]
+    },
+    {
+      "id": "H3",
+      "kind": "high-spread",
+      "desc": "converted sessions in the last 60 days with 2+ views over a minute",
+      "engineStrategy": "fused",
+      "baselineStrategy": "fused",
+      "engineOrder": [
+        "long",
+        "cv",
+        "d60"
+      ],
+      "answer": 2176,
+      "sameAnswer": true,
+      "credits": 85745,
+      "pgCost": 42872022.82,
+      "engineMedianMs": 3902.3,
+      "fusedMedianMs": 3684.4,
+      "speedup": 0.9,
+      "engineMaxMs": 4075.8,
+      "fusedMaxMs": 3900.1,
+      "planColdMs": 21,
+      "planWarmMedianMs": 3,
+      "execMedianMs": 3897,
+      "steps": [
+        {
+          "id": "long",
+          "est": 100000,
+          "actual": 163940,
+          "q": 1.6394
+        },
+        {
+          "id": "cv",
+          "est": 150000,
+          "actual": 6046,
+          "q": 24.80979159775058
+        },
+        {
+          "id": "d60",
+          "est": 198188,
+          "actual": 199774,
+          "q": 1.0080025026742285
+        }
+      ],
+      "engineRuns": [
+        3569,
+        4075.8,
+        4018,
+        3902.3,
+        3800.2
+      ],
+      "fusedRuns": [
+        3900.1,
+        3859.4,
+        3247.4,
+        3538.4,
+        3684.4
+      ],
+      "notes": [
+        "Steps are similar in size, so Postgres was left to order them itself."
+      ]
+    },
+    {
+      "id": "H4",
+      "kind": "high-spread",
+      "desc": "page views of a rare page that lasted over 5 seconds",
+      "engineStrategy": "staged",
+      "baselineStrategy": "fused",
+      "engineOrder": [
+        "rare",
+        "t5"
+      ],
+      "answer": 5977,
+      "sameAnswer": true,
+      "credits": 174,
+      "pgCost": 86762.83,
+      "engineMedianMs": 470.5,
+      "fusedMedianMs": 186.9,
+      "speedup": 0.4,
+      "engineMaxMs": 586.1,
+      "fusedMaxMs": 210.3,
+      "planColdMs": 6,
+      "planWarmMedianMs": 2,
+      "execMedianMs": 469,
+      "steps": [
+        {
+          "id": "rare",
+          "est": 7433,
+          "actual": 6984,
+          "q": 1.0642898052691867
+        },
+        {
+          "id": "t5",
+          "est": 333333,
+          "actual": 858307,
+          "q": 2.574923574923575
+        }
+      ],
+      "engineRuns": [
+        441.8,
+        470.5,
+        477.9,
+        451.7,
+        586.1
+      ],
+      "fusedRuns": [
+        210.3,
+        186.9,
+        185.3,
+        184,
+        190.1
+      ],
+      "notes": [
+        "Step sizes differ by about 45x, so the most selective step runs first and each next step only looks at what survived."
+      ]
+    },
+    {
+      "id": "L1",
+      "kind": "low-spread",
+      "desc": "sessions from Google in the US",
+      "engineStrategy": "fused",
+      "baselineStrategy": "fused",
+      "engineOrder": [
+        "g",
+        "us"
+      ],
+      "answer": 62786,
+      "sameAnswer": true,
+      "credits": 20,
+      "pgCost": 9844.47,
+      "engineMedianMs": 62.3,
+      "fusedMedianMs": 57.3,
+      "speedup": 0.9,
+      "engineMaxMs": 81.1,
+      "fusedMaxMs": 61.4,
+      "planColdMs": 3,
+      "planWarmMedianMs": 1,
+      "execMedianMs": 61,
+      "steps": [
+        {
+          "id": "g",
+          "est": 104310,
+          "actual": 104762,
+          "q": 1.0043332374652478
+        },
+        {
+          "id": "us",
+          "est": 181140,
+          "actual": 179774,
+          "q": 1.0075984291388076
+        }
+      ],
+      "engineRuns": [
+        62.3,
+        81.1,
+        62.6,
+        53.3,
+        59.3
+      ],
+      "fusedRuns": [
+        56.7,
+        61.4,
+        50.6,
+        57.3,
+        60
+      ],
+      "notes": [
+        "Steps are similar in size, so Postgres was left to order them itself."
+      ]
+    },
+    {
+      "id": "L2",
+      "kind": "low-spread",
+      "desc": "sessions in the last 45 days with 2+ page views",
+      "engineStrategy": "fused",
+      "baselineStrategy": "fused",
+      "engineOrder": [
+        "pv2",
+        "d45"
+      ],
+      "answer": 126506,
+      "sameAnswer": true,
+      "credits": 6093,
+      "pgCost": 3046397.44,
+      "engineMedianMs": 2278.8,
+      "fusedMedianMs": 3943.7,
+      "speedup": 1.7,
+      "engineMaxMs": 2319.3,
+      "fusedMaxMs": 4458.4,
+      "planColdMs": 2,
+      "planWarmMedianMs": 1,
+      "execMedianMs": 2278,
+      "steps": [
+        {
+          "id": "pv2",
+          "est": 100000,
+          "actual": 253599,
+          "q": 2.53599
+        },
+        {
+          "id": "d45",
+          "est": 147659,
+          "actual": 149646,
+          "q": 1.013456680595155
+        }
+      ],
+      "engineRuns": [
+        2319.3,
+        2294.6,
+        2206.3,
+        2247.6,
+        2278.8
+      ],
+      "fusedRuns": [
+        3943.7,
+        4420.8,
+        4458.4,
+        3670.1,
+        2126.7
+      ],
+      "notes": [
+        "Steps are similar in size, so Postgres was left to order them itself."
+      ]
+    },
+    {
+      "id": "N1",
+      "kind": "nested",
+      "desc": "(facebook OR UK) AND not converted",
+      "engineStrategy": "fused",
+      "baselineStrategy": "fused",
+      "engineOrder": [
+        "nc",
+        "or"
+      ],
+      "answer": 81679,
+      "sameAnswer": true,
+      "credits": 117434,
+      "pgCost": 58716968.26,
+      "engineMedianMs": 110.9,
+      "fusedMedianMs": 124.4,
+      "speedup": 1.1,
+      "engineMaxMs": 148.4,
+      "fusedMaxMs": 135.1,
+      "planColdMs": 5,
+      "planWarmMedianMs": 2,
+      "execMedianMs": 109,
+      "steps": [
+        {
+          "id": "nc",
+          "est": 150000,
+          "actual": 293954,
+          "q": 1.9596933333333333
+        },
+        {
+          "id": "or",
+          "est": 225000,
+          "actual": 83357,
+          "q": 2.6992334177093706
+        }
+      ],
+      "engineRuns": [
+        135.2,
+        148.4,
+        110.6,
+        110.9,
+        108
+      ],
+      "fusedRuns": [
+        123.4,
+        124.4,
+        117.4,
+        135.1,
+        128.7
+      ],
+      "notes": [
+        "Steps are similar in size, so Postgres was left to order them itself."
+      ]
+    },
+    {
+      "id": "S1",
+      "kind": "sub-hook",
+      "desc": "page views by visitors who became qualified leads, over 30 seconds",
+      "engineStrategy": "fused",
+      "baselineStrategy": "fused",
+      "engineOrder": [
+        "who",
+        "t30"
+      ],
+      "answer": 57951,
+      "sameAnswer": true,
+      "credits": 73,
+      "pgCost": 36059.3,
+      "engineMedianMs": 440.7,
+      "fusedMedianMs": 402,
+      "speedup": 0.9,
+      "engineMaxMs": 453,
+      "fusedMaxMs": 657.3,
+      "planColdMs": 13,
+      "planWarmMedianMs": 7,
+      "execMedianMs": 434,
+      "steps": [
+        {
+          "id": "who",
+          "est": 40477,
+          "actual": 85283,
+          "q": 2.106949625713368
+        },
+        {
+          "id": "t30",
+          "est": 333333,
+          "actual": 678148,
+          "q": 2.0344460344460344
+        }
+      ],
+      "engineRuns": [
+        424.9,
+        440.7,
+        453,
+        449.9,
+        382.9
+      ],
+      "fusedRuns": [
+        370.5,
+        391.5,
+        402,
+        455.1,
+        657.3
+      ],
+      "notes": [
+        "Tunnel: the sub-hook at who (value) sent in 1713 values.",
+        "Steps are similar in size, so Postgres was left to order them itself."
+      ]
+    }
+  ],
+  "budget": {
+    "query": "N1",
+    "credits": 117434,
+    "limit": 117433,
+    "rejectMedianMs": 5.7,
+    "rejectRuns": [
+      7.1,
+      6.8,
+      4.7,
+      5.7,
+      4.8
+    ],
+    "message": "This hook is estimated at 117434 credits, over the 117433 credit limit. Nothing was run.",
+    "wouldHaveRunMedianMs": 110.9,
+    "falseRejectionsAtProdLimit": [
+      "H3: This hook is estimated at 85745 credits, over the 200 credit limit. Nothing was run.",
+      "L2: This hook is estimated at 6093 credits, over the 200 credit limit. Nothing was run.",
+      "N1: This hook is estimated at 117434 credits, over the 200 credit limit. Nothing was run."
+    ],
+    "prodLimit": 200
+  },
+  "estimates": {
+    "steps": 17,
+    "medianQError": 1.6,
+    "maxQError": 24.8
+  }
+}

@@ -96,6 +96,12 @@ export function CodeBox({ code, copyText, tone = "context", tabs }) {
   );
 }
 
+// Google Tag Manager rebuilds a pasted <script> and keeps only its src (data- attributes are dropped), so for GTM the key
+// travels in the address. public/tracker.js reads it from there. No site code is touched.
+function gtmTag(base, key) {
+  return `<script src="${base}/tracker.js?key=${key}"></script>`;
+}
+
 function scriptTag(base, key) {
   return `<script defer src="${base}/tracker.js" data-key="${key}"></script>`;
 }
@@ -124,11 +130,18 @@ function stepOneSnippets(base, key) {
       code: `<!-- index.html -->\n<head>\n  <meta charset="UTF-8" />\n  «${tag}»\n</head>`,
       copy: tag,
     },
+    gtm: {
+      note: "No site code needed. In Google Tag Manager: Tags, New, Tag Configuration, Custom HTML. Paste this, set the trigger to All Pages, then Submit and Publish.",
+      code: `«${gtmTag(base, key)}»`,
+      copy: gtmTag(base, key),
+    },
   };
 }
 
 const HUBSPOT = `<div ‹data-conversion="true"›>\n  <script src="//js.hsforms.net/forms/embed/v2.js"></script>\n  <script>\n    hbspt.forms.create({ portalId: "YOUR_PORTAL_ID", formId: "YOUR_FORM_ID" });\n  </script>\n</div>`;
 const OWN_FORM = `<form ‹data-conversion="true"› action="/your-endpoint" method="post">\n  <!-- your fields, unchanged -->\n</form>`;
+// For people who can edit Google Tag Manager but not the page: a second Custom HTML tag that puts the attribute on the form.
+const GTM_MARK_FORM = `<script>\n  document.querySelectorAll('form#contact').forEach(function (f) {\n    f.setAttribute('data-conversion', 'true');\n  });\n</script>`;
 const STARTER_COLORED = STARTER_FORM.replace('data-conversion="true"', '‹data-conversion="true"›');
 
 const FRAMEWORKS = [
@@ -136,12 +149,14 @@ const FRAMEWORKS = [
   { id: "nextapp", label: "Next.js (App)" },
   { id: "nextpages", label: "Next.js (Pages)" },
   { id: "vite", label: "Vite / React" },
+  { id: "gtm", label: "Tag Manager" },
 ];
 // HubSpot first: it is the one people ask about. The others stay quieter (see CodeBox tabs).
 const FORM_KINDS = [
-  { id: "hubspot", label: "I have a HubSpot form" },
   { id: "own", label: "Regular form" },
+  { id: "hubspot", label: "I have a HubSpot form" },
   { id: "starter", label: "Give me a form" },
+  { id: "gtm", label: "Tag Manager" },
 ];
 
 export function InstallSteps({ apiKey, trackerBase, specifyForm }) {
@@ -170,12 +185,13 @@ export function InstallSteps({ apiKey, trackerBase, specifyForm }) {
           <p className="mb-2 text-[11px] text-muted-foreground">
             {formKind === "hubspot" && "HubSpot builds its form itself, so wrap the embed in an element that carries the attribute. Keep your own portal and form ids."}
             {formKind === "own" && "Add one attribute to the form you already have. Everything else stays as it is."}
+            {formKind === "gtm" && "No access to the form's code? Add a second Custom HTML tag in Tag Manager with this, triggered on DOM Ready. Change form#contact to match your form (its id or class)."}
             {formKind === "starter" && "A simple contact form with no styling to fight. Paste it where you want it. It records the lead in Jellyhook and shows a thank-you message."}
           </p>
           <CodeBox
-            code={formKind === "hubspot" ? HUBSPOT : formKind === "own" ? OWN_FORM : STARTER_COLORED}
-            copyText={formKind === "starter" ? STARTER_FORM : 'data-conversion="true"'}
-            tone={formKind === "starter" ? "ours" : "context"}
+            code={formKind === "hubspot" ? HUBSPOT : formKind === "own" ? OWN_FORM : formKind === "gtm" ? GTM_MARK_FORM : STARTER_COLORED}
+            copyText={formKind === "starter" ? STARTER_FORM : formKind === "gtm" ? GTM_MARK_FORM : 'data-conversion="true"'}
+            tone={formKind === "starter" || formKind === "gtm" ? "ours" : "context"}
             tabs={{ options: FORM_KINDS, value: formKind, onChange: setFormKind }}
           />
         </div>
