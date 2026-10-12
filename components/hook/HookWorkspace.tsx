@@ -28,6 +28,7 @@ import { SPEC_VERSION, type HookResult, type HookSpec } from "@/jh-hook/types";
 import { compareHooksAction, runHookCanvas } from "@/lib/actions/canvas.action";
 import { Canvas } from "@/output/components/Canvas";
 import { formatValue } from "@/output/format";
+import { canvasText } from "@/output/plainText";
 import { FORMULA_LABEL, type CanvasView, type Formula } from "@/output/types";
 import { SilhouettePanel } from "@/silhouette";
 
@@ -392,6 +393,23 @@ function ResultPanel({ outcome, dev, announce }: { outcome: Outcome; dev: boolea
           <span>plan {r.timing.planMs} ms</span>
           <span>run {r.timing.execMs} ms</span>
           <span>{r.plan.strategy === "staged" ? "ran step by step" : "ran in one pass"}</span>
+          {canvas && (
+            <button
+              type="button"
+              className="ml-auto underline-offset-2 hover:underline"
+              title="Copy this answer as plain text: every visit's raw times, scroll samples and form status, to paste into a chat"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(canvasText(canvas, describeSpec(spec)));
+                  announce("success", "Copied the answer as plain text.");
+                } catch {
+                  announce("error", "Couldn't copy. Allow clipboard access and try again.");
+                }
+              }}
+            >
+              Copy as text
+            </button>
+          )}
         </div>
         <details>
           <summary className="cursor-pointer text-xs">How it ran</summary>

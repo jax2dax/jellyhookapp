@@ -181,3 +181,15 @@ lets say a site had, monday-sunday) 22, 23, 20, 46,  20, 21, 19 conversions )the
 +update docs
 
 __notify me when a lead visits 20% if  the site converted
+
+-hubspot integration
+- easier for non tech people sinstall script
+- country fetching alternative(how do vercel do it)
+-fix the refferer in the tr
+
+(check the form on the gtag):
+__ frame duration color changes based on average spent time per frame (green/red- below/above):
+-smooth adding into the plate-frames instead of glitch popping:
+
+- style the purple frame plate to a better color
+-lead odness (fluctutation frmo the averages)( everage info  togeather with comparision) 
