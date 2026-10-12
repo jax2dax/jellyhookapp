@@ -16,6 +16,7 @@ import { summarizeHealth } from "../health.js";
 import { bytesPerRow, visitorsPerSession, storagePerEvent, queriesPerEvent, planCapacity, sumUsage } from "../costModel.js";
 import { cleanDomainInput, emailMatchesDomain, decideCreateSite } from "../claims.js";
 import { emptyUsage, bump, usageDelta, usageDay } from "../usage.js";
+import { cleanNum } from "../server.js";
 
 let fails = 0;
 let passes = 0;
@@ -231,6 +232,10 @@ ok(decideCreateSite({ now: T0 + 1000, hasPendingInvite: true, sites: [mk({ verif
   ok(cap.eventsPerMonthTotal === Math.floor((8e9 * 0.75) / (200 * 12)) && cap.eventsPerMonthPerSite === Math.floor(cap.eventsPerMonthTotal / 10), "cost: capacity = usable storage / (bytes per event x months kept) / sites");
   ok(planCapacity({ storageBudgetBytes: 8e9, retentionMonths: 12, headroom: 0.25, sites: 10, bytesPerEvent: 0 }).eventsPerMonthTotal === 0, "cost: no data yet gives 0, never a division by zero");
 }
+
+// cleanNum: "not measured" must stay null, never become 0
+ok(cleanNum(null, 0, 1) === null && cleanNum(undefined, 0, 1) === null && cleanNum("", 0, 1) === null && cleanNum(true, 0, 1) === null, "cleanNum: null / missing / empty / boolean are not numbers (null revisit_start_scroll was stored as 0)");
+ok(cleanNum(0, 0, 1) === 0 && cleanNum(0.95, 0, 1) === 0.95 && cleanNum("0.5", 0, 1) === 0.5 && cleanNum(2, 0, 1) === null, "cleanNum: real 0, numbers and numeric strings kept, out of range dropped");
 
 // usage
 const bag = emptyUsage();

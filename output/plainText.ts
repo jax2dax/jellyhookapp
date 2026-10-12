@@ -20,7 +20,7 @@ function visitText(v: PageVisitRaw, i: number, deviceType: string | null, highli
     `    converted ${v.converted ? "yes" : "no"}   form: ${v.formStatus ?? "none seen"}${v.formFieldCount != null ? `, ${v.formFieldCount} field(s) focused` : ""}${v.formTopY != null ? `, form at ${v.formTopY}-${v.formBottomY} px` : ""}${v.abandonedForm ? ", ABANDONED" : ""}`,
   ];
   const trace = v.scrollTrace ?? [];
-  out.push(`    scroll samples (${trace.length}) as [ms since entry, scroll 0-1 of the scrollable range]: ${trace.length ? trace.map((s) => `[${Math.round(s.t)},${+s.y.toFixed(3)}]`).join(" ") : "none recorded"}`);
+  out.push(`    scroll checkpoints (NOT a recorded trace: rebuilt from 4 stored numbers, entry / deepest / shallowest after backtracking / exit; the first number is only the order, not milliseconds) as [order, scroll 0-1 of the scrollable range]: ${trace.length ? trace.map((s) => `[${Math.round(s.t)},${+s.y.toFixed(3)}]`).join(" ") : "none recorded"}`);
   try {
     const g = deriveVisitGeometry(v, deviceType === "mobile" ? 800 : 900);
     out.push(
