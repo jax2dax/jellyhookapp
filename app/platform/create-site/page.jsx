@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createSite, cancelVerification } from "@/lib/actions/site-management.actions";
+import { createSite, cancelVerification, getMyPendingClaim } from "@/lib/actions/site-management.actions";
 import { useSearchParams } from "next/navigation";
 import { getSiteVerificationStatus, renewClaim } from "@/lib/actions/site-management.actions";
 import { addAllowedHost } from "@/lib/actions/settings.actions";
@@ -30,6 +30,27 @@ export default function CreateSitePage() {
 
   // If redirected here with pending status, show pending UI immediately
   const showPendingFromParam = statusParam === "pending" && siteIdParam && domainParam;
+
+  // A refresh must not throw the person back to the empty form: if they already have a claim waiting for its first tracker
+  // hit, bring that setup screen back (the script, the steps and the live check).
+  const [restoring, setRestoring] = useState(!showPendingFromParam);
+  useEffect(() => {
+    if (showPendingFromParam) return;
+    let live = true;
+    getMyPendingClaim()
+      .then((c) => {
+        if (!live || !c) return;
+        setSpecifyForm(c.specify_form);
+        setResult((prev) => prev ?? { site: { id: c.id, domain: c.domain, api_key: c.api_key, specify_form: c.specify_form }, competing: 0 });
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (live) setRestoring(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [showPendingFromParam]);
 
   const submitting = useRef(false);
   const handleSubmit = async () => {
@@ -75,6 +96,14 @@ export default function CreateSitePage() {
       setCancelling(false);
     }
   };
+
+  if (restoring) {
+    return (
+      <PageShell>
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </PageShell>
+    );
+  }
 
   // ── PENDING STATE (redirected from verification gate) ────────────────────
   if (showPendingFromParam) {

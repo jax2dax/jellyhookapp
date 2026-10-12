@@ -254,7 +254,25 @@ export async function POST(req) {
 
         // Any page view proves the visit is alive. This also reopens a session
         // an idle sweep closed a moment too early.
-        await supabase.from("sessions").update({ last_activity_at: nowIso, ended_at: null }).eq("session_id", sessionId).eq("site_id", site.id);
+        const { data: aliveSessions } = await supabase.from("sessions").update({ last_activity_at: nowIso, ended_at: null }).eq("session_id", sessionId).eq("site_id", site.id).select("id");
+        if (!aliveSessions || aliveSessions.length === 0) {
+          // The server has never stored this session. The tracker announces a session ONCE (session_start) and then remembers it in the
+          // browser for 30 minutes, so if that first announcement was refused or lost (wrong key, host not allowed yet, a blocked or
+          // failed request) every later page view points at a session that does not exist: page views and visitors, but zero sessions.
+          // A page view proves the visit exists, so create the session from it. started_at is when we first heard of it.
+          const { error: sessionError } = await supabase.from("sessions").insert({
+            session_id: sessionId,
+            visitor_id: visitorId,
+            site_id: site.id,
+            started_at: nowIso,
+            last_activity_at: nowIso,
+            referrer: cleanStr(event.referrer, 500),
+            country: country,
+            timezone: cleanStr(event.timezone, 100),
+          });
+          // 23505: another request created it at the same moment, or the id belongs to another site. Harmless either way.
+          if (sessionError && sessionError.code !== "23505") console.error("[track] session repair insert error:", sessionError.message);
+        }
 
         const viewportWidth = cleanNum(event.viewport_width, 1, 20000);
         const deviceClass = deviceClassFromWidth(viewportWidth);

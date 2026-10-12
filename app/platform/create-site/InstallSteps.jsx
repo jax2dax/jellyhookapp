@@ -146,10 +146,10 @@ const STARTER_COLORED = STARTER_FORM.replace('data-conversion="true"', '‹data-
 
 const FRAMEWORKS = [
   { id: "html", label: "HTML / any site" },
+  { id: "gtm", label: "Tag Manager" },
   { id: "nextapp", label: "Next.js (App)" },
   { id: "nextpages", label: "Next.js (Pages)" },
   { id: "vite", label: "Vite / React" },
-  { id: "gtm", label: "Tag Manager" },
 ];
 // HubSpot first: it is the one people ask about. The others stay quieter (see CodeBox tabs).
 const FORM_KINDS = [
