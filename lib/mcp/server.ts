@@ -12,7 +12,7 @@ import type { McpContext, McpDeps } from "@/jh-mcp/tools";
 import { pgHookDb } from "@/lib/hook/pgDb";
 import { withServiceClient } from "@/output/server/data";
 import { renderCanvas } from "@/output/server/render";
-import { checkRate, MAX_CREDITS, MAX_ROWS, recordCall, type Caller } from "./auth";
+import { checkRate, recordCall, type Caller } from "./auth";
 
 const deps: McpDeps = {
   async run(siteId: string, spec: HookSpec, maxCredits: number) {
@@ -28,13 +28,14 @@ const deps: McpDeps = {
 };
 
 export function buildServer(caller: Caller): McpServer {
-  const ctx: McpContext = { siteId: caller.siteId, allowPii: caller.allowPii, maxCredits: MAX_CREDITS(), maxRows: MAX_ROWS() };
+  const c = caller.config;
+  const ctx: McpContext = { siteId: caller.siteId, allowPii: caller.allowPii, maxCredits: c.maxCredits, maxRows: c.maxRows };
   const server = new McpServer({ name: "jellyhook", version: "1.0.0" });
 
   // Every tool goes through here: rate limit first, then the tool, then the record.
   const guard: Guard = async (kind, run) => {
     const t0 = Date.now();
-    const rate = await checkRate(caller.tokenId);
+    const rate = await checkRate(caller.tokenId, { perMinute: c.callsPerMinute, perDay: c.callsPerDay });
     if (!rate.ok) {
       await recordCall(caller, { kind, status: "rate_limited", credits: 0, rows: null, ms: Date.now() - t0, error: rate.message });
       return { content: [{ type: "text", text: rate.message }], isError: true };
@@ -44,6 +45,6 @@ export function buildServer(caller: Caller): McpServer {
     return { content: [{ type: "text", text: out.text }], isError: out.isError };
   };
 
-  registerJellyhookTools(server, ctx, deps, guard);
+  registerJellyhookTools(server, ctx, deps, guard, c.tools);
   return server;
 }

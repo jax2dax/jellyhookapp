@@ -7,6 +7,7 @@
 // Limits (environment, with defaults): MCP_CALLS_PER_MINUTE 30, MCP_CALLS_PER_DAY 500, MCP_MAX_CREDITS 20, MCP_MAX_ROWS 50.
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
+import { cleanConfig, effectiveConfig, type EffectiveConfig } from "@/jh-mcp/config";
 import { bearerFrom, hashToken, looksLikeToken, tokenState } from "@/jh-mcp/tokens";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -24,6 +25,8 @@ export interface Caller {
   tokenId: string;
   siteId: string;
   allowPii: boolean;
+  /** The token's own settings, already capped by the server-wide ceilings. */
+  config: EffectiveConfig;
 }
 
 export type AuthResult = { ok: true; caller: Caller } | { ok: false; status: 401 | 404 | 503; message: string };
@@ -35,7 +38,7 @@ export async function authenticate(req: Request): Promise<AuthResult> {
 
   const { data: row, error } = await admin
     .from("mcp_tokens")
-    .select("id, site_id, allow_pii, expires_at, revoked_at, last_used_at")
+    .select("id, site_id, allow_pii, expires_at, revoked_at, last_used_at, config")
     .eq("token_hash", hashToken(token))
     .maybeSingle();
   if (error) {
@@ -56,11 +59,12 @@ export async function authenticate(req: Request): Promise<AuthResult> {
   if (!row.last_used_at || Date.now() - new Date(row.last_used_at).getTime() > 60_000) {
     await admin.from("mcp_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", row.id);
   }
-  return { ok: true, caller: { tokenId: row.id, siteId: row.site_id, allowPii: row.allow_pii === true } };
+  const config = effectiveConfig(cleanConfig(row.config), { maxRows: MAX_ROWS(), maxCredits: MAX_CREDITS(), callsPerMinute: CALLS_PER_MINUTE(), callsPerDay: CALLS_PER_DAY() });
+  return { ok: true, caller: { tokenId: row.id, siteId: row.site_id, allowPii: row.allow_pii === true, config } };
 }
 
 /** Counts this token's calls in the last minute and the last day. Over a limit, or unreadable: not allowed. */
-export async function checkRate(tokenId: string): Promise<{ ok: true } | { ok: false; message: string }> {
+export async function checkRate(tokenId: string, limits: { perMinute: number; perDay: number }): Promise<{ ok: true } | { ok: false; message: string }> {
   const now = Date.now();
   const [minute, day] = await Promise.all([
     admin.from("mcp_calls").select("id", { count: "exact", head: true }).eq("token_id", tokenId).gte("created_at", new Date(now - 60_000).toISOString()),
@@ -70,8 +74,8 @@ export async function checkRate(tokenId: string): Promise<{ ok: true } | { ok: f
     console.error("[mcp] call ledger unreadable, refusing:", (minute.error ?? day.error)?.message);
     return { ok: false, message: "Temporarily unavailable." };
   }
-  if ((minute.count ?? 0) >= CALLS_PER_MINUTE()) return { ok: false, message: `Too many calls: the limit is ${CALLS_PER_MINUTE()} a minute for this token. Wait a minute and try again.` };
-  if ((day.count ?? 0) >= CALLS_PER_DAY()) return { ok: false, message: `Daily limit reached: ${CALLS_PER_DAY()} calls a day for this token. It resets on a rolling 24 hours.` };
+  if ((minute.count ?? 0) >= limits.perMinute) return { ok: false, message: `Too many calls: the limit is ${limits.perMinute} a minute for this token. Wait a minute and try again.` };
+  if ((day.count ?? 0) >= limits.perDay) return { ok: false, message: `Daily limit reached: ${limits.perDay} calls a day for this token. It resets on a rolling 24 hours.` };
   return { ok: true };
 }
 

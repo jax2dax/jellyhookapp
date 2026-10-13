@@ -42,6 +42,10 @@ export default function McpPage() {
         <P>The answers are sent to the AI provider of the app you connect, for example Anthropic or OpenAI. Only connect apps you are allowed to share this site&apos;s data with, and read your own privacy notice. This page is not legal advice.</P>
       </Section>
 
+      <Section title="Choose what a token can do">
+        <P>Under <B>Advanced settings</B> when you create a token you can limit which tools it may use and set lower limits: rows per answer, credits per run, and calls per minute and per day. A token can never go above the limits set for the whole server. Leave everything empty for the defaults.</P>
+      </Section>
+
       <Section title="Limits and control">
         <UL>
           <li>Each token has a call limit per minute and per day.</li>

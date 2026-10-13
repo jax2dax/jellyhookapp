@@ -23,7 +23,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, SparklesIcon, BugIcon, Settings, LogOutIcon, SunIcon, MoonIcon, MonitorIcon, UserRound } from "lucide-react"
+import { ChevronsUpDownIcon, BugIcon, Settings, LogOutIcon, SunIcon, MoonIcon, MonitorIcon, UserRound } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useClerk } from "@clerk/nextjs"
 import { useTheme } from "next-themes"
@@ -80,16 +80,9 @@ export function NavUser({
             sideOffset={4}
           >
             <DropdownMenuGroup>
-              <DropdownMenuItem onSelect={() => router.push("/platform/subscription")}>
-                <SparklesIcon />
-                Upgrade
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
               <DropdownMenuItem onSelect={() => router.push("/platform/user")}>
                 <Settings />
-                Settings
+                User settings
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setBugReportOpen(true)}>
                 <BugIcon />

@@ -5,7 +5,7 @@ import * as React from "react"
 import Image from "next/image"
 import {
   LayoutDashboard, Users, Flame, UserCheck,
-  GitFork, Globe, Settings, CreditCard,Network, FishingHook } from "lucide-react"
+  GitFork, Globe, Settings, CreditCard,Network, FishingHook, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { SiteSwitcher } from "@/components/siteSwitcher"
 
 import { NavMain } from "@/components/nav-main"
@@ -14,7 +14,7 @@ import { NavUser } from "@/components/nav-user"
 import { useUser } from "@clerk/nextjs"
 import {
   Sidebar, SidebarContent, SidebarFooter,
-  SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
+  SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar"
 
 // Plan tier map — controls which nav items are locked
@@ -111,14 +111,51 @@ export function AppSidebar({ userPlan = "free", siteDomain, sites, currentSiteId
     }
   })
 
+  const { toggleSidebar, isMobile, state } = useSidebar()
+  const collapsed = state === "collapsed" && !isMobile
+
+  // A click on an empty part of the sidebar (anywhere that is not a link, button, field or menu) expands or collapses it.
+  // Clicks inside portals (menus, dialogs) are not DOM children of the sidebar, so they never count.
+  function onBlankClick(e: React.MouseEvent<HTMLElement>) {
+    if (isMobile) return
+    const target = e.target as HTMLElement
+    if (!e.currentTarget.contains(target)) return
+    if (target.closest("a, button, input, select, textarea, label, summary, [role='button'], [role='menuitem'], [role='combobox'], [data-radix-collection-item]")) return
+    toggleSidebar()
+  }
+
   return (
-    <Sidebar variant="inset" collapsible="icon" {...props}>
+    <Sidebar variant="inset" collapsible="icon" onClick={onBlankClick} {...props}>
       <SidebarHeader>
         <div className="flex items-center gap-2 px-1 py-1">
-          <BrandMark />
+          {/* Collapsed: the logo is the way back. Hovering it swaps in an "open" icon, and the tooltip says so, so the
+              sidebar can be re-opened by anyone who has never been told that its empty space is clickable. */}
+          <button
+            type="button"
+            onClick={() => collapsed && toggleSidebar()}
+            disabled={!collapsed}
+            title={collapsed ? "Expand sidebar" : undefined}
+            aria-label={collapsed ? "Expand sidebar" : "Jellyhook"}
+            className="group/mark relative flex size-7 shrink-0 items-center justify-center rounded-md enabled:cursor-pointer enabled:hover:bg-sidebar-accent"
+          >
+            <span className="flex items-center justify-center transition-opacity group-data-[collapsible=icon]:group-enabled/mark:group-hover/mark:opacity-0">
+              <BrandMark />
+            </span>
+            <PanelLeftOpen className="absolute size-4 text-sidebar-foreground opacity-0 transition-opacity group-data-[collapsible=icon]:group-enabled/mark:group-hover/mark:opacity-100" />
+          </button>
           <span className="truncate font-semibold tracking-wide text-primary group-data-[collapsible=icon]:hidden">
             Jellyhook
           </span>
+          {/* Expanded only: a small collapse button right after the name */}
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            title="Collapse sidebar"
+            aria-label="Collapse sidebar"
+            className="ml-auto flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden"
+          >
+            <PanelLeftClose className="size-4" />
+          </button>
         </div>
         <SidebarMenu>
           <SidebarMenuItem>

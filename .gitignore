@@ -63,3 +63,6 @@ business-validation.mdjh-ai/eval/last-run.json
 
 # marketing: personal data about outreach targets
 /marketing/targets.csv
+/mds/report/interview-cheatsheet.md
+# private interview notes
+/report/interview-cheatsheet.md

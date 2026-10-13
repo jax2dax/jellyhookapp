@@ -5,6 +5,7 @@
 // (tests/protocol.test.ts) registers the same tools with fakes, so what is tested is what is served.
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import type { ToolName } from "./config";
 import { toolDescribe, toolPages, toolRun, toolSchema, toolValidate, type McpContext, type McpDeps, type ToolKind, type ToolOutcome } from "./tools";
 
 export type Guard = (kind: ToolKind, run: () => Promise<ToolOutcome> | ToolOutcome) => Promise<{ content: { type: "text"; text: string }[]; isError: boolean }>;
@@ -12,28 +13,35 @@ export type Guard = (kind: ToolKind, run: () => Promise<ToolOutcome> | ToolOutco
 const specArg = z.record(z.string(), z.unknown()).describe("The Hook query as a JSON object (entity, where, output). Call get_schema for the format.");
 const readOnly = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 
-export function registerJellyhookTools(server: McpServer, ctx: McpContext, deps: McpDeps, guard: Guard): void {
-  server.registerTool(
+export function registerJellyhookTools(server: McpServer, ctx: McpContext, deps: McpDeps, guard: Guard, enabled?: ReadonlySet<ToolName>): void {
+  // Tools the token is not allowed to use are not registered at all: they do not appear in the list and cannot be called.
+  const on = (name: ToolName) => !enabled || enabled.has(name);
+  if (on("get_schema"))
+    server.registerTool(
     "get_schema",
     { title: "How to write a Hook query", description: "Call this first. Returns the query format, every entity and field Jellyhook can ask about, a glossary of business words, and worked examples. Use it to write the `spec` for run_hook.", annotations: readOnly },
     () => guard("mcp_schema", () => toolSchema()),
   );
-  server.registerTool(
+  if (on("list_pages"))
+    server.registerTool(
     "list_pages",
     { title: "The site's pages", description: "The site's most viewed page paths with view counts (top 50). Use the real paths in queries.", annotations: readOnly },
     () => guard("mcp_pages", () => toolPages(ctx, deps)),
   );
-  server.registerTool(
+  if (on("validate_hook"))
+    server.registerTool(
     "validate_hook",
     { title: "Check a Hook query", description: "Checks a query without running it and returns how it reads in words, or exactly what to fix. Free.", inputSchema: { spec: specArg }, annotations: readOnly },
     ({ spec }) => guard("mcp_validate", () => toolValidate(spec)),
   );
-  server.registerTool(
+  if (on("describe_hook"))
+    server.registerTool(
     "describe_hook",
     { title: "Describe a Hook query", description: "Says in plain words what a Hook query asks. Free.", inputSchema: { spec: specArg }, annotations: readOnly },
     ({ spec }) => guard("mcp_describe", () => toolDescribe(spec)),
   );
-  server.registerTool(
+  if (on("run_hook"))
+    server.registerTool(
     "run_hook",
     {
       title: "Run a Hook query",

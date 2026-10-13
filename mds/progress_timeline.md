@@ -1699,3 +1699,7 @@ Full write-up: `mds/reports/tracker-backend-audit-2026-10-07.md`.
 - **To do by hand.** Run `mds/migrations/2026-10-13-mcp-tokens.sql`; set `MCP_ENABLED=1`; redeploy.
 - **Decisions.** Official SDK instead of `mcp-handler`; OAuth through Clerk is phase 2; Docker bridge later.
 - **Docs.** `mds/build/mcp/*`, public page `/docs/hook/mcp`, privacy section.
+
+## 2026-10-14 - Secondary navigation in the top bar; Settings split into tabs
+
+The long empty strip beside the sidebar button now carries the open page's own tabs (registry `components/nav/navRegistry.ts`, renderer `components/nav/SecondaryNav.tsx`, URL state `?tab=`). Settings: Tracker (default: lead-tracking mode, tracking status, hosts, health, API key and script), Site (name, domain, overview, leave), Team, MCP (last, only when `MCP_ENABLED=1`). Blocks of other tabs are hidden, not unmounted. Not verified in a browser.

@@ -5,15 +5,13 @@
 import { getAuthUser } from "@/lib/actions/permission.actions";
 // import { getUserSite } from "@/lib/actions/site-management.actions";
 import { getUserSite } from "@/lib/actions/permission.actions";
-import { getMembers, getMySiteRole, getIngestionStatus } from "@/lib/actions/settings.actions";
+import { getMySiteRole, getIngestionStatus } from "@/lib/actions/settings.actions";
 import { getVisitorCount } from "@/lib/actions/supabase.actions";
 import SettingsClient from "./SettingsClients";
-import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
+import { navFor, resolveTab } from "@/components/nav/navRegistry";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }) {
+  const sp = (await searchParams) ?? {};
   const user = await getAuthUser(); // redirects to /sign-in if not authed
 
   // ✅ Use getUserSite NOT getSiteSettings
@@ -22,10 +20,12 @@ export default async function SettingsPage() {
   // This means after the first load, site_members always has the owner row
   const site = await getUserSite(user.id);
 
+  const mcpEnabled = process.env.MCP_ENABLED === "1";
+  const tab = resolveTab(navFor("/platform/settings"), typeof sp.tab === "string" ? sp.tab : null, { mcp: mcpEnabled });
+
   console.log(`[settings/page] userId=${user.id} siteId=${site?.id ?? "none"}`);
 
   // Fetch members — will find the owner row that getUserSite just backfilled
-  const members = site ? await getMembers(site.id) : [];
   const visitorCount = site ? await getVisitorCount(site.id) : 0;
   const role = site ? await getMySiteRole(site.id) : null;
   const ingestion = site ? await getIngestionStatus(site.id) : null;
@@ -33,18 +33,7 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2">
-        <div className="flex items-center gap-2 px-4">
-          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbPage>Settings</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
-      </header>
+      {/* the page title and tabs live in the platform's top bar (components/nav/SecondaryNav.tsx) */}
 
       <div className="flex flex-1 flex-col gap-4 p-6 pt-2">
         {!site ? (
@@ -60,12 +49,11 @@ export default async function SettingsPage() {
         ) : (
           <SettingsClient
             site={site}
-            initialMembers={members}
-            currentUserId={user.id}
             visitorCount={visitorCount}
             role={role}
             ingestion={ingestion}
-            mcpEnabled={process.env.MCP_ENABLED === "1"}
+            mcpEnabled={mcpEnabled}
+            tab={tab}
           />
         )}
       </div>

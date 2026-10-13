@@ -85,3 +85,7 @@ their own current site.
 2. `const [url, setUrl] = useUrlState({ key: "default" })`.
 3. Parse with `oneOf` (or a number guard), and wrap the page's component in `<Suspense>`.
 4. Add the key to the table above.
+
+## Secondary navigation (top bar tabs) - added 2026-10-14
+
+`?tab=<id>` on `/platform/settings`: `tracker` (default, no parameter), `site`, `team`, `ai` (shown only when `MCP_ENABLED=1`). Registry: `components/nav/navRegistry.ts`; rendered in the platform top bar by `components/nav/SecondaryNav.tsx` (server layout passes the flags); the page validates the value with `resolveTab`, so an unknown or hidden tab falls back to the default. To give another page tabs: add an entry to the registry and read `searchParams.tab` in that page.

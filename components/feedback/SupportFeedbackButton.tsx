@@ -74,26 +74,30 @@ export function SupportFeedbackButton() {
     <>
       <SidebarMenu>
         <SidebarMenuItem>
-          <div className="flex h-8 overflow-hidden rounded-md border border-sidebar-border">
+          <div className="flex h-8 overflow-hidden rounded-md border border-sidebar-border group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:flex-col">
             <button
               type="button"
               onClick={() => setSupportOpen(true)}
-              className="flex flex-1 items-center justify-center gap-1.5 border-r border-sidebar-border text-xs text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              title="Support"
+              aria-label="Support"
+              className="flex flex-1 items-center justify-center gap-1.5 border-r border-sidebar-border text-xs group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:border-r-0 group-data-[collapsible=icon]:border-b text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
-              <LifeBuoy className="size-3.5" />
-              Support
+              <LifeBuoy className="size-3.5 shrink-0" />
+              <span className="group-data-[collapsible=icon]:hidden">Support</span>
             </button>
             <button
               type="button"
               onClick={() => setFeedbackOpen(true)}
-              className="relative flex flex-1 items-center justify-center gap-1.5 overflow-hidden text-xs text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              title="Feedback"
+              aria-label="Feedback"
+              className="relative flex flex-1 items-center justify-center gap-1.5 overflow-hidden text-xs group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:flex-none text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <span
                 aria-hidden="true"
                 className={cn("jh-feedback-glow pointer-events-none absolute inset-0 opacity-0", glowing && "jh-feedback-sweep")}
               />
-              <MessageSquareHeart className="relative z-10 size-3.5" />
-              <span className="relative z-10">Feedback</span>
+              <MessageSquareHeart className="relative z-10 size-3.5 shrink-0" />
+              <span className="relative z-10 group-data-[collapsible=icon]:hidden">Feedback</span>
             </button>
           </div>
         </SidebarMenuItem>

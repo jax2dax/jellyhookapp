@@ -9,12 +9,8 @@ import {
   regenerateApiKey,
   toggleSiteActive,
   leaveSite,
-  inviteMember,
-  removeMember,
-  setMemberRole,
-  transferOwnership,
 } from "@/lib/actions/settings.actions";
-import { can, canManageMember, assignableRoles } from "@/lib/tracking/permissions";
+import { can } from "@/lib/tracking/permissions";
 import { rotationStatus } from "@/lib/tracking/keys";
 import { McpCard } from "./McpCard";
 import { KeyRotationNotice, TrackingStatusCard, AllowedHostsCard, TrackingHealthCard, FormModeCard } from "./TrackingCards";
@@ -141,218 +137,9 @@ function EditableRow({ label, value, onSave, placeholder = "", readOnly = false,
   );
 }
 
-// ─── TeamMembers ──────────────────────────────────────────
-function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId, role: roleProp }) {
-  const [members, setMembers] = useState(initialMembers || []);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [inviteError, setInviteError] = useState(null);
-  const [inviteSuccess, setInviteSuccess] = useState(null);
-  const [removingId, setRemovingId] = useState(null);
-
-  // isOwner check: check site_members rows first, then fall back to site.user_id === currentUserId
-  // This handles the case where members array has the owner row, AND the legacy case where it doesn't yet
-  const isOwnerByMembership = members.some((m) => m.user_id === currentUserId && m.role === "owner");
-  const isOwner = isOwnerByMembership || siteOwnerId === currentUserId;
-  // The role the server resolved; falls back to the old owner check only if it was not passed.
-  const role = roleProp || (isOwner ? "owner" : "member");
-  const roleOptions = assignableRoles(role);
-  const [inviteRole, setInviteRole] = useState("member");
-  const [busyId, setBusyId] = useState(null);
-  const [confirmTransfer, setConfirmTransfer] = useState(null);
-
-  async function handleInvite() {
-    if (!inviteEmail.trim()) return;
-    setInviteLoading(true);
-    setInviteError(null);
-    setInviteSuccess(null);
-
-    try {
-      const result = await inviteMember(siteId, inviteEmail.trim(), inviteRole);
-
-      if (result.success) {
-        const email = inviteEmail.trim().toLowerCase();
-        setInviteSuccess(`Invite sent to ${email}`);
-        setInviteEmail("");
-        setMembers((prev) => [
-          ...prev,
-          {
-            id: `temp-${Date.now()}`,
-            user_id: `pending:${email}`,
-            user_email: email,
-            role: inviteRole,
-            invited_by: currentUserId,
-            created_at: new Date().toISOString(),
-          },
-        ]);
-      } else {
-        setInviteError(result.error);
-      }
-    } catch (err) {
-      setInviteError(err.message || "Something went wrong");
-    } finally {
-      setInviteLoading(false);
-    }
-  }
-
-  async function handleRemove(member) {
-    if (member.user_id === currentUserId) {
-      setInviteError("You cannot remove yourself.");
-      return;
-    }
-    setRemovingId(member.id);
-    setInviteError(null);
-    try {
-      const result = await removeMember(siteId, member.id);
-      if (result.success) {
-        setMembers((prev) => prev.filter((m) => m.id !== member.id));
-      } else {
-        setInviteError(result.error);
-      }
-    } catch (err) {
-      setInviteError(err.message || "Something went wrong");
-    } finally {
-      setRemovingId(null);
-    }
-  }
-
-  async function handleSetRole(member, newRole) {
-    setBusyId(member.id);
-    setInviteError(null);
-    const result = await setMemberRole(siteId, member.id, newRole);
-    if (result.success) setMembers((prev) => prev.map((m) => (m.id === member.id ? { ...m, role: newRole } : m)));
-    else setInviteError(result.error);
-    setBusyId(null);
-  }
-
-  async function handleTransfer(member) {
-    setBusyId(member.id);
-    setInviteError(null);
-    const result = await transferOwnership(siteId, member.id);
-    if (result.success) window.location.reload();
-    else {
-      setInviteError(result.error);
-      setBusyId(null);
-      setConfirmTransfer(null);
-    }
-  }
-
-  return (
-    <Card>
-      <CardContent className="space-y-3">
-        {/* Member list */}
-        <div className="flex flex-col gap-2">
-          {members.length === 0 && <div className="text-sm text-muted-foreground">No members in table yet. Your first save creates your row.</div>}
-          {members.map((member) => {
-            const isPending = member.user_id?.startsWith("pending:");
-            const isYou = member.user_id === currentUserId;
-            return (
-              <div key={member.id} className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
-                <div className="flex flex-col gap-1">
-                  <div className="text-sm text-foreground">
-                    {member.user_email || member.user_id}
-                    {isYou && <span className="ml-1.5 text-xs text-primary">(you)</span>}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="outline">{member.role}</Badge>
-                    {isPending && <span className="text-xs text-warning">pending invite</span>}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                  {!isPending && !isYou && member.role !== "owner" && can(role, "members.set_role") && canManageMember(role, member.role, "members.set_role") && roleOptions.length > 0 && (
-                    <select
-                      aria-label="Role"
-                      className="h-7 rounded-md border bg-background px-1.5 text-xs text-foreground"
-                      value={member.role}
-                      disabled={busyId === member.id}
-                      onChange={(e) => handleSetRole(member, e.target.value)}
-                    >
-                      {[...new Set([member.role, ...roleOptions])].map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {!isPending && !isYou && member.role !== "owner" && can(role, "ownership.transfer") && (
-                    <Button size="xs" variant="outline" disabled={busyId === member.id} onClick={() => setConfirmTransfer(member)}>
-                      Make owner
-                    </Button>
-                  )}
-                  {!isYou && can(role, "members.remove") && canManageMember(role, member.role, "members.remove") && (
-                    <Button size="xs" variant="destructive" onClick={() => handleRemove(member)} disabled={removingId === member.id}>
-                      {removingId === member.id ? "..." : "Remove"}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Invite form — shown to owner */}
-        {can(role, "members.invite") && (
-          <div className="border-t pt-3">
-            <div className="mb-2 text-xs text-muted-foreground">Invite a team member by email</div>
-            <div className="flex gap-2">
-              <Input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => {
-                  setInviteEmail(e.target.value);
-                  setInviteError(null);
-                  setInviteSuccess(null);
-                }}
-                placeholder="coworker@company.com"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleInvite();
-                }}
-                className="flex-1"
-              />
-              {roleOptions.length > 1 && (
-                <select aria-label="Invite as" className="h-9 rounded-md border bg-background px-2 text-sm text-foreground" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
-                  {roleOptions.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <Button onClick={handleInvite} disabled={inviteLoading || !inviteEmail.trim()} className="whitespace-nowrap">
-                {inviteLoading ? "Sending..." : "Send Invite"}
-              </Button>
-            </div>
-            {inviteError && <div className="mt-1.5 text-xs text-destructive">{inviteError}</div>}
-            {inviteSuccess && <div className="mt-1.5 text-xs text-primary">{inviteSuccess}</div>}
-            <div className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-              They get access when they sign up with this email. If already signed up, access is granted on their next login.
-            </div>
-          </div>
-        )}
-
-        {!can(role, "members.invite") && <div className="border-t pt-2.5 text-xs text-muted-foreground">Only the site owner or an admin can invite or remove members.</div>}
-
-        {confirmTransfer && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs leading-relaxed text-muted-foreground">
-            Make <strong className="text-foreground">{confirmTransfer.user_email}</strong> the owner? You become an admin: you keep working access but can no longer delete the site, transfer ownership, or remove the new owner.
-            <div className="mt-2 flex gap-2">
-              <Button size="xs" variant="destructive" disabled={busyId === confirmTransfer.id} onClick={() => handleTransfer(confirmTransfer)}>
-                {busyId === confirmTransfer.id ? "Transferring..." : "Transfer ownership"}
-              </Button>
-              <Button size="xs" variant="outline" onClick={() => setConfirmTransfer(null)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── Main SettingsClient ──────────────────────────────────
-export default function SettingsClient({ site: initialSite, initialMembers, currentUserId, visitorCount = 0, role = null, ingestion = null, mcpEnabled = false }) {
+export default function SettingsClient({ site: initialSite, visitorCount = 0, role = null, ingestion = null, mcpEnabled = false, tab = "tracker" }) {
+  // which tab a block belongs to; blocks of other tabs are hidden, not unmounted
+  const cls = (t) => (tab === t ? undefined : "hidden");
   const [site, setSite] = useState(initialSite);
   const [rotation, setRotation] = useState(ingestion?.rotation || null);
   const leaveError = null; // errors show in the confirm dialog
@@ -404,7 +191,7 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
   return (
     <div className="flex w-full max-w-6xl flex-col gap-6">
       {/* SITE NAME + DOMAIN — the two actually-editable fields, side by side rather than one below the other */}
-      <section>
+      <section className={cls("site")}>
         <SectionLabel>Site information</SectionLabel>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <EditableRow label="Site Name" value={site.name ?? ""} placeholder="My Site" onSave={handleUpdateName} readOnly={!can(role, "site.rename")} />
@@ -419,7 +206,7 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
         </div>
       </section>
 
-      <section>
+      <section className={cls("tracker")}>
         <SectionLabel>Lead tracking</SectionLabel>
         <FormModeCard siteId={site.id} initial={site.specify_form === true} role={role} onChanged={setSite} />
       </section>
@@ -427,7 +214,7 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
       {/* OVERVIEW — one flexible card whose facts wrap and size to their own
           content (flex-wrap, no fixed grid track), instead of five separate
           fat single-line Cards stacked all the way down the page. */}
-      <section>
+      <section className={cls("site")}>
         <SectionLabel>Overview</SectionLabel>
         <Card>
           <CardContent className="flex flex-wrap gap-6">
@@ -460,7 +247,7 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
 
       {/* TRACKING — is the script on the right site, is data arriving, are the attributes placed correctly */}
       {ingestion && (
-        <section>
+        <section className={cls("tracker")}>
           <SectionLabel>Tracking</SectionLabel>
           <div className="flex flex-col gap-4">
             <TrackingStatusCard siteId={site.id} status={ingestion} role={role} />
@@ -474,21 +261,16 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
 
       {/* AI ACCESS (MCP): behind MCP_ENABLED=1 until the whole feature is built and tested */}
       {mcpEnabled && (
-        <section>
+        <section className={cls("ai")}>
           <SectionLabel>AI access</SectionLabel>
           <McpCard siteId={site.id} role={role} />
         </section>
       )}
 
-      {/* TEAM MEMBERS */}
-      <section>
-        <SectionLabel>Team members</SectionLabel>
-        <TeamMembers siteId={site.id} initialMembers={initialMembers} currentUserId={currentUserId} siteOwnerId={site.user_id} role={role} />
-      </section>
 
       {/* API KEY + TRACKER SCRIPT — side by side on wide screens instead of
           each hogging a full row underneath the other. */}
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <section className={"grid grid-cols-1 gap-4 xl:grid-cols-2 " + (tab === "tracker" ? "" : "hidden")}>
         <Card>
           <CardContent>
             <div className="mb-2 flex items-center justify-between">
@@ -528,7 +310,7 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
 
       {/* LEAVE — anyone but the owner */}
       {role && role !== "owner" && (
-        <section>
+        <section className={cls("site")}>
           <SectionLabel>Your access</SectionLabel>
           <Card>
             <CardContent className="flex flex-wrap items-center justify-between gap-3">

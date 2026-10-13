@@ -1,0 +1,431 @@
+{
+  "started": "2026-10-13T23:32:25.286Z",
+  "finished": "2026-10-13T23:33:54.932Z",
+  "database": "PGlite",
+  "data": {
+    "visitors": 100000,
+    "sessions": 300000,
+    "pageViews": 1000000,
+    "leads": 6046
+  },
+  "summary": {
+    "cases": 41,
+    "passed": 41,
+    "failed": 0,
+    "nonZeroAnswers": 41,
+    "engineStaged": 10,
+    "engineFused": 31
+  },
+  "rows": [
+    {
+      "id": "T1-1",
+      "template": "T1",
+      "params": "utm=google, views>=2",
+      "oracle": 88719,
+      "engine": 88719,
+      "fused": 88719,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T1-2",
+      "template": "T1",
+      "params": "utm=google, views>=3",
+      "oracle": 68149,
+      "engine": 68149,
+      "fused": 68149,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T1-3",
+      "template": "T1",
+      "params": "utm=facebook, views>=2",
+      "oracle": 37920,
+      "engine": 37920,
+      "fused": 37920,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T1-4",
+      "template": "T1",
+      "params": "utm=facebook, views>=3",
+      "oracle": 28900,
+      "engine": 28900,
+      "fused": 28900,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T1-5",
+      "template": "T1",
+      "params": "utm=newsletter, views>=2",
+      "oracle": 761,
+      "engine": 761,
+      "fused": 761,
+      "engineStrategy": "staged",
+      "ok": true
+    },
+    {
+      "id": "T1-6",
+      "template": "T1",
+      "params": "utm=newsletter, views>=3",
+      "oracle": 566,
+      "engine": 566,
+      "fused": 566,
+      "engineStrategy": "staged",
+      "ok": true
+    },
+    {
+      "id": "T2-1",
+      "template": "T2",
+      "params": "country=ET, page=/p0",
+      "oracle": 891,
+      "engine": 891,
+      "fused": 891,
+      "engineStrategy": "staged",
+      "ok": true
+    },
+    {
+      "id": "T2-2",
+      "template": "T2",
+      "params": "country=ET, page=/p5",
+      "oracle": 126,
+      "engine": 126,
+      "fused": 126,
+      "engineStrategy": "staged",
+      "ok": true
+    },
+    {
+      "id": "T2-3",
+      "template": "T2",
+      "params": "country=GB, page=/p0",
+      "oracle": 26932,
+      "engine": 26932,
+      "fused": 26932,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T2-4",
+      "template": "T2",
+      "params": "country=GB, page=/p5",
+      "oracle": 4217,
+      "engine": 4217,
+      "fused": 4217,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T2-5",
+      "template": "T2",
+      "params": "country=DE, page=/p0",
+      "oracle": 43682,
+      "engine": 43682,
+      "fused": 43682,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T2-6",
+      "template": "T2",
+      "params": "country=DE, page=/p5",
+      "oracle": 6646,
+      "engine": 6646,
+      "fused": 6646,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T3-1",
+      "template": "T3",
+      "params": "page=/p3, time>5s",
+      "oracle": 34020,
+      "engine": 34020,
+      "fused": 34020,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T3-2",
+      "template": "T3",
+      "params": "page=/p3, time>30s",
+      "oracle": 26909,
+      "engine": 26909,
+      "fused": 26909,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T3-3",
+      "template": "T3",
+      "params": "page=/p20, time>5s",
+      "oracle": 10507,
+      "engine": 10507,
+      "fused": 10507,
+      "engineStrategy": "staged",
+      "ok": true
+    },
+    {
+      "id": "T3-4",
+      "template": "T3",
+      "params": "page=/p20, time>30s",
+      "oracle": 8275,
+      "engine": 8275,
+      "fused": 8275,
+      "engineStrategy": "staged",
+      "ok": true
+    },
+    {
+      "id": "T3-5",
+      "template": "T3",
+      "params": "page=/p45, time>5s",
+      "oracle": 5977,
+      "engine": 5977,
+      "fused": 5977,
+      "engineStrategy": "staged",
+      "ok": true
+    },
+    {
+      "id": "T3-6",
+      "template": "T3",
+      "params": "page=/p45, time>30s",
+      "oracle": 4661,
+      "engine": 4661,
+      "fused": 4661,
+      "engineStrategy": "staged",
+      "ok": true
+    },
+    {
+      "id": "T4-1",
+      "template": "T4",
+      "params": "utm=google, country=US",
+      "oracle": 62786,
+      "engine": 62786,
+      "fused": 62786,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T4-2",
+      "template": "T4",
+      "params": "utm=google, country=GB",
+      "oracle": 15788,
+      "engine": 15788,
+      "fused": 15788,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T4-3",
+      "template": "T4",
+      "params": "utm=google, country=ET",
+      "oracle": 543,
+      "engine": 543,
+      "fused": 543,
+      "engineStrategy": "staged",
+      "ok": true
+    },
+    {
+      "id": "T4-4",
+      "template": "T4",
+      "params": "utm=facebook, country=US",
+      "oracle": 26883,
+      "engine": 26883,
+      "fused": 26883,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T4-5",
+      "template": "T4",
+      "params": "utm=facebook, country=GB",
+      "oracle": 6767,
+      "engine": 6767,
+      "fused": 6767,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T4-6",
+      "template": "T4",
+      "params": "utm=facebook, country=ET",
+      "oracle": 218,
+      "engine": 218,
+      "fused": 218,
+      "engineStrategy": "staged",
+      "ok": true
+    },
+    {
+      "id": "T5-1",
+      "template": "T5",
+      "params": "last 7d, views>=1",
+      "oracle": 22461,
+      "engine": 22461,
+      "fused": 22461,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T5-2",
+      "template": "T5",
+      "params": "last 7d, views>=2",
+      "oracle": 19687,
+      "engine": 19687,
+      "fused": 19687,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T5-3",
+      "template": "T5",
+      "params": "last 30d, views>=1",
+      "oracle": 96006,
+      "engine": 96006,
+      "fused": 96006,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T5-4",
+      "template": "T5",
+      "params": "last 30d, views>=2",
+      "oracle": 84245,
+      "engine": 84245,
+      "fused": 84245,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T5-5",
+      "template": "T5",
+      "params": "last 60d, views>=1",
+      "oracle": 192639,
+      "engine": 192639,
+      "fused": 192639,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T5-6",
+      "template": "T5",
+      "params": "last 60d, views>=2",
+      "oracle": 168951,
+      "engine": 168951,
+      "fused": 168951,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T6-1",
+      "template": "T6",
+      "params": "(utm=facebook OR country=GB) AND not converted",
+      "oracle": 81679,
+      "engine": 81679,
+      "fused": 81679,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T6-2",
+      "template": "T6",
+      "params": "(utm=facebook OR country=GB) AND converted",
+      "oracle": 1678,
+      "engine": 1678,
+      "fused": 1678,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T6-3",
+      "template": "T6",
+      "params": "(utm=google OR country=ET) AND not converted",
+      "oracle": 103661,
+      "engine": 103661,
+      "fused": 103661,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T6-4",
+      "template": "T6",
+      "params": "(utm=google OR country=ET) AND converted",
+      "oracle": 2056,
+      "engine": 2056,
+      "fused": 2056,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T6-5",
+      "template": "T6",
+      "params": "(utm=newsletter OR country=DE) AND not converted",
+      "oracle": 72769,
+      "engine": 72769,
+      "fused": 72769,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T6-6",
+      "template": "T6",
+      "params": "(utm=newsletter OR country=DE) AND converted",
+      "oracle": 1457,
+      "engine": 1457,
+      "fused": 1457,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T7-1",
+      "template": "T7",
+      "params": "qualified leads' views, time>10s",
+      "oracle": 68977,
+      "engine": 68977,
+      "fused": 68977,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T7-2",
+      "template": "T7",
+      "params": "qualified leads' views, time>30s",
+      "oracle": 57951,
+      "engine": 57951,
+      "fused": 57951,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T7-3",
+      "template": "T7",
+      "params": "qualified leads' views, time>60s",
+      "oracle": 46968,
+      "engine": 46968,
+      "fused": 46968,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T8-1",
+      "template": "T8",
+      "params": "converted, last 30d, 2+ views over 1 min",
+      "oracle": 1094,
+      "engine": 1094,
+      "fused": 1094,
+      "engineStrategy": "fused",
+      "ok": true
+    },
+    {
+      "id": "T8-2",
+      "template": "T8",
+      "params": "converted, last 60d, 2+ views over 1 min",
+      "oracle": 2176,
+      "engine": 2176,
+      "fused": 2176,
+      "engineStrategy": "fused",
+      "ok": true
+    }
+  ]
+}

@@ -44,6 +44,8 @@ Status values: `NOT MEASURED` → `MEASURED` → `STALE` (code changed since).
 | B1 | Staged vs fused runtime, high-spread queries (median of runs) | staged ≥ 2x faster | **Hypothesis failed.** Staged was **slower** on all 3 queries the engine staged: H1 0.8x, H2 0.3x, H4 0.4x (fused 77 / 67 / 187 ms vs staged 92 / 224 / 471 ms). H3 was not staged (see D1) | P1 | MEASURED | `report/raw/planner-2026-10-11.json` |
 | B2 | Staged vs fused, low-spread queries (should be about equal, engine picks fused) | within ±20% | L1 62 vs 57 ms (same SQL). L2 2.28 s vs 3.94 s with **identical SQL**, so run-to-run noise on PGlite can reach ~1.7x. Differences under ~2x are not meaningful at 5 runs | P1 | MEASURED | same |
 | B3 | Staged and fused return identical answers | 100% of queries | **8 / 8 identical** | P1 | MEASURED | same |
+| V1 | Engine answers vs hand-written SQL (independent oracle), 41 queries, 8 templates | 100% match | **41 / 41 match** the oracle in both engine and forced-fused modes; all 41 answers non-zero (no trivial empty matches); engine staged 10, fused 31 | P1 data, 1 run per mode | MEASURED | `report/raw/planner-verify-2026-10-13.json`, `npm run bench:verify` |
+| V2 | Engine test suite against JS ground truth on a small fixture | all pass | **66 / 66 pass** (`npm run test:hook`) | PGlite, 60 sessions | MEASURED | run 2026-10-13 |
 | B4 | Planning overhead (`timing.planMs`) cold / warm cache | warm < 20 ms | cold 2 to 21 ms, warm 1 to 7 ms (median per query) | P1 | MEASURED | same |
 | C1 | Time to reject an over-budget query | < 50 ms | **5.7 ms median** (5 runs, cold estimate cache), nothing executed | P1 | MEASURED | same |
 | C2 | What that query would have cost if run (runtime) | report | The query with the highest estimate (N1, 117,434 credits) actually ran in **111 ms**. The cost estimate did not predict runtime | P1 | MEASURED | same |
@@ -113,6 +115,8 @@ Add one line per run. Never edit old lines; add a new one.
 
 | Date | ID(s) | Command | Commit | Machine | Raw output |
 |---|---|---|---|---|---|
+| 2026-10-13 | V1 | `npm run bench:verify` (~3 min; 41 cases, oracle = hand-written SQL in `scripts/bench/planner-verify.ts`) | 865cc99 + uncommitted | same as P1 | `report/raw/planner-verify-2026-10-13.json` |
+| 2026-10-13 | V2 | `npm run test:hook` | same | same | console |
 | 2026-10-11 | B1-B4, C1-C3, D1 (P1) | `npm run bench:planner` (BENCH_RUNS=5, ~3 min) | 865cc99 + uncommitted | Core Ultra 5 226V, 16 GB, Win 11, Node 24.13 | `report/raw/planner-2026-10-11.json` |
 
 ---

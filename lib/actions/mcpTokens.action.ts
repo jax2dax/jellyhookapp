@@ -7,6 +7,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
+import { cleanConfig, describeConfig, type TokenConfig } from "@/jh-mcp/config";
 import { CONSENT_VERSION } from "@/jh-mcp/consent";
 import { DEFAULT_EXPIRY_DAYS, EXPIRY_DAYS, expiryFrom, generateToken, hashToken, prefixOf, tokenState, type TokenState } from "@/jh-mcp/tokens";
 import { can } from "@/lib/tracking/permissions";
@@ -24,6 +25,8 @@ export interface McpTokenInfo {
   expiresAt: string;
   lastUsedAt: string | null;
   state: TokenState;
+  /** The token's own settings, in one line ("all tools" when there are none). */
+  settings: string;
 }
 
 async function authorize(siteId: string): Promise<{ ok: true; userId: string } | { ok: false; error: string }> {
@@ -41,7 +44,7 @@ export async function listMcpTokens(siteId: string): Promise<{ ok: true; tokens:
   if (!a.ok) return a;
   const { data, error } = await admin
     .from("mcp_tokens")
-    .select("id, label, token_prefix, allow_pii, created_at, expires_at, revoked_at, last_used_at")
+    .select("id, label, token_prefix, allow_pii, created_at, expires_at, revoked_at, last_used_at, config")
     .eq("site_id", siteId)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -51,13 +54,13 @@ export async function listMcpTokens(siteId: string): Promise<{ ok: true; tokens:
   }
   return {
     ok: true,
-    tokens: (data ?? []).map((r) => ({ id: r.id, label: r.label, prefix: r.token_prefix, allowPii: r.allow_pii, createdAt: r.created_at, expiresAt: r.expires_at, lastUsedAt: r.last_used_at, state: tokenState(r) })),
+    tokens: (data ?? []).map((r) => ({ id: r.id, label: r.label, prefix: r.token_prefix, allowPii: r.allow_pii, createdAt: r.created_at, expiresAt: r.expires_at, lastUsedAt: r.last_used_at, state: tokenState(r), settings: describeConfig(cleanConfig(r.config)) })),
   };
 }
 
 export async function createMcpToken(
   siteId: string,
-  input: { label: string; consent: boolean; allowPii: boolean; piiConsent: boolean; expiresInDays: number },
+  input: { label: string; consent: boolean; allowPii: boolean; piiConsent: boolean; expiresInDays: number; config?: TokenConfig },
 ): Promise<{ ok: true; token: string; info: McpTokenInfo } | { ok: false; error: string }> {
   const a = await authorize(siteId);
   if (!a.ok) return a;
@@ -76,6 +79,7 @@ export async function createMcpToken(
   }
   if ((count ?? 0) >= MAX_ACTIVE_TOKENS_PER_SITE) return { ok: false, error: `This site already has ${MAX_ACTIVE_TOKENS_PER_SITE} active tokens. Revoke one first.` };
 
+  const config = cleanConfig(input.config);
   const token = generateToken();
   const now = new Date().toISOString();
   const { data, error } = await admin
@@ -90,6 +94,7 @@ export async function createMcpToken(
       consent_at: now,
       consent_version: CONSENT_VERSION,
       expires_at: expiryFrom(days),
+      config,
     })
     .select("id, label, token_prefix, allow_pii, created_at, expires_at, revoked_at, last_used_at")
     .single();
@@ -101,7 +106,7 @@ export async function createMcpToken(
   return {
     ok: true,
     token,
-    info: { id: data.id, label: data.label, prefix: data.token_prefix, allowPii: data.allow_pii, createdAt: data.created_at, expiresAt: data.expires_at, lastUsedAt: data.last_used_at, state: tokenState(data) },
+    info: { id: data.id, label: data.label, prefix: data.token_prefix, allowPii: data.allow_pii, createdAt: data.created_at, expiresAt: data.expires_at, lastUsedAt: data.last_used_at, state: tokenState(data), settings: describeConfig(config) },
   };
 }
 

@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { createMcpToken, listMcpTokens, revokeMcpToken } from "@/lib/actions/mcpTokens.action";
+import { TOOL_NAMES } from "@/jh-mcp/config";
 import { CONSENT_TEXT, PII_CONSENT_TEXT } from "@/jh-mcp/consent";
 import { DEFAULT_EXPIRY_DAYS, EXPIRY_DAYS } from "@/jh-mcp/tokens";
 import { can } from "@/lib/tracking/permissions";
@@ -26,6 +27,10 @@ export function McpCard({ siteId, role }) {
   const [consent, setConsent] = useState(false);
   const [allowPii, setAllowPii] = useState(false);
   const [piiConsent, setPiiConsent] = useState(false);
+  // Advanced, optional: which tools, and lower limits than the server-wide ones.
+  const [showAdv, setShowAdv] = useState(false);
+  const [tools, setTools] = useState(() => new Set(TOOL_NAMES));
+  const [limits, setLimits] = useState({ maxRows: "", maxCredits: "", callsPerMinute: "", callsPerDay: "" });
   const [fresh, setFresh] = useState(null); // { token }, shown once
   const [copied, setCopied] = useState(false);
   const endpoint = typeof window !== "undefined" ? window.location.origin + "/api/mcp" : "/api/mcp";
@@ -52,13 +57,16 @@ export function McpCard({ siteId, role }) {
   async function create() {
     setBusy(true);
     setError(null);
-    const res = await createMcpToken(siteId, { label, consent, allowPii, piiConsent, expiresInDays: days });
+    const res = await createMcpToken(siteId, { label, consent, allowPii, piiConsent, expiresInDays: days, config: { tools: [...tools], ...limits } });
     if (res.ok) {
       setFresh({ token: res.token });
       setLabel("");
       setConsent(false);
       setAllowPii(false);
       setPiiConsent(false);
+      setShowAdv(false);
+      setTools(new Set(TOOL_NAMES));
+      setLimits({ maxRows: "", maxCredits: "", callsPerMinute: "", callsPerDay: "" });
       await refresh();
     } else setError(res.error);
     setBusy(false);
@@ -124,6 +132,7 @@ export function McpCard({ siteId, role }) {
                   <div className="text-[11px] text-muted-foreground">
                     {t.state === "active" ? "expires " + fmt(t.expiresAt) : t.state} · last used {fmt(t.lastUsedAt)}
                   </div>
+                  {t.settings && <div className="text-[11px] text-muted-foreground">{t.settings}</div>}
                 </div>
                 <div className="flex items-center gap-2">
                   {t.allowPii && <Badge variant="outline">personal details</Badge>}
@@ -151,6 +160,51 @@ export function McpCard({ siteId, role }) {
                 ))}
               </select>
             </div>
+            <div>
+              <button type="button" className="text-xs underline" onClick={() => setShowAdv((v) => !v)} aria-expanded={showAdv}>
+                {showAdv ? "Hide advanced settings" : "Advanced settings (tools and limits)"}
+              </button>
+              {showAdv && (
+                <div className="mt-2 space-y-3 rounded-md border bg-muted/20 p-3">
+                  <div>
+                    <div className="mb-1 text-[11px] text-muted-foreground">Tools this token may use</div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {TOOL_NAMES.map((n) => (
+                        <label key={n} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            checked={tools.has(n)}
+                            onChange={(e) =>
+                              setTools((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.add(n);
+                                else next.delete(n);
+                                return next;
+                              })
+                            }
+                          />
+                          {n}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {[
+                      ["maxRows", "Rows per answer"],
+                      ["maxCredits", "Credits per run"],
+                      ["callsPerMinute", "Calls per minute"],
+                      ["callsPerDay", "Calls per day"],
+                    ].map(([k, lab]) => (
+                      <label key={k} className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+                        {lab}
+                        <Input type="number" min={1} placeholder="server default" value={limits[k]} onChange={(e) => setLimits((p) => ({ ...p, [k]: e.target.value }))} />
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Limits can only be lower than the server-wide ones. Leave a box empty to use the default.</p>
+                </div>
+              )}
+            </div>
             <label className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
               <input type="checkbox" className="mt-0.5" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
               <span>{CONSENT_TEXT}</span>
@@ -173,7 +227,7 @@ export function McpCard({ siteId, role }) {
                 <span>I confirm that sharing personal details of this site&apos;s visitors with that AI provider is allowed by our privacy policy and the law that applies to us.</span>
               </label>
             )}
-            <Button disabled={busy || !label.trim() || !consent || (allowPii && !piiConsent)} onClick={create}>
+            <Button disabled={busy || !label.trim() || !consent || (allowPii && !piiConsent) || tools.size === 0} onClick={create}>
               Create token
             </Button>
           </div>

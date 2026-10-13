@@ -1,12 +1,11 @@
 // app/platform/layout.jsx
 import { getAuthUser, getUserSite, getAllUserSites, getPlanLabel } from "@/lib/actions/permission.actions";
 import { getMyProfile } from "@/lib/actions/profile.actions";
-import {
-  SidebarInset, SidebarProvider, SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { FeedbackAutoPrompt } from "@/components/feedback/FeedbackAutoPrompt";
+import { Suspense } from "react";
+import { TopBar } from "@/components/nav/TopBar";
 
 // Every page under here requires a signed-in session (getAuthUser() below
 // redirects to /sign-in otherwise), so Google could never render the real
@@ -33,16 +32,10 @@ export default async function PlatformLayout({ children }) {
         userProfile={profile}
       />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            <Separator
-              orientation="vertical"
-              className="mr-2 data-[orientation=vertical]:h-4"
-            />
-            {/* optional breadcrumb slot */}
-          </div>
-        </header>
+        {/* only pages with secondary tabs get a bar; the rest start at the top (components/nav/TopBar.tsx) */}
+        <Suspense fallback={null}>
+          <TopBar flags={{ mcp: process.env.MCP_ENABLED === "1" }} />
+        </Suspense>
         {/* min-w-0: this is a flex column, and flex items don't shrink below
             their content's intrinsic width by default — a page that renders
             something wide (e.g. FramePlateChart's session strip) would grow
