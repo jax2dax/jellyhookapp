@@ -1500,7 +1500,15 @@ function firePageViewStart() {
         keepalive: true,
       })
         .then((r) => jhLog("[Tracker] ✅ Form engagement sent, status:", r.status, payload.status))
-        .catch((err) => jhLog("[Tracker] ❌ Form engagement send error:", err));
+        .catch((err) => {
+          jhLog("[Tracker] ❌ Form engagement send error, retrying once:", err);
+          // One retry: a dropped request used to mean this form was never recorded for the page view. The server
+          // merges by (session, page, form) and only moves status forward, so a repeat is harmless.
+          if (payload.field_timings_delta) return; // timings are ADDED by the server: a repeat would count them twice
+          setTimeout(function () {
+            _originalFetch(ENGAGEMENT_API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=UTF-8" }, body: JSON.stringify(payload), credentials: "omit", keepalive: true }).catch(function () {});
+          }, 2000);
+        });
     } catch (err) {
       jhLog("[Tracker] ❌ Form engagement error:", err);
     }
@@ -1511,28 +1519,82 @@ function firePageViewStart() {
   // moment (getBoundingClientRect, same technique page_structure already
   // uses for headers) so the dashboard can draw it where the form actually
   // sits, not a guess. ──
+  // Records "viewed" + the form's real position, once per form per page view. Shared by the IntersectionObserver
+  // below and by the direct geometry check further down (a second, independent way to notice the same thing, so a
+  // missed observer callback can never mean a missed form).
+  function recordFormViewed(form) {
+    const formIndex = Array.from(document.forms).indexOf(form);
+    if (formIndex === -1) return;
+    resetEngagementStateIfNewPageView();
+    if (engagementState.has(formIndex)) return; // already recorded for this page view
+    const rect = form.getBoundingClientRect();
+    sendEngagementEvent(
+      formIndex,
+      form,
+      { status: "viewed", formTopY: Math.round(rect.top + window.scrollY), formBottomY: Math.round(rect.bottom + window.scrollY) },
+      { lastActivityAt: new Date().toISOString() }
+    );
+    try {
+      engagementObserver.unobserve(form);
+    } catch (err) {}
+  }
+
+  // "Seen" = half the form on screen, OR (for a form taller than two screens, which can never be half visible)
+  // half the screen filled by the form.
+  function formCountsAsSeen(visiblePx, formPx) {
+    return formPx > 0 && (visiblePx >= 0.5 * formPx || visiblePx >= 0.5 * window.innerHeight);
+  }
+
   const engagementObserver = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
-        const form = entry.target;
-        const formIndex = Array.from(document.forms).indexOf(form);
-        if (formIndex === -1) continue;
-        resetEngagementStateIfNewPageView();
-        if (engagementState.has(formIndex)) continue; // already recorded for this page view
-        const rect = form.getBoundingClientRect();
-        const nowIso = new Date().toISOString();
-        sendEngagementEvent(
-          formIndex,
-          form,
-          { status: "viewed", formTopY: Math.round(rect.top + window.scrollY), formBottomY: Math.round(rect.bottom + window.scrollY) },
-          { lastActivityAt: nowIso }
-        );
-        engagementObserver.unobserve(form);
+        const r = entry.boundingClientRect;
+        const visiblePx = entry.intersectionRect ? entry.intersectionRect.height : 0;
+        if (!formCountsAsSeen(visiblePx, r ? r.height : 0)) continue;
+        recordFormViewed(entry.target);
       }
     },
-    { threshold: 0.5 }
+    { threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1] }
   );
+
+  // Every new page view must look for the form again. Coming back to a tab opens a new page view in the SAME
+  // document, and the form was unobserved after the previous page view saw it; before this, it was only re-armed
+  // when that page view ENDED, so "viewed" arrived late (attributed to the next page view) or never.
+  pageOpenListeners.push(function () {
+    try {
+      resetEngagementStateIfNewPageView();
+    } catch (err) {
+      jhLog("[Tracker] ❌ Form engagement re-arm on page open failed:", err);
+    }
+  });
+
+  // The same check without the observer: measure every form that has not been recorded yet on this page view.
+  // Runs shortly after a page view opens (a returning tab whose form is already on screen), when the page finishes
+  // loading, after scrolling stops, and after a resize. Cheap: only forms not yet recorded are measured.
+  function checkFormsInViewNow() {
+    try {
+      const vh = window.innerHeight;
+      document.querySelectorAll("form").forEach(function (form) {
+        const formIndex = Array.from(document.forms).indexOf(form);
+        if (formIndex === -1 || engagementState.has(formIndex)) return;
+        const r = form.getBoundingClientRect();
+        const visiblePx = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+        if (visiblePx > 0 && formCountsAsSeen(visiblePx, r.height)) recordFormViewed(form);
+      });
+    } catch (err) {
+      jhLog("[Tracker] ❌ Form view check failed:", err);
+    }
+  }
+  let formViewTimer = null;
+  function scheduleFormViewCheck(ms) {
+    clearTimeout(formViewTimer);
+    formViewTimer = setTimeout(checkFormsInViewNow, ms);
+  }
+  window.addEventListener("scroll", function () { scheduleFormViewCheck(300); }, { passive: true });
+  window.addEventListener("resize", function () { scheduleFormViewCheck(300); });
+  window.addEventListener("load", function () { scheduleFormViewCheck(400); });
+  pageOpenListeners.push(function () { scheduleFormViewCheck(400); });
 
   function observeFormForEngagement(form) {
     try {

@@ -307,6 +307,16 @@ export async function POST(req) {
           } else {
             console.error("[track] page_view insert error:", error.message);
           }
+        } else {
+          // One window records at a time, so a page view that is still open when the next one starts was left
+          // without its end arriving (a request lost on tab hide, a crashed tab). Close it now, dated to this
+          // start, instead of leaving it open until the whole session closes (hours later in the worst case).
+          const { data: dangling } = await supabase.from("page_views").select("id, entered_at").eq("session_id", sessionId).eq("site_id", site.id).is("left_at", null).neq("page_view_id", pageViewId);
+          for (const pv of dangling ?? []) {
+            const enteredMs = new Date(pv.entered_at).getTime();
+            if (!(enteredMs < now)) continue;
+            await supabase.from("page_views").update({ left_at: nowIso, time_on_page: Math.min(now - enteredMs, MAX_DURATION_MS) }).eq("id", pv.id).is("left_at", null);
+          }
         }
         continue;
       }

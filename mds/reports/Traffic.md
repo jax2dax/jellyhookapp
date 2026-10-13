@@ -6,17 +6,6 @@ This is not a guess dressed as a number. Everything below is traced from the act
 
 ---
 
-## 1. Answering the direct question first: is this "nonsense," or is it just the ticker?
-
-**It's not nonsense. The architecture (event batching, session/page_view/lead separation, throttled client-side sends) is sound.** The scalability risk that came up earlier was specifically the *dashboard-owner-facing* Live Ticker polling every 500ms-4s per open tab — that's a cost *you* generate by leaving your own dashboard open, unrelated to how many visitors a client's site gets.
-
-**The tracker-facing path (what actually scales with a business's traffic) is a separate, more serious concern**, for a different reason: it is **serial, chatty, and has an uncached external network call in the hot path.** That's the real bottleneck, and it's fixable without a rewrite. Details below.
-
----
-
-## 2. What actually generates a network request (ground truth from tracker.js)
-
-Scroll tracking does **not** generate network traffic. It's tracked in memory, throttled to a check every 250ms, and only ever leaves the browser as part of a `page_view_end` payload. This matters a lot for your capacity math — 500 people scrolling simultaneously is zero extra backend load by itself.
 
 Requests to your backend happen only at these points, per visitor, per browser tab:
 
@@ -35,7 +24,6 @@ Requests to your backend happen only at these points, per visitor, per browser t
 
 ## 3. The real bottleneck: what happens *inside* one `/api/track` call
 
-This is the part that matters more than any platform limit. Reading `app/api/track/route.js` top to bottom:
 
 - Every single POST — regardless of event type — makes a **synchronous, uncached call to `ip-api.com`** for country lookup, with a 2-second timeout, *before* touching your own database. This is a free third-party service, shared across everyone who uses it worldwide, rate-limited at 1000 req/min **for the whole internet**, not exclusively for you. There is no per-visitor caching, so the same visitor triggers this lookup on every `session_start` (once per tab, so not every page — but still, on a busy site with lots of tabs/sessions, this is a real external dependency with no fallback beyond "return null on failure").
 - Each event in the batch is processed with `await` **sequentially, one at a time**, not in parallel. A `session_start` event alone can trigger up to 4 sequential Supabase round-trips (dedup check → open-session check → stale-session check → insert). A `page_view_start`/`page_view_end` adds 1-2 more (visitor upsert + page_view select-then-insert/update).
