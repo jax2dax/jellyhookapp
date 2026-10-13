@@ -51,6 +51,17 @@ const ok = (c, m, extra) => { console.log((c ? "ok:   " : "FAIL: ") + m + (extra
   const lt = textOf(leads);
   const hasEmail = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}/.test(lt.replace(/[A-Za-z0-9._%+-]\*{3}@/g, ""));
   ok(!leads.body?.result?.isError, "run_hook: list of leads", lt.slice(0, 200));
+  try {
+    const j = JSON.parse(lt);
+    ok(!(j.total > 0 && j.returned === 0), "leads: when there are leads, some are returned (total " + j.total + ", returned " + j.returned + ")");
+  } catch (e) {}
+  const sess = await call("run_hook", { spec: { entity: "session", where: [], output: { kind: "ids" } } });
+  try {
+    const j = JSON.parse(textOf(sess));
+    ok(!(j.total > 0 && j.returned === 0), "sessions: when there are sessions, some are returned (total " + j.total + ", returned " + j.returned + ")");
+    const pagesSeen = (j.sessions?.[0]?.pages || []).map((p) => p.path).join(" > ");
+    ok(true, "first session's pages", pagesSeen || "(none)");
+  } catch (e) { ok(false, "sessions list could not be read", textOf(sess).slice(0, 150)); }
   ok(!hasEmail, "no unmasked email address in the leads answer (token without personal details)");
 
   console.log(fails ? "\n" + fails + " FAILED" : "\nALL OK");

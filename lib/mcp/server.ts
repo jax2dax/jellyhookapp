@@ -10,13 +10,15 @@ import type { HookSpec } from "@/jh-hook/types";
 import { registerJellyhookTools, type Guard } from "@/jh-mcp/register";
 import type { McpContext, McpDeps } from "@/jh-mcp/tools";
 import { pgHookDb } from "@/lib/hook/pgDb";
+import { withServiceClient } from "@/output/server/data";
 import { renderCanvas } from "@/output/server/render";
 import { checkRate, MAX_CREDITS, MAX_ROWS, recordCall, type Caller } from "./auth";
 
 const deps: McpDeps = {
   async run(siteId: string, spec: HookSpec, maxCredits: number) {
     const result = await runHook(pgHookDb, siteId, spec, { maxCredits });
-    const view = await renderCanvas(siteId, spec, result, { maxCredits });
+    // No signed-in user here: the display rows are read with the server key, pinned to this token's site.
+    const view = await withServiceClient(() => renderCanvas(siteId, spec, result, { maxCredits }));
     return { view, credits: result.cost.credits };
   },
   async pages(siteId: string) {

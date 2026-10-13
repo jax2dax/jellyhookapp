@@ -10,6 +10,8 @@
 //     is only reachable this way.
 // Every query is pinned to the site; nothing here trusts the browser.
 import "server-only";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { createClient } from "@supabase/supabase-js";
 import { createSupabaseClient } from "@/lib/supabase";
 import { pgHookDb } from "@/lib/hook/pgDb";
 import { buildSessionsRaw } from "@/lib/leadSessions/transform";
@@ -20,6 +22,21 @@ import type { RelatedCondition } from "../../jh-hook/types";
 import { foldSessions, foldVisits, matchingSessionsQuery, matchingVisitsQuery } from "./queries";
 import type { SessionRaw } from "../../framePlate/types";
 import type { FieldRow, FormCard, PageCard, SessionCard } from "../types";
+
+// The display rows are read with the signed-in user's login (RLS on). A caller with NO signed-in user, the MCP route,
+// runs inside withServiceClient(): the same reads then use the server's own key instead. This is safe only because
+// every query in this file is pinned to the site id the caller already proved it may read (.eq("site_id", ...) or
+// scoped()); keep it that way when adding queries here.
+const serviceScope = new AsyncLocalStorage<true>();
+export function withServiceClient<T>(fn: () => Promise<T>): Promise<T> {
+  return serviceScope.run(true, fn);
+}
+let serviceClient: ReturnType<typeof createClient> | null = null;
+function db() {
+  if (!serviceScope.getStore()) return createSupabaseClient();
+  serviceClient ??= createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  return serviceClient;
+}
 
 type Row = Record<string, unknown>;
 const str = (v: unknown) => (v == null ? null : String(v));
@@ -124,7 +141,7 @@ export async function matchingSessionsOfVisitors(siteId: string, conds: RelatedC
 export async function sessionReplays(siteId: string, sessionIds: string[]): Promise<Map<string, { session: SessionRaw; deviceType: string | null }>> {
   const out = new Map<string, { session: SessionRaw; deviceType: string | null }>();
   if (!sessionIds.length) return out;
-  const supabase = createSupabaseClient();
+  const supabase = db();
   const [sessions, pageViews, submissions, formEngagement] = await Promise.all([
     supabase.from("sessions").select("*").eq("site_id", siteId).in("session_id", sessionIds).then((r) => check<Row[]>(r, "sessions")),
     supabase.from("page_views").select("*").eq("site_id", siteId).in("session_id", sessionIds).order("entered_at", { ascending: true }).then((r) => check<Row[]>(r, "page_views")),
@@ -154,14 +171,14 @@ export function sessionCards(order: string[], replays: Map<string, { session: Se
 
 export async function leadRows(siteId: string, ids: string[]): Promise<Row[]> {
   if (!ids.length) return [];
-  const supabase = createSupabaseClient();
+  const supabase = db();
   const rows = check<Row[]>(await supabase.from("form_submissions").select("*").eq("site_id", siteId).in("id", ids), "form_submissions");
   const byId = new Map(rows.map((r) => [String(r.id), r]));
   return ids.map((id) => byId.get(id)).filter((r): r is Row => !!r);
 }
 
 export async function visitorRows(siteId: string, ids: string[]): Promise<{ visitors: Map<string, Row>; leads: Map<string, Row>; sessions: Map<string, number> }> {
-  const supabase = createSupabaseClient();
+  const supabase = db();
   const [visitors, leads, counts] = await Promise.all([
     supabase.from("visitors").select("*").eq("site_id", siteId).in("visitor_id", ids).then((r) => check<Row[]>(r, "visitors")),
     supabase.from("form_submissions").select("id, visitor_id, name, email, submitted_at").eq("site_id", siteId).in("visitor_id", ids).order("submitted_at", { ascending: false }).then((r) => check<Row[]>(r, "form_submissions")),
