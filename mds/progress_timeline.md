@@ -1689,3 +1689,13 @@ Full write-up: `mds/reports/tracker-backend-audit-2026-10-07.md`.
 - **Decisions.** Spec not SQL; Terra default with `AI_HOOK_MODEL` to swap; thinking off; AI cost charged in Hook credits (recorded and shown, not yet deducted: no balance exists); a person gets 20 questions a day, the product $25 a day; fails closed; vague question means ask back.
 - **To do by hand.** Run the migration; set `OPENAI_API_KEY` in Vercel (plus a spend limit in the OpenAI dashboard); redeploy.
 - **Not built / not verified.** Events table with labels, credit balance, assistant, docs wizard, tiers, BYOK (see roadmap.md). The UI and `/dev/usage` section were type-checked and linted but not exercised in a browser. Luna was never called. Public docs page and privacy-policy mention of OpenAI not written yet.
+
+## 2026-10-13 - MCP server (AI apps can query one site's Hook data)
+
+- **What.** `/api/mcp` (stateless MCP over HTTP) with five read-only tools (`get_schema`, `list_pages`, `validate_hook`, `describe_hook`, `run_hook`). Access by personal tokens made in Settings, "AI access": owner and admin only, consent tick required, expiry 30/90/365 days, revocable, only a hash stored.
+- **Privacy.** Email, name and phone masked by default (also when the query's output is one of them); raw form answers never returned; unmasked details only for a token created with a second confirmation.
+- **Limits.** Per-token rate (30/min, 500/day), credit ceiling per call (20), 50 rows; every call recorded in `mcp_calls`; fails closed.
+- **Tested.** `npm run test:mcp`, 51 checks including the official MCP client over HTTP. NOT tested: the real database and token, a real client (Claude Code etc.), the Settings card in a browser.
+- **To do by hand.** Run `mds/migrations/2026-10-13-mcp-tokens.sql`; set `MCP_ENABLED=1`; redeploy.
+- **Decisions.** Official SDK instead of `mcp-handler`; OAuth through Clerk is phase 2; Docker bridge later.
+- **Docs.** `mds/build/mcp/*`, public page `/docs/hook/mcp`, privacy section.

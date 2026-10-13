@@ -65,6 +65,7 @@ export default async function SettingsPage() {
             visitorCount={visitorCount}
             role={role}
             ingestion={ingestion}
+            mcpEnabled={process.env.MCP_ENABLED === "1"}
           />
         )}
       </div>

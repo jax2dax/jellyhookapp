@@ -16,10 +16,8 @@
     ],
     "deny": [
       "Read(.env*)",
-      "Edit(.env*)",
-      "Edit(/public/tracker.js)",
-      "Edit(/app/api/**)",
-      "Edit(/lib/**)"
+      "Edit(.env*)"
+      
     ]
   }
 }

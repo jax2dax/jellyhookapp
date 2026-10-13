@@ -54,6 +54,9 @@ RULES:
   - If a CURRENT QUERY is given, the person is adjusting it: return the FULL updated query, keeping everything they did not ask to change.
   - The dates are UTC. TODAY is given in each request.`;
 
+/** The query format and its rules, without the reply envelope (shared with the MCP guide, jh-mcp/guide.ts). */
+export const JH_SPEC_GRAMMAR = RULES.slice(RULES.indexOf("THE QUERY"));
+
 function exampleBlock(): string {
   return EXAMPLES.filter((e) => e.fewShot)
     .map((e) => {

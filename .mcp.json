@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "jellyhook": {
+      "type": "http",
+      "url": "${JELLYHOOK_MCP_URL:-http://localhost:3000/api/mcp}",
+      "headers": {
+        "Authorization": "Bearer ${JELLYHOOK_MCP_TOKEN}"
+      }
+    }
+  }
+}

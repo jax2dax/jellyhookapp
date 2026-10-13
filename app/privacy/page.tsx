@@ -111,6 +111,15 @@ export default function PrivacyPage() {
 
       <section className="border-b border-[#1b1b18]">
         <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
+          <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">Connecting an AI app</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            A site owner or admin can create an access token that lets an AI app they choose (for example Claude or Cursor) read that site&apos;s Hook data. Answers go to that app&apos;s AI provider. Emails, names and phone numbers are hidden unless the token was created with an extra confirmation, and form answers are never sent. Tokens expire and can be revoked. The owner is responsible for choosing apps they are allowed to share the data with. We record how many calls each token makes, not what was asked or answered.
+          </p>
+        </div>
+      </section>
+
+      <section className="border-b border-[#1b1b18]">
+        <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">How it&apos;s used</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Solely to run the product you signed up for: showing you your own site&apos;s traffic, visit charts, leads,

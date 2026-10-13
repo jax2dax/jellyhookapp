@@ -45,6 +45,7 @@ export const DOCS_NAV: DocsNavSection[] = [
       { slug: "hook/organizing", title: "Organize, share and run" },
       { slug: "hook/ask", title: "Enter Hook with AI" },
       { slug: "hook/examples", title: "Worked examples" },
+      { slug: "hook/mcp", title: "Connect an AI app" },
       { slug: "hook/field-reference", title: "Field reference" },
       { slug: "hook/how-it-works", title: "How Hook works" },
       { slug: "hook/glossary", title: "Glossary" },

@@ -16,6 +16,7 @@ import {
 } from "@/lib/actions/settings.actions";
 import { can, canManageMember, assignableRoles } from "@/lib/tracking/permissions";
 import { rotationStatus } from "@/lib/tracking/keys";
+import { McpCard } from "./McpCard";
 import { KeyRotationNotice, TrackingStatusCard, AllowedHostsCard, TrackingHealthCard, FormModeCard } from "./TrackingCards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -351,7 +352,7 @@ function TeamMembers({ siteId, initialMembers, currentUserId, siteOwnerId, role:
 }
 
 // ─── Main SettingsClient ──────────────────────────────────
-export default function SettingsClient({ site: initialSite, initialMembers, currentUserId, visitorCount = 0, role = null, ingestion = null }) {
+export default function SettingsClient({ site: initialSite, initialMembers, currentUserId, visitorCount = 0, role = null, ingestion = null, mcpEnabled = false }) {
   const [site, setSite] = useState(initialSite);
   const [rotation, setRotation] = useState(ingestion?.rotation || null);
   const leaveError = null; // errors show in the confirm dialog
@@ -468,6 +469,14 @@ export default function SettingsClient({ site: initialSite, initialMembers, curr
               <TrackingHealthCard status={ingestion} />
             </div>
           </div>
+        </section>
+      )}
+
+      {/* AI ACCESS (MCP): behind MCP_ENABLED=1 until the whole feature is built and tested */}
+      {mcpEnabled && (
+        <section>
+          <SectionLabel>AI access</SectionLabel>
+          <McpCard siteId={site.id} role={role} />
         </section>
       )}
 
