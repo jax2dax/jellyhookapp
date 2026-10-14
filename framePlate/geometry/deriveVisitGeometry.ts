@@ -107,6 +107,7 @@ function fallbackGeometry(visit: Partial<PageVisitRaw> | undefined, outcome: Fra
     formBottomFrac: toFormFrac(visit?.formBottomY, pageHeightPx),
     formStatus: visit?.formStatus ?? null,
     formFieldCount: visit?.formFieldCount ?? null,
+    formFields: visit?.formFields ?? null,
   };
 }
 
@@ -187,6 +188,7 @@ export function deriveVisitGeometry(visit: PageVisitRaw, fallbackViewportHeightP
       formBottomFrac: toFormFrac(visit.formBottomY, visit.pageHeightPx),
       formStatus: visit.formStatus ?? null,
       formFieldCount: visit.formFieldCount ?? null,
+      formFields: visit.formFields ?? null,
     };
   } catch (err) {
     console.error(`[framePlate] deriveVisitGeometry failed for visit "${visit?.id}":`, err);

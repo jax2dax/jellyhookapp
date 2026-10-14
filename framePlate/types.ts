@@ -89,6 +89,13 @@ export interface PageVisitRaw {
    * field stripes inside it.
    */
   formFieldCount?: number | null;
+  /**
+   * Which fields of the form were used during THIS page visit, at their position in the form (slot 0 = first field).
+   * typed: a key was pressed or the value changed; focused: clicked into only. Fields not used on this visit are
+   * simply absent. When present, it replaces formFieldCount for the stripes. Null for rows recorded before per-visit
+   * storage (2026-10-14), which fall back to formFieldCount.
+   */
+  formFields?: { slots: number; touched: { slot: number; state: "typed" | "focused" }[] } | null;
   /** a form on this page was engaged with but never submitted (form_engagement.status = 'abandoned') */
   abandonedForm?: boolean;
 }
@@ -155,6 +162,7 @@ export interface VisitGeometry {
   /** passed through unchanged from PageVisitRaw.formStatus/formFieldCount — no page-fraction conversion needed for either */
   formStatus?: string | null;
   formFieldCount?: number | null;
+  formFields?: { slots: number; touched: { slot: number; state: "typed" | "focused" }[] } | null;
 }
 
 export interface GapGeometry {

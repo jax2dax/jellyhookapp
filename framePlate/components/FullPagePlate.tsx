@@ -19,7 +19,7 @@ interface FormMiniPlateGeometry {
   boxWidth: number;
   boxHeight: number;
   color: string;
-  stripes: { x: number; y: number; width: number; height: number }[];
+  stripes: { x: number; y: number; width: number; height: number; state: "typed" | "focused" }[];
 }
 
 /**
@@ -42,7 +42,7 @@ interface FormMiniPlateGeometry {
  */
 function computeFormMiniPlateGeometry(visit: VisitGeometry, width: number, height: number, theme: FramePlateTheme): FormMiniPlateGeometry | null {
   try {
-    const { formTopFrac, formBottomFrac, formStatus, formFieldCount } = visit;
+    const { formTopFrac, formBottomFrac, formStatus, formFieldCount, formFields } = visit;
     if (formTopFrac == null || formBottomFrac == null) return null;
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
 
@@ -53,16 +53,21 @@ function computeFormMiniPlateGeometry(visit: VisitGeometry, width: number, heigh
     const boxHeight = Math.max(fmp.minHeightPx, Math.abs(formBottomFrac - formTopFrac) * height);
     const color = formStatus === "submitted" ? fmp.submittedColor : fmp.color;
 
-    const fieldCount = Math.max(0, Math.floor(formFieldCount ?? 0));
+    // Per-visit field states (since 2026-10-14): one slot per field of the form, a stripe only where a field was
+    // used on THIS visit, at that field's place. Older rows only know a count of fields ever focused in the session:
+    // those keep the previous drawing (every slot drawn as used).
+    const slots = formFields ? Math.max(1, Math.floor(formFields.slots)) : Math.max(0, Math.floor(formFieldCount ?? 0));
+    const used: { slot: number; state: "typed" | "focused" }[] = formFields ? formFields.touched : Array.from({ length: slots }, (_, i) => ({ slot: i, state: "typed" as const }));
     const stripes: FormMiniPlateGeometry["stripes"] = [];
-    if (fieldCount > 0) {
-      const slot = boxHeight / fieldCount;
+    if (slots > 0) {
+      const slot = boxHeight / slots;
       const thickness = Math.min(fmp.maxStripeThicknessPx, Math.max(fmp.minStripeThicknessPx, slot * 0.5));
       const stripeWidth = boxWidth * 0.8;
       const stripeX = boxX + (boxWidth - stripeWidth) / 2;
-      for (let i = 0; i < fieldCount; i++) {
-        const cy = boxY + i * slot + slot / 2;
-        stripes.push({ x: stripeX, y: cy - thickness / 2, width: stripeWidth, height: thickness });
+      for (const u of used) {
+        if (u.slot < 0 || u.slot >= slots) continue;
+        const cy = boxY + u.slot * slot + slot / 2;
+        stripes.push({ x: stripeX, y: cy - thickness / 2, width: stripeWidth, height: thickness, state: u.state });
       }
     }
 
@@ -80,9 +85,15 @@ function FormMiniPlate({ visit, width, height, theme }: { visit: VisitGeometry; 
   return (
     <g aria-label="form position">
       <rect x={geometry.boxX} y={geometry.boxY} width={geometry.boxWidth} height={geometry.boxHeight} rx={fmp.cornerRadius} ry={fmp.cornerRadius} fill={geometry.color} />
-      {geometry.stripes.map((s, i) => (
-        <rect key={i} x={s.x} y={s.y} width={s.width} height={s.height} fill={fmp.stripeColor} />
-      ))}
+      {geometry.stripes.map((s, i) =>
+        s.state === "typed" ? (
+          // typed in: solid
+          <rect key={i} x={s.x} y={s.y} width={s.width} height={s.height} fill={fmp.stripeColor} />
+        ) : (
+          // clicked into only: dimmer, with a dotted border
+          <rect key={i} x={s.x} y={s.y} width={s.width} height={s.height} fill={fmp.stripeColor} fillOpacity={0.3} stroke={fmp.stripeColor} strokeOpacity={0.85} strokeWidth={0.75} strokeDasharray="1 1.2" />
+        )
+      )}
     </g>
   );
 }

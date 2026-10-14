@@ -219,7 +219,6 @@ export default function SettingsClient({ site: initialSite, visitorCount = 0, ro
         <Card>
           <CardContent className="flex flex-wrap gap-6">
             <Fact label="Site ID" value={site.id} mono />
-            <Fact label="Plan" value={site.plan ?? "free"} />
             <Fact label="Created" value={new Date(site.created_at).toLocaleDateString()} />
             <Fact
               label="Teams involved"

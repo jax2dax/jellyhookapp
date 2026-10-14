@@ -130,9 +130,9 @@ export function LeadSessionExplorer({
   // exactly what was causing a real hydration mismatch on any page view
   // whose own page_height fell back to a cached page_structure height.
   const [pageStructureRows, setPageStructureRows] = React.useState<PageStructureRow[]>([]);
-  // Not seeded from a server prop or cache tier — this is small, and once a
-  // form is submitted its engagement row basically never changes again, so
-  // a single client fetch per visitor is enough; no polling needed.
+  // Not seeded from a server prop or cache tier. Fetched once when the component mounts, then refreshed together with
+  // the sessions (refreshSessions): while a session is live its form appears, gets its field stripes and changes
+  // colour as the visitor works on it.
   const [formEngagementRows, setFormEngagementRows] = React.useState<FormEngagementRow[]>([]);
   // The session being looked at lives in the URL (?session=<id>), only when chosen,
   // so a refresh or a shared link opens the same session (lib/urlState.ts).
@@ -232,8 +232,8 @@ export function LeadSessionExplorer({
     };
   }, [siteId, rawRows.pageViews]);
 
-  // ── Form engagement: fetched once per visitor, not polled — see the state
-  // declaration above for why. ──
+  // ── Form engagement: first load. Later refreshes ride along with refreshSessions (the live poll and the refresh
+  // button) — see the state declaration above. ──
   React.useEffect(() => {
     let cancelled = false;
     getLeadFormEngagementRows(siteId, visitorId)
@@ -249,7 +249,17 @@ export function LeadSessionExplorer({
   const refreshSessions = React.useCallback(async () => {
     setRefreshing(true);
     try {
-      const fresh = await getLeadSessionRows(siteId, visitorId);
+      // The form's rows are refreshed WITH the sessions. They used to be fetched once per visitor, so a form that came
+      // on screen after the page loaded (the yellow form mini-plate on a live session) only appeared after a full
+      // reload: the page views were polled every 15 s, their form was not.
+      const [fresh, forms] = await Promise.all([
+        getLeadSessionRows(siteId, visitorId),
+        getLeadFormEngagementRows(siteId, visitorId).catch((err: unknown) => {
+          console.error("[LeadSessionExplorer] form_engagement refresh failed:", err);
+          return null;
+        }),
+      ]);
+      if (forms) setFormEngagementRows(forms as FormEngagementRow[]);
       if (fresh) {
         setRawRows(fresh);
         setLastFetchedAt(Date.now());
