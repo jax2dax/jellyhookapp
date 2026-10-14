@@ -45,6 +45,13 @@ type RangePreset = "3d" | "7d" | "30d" | "all" | "custom";
 
 const PAGE_SIZE = 5;
 
+// "Now" is rounded down to 5 minutes. presetToRange used to read Date.now() to the millisecond on EVERY render, so the
+// "last 3 days" start changed on every render; the fetch effect depends on it, set "loading", re-rendered, saw a new
+// start, and fetched again, forever ("Loading conversions..." in an endless loop; "All time" has no start, so it was
+// fine). The range is now computed once per selection (useMemo below) and from a rounded clock, which also lets the
+// local cache (keyed by the range) actually hit instead of creating a new entry on every pass.
+const RANGE_ROUND_MS = 5 * 60_000;
+
 function presetToRange(preset: RangePreset, customStart: string, customEnd: string): { startIso: string | null; endIso: string | null } {
   if (preset === "all") return { startIso: null, endIso: null };
   if (preset === "custom") {
@@ -54,7 +61,8 @@ function presetToRange(preset: RangePreset, customStart: string, customEnd: stri
     };
   }
   const days = preset === "3d" ? 3 : preset === "7d" ? 7 : 30;
-  return { startIso: new Date(Date.now() - days * 86_400_000).toISOString(), endIso: null };
+  const now = Math.floor(Date.now() / RANGE_ROUND_MS) * RANGE_ROUND_MS;
+  return { startIso: new Date(now - days * 86_400_000).toISOString(), endIso: null };
 }
 
 const RANGE_PRESETS = ["3d", "7d", "30d", "all", "custom"] as const;
@@ -83,7 +91,8 @@ export function ConvertedLeadsExplorer({ siteId }: { siteId: string }) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  const { startIso, endIso } = presetToRange(preset, customStart, customEnd);
+  // stable between renders: only a new selection (or custom dates) produces a new range
+  const { startIso, endIso } = React.useMemo(() => presetToRange(preset, customStart, customEnd), [preset, customStart, customEnd]);
 
   // Cache read/write happens INSIDE the effect (post-mount), never in a
   // lazy useState initializer — this component is server-rendered once

@@ -43,6 +43,12 @@ export default async function LeadProfilePage({ params }) {
   );
 }
 
+function formTitle(fa) {
+  const what = fa.status === "submitted" ? "Submitted" : fa.status === "abandoned" ? "Started, not submitted" : "In progress";
+  const when = fa.seenAt ? " · " + new Date(fa.seenAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+  return what + " on " + (fa.page || "a page") + when;
+}
+
 function LeadProfileBody({ profile, raw, siteId }) {
   // every form this visitor started (submitted, abandoned or still open), with its session's page views
   const formActivities = collectFormActivities(raw.formEngagement || [], raw.pageViews || []);
@@ -140,26 +146,26 @@ function LeadProfileBody({ profile, raw, siteId }) {
       {(formEngagementFacts || abandonedFormsCount > 0) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Form Engagement</CardTitle>
-            <CardDescription>What actually happened around the form, not a guess about why.</CardDescription>
+            <CardTitle className="text-base">The form they submitted</CardTitle>
+            <CardDescription>How long this person took on the form that became this lead.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-6">
             {formEngagementFacts?.timeToFirstInputMs != null && (
               <div>
                 <div className="text-2xl font-semibold text-foreground">{formatDuration(formEngagementFacts.timeToFirstInputMs)}</div>
-                <div className="text-xs text-muted-foreground">time spent on page before typing</div>
+                <div className="text-xs text-muted-foreground">from seeing the form to the first thing typed</div>
               </div>
             )}
             {formEngagementFacts?.timeFillingFormMs != null && (
               <div>
                 <div className="text-2xl font-semibold text-foreground">{formatDuration(formEngagementFacts.timeFillingFormMs)}</div>
-                <div className="text-xs text-muted-foreground">spent filling it in, start to submit</div>
+                <div className="text-xs text-muted-foreground">from the first thing typed to submitting</div>
               </div>
             )}
             {abandonedFormsCount > 0 && (
               <div>
                 <div className="text-2xl font-semibold text-foreground">{abandonedFormsCount}</div>
-                <div className="text-xs text-muted-foreground">other form{abandonedFormsCount === 1 ? "" : "s"} this visitor started but never submitted</div>
+                <div className="text-xs text-muted-foreground">other form{abandonedFormsCount === 1 ? "" : "s"} this visitor started but never submitted (see Form activity below)</div>
               </div>
             )}
           </CardContent>
@@ -174,17 +180,33 @@ function LeadProfileBody({ profile, raw, siteId }) {
           <CardHeader>
             <CardTitle className="text-base">Form activity</CardTitle>
             <CardDescription>
-              Every form this person started, field by field: how long before they began, the order they used, where they paused, and when they left and came back. Nothing they typed is recorded, only when and how long.
+              The form they submitted, field by field: how long before they began, the order they used, where they paused, and when they left and came back. Forms they started but did not submit are folded below. Nothing they typed is recorded, only when and how long.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-8">
-            {formActivities.map((fa) => (
-              <FormActivityChart
-                key={fa.id}
-                timeline={fa.timeline}
-                title={(fa.status === "submitted" ? "Submitted" : fa.status === "abandoned" ? "Started, not submitted" : "In progress") + " on " + (fa.page || "a page") + (fa.seenAt ? " · " + new Date(fa.seenAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "")}
-              />
+            {formActivities.filter((fa) => fa.status === "submitted").map((fa) => (
+              <FormActivityChart key={fa.id} timeline={fa.timeline} title={formTitle(fa)} />
             ))}
+            {/* the forms they did not submit are folded away so they are not mistaken for the lead's own form */}
+            {formActivities.some((fa) => fa.status !== "submitted") && (
+              <details className="group rounded-lg border">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm">
+                  <span>
+                    <span className="font-medium text-foreground">
+                      {formActivities.filter((fa) => fa.status !== "submitted").length} other form{formActivities.filter((fa) => fa.status !== "submitted").length === 1 ? "" : "s"} this visitor started and did not submit
+                    </span>
+                    <span className="ml-2 text-xs text-muted-foreground">not part of this lead</span>
+                  </span>
+                  <span className="text-xs text-muted-foreground group-open:hidden">Show</span>
+                  <span className="hidden text-xs text-muted-foreground group-open:inline">Hide</span>
+                </summary>
+                <div className="space-y-8 border-t px-4 py-4">
+                  {formActivities.filter((fa) => fa.status !== "submitted").map((fa) => (
+                    <FormActivityChart key={fa.id} timeline={fa.timeline} title={formTitle(fa)} />
+                  ))}
+                </div>
+              </details>
+            )}
           </CardContent>
         </Card>
       )}
