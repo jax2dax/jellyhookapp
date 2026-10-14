@@ -1358,6 +1358,35 @@ function firePageViewStart() {
   // holds a running cross-visit total; see the header comment above.
   let fieldVisitState = new Map();
 
+  // A field's current value, used ONLY in memory to say "filled or empty" and "changed during this visit" as two
+  // booleans. The value itself never leaves the page.
+  function fieldValueOf(el) {
+    if (el.type === "checkbox" || el.type === "radio") return String(!!el.checked);
+    return String(el.value == null ? "" : el.value);
+  }
+  function fieldIsFilled(el) {
+    if (el.type === "checkbox" || el.type === "radio") return !!el.checked;
+    return fieldValueOf(el).trim() !== "";
+  }
+
+  // The form's fields as the visitor sees them: key, type, required. Sent once with "viewed" so the page can show
+  // fields nobody touched. Never a value. Respects data-track-field marking (fieldAllowed).
+  function formFieldList(form) {
+    const out = [];
+    const seen = new Set();
+    form.querySelectorAll("input, textarea, select").forEach(function (el) {
+      const t = el.tagName === "TEXTAREA" ? "textarea" : el.tagName === "SELECT" ? "select" : String(el.type || "text").toLowerCase();
+      if (["hidden", "submit", "button", "reset", "image", "password"].includes(t)) return;
+      if (!fieldAllowed(form, el)) return;
+      const c = classifyField(el);
+      const k = fieldTimingsKey(c.type, c.key);
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push({ key: k, type: t, required: !!el.required });
+    });
+    return out.slice(0, 60);
+  }
+
   function fieldTimingsKey(type, key) {
     return type === "custom" ? "custom:" + (key || "unknown") : type;
   }
@@ -1371,11 +1400,21 @@ function firePageViewStart() {
     const state = visits && visits.get(fieldKey);
     if (!state) return null;
     visits.delete(fieldKey);
+    let filled;
+    let edited;
+    try {
+      if (state.el) {
+        filled = fieldIsFilled(state.el); // true/false only
+        edited = fieldValueOf(state.el) !== state.startValue; // true/false only
+      }
+    } catch (e) {}
     return {
       firstFocusAt: new Date(state.focusStartedAt).toISOString(),
       firstKeydownAt: state.keydownAtThisVisit != null ? new Date(state.keydownAtThisVisit).toISOString() : null,
       lastUnfocusAt: new Date(nowMs).toISOString(),
       totalFocusedMsDelta: Math.max(0, nowMs - state.focusStartedAt),
+      filled: filled,
+      edited: edited,
     };
   }
 
@@ -1490,6 +1529,9 @@ function firePageViewStart() {
         has_marked_fields: form.querySelector("[data-track-field]") ? true : undefined,
         field_timings_delta: (transient && transient.fieldTimingsDelta) || undefined,
         last_activity_at: (transient && transient.lastActivityAt) || undefined,
+        field_errors_delta: (transient && transient.fieldErrorsDelta) || undefined,
+        form_fields: (transient && transient.formFields) || undefined,
+        onscreen_before_start_ms: transient && typeof transient.onscreenBeforeStartMs === "number" ? transient.onscreenBeforeStartMs : undefined,
       };
       jhLog("[Tracker] 📋 Form engagement → sending:", payload);
       _originalFetch(ENGAGEMENT_API_URL, {
@@ -1532,7 +1574,7 @@ function firePageViewStart() {
       formIndex,
       form,
       { status: "viewed", formTopY: Math.round(rect.top + window.scrollY), formBottomY: Math.round(rect.bottom + window.scrollY) },
-      { lastActivityAt: new Date().toISOString() }
+      { lastActivityAt: new Date().toISOString(), formFields: formFieldList(form) }
     );
     try {
       engagementObserver.unobserve(form);
@@ -1544,6 +1586,43 @@ function firePageViewStart() {
   function formCountsAsSeen(visiblePx, formPx) {
     return formPx > 0 && (visiblePx >= 0.5 * formPx || visiblePx >= 0.5 * window.innerHeight);
   }
+
+  // On-screen time per form: how long it was at least half visible (formCountsAsSeen) with the tab visible. Read once,
+  // when the form is first started ("time it was really in front of them before they began").
+  const onscreen = new Map(); // form element -> { visible, since, acc }
+  function onscreenUpdate(form, visibleNow) {
+    let st = onscreen.get(form);
+    if (!st) {
+      st = { visible: false, since: null, acc: 0 };
+      onscreen.set(form, st);
+    }
+    const now = Date.now();
+    const counting = visibleNow && document.visibilityState === "visible";
+    if (st.since !== null && !counting) {
+      st.acc += now - st.since;
+      st.since = null;
+    } else if (st.since === null && counting) st.since = now;
+    st.visible = visibleNow;
+  }
+  function onscreenMs(form) {
+    const st = onscreen.get(form);
+    if (!st) return undefined;
+    return Math.round(st.acc + (st.since !== null ? Date.now() - st.since : 0));
+  }
+  const onscreenObserver = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        const rb = e.boundingClientRect;
+        onscreenUpdate(e.target, e.isIntersecting && formCountsAsSeen(e.intersectionRect ? e.intersectionRect.height : 0, rb ? rb.height : 0));
+      }
+    },
+    { threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1] }
+  );
+  document.addEventListener("visibilitychange", function () {
+    onscreen.forEach(function (st, form) {
+      onscreenUpdate(form, st.visible);
+    });
+  });
 
   const engagementObserver = new IntersectionObserver(
     (entries) => {
@@ -1603,6 +1682,10 @@ function firePageViewStart() {
       // idle-split) needs "viewed" to fire again for EACH page view, since
       // position/engagement is tracked per page view, not once per DOM
       // element for its whole lifetime.
+      if (!form.__jhOnscreenObserved) {
+        form.__jhOnscreenObserved = true;
+        onscreenObserver.observe(form);
+      }
       if (form.__jhEngagementObservedForPv === page_view_id) return;
       form.__jhEngagementObservedForPv = page_view_id;
       engagementObserver.observe(form);
@@ -1653,11 +1736,10 @@ function firePageViewStart() {
   // immediately for first_input_at); moving focus to a 2nd/3rd/etc. field
   // of an already-started form only updates local state here — nothing is
   // sent until that field actually blurs. ──
-  document.addEventListener(
-    "focusin",
-    function (e) {
+  // The body of the focus handler, callable for any field: a real focus event, and also "this field is already the
+  // focused one" when a new page view opens (see resumeFocusedField below).
+  function onFieldFocus(target) {
       try {
-        const target = e.target;
         if (!target || !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
         const form = target.closest("form");
         if (!form) return;
@@ -1671,14 +1753,14 @@ function firePageViewStart() {
         const { type, key } = classifyField(target);
         const fieldKey = fieldTimingsKey(type, key);
         if (!fieldVisitState.has(formIndex)) fieldVisitState.set(formIndex, new Map());
-        fieldVisitState.get(formIndex).set(fieldKey, { focusStartedAt: Date.now(), keydownAtThisVisit: null });
+        fieldVisitState.get(formIndex).set(fieldKey, { focusStartedAt: Date.now(), keydownAtThisVisit: null, el: target, startValue: fieldValueOf(target) });
 
         if (!existing || existing.status === "viewed") {
           sendEngagementEvent(
             formIndex,
             form,
             { status: "started", lastFieldType: type, lastFieldKey: type === "custom" ? key : null },
-            { lastActivityAt: new Date().toISOString() }
+            { lastActivityAt: new Date().toISOString(), onscreenBeforeStartMs: onscreenMs(form) }
           );
         } else {
           // Already started — just move the local "currently on this
@@ -1690,6 +1772,68 @@ function firePageViewStart() {
         }
       } catch (err) {
         jhLog("[Tracker] ❌ Form engagement focus handler error:", err);
+      }
+  }
+  document.addEventListener("focusin", function (e) { onFieldFocus(e.target); }, true);
+
+  // Coming back to a tab (or a new page view opening for any reason) while a form field is STILL the focused element:
+  // the browser does not always send a new focus event, so the field's clock would never restart and everything the
+  // visitor typed after returning went uncounted. If a tracked field is focused and has no running clock, start one.
+  // Only when the window really has focus, so a visible-but-unfocused window does not count as time in the field.
+  function resumeFocusedField() {
+    try {
+      const el = document.activeElement;
+      if (!el || !["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || !document.hasFocus()) return;
+      const form = el.closest("form");
+      if (!form) return;
+      const formIndex = Array.from(document.forms).indexOf(form);
+      if (formIndex === -1) return;
+      resetEngagementStateIfNewPageView();
+      const { type, key } = classifyField(el);
+      const running = fieldVisitState.get(formIndex);
+      if (running && running.has(fieldTimingsKey(type, key))) return; // already counting
+      onFieldFocus(el);
+    } catch (err) {
+      jhLog("[Tracker] ❌ Resume focused field failed:", err);
+    }
+  }
+  pageOpenListeners.push(function () { setTimeout(resumeFocusedField, 50); });
+  window.addEventListener("focus", function () { setTimeout(resumeFocusedField, 50); });
+
+  // ── VALIDATION ERRORS — the browser fires "invalid" on each field that fails its own checks (required, type="email",
+  // pattern...) when the visitor tries to submit. Counted per field and sent once per burst. Only the browser's own
+  // validation is seen; a site's custom JavaScript checks are not. ──
+  const pendingErrors = new Map(); // formIndex -> { fieldKey: count }
+  let errorTimer = null;
+  function flushFieldErrors() {
+    for (const [formIndex, m] of pendingErrors.entries()) {
+      const form = document.forms[formIndex];
+      if (!form) continue;
+      resetEngagementStateIfNewPageView();
+      const entry = engagementState.get(formIndex);
+      sendEngagementEvent(formIndex, form, { status: (entry && entry.status) || "viewed" }, { fieldErrorsDelta: m, lastActivityAt: new Date().toISOString() });
+    }
+    pendingErrors.clear();
+  }
+  document.addEventListener(
+    "invalid",
+    function (e) {
+      try {
+        const target = e.target;
+        if (!target || !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+        const form = target.closest("form");
+        if (!form || !fieldAllowed(form, target)) return;
+        const formIndex = Array.from(document.forms).indexOf(form);
+        if (formIndex === -1) return;
+        const c = classifyField(target);
+        const k = fieldTimingsKey(c.type, c.key);
+        const m = pendingErrors.get(formIndex) || {};
+        m[k] = (m[k] || 0) + 1;
+        pendingErrors.set(formIndex, m);
+        clearTimeout(errorTimer);
+        errorTimer = setTimeout(flushFieldErrors, 200);
+      } catch (err) {
+        jhLog("[Tracker] ❌ Form validation error handler failed:", err);
       }
     },
     true
@@ -1796,7 +1940,8 @@ function firePageViewStart() {
   // authoritative backstop that covers that case. ──
   sessionEndListeners.push(function () {
     for (const [formIndex, entry] of engagementState.entries()) {
-      if (entry.status !== "viewed" && entry.status !== "started") continue;
+      // Only a STARTED form can be abandoned. A form that was only seen stays "viewed" (decision 2026-10-14).
+      if (entry.status !== "started") continue;
       const form = document.forms[formIndex];
       if (!form) continue;
       const nowMs = Date.now();

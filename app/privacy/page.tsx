@@ -111,6 +111,15 @@ export default function PrivacyPage() {
 
       <section className="border-b border-[#1b1b18]">
         <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
+          <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">How forms are measured</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            On a tracked form the script records when each field is clicked into and left, whether it was left filled or empty, how many times its value changed, when the browser refused the form because a field was invalid, the form&apos;s list of fields (their names, types and whether they are required), and how long the form was on screen before someone started. It never records what is typed, or how long it is. The values of a form are only sent when the form is submitted, as a lead.
+          </p>
+        </div>
+      </section>
+
+      <section className="border-b border-[#1b1b18]">
+        <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">Connecting an AI app</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             A site owner or admin can create an access token that lets an AI app they choose (for example Claude or Cursor) read that site&apos;s Hook data. Answers go to that app&apos;s AI provider. Emails, names and phone numbers are hidden unless the token was created with an extra confirmation, and form answers are never sent. Tokens expire and can be revoked. The owner is responsible for choosing apps they are allowed to share the data with. We record how many calls each token makes, not what was asked or answered.

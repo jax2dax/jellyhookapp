@@ -338,6 +338,8 @@ create unique index if not exists form_engagement_session_path_form_idx
   on public.form_engagement (session_id, page_path, form_index);
 create index if not exists form_engagement_site_status_idx on public.form_engagement using btree (site_id, status);
 ```
+**Added 2026-10-14 (migrations 15, 16).** `status = 'abandoned'` now only for a form that was STARTED; a form only seen stays `viewed`. New columns: `form_fields jsonb` (the form's fields as seen: key, type, required; never values) and `onscreen_before_start_ms integer` (form at least half on screen with the tab visible, before the first input). Inside `field_timings[key]`: `visits` (each visit [start, end], up to 12), `filled` (latest, true/false), `edits` (visits that changed the value), `errors` (browser validation failures). See mds/build/form-study/tracker-changes.md.
+
 form_index is the form's position among `document.forms` on that page,
 same identity scheme `page_structure.header_index` uses for headers.
 

@@ -20,9 +20,10 @@ export default function FormEngagementPage() {
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">The four states</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            A tracked form moves through, at most: viewed (it scrolled into view), started (a field was focused for
-            the first time), and then either submitted or abandoned. It never goes backward. A form that reaches
-            started cannot fall back to viewed just because a duplicate event arrives out of order.
+            A tracked form moves through, at most: viewed (at least half of it came on screen), started (a field was
+            focused for the first time), and then either submitted or abandoned. Abandoned means started and not
+            submitted: a form that was only seen, and never clicked into, stays viewed. It never goes backward. A form
+            that reaches started cannot fall back to viewed just because a duplicate event arrives out of order.
           </p>
         </div>
 
@@ -31,8 +32,21 @@ export default function FormEngagementPage() {
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             For every field the visitor touches, Jellyhook records how long they spent actually focused on it, in
             the order they filled the fields in. If someone fills the email field, moves on, then comes back later
-            to fix it, both visits to that field count toward its total. This is what the Field Timing chart on a
-            lead&apos;s page is built from: which field took the longest, and in what order they were filled.
+            to fix it, both visits count toward its total, and each visit is kept on its own, so the pause between
+            fields and the return to a field can be shown exactly. This is what the Form activity drawing on a
+            lead&apos;s page is built from.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">What else is recorded, and what never is</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            For each field: whether it was filled or left empty when the visitor moved on, how many times its value was
+            changed, and how many times the browser refused the form because that field was invalid (for example a
+            required field left empty). For each form: its list of fields with their type and whether they are
+            required, so fields nobody touched can be shown, and how long the form was on screen before the visitor
+            started. Nothing the visitor types is recorded, not even its length: only times, counts and yes or no.
+            The values of a submitted lead form are captured as before, when it is submitted.
           </p>
         </div>
 
@@ -52,7 +66,9 @@ export default function FormEngagementPage() {
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             This only sees fields a person actually focuses. A field filled by browser autofill without ever
             receiving a focus event, which happens in some browsers, will not show timing data, even though it was
-            filled in.
+            filled in. Validation errors are only the browser&apos;s own checks (required fields, email format); a
+            site&apos;s own error messages are not seen. Forms filled before 14 October 2026 have totals only, so a
+            field visited more than once is drawn as approximate.
           </p>
         </div>
       </div>

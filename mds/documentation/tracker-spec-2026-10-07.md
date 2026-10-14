@@ -130,7 +130,7 @@ an app that swaps in the next route before changing the URL (old tracker reporte
 |---|---|---|
 | `GET /api/site-config?key=` | once per load | reads `specify_form` |
 | `POST /api/track-form` | a form submission is captured | `visitor_id, session_id, page_url, page_path, name, email, phone, confidence, raw_data, is_labelled_conversion` |
-| `POST /api/track-form-engagement` | form viewed / started / a field blurs / submitted / abandoned | `form_index, status, last_field_type/key, form_top_y/bottom_y, field_timings_delta, last_activity_at, has_marked_fields` |
+| `POST /api/track-form-engagement` | form viewed / started / a field blurs / submitted / abandoned / a submit blocked by validation | `form_index, status, last_field_type/key, form_top_y/bottom_y, field_timings_delta (now with filled, edited), last_activity_at, has_marked_fields`; since 2026-10-14 also `form_fields` (with viewed), `onscreen_before_start_ms` (with the first started), `field_errors_delta` (blocked submit). See mds/build/form-study/tracker-changes.md |
 | `POST /api/track-structure` | a page view opened and the structure changed (or 24 h passed) | `page_view_id, page_path, page_height, viewport_width, structures[{header_index, header_text, header_tag, position_y}]` |
 
 All use `_originalFetch` (never the patched `window.fetch`), `credentials: "omit"`,
@@ -156,7 +156,9 @@ All use `_originalFetch` (never the patched `window.fetch`), `credentials: "omit
   detection for the lead is not restricted. Marking is on the input or a wrapper inside the form.
 - **Engagement** keeps its model: one row per `(session_id, page_path, form_index)`, additive
   per-field timing deltas merged on the server. Because sessions now end only by idle, a form
-  left mid-fill is abandoned by the session end or the sweep, not by closing the tab.
+  left mid-fill is abandoned by the session end or the sweep, not by closing the tab. Since 2026-10-14 only a
+  STARTED form can be abandoned; one only seen stays `viewed` (migration 15). New signals (field list, visits,
+  filled/edited, validation errors, on-screen time): mds/build/form-study/tracker-changes.md.
 
 ## Page structure
 

@@ -1703,3 +1703,11 @@ Full write-up: `mds/reports/tracker-backend-audit-2026-10-07.md`.
 ## 2026-10-14 - Secondary navigation in the top bar; Settings split into tabs
 
 The long empty strip beside the sidebar button now carries the open page's own tabs (registry `components/nav/navRegistry.ts`, renderer `components/nav/SecondaryNav.tsx`, URL state `?tab=`). Settings: Tracker (default: lead-tracking mode, tracking status, hosts, health, API key and script), Site (name, domain, overview, leave), Team, MCP (last, only when `MCP_ENABLED=1`). Blocks of other tabs are hidden, not unmounted. Not verified in a browser.
+
+## 2026-10-14 - Form activities (phase 1 + phase 2 tracker signals)
+
+- Decisions: abandoned = started and not submitted; pause threshold 1.5 s; page "Form activities" at `/platform/form-activities` (not in the sidebar yet); every form a lead started also shows on the lead page; optional signals approved.
+- Built: `jh-forms/` (timeline + collect, 26 checks), `components/forms/FormActivityChart.tsx` (numbers, time split, activity strip with pauses / other pages / "left ... ↩ back", one lane per field with every visit, untouched fields, errors, left empty, corrections), lead page "Form activity" card (replaces Field Timing), the page and its server action.
+- Tracker + server: field list, on-screen time before starting, per-visit intervals, filled/edited booleans, validation errors; nothing typed is ever sent (proved in real Chrome, `scripts/tracker-e2e/formsignals.js`). Details: mds/build/form-study/tracker-changes.md.
+- To do by hand: run migrations 15 and 16 (16 BEFORE deploying), deploy, then fill a form on a tracked site and open the lead.
+- Not verified: the drawing in a browser on real data.

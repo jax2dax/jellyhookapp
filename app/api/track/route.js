@@ -233,7 +233,7 @@ export async function POST(req) {
           const timeOnPage = Math.max(0, endedAt.getTime() - new Date(pv.entered_at).getTime());
           await supabase.from("page_views").update({ left_at: endedAt.toISOString(), time_on_page: timeOnPage }).eq("id", pv.id);
         }
-        const { data: openForms } = await supabase.from("form_engagement").select("id, last_activity_at, viewed_at").eq("session_id", sessionId).in("status", ["viewed", "started"]);
+        const { data: openForms } = await supabase.from("form_engagement").select("id, last_activity_at, viewed_at").eq("session_id", sessionId).eq("status", "started"); // only a started form is abandoned (migration 15)
         for (const f of openForms ?? []) {
           await supabase.from("form_engagement").update({ status: "abandoned", ended_at: f.last_activity_at || f.viewed_at }).eq("id", f.id);
         }

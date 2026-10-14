@@ -21,6 +21,7 @@
 import { NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { emptyUsage, bump } from "@/lib/tracking/usage";
+import { cleanDelta, cleanErrors, cleanFormFields, mergeFieldTimings } from "@/lib/tracking/formEngagement";
 import { CORS, MAX_BODY_BYTES, cleanId, cleanStr, cleanNum, cleanTime, authorizeRequest, applySiteEffects, flushUsage, markHealthEvent } from "@/lib/tracking/server";
 
 // Service role — see app/api/track/route.js's header comment for why.
@@ -33,43 +34,7 @@ export async function OPTIONS() {
 }
 
 const VALID_STATUSES = new Set(["viewed", "started", "submitted", "abandoned"]);
-const MAX_FIELDS = 60;
-
-// field_timings_delta from the tracker, reduced to the known keys with sane numbers.
-function cleanDelta(delta) {
-  if (!delta || typeof delta !== "object" || Array.isArray(delta)) return undefined;
-  const out = {};
-  for (const [k, d] of Object.entries(delta).slice(0, MAX_FIELDS)) {
-    if (!d || typeof d !== "object") continue;
-    out[String(k).slice(0, 100)] = {
-      firstFocusAt: typeof d.firstFocusAt === "string" ? d.firstFocusAt.slice(0, 40) : null,
-      firstKeydownAt: typeof d.firstKeydownAt === "string" ? d.firstKeydownAt.slice(0, 40) : null,
-      lastUnfocusAt: typeof d.lastUnfocusAt === "string" ? d.lastUnfocusAt.slice(0, 40) : null,
-      totalFocusedMsDelta: cleanNum(d.totalFocusedMsDelta, 0, 24 * 3600_000) ?? 0,
-    };
-  }
-  return out;
-}
-
-// Merges one incoming field's delta into whatever's already recorded for
-// that field key. `order` is assigned once, the first time a key ever
-// appears, based on how many fields are already known — never client-
-// supplied, so it stays correct regardless of how many separate page
-// visits/reloads this field's timing data was assembled across.
-function mergeFieldTimings(existingTimings, delta) {
-  const merged = { ...(existingTimings || {}) };
-  for (const [key, d] of Object.entries(delta || {})) {
-    const prev = merged[key];
-    merged[key] = {
-      order: prev?.order ?? Object.keys(merged).length + 1,
-      firstFocusAt: prev?.firstFocusAt || d.firstFocusAt || null,
-      firstKeydownAt: prev?.firstKeydownAt || d.firstKeydownAt || null, // first-ever keystroke in this field, never overwritten once set
-      lastUnfocusAt: d.lastUnfocusAt || prev?.lastUnfocusAt || null, // most recent blur always wins
-      totalFocusedMs: (prev?.totalFocusedMs || 0) + (d.totalFocusedMsDelta || 0), // additive — this is the whole point
-    };
-  }
-  return merged;
-}
+// cleanDelta / cleanErrors / cleanFormFields / mergeFieldTimings: lib/tracking/formEngagement.js (pure, tested).
 
 export async function POST(req) {
   try {
@@ -108,6 +73,10 @@ export async function POST(req) {
     payload.form_top_y = cleanNum(payload.form_top_y, 0, 10_000_000);
     payload.form_bottom_y = cleanNum(payload.form_bottom_y, 0, 10_000_000);
     payload.field_timings_delta = cleanDelta(payload.field_timings_delta);
+    payload.field_errors_delta = cleanErrors(payload.field_errors_delta);
+    payload.form_fields = cleanFormFields(payload.form_fields);
+    // on-screen time before the first input (form at least half visible, tab visible), sent with the first "started"
+    payload.onscreen_before_start_ms = cleanNum(payload.onscreen_before_start_ms, 0, 24 * 3600_000);
     const reportedActivity = cleanTime(payload.last_activity_at, nowMs);
     payload.last_activity_at = reportedActivity ? reportedActivity.toISOString() : undefined;
 
@@ -145,6 +114,10 @@ export async function POST(req) {
     // status at all.
     const RANK = { viewed: 0, started: 1, submitted: 2, abandoned: 2 };
     if (existing && RANK[payload.status] < RANK[existing.status]) {
+      // never move the status back; but error counts sent with an older status are still real: keep them
+      if (payload.field_errors_delta) {
+        await supabase.from("form_engagement").update({ field_timings: mergeFieldTimings(existing.field_timings, undefined, payload.field_errors_delta) }).eq("id", existing.id);
+      }
       return NextResponse.json({ success: true }, { headers: corsHeaders() });
     }
 
@@ -179,7 +152,9 @@ export async function POST(req) {
         last_field_key: payload.last_field_key || null,
         form_top_y: payload.form_top_y ?? null,
         form_bottom_y: payload.form_bottom_y ?? null,
-        field_timings: mergeFieldTimings(null, payload.field_timings_delta),
+        field_timings: mergeFieldTimings(null, payload.field_timings_delta, payload.field_errors_delta),
+        form_fields: payload.form_fields ?? null,
+        onscreen_before_start_ms: payload.status === "started" ? payload.onscreen_before_start_ms : null,
         last_activity_at: resolvedActivityAt,
         first_input_at: payload.status === "started" ? resolvedActivityAt : null,
         ended_at: endedAt,
@@ -195,8 +170,12 @@ export async function POST(req) {
       if (payload.form_top_y != null) update.form_top_y = payload.form_top_y;
       if (payload.form_bottom_y != null) update.form_bottom_y = payload.form_bottom_y;
       if (payload.page_view_id) update.page_view_id = payload.page_view_id; // informational only, see header comment
-      if (payload.field_timings_delta) update.field_timings = mergeFieldTimings(existing.field_timings, payload.field_timings_delta);
-      if (payload.status === "started" && existing.status === "viewed") update.first_input_at = resolvedActivityAt;
+      if (payload.field_timings_delta || payload.field_errors_delta) update.field_timings = mergeFieldTimings(existing.field_timings, payload.field_timings_delta, payload.field_errors_delta);
+      if (payload.form_fields) update.form_fields = payload.form_fields;
+      if (payload.status === "started" && existing.status === "viewed") {
+        update.first_input_at = resolvedActivityAt;
+        if (payload.onscreen_before_start_ms !== null) update.onscreen_before_start_ms = payload.onscreen_before_start_ms;
+      }
       if (isTerminal) update.ended_at = endedAt;
 
       const { error: updateError } = await supabase.from("form_engagement").update(update).eq("id", existing.id);

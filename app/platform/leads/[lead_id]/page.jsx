@@ -15,6 +15,8 @@ import { ConversionEventsBadges } from "@/components/leads/ConversionEventsBadge
 import { FormDetails } from "@/components/leads/FormDetails";
 import { LocalDate } from "@/components/LocalDate";
 import { formatDuration, formatRelativeTime } from "@/lib/leadFormat";
+import { FormActivityChart } from "@/components/forms/FormActivityChart";
+import { collectFormActivities } from "@/jh-forms/collect";
 
 export default async function LeadProfilePage({ params }) {
   const { lead_id } = await params;
@@ -42,6 +44,8 @@ export default async function LeadProfilePage({ params }) {
 }
 
 function LeadProfileBody({ profile, raw, siteId }) {
+  // every form this visitor started (submitted, abandoned or still open), with its session's page views
+  const formActivities = collectFormActivities(raw.formEngagement || [], raw.pageViews || []);
   const {
     identity,
     lastActivity,
@@ -162,16 +166,25 @@ function LeadProfileBody({ profile, raw, siteId }) {
         </Card>
       )}
 
-      {/* ── Section 2c: Per-field dwell time — the order they actually
-          filled the form in, and which field took the longest ── */}
-      {formEngagementFacts?.fieldTimings?.length > 0 && (
+      {/* ── Section 2c: Form activity: every form this person started, drawn field by field (jh-forms/timeline.ts).
+          Replaces the old per-field bar chart: the same field times, plus the order, the pauses, other pages and
+          the time they left the site and came back. ── */}
+      {formActivities.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Field Timing</CardTitle>
-            <CardDescription>How long they spent on each field, in the order they filled them out.</CardDescription>
+            <CardTitle className="text-base">Form activity</CardTitle>
+            <CardDescription>
+              Every form this person started, field by field: how long before they began, the order they used, where they paused, and when they left and came back. Nothing they typed is recorded, only when and how long.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <LeadTimeBar data={formEngagementFacts.fieldTimings} />
+          <CardContent className="space-y-8">
+            {formActivities.map((fa) => (
+              <FormActivityChart
+                key={fa.id}
+                timeline={fa.timeline}
+                title={(fa.status === "submitted" ? "Submitted" : fa.status === "abandoned" ? "Started, not submitted" : "In progress") + " on " + (fa.page || "a page") + (fa.seenAt ? " · " + new Date(fa.seenAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "")}
+              />
+            ))}
           </CardContent>
         </Card>
       )}
