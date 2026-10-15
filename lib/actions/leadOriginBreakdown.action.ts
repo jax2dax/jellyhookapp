@@ -11,10 +11,19 @@
 // matches a real source is never duplicated — it just becomes that real
 // slot. When real distinct sources exceed TOTAL_SLOTS, only the top
 // TOTAL_SLOTS by lead count are shown.
+//
+// Attribution model (2026-10-14), the chart's switch:
+//   first        the source of the visitor's very FIRST visit ("where do people discover me?")
+//   lastNonDirect the source of the LAST visit that came from somewhere (search, social, an ad, a tagged link) before
+//                they converted, skipping Direct visits; Direct only when every visit was Direct ("what brought them
+//                back to act?"). For visitors who did not convert: their last non-direct visit so far.
+// Source names are normalized first (fb / Facebook / facebook.com = Facebook): lib/analytics/classifyReferrer.js.
+// Public explanation: /docs/concepts/referrers-attribution.
 "use server";
 
 import { createSupabaseClient } from "@/lib/supabase/server";
 import { classifyReferrer } from "@/lib/analytics/classifyReferrer";
+import { lastNonDirectLabel } from "@/lib/analytics/attribution";
 import { requireSiteAccess } from "@/lib/actions/siteAccess";
 
 export interface LeadOriginSlice {
@@ -28,9 +37,12 @@ export interface LeadOriginSlice {
 export interface LeadOriginBreakdownResult {
   slices: LeadOriginSlice[];
   totalLeads: number;
-  /** unique visitors with a recorded first touch (visitors seen before first-touch recording existed are not counted) */
+  /** unique visitors counted in the visitor shape */
   totalVisitors: number;
+  model: AttributionModel;
 }
+
+export type AttributionModel = "first" | "lastNonDirect";
 
 const DEFAULT_PLACEHOLDERS = ["Direct", "Facebook", "Instagram", "Google", "LinkedIn", "TikTok"];
 const TOTAL_SLOTS = 6;
@@ -51,12 +63,37 @@ async function visitorOrigins(supabase: Awaited<ReturnType<typeof createSupabase
   return { counts, total: (data ?? []).length };
 }
 
-export async function getLeadOriginBreakdown(siteId: string): Promise<LeadOriginBreakdownResult> {
+type SessionSource = { visitor_id: string | null; started_at: string; referrer: string | null; utm_source: string | null };
+
+/** Every visitor's LAST non-direct source, from their sessions (the most recent 50,000 sessions of the site). */
+async function visitorOriginsLastNonDirect(supabase: Awaited<ReturnType<typeof createSupabaseClient>>, siteId: string): Promise<{ counts: Map<string, number>; total: number }> {
+  const { data, error } = await supabase.from("sessions").select("visitor_id, started_at, referrer, utm_source").eq("site_id", siteId).order("started_at", { ascending: false }).limit(50_000);
+  const counts = new Map<string, number>();
+  if (error) {
+    console.error("[getLeadOriginBreakdown] sessions (visitors) fetch error:", error.message);
+    return { counts, total: 0 };
+  }
+  const byVisitor = new Map<string, SessionSource[]>();
+  for (const row of (data ?? []) as SessionSource[]) {
+    if (!row.visitor_id) continue;
+    const list = byVisitor.get(row.visitor_id) ?? [];
+    list.push(row);
+    byVisitor.set(row.visitor_id, list);
+  }
+  for (const list of byVisitor.values()) {
+    list.reverse(); // newest-first from the query -> oldest first
+    const label = lastNonDirectLabel(list);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return { counts, total: byVisitor.size };
+}
+
+export async function getLeadOriginBreakdown(siteId: string, model: AttributionModel = "first"): Promise<LeadOriginBreakdownResult> {
   await requireSiteAccess(siteId);
   const supabase = await createSupabaseClient();
-  const visitorsP = visitorOrigins(supabase, siteId);
+  const visitorsP = model === "lastNonDirect" ? visitorOriginsLastNonDirect(supabase, siteId) : visitorOrigins(supabase, siteId);
 
-  const { data: submissionRows, error: subError } = await supabase.from("form_submissions").select("visitor_id").eq("site_id", siteId);
+  const { data: submissionRows, error: subError } = await supabase.from("form_submissions").select("visitor_id, submitted_at").eq("site_id", siteId);
   if (subError) {
     console.error("[getLeadOriginBreakdown] submissions fetch error:", subError.message);
     throw new Error(`Failed to fetch submissions: ${subError.message}`);
@@ -69,7 +106,7 @@ export async function getLeadOriginBreakdown(siteId: string): Promise<LeadOrigin
     // no leads yet: the axes are the top visitor sources (if any), so the visitor shape is still visible
     const top = Array.from(vis.counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, TOTAL_SLOTS).map(([source, visitors]) => ({ source, leads: 0, visitors, isPlaceholder: false }));
     const fill = DEFAULT_PLACEHOLDERS.filter((p) => !top.some((t) => t.source === p)).slice(0, TOTAL_SLOTS - top.length).map((source) => ({ source, leads: 0, visitors: vis.counts.get(source) ?? 0, isPlaceholder: true }));
-    return { slices: [...top, ...fill], totalLeads: 0, totalVisitors: vis.total };
+    return { slices: [...top, ...fill], totalLeads: 0, totalVisitors: vis.total, model };
   }
 
   const { data: sessionRows, error: sessError } = await supabase
@@ -84,15 +121,33 @@ export async function getLeadOriginBreakdown(siteId: string): Promise<LeadOrigin
     throw new Error(`Failed to fetch sessions: ${sessError.message}`);
   }
 
-  const firstSessionByVisitor = new Map<string, { referrer: string | null; utm_source: string | null }>();
-  for (const row of sessionRows ?? []) {
-    if (!row.visitor_id || firstSessionByVisitor.has(row.visitor_id)) continue; // ascending — first hit per visitor IS earliest
-    firstSessionByVisitor.set(row.visitor_id, { referrer: row.referrer, utm_source: row.utm_source });
+  // a lead counts once: the person (visitor), under the source the chosen model gives
+  const sessionsByVisitor = new Map<string, SessionSource[]>();
+  for (const row of (sessionRows ?? []) as SessionSource[]) {
+    if (!row.visitor_id) continue;
+    const list = sessionsByVisitor.get(row.visitor_id) ?? [];
+    list.push(row); // ascending by started_at
+    sessionsByVisitor.set(row.visitor_id, list);
+  }
+  const firstSubmitAt = new Map<string, number>();
+  for (const sub of submissionRows ?? []) {
+    if (!sub.visitor_id || !sub.submitted_at) continue;
+    const t = new Date(sub.submitted_at).getTime();
+    const prev = firstSubmitAt.get(sub.visitor_id);
+    if (prev === undefined || t < prev) firstSubmitAt.set(sub.visitor_id, t);
   }
 
   const counts = new Map<string, number>();
-  for (const session of firstSessionByVisitor.values()) {
-    const label = classifyReferrer(session);
+  for (const [visitorId, list] of sessionsByVisitor) {
+    let label: string;
+    if (model === "lastNonDirect") {
+      // only the visits up to the (first) conversion count: what came after it did not bring them to convert
+      const until = firstSubmitAt.get(visitorId);
+      const before = until === undefined ? list : list.filter((s) => new Date(s.started_at).getTime() <= until);
+      label = lastNonDirectLabel(before.length ? before : list.slice(0, 1));
+    } else {
+      label = classifyReferrer(list[0]);
+    }
     counts.set(label, (counts.get(label) ?? 0) + 1);
   }
 
@@ -101,7 +156,7 @@ export async function getLeadOriginBreakdown(siteId: string): Promise<LeadOrigin
     .sort((a, b) => b.leads - a.leads);
 
   if (real.length >= TOTAL_SLOTS) {
-    return { slices: real.slice(0, TOTAL_SLOTS), totalLeads: convertedVisitorIds.length, totalVisitors: vis.total };
+    return { slices: real.slice(0, TOTAL_SLOTS), totalLeads: convertedVisitorIds.length, totalVisitors: vis.total, model };
   }
 
   const usedLabels = new Set(real.map((r) => r.source));
@@ -116,5 +171,5 @@ export async function getLeadOriginBreakdown(siteId: string): Promise<LeadOrigin
     .slice(0, TOTAL_SLOTS - real.length - visitorOnly.length)
     .map((source) => ({ source, leads: 0, visitors: 0, isPlaceholder: true }));
 
-  return { slices: [...real, ...visitorOnly, ...placeholders], totalLeads: convertedVisitorIds.length, totalVisitors: vis.total };
+  return { slices: [...real, ...visitorOnly, ...placeholders], totalLeads: convertedVisitorIds.length, totalVisitors: vis.total, model };
 }

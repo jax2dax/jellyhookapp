@@ -69,16 +69,36 @@ export default function ConversionsReferencePage() {
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Leads Origin</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            The same idea, restricted to visitors who actually converted, not all traffic. Always shows a fixed
-            set of six spokes: real sources fill in first, ranked by how many leads came through them, and generic
-            placeholders (Direct, Facebook, Instagram, Google, LinkedIn, TikTok) fill any spokes that are not yet
-            real, so the shape stays readable with very little data. A placeholder disappears the moment a
-            seventh distinct real source shows up.
+            Where converted leads came from. Each lead counts once, as a person, under one source.
+          </p>
+          <ul className="mt-3 list-disc space-y-1 pl-5 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            <li>
+              <strong className="text-[#c9c7bd]">First visit / Last non-direct visit</strong>: which of the person&apos;s visits gets the credit. First visit
+              is the default. The choice is kept in the page address, so a shared link shows the same view.
+            </li>
+            <li>
+              <strong className="text-[#c9c7bd]">Show where all unique visitors came from</strong> (on by default): adds a second, dashed blue shape for every
+              visitor, converted or not, by the same rule. Both shapes then show shares of their own total, because a few leads next to hundreds
+              of visitors would otherwise be a dot. Where the yellow shape reaches further than the blue one, that source turns visitors into
+              leads better than average. Turn it off to see leads as plain counts.
+            </li>
+            <li>
+              Six spokes: the sources with the most leads first, then the biggest visitor sources that have not produced a lead yet, then
+              generic names (Direct, Facebook, Instagram, Google, LinkedIn, TikTok) so the shape stays readable with very little data.
+            </li>
+          </ul>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            The visitor shape under First visit only counts visitors seen since 7 October 2026, when first-visit sources started being recorded.
+            How sources are decided and merged, and the two choices with examples:{" "}
+            <Link href="/docs/concepts/referrers-attribution" className="text-[var(--lime)] hover:underline">
+              Referrers and attribution
+            </Link>
+            .
           </p>
         </div>
 
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Conversions list</h2>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Converted leads</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             One card per converted lead, filterable by date range (last 3 days, last week, last month, all time, or
             a custom range) and paginated, not every conversion the site has ever had rendered onto one page at

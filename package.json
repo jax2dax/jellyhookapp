@@ -18,7 +18,7 @@
     "bench:planner": "jiti scripts/bench/planner.bench.ts",
     "bench:verify": "jiti scripts/bench/planner-verify.ts",
     "test:ai": "jiti jh-ai/tests/ai.test.ts",
-    "test:forms": "jiti jh-forms/tests/timeline.test.ts && jiti lib/tracking/tests/formEngagement.test.ts && jiti lib/tracking/tests/sensitive.test.ts",
+    "test:forms": "jiti jh-forms/tests/timeline.test.ts && jiti lib/tracking/tests/formEngagement.test.ts && jiti lib/tracking/tests/sensitive.test.ts && jiti lib/tracking/tests/attribution.test.ts",
     "test:mcp": "jiti jh-mcp/tests/tokens.test.ts && jiti jh-mcp/tests/tools.test.ts && jiti jh-mcp/tests/protocol.test.ts && jiti jh-mcp/tests/config.test.ts",
     "ai:eval": "jiti jh-ai/eval/run.ts",
     "docs:check": "jiti scripts/docs-sync.ts",

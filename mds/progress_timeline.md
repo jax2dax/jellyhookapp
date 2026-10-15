@@ -1720,3 +1720,12 @@ The long empty strip beside the sidebar button now carries the open page's own t
 - **Tests.** `lib/tracking/tests/sensitive.test.ts` 46, `scripts/tracker-e2e/sensitive.js` (real Chrome) all pass; all other tracker suites pass.
 - **Docs.** Public `/docs/concepts/sensitive-fields` (new, in the nav), `/docs/concepts/tracking-attributes` (data-jh-ignore section), privacy page sentence; developer reference `mds/documentation/sensitive-fields.md`; doc-to-source map row.
 - **Not done.** Old `raw_data` rows are not cleaned (can be written on request). Not verified on a deployed site.
+
+## 2026-10-14 - Leads Origin: visitors shape, two attribution models, merged source names
+
+- Radar: "Show where all unique visitors came from" (on by default) adds every visitor's source as a second shape; both as shares of their own total.
+- Switch "First visit" / "Last non-direct visit" (in the address as `?origin=last`). Last non-direct = the last visit before converting that came from somewhere, skipping Direct.
+- Source names merged everywhere (fb / Facebook / facebook.com = Facebook) in `lib/analytics/classifyReferrer.js`.
+- Also: Conversions page header moved to the top; sidebar icon for Conversion Paths is now `Route`; demo of detailed UTM breakdown at `/dev/utm-demo` (fake data).
+- Tests: `lib/tracking/tests/attribution.test.ts` (7, including the three founder scenarios). `next build` passes.
+- Docs: `/docs/concepts/referrers-attribution` rewritten in reading order (one visit's source, one source many spellings, which visit gets the credit with an examples table); `/docs/reference/conversions` Leads Origin section; `mds/documentation/attribution.md`.

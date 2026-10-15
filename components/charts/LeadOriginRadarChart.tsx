@@ -10,7 +10,8 @@ import { PolarAngleAxis, PolarGrid, Radar, RadarChart } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { RefreshCw, Radar as RadarIcon } from "lucide-react";
-import { getLeadOriginBreakdown, type LeadOriginBreakdownResult } from "@/lib/actions/leadOriginBreakdown.action";
+import { getLeadOriginBreakdown, type AttributionModel, type LeadOriginBreakdownResult } from "@/lib/actions/leadOriginBreakdown.action";
+import { oneOf, useUrlState } from "@/lib/urlState";
 
 const chartConfig: ChartConfig = {
   leads: { label: "Leads", color: "#eab308" },
@@ -22,10 +23,13 @@ export function LeadOriginRadarChart({ siteId }: { siteId: string }) {
   // On by default: every unique visitor's first source next to the leads'. Both are then shares (%) of their own total,
   // otherwise visitors (hundreds) would flatten leads (a handful) to a dot. Off: leads as plain counts.
   const [showVisitors, setShowVisitors] = React.useState(true);
+  // the attribution model lives in the address (?origin=last), so a shared link shows the same view
+  const [url, setUrl] = useUrlState({ origin: "first" });
+  const model: AttributionModel = oneOf(url.origin, ["first", "last"] as const, "first") === "last" ? "lastNonDirect" : "first";
 
   React.useEffect(() => {
     let cancelled = false;
-    getLeadOriginBreakdown(siteId)
+    getLeadOriginBreakdown(siteId, model)
       .then((result) => {
         if (!cancelled) setData(result);
       })
@@ -33,7 +37,7 @@ export function LeadOriginRadarChart({ siteId }: { siteId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [siteId]);
+  }, [siteId, model]);
 
   const chartData = React.useMemo(() => {
     if (!data) return [];
@@ -51,8 +55,23 @@ export function LeadOriginRadarChart({ siteId }: { siteId: string }) {
           <RadarIcon className="h-4 w-4 text-muted-foreground" /> Leads Origin
         </CardTitle>
         <CardDescription className="mt-0.5">
-          Where converted leads came from, first touch only{showVisitors && hasVisitors ? ", next to where every visitor came from (shares of each total)" : ""}.
+          {model === "first" ? "Where converted leads first came from (their first visit)" : "What brought converted leads back to convert (their last visit that was not Direct)"}
+          {showVisitors && hasVisitors ? ", next to all visitors (shares of each total)" : ""}.
         </CardDescription>
+        <div className="mt-2 inline-flex w-fit overflow-hidden rounded-md border text-xs" role="radiogroup" aria-label="Which visit gets the credit">
+          {([["first", "First visit"], ["last", "Last non-direct visit"]] as const).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              role="radio"
+              aria-checked={url.origin === v || (v === "first" && url.origin !== "last")}
+              onClick={() => setUrl({ origin: v })}
+              className={"px-2.5 py-1 " + ((v === "last") === (model === "lastNonDirect") ? "bg-primary/15 font-medium text-foreground" : "text-muted-foreground hover:bg-muted")}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={showVisitors} onChange={(e) => setShowVisitors(e.target.checked)} />
           Show where all unique visitors came from
