@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Tracking attributes",
-  description: "The three HTML attributes that tell Jellyhook which form, which fields and which buttons to track, and how to check they are working.",
+  description: "The HTML attributes that tell Jellyhook which form, which fields and which buttons to track, which fields to leave out, and how to check they are working.",
   alternates: { canonical: "/docs/concepts/tracking-attributes" },
 };
 
@@ -28,8 +28,8 @@ export default function TrackingAttributesPage() {
       <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Core concepts</span>
       <h1 className="mt-3 ff-display text-3xl text-[#f4f2ea]">Tracking attributes</h1>
       <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-        Three optional HTML attributes tell Jellyhook what matters on your pages. Everything works without them; they exist so you decide
-        which form is a lead, which fields are measured and which buttons are counted.
+        Four optional HTML attributes tell Jellyhook what matters on your pages. Everything works without them; they exist so you decide
+        which form is a lead, which fields are measured, which fields are left out and which buttons are counted.
       </p>
 
       <div className="mt-12 space-y-12">
@@ -56,6 +56,23 @@ export default function TrackingAttributesPage() {
           <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             It goes on the input itself, or on a wrapper around it, and it must be inside a form. The lead&apos;s name, email and phone are still
             recognised from the form as before, so restricting fields does not stop a lead from being identified.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">data-jh-ignore: which fields are left out</h2>
+          <p className="mb-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Put it on a field, or on an element around it inside the form, and that field is left out completely: no value, no timing, not in the
+            field list. Payment cards, bank accounts and identity numbers are already left out automatically; use this for anything else you do not
+            want stored.
+          </p>
+          <CodeBlock>{`<div data-jh-ignore>\n  <textarea name="medical_history"></textarea>\n</div>`}</CodeBlock>
+          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Details and the full list of what is never stored:{" "}
+            <Link href="/docs/concepts/sensitive-fields" className="text-[var(--lime)] hover:underline">
+              Sensitive fields
+            </Link>
+            .
           </p>
         </div>
 

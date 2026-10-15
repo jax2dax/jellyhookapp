@@ -17,10 +17,16 @@ export async function OPTIONS() {
 
 const ok = () => NextResponse.json({ success: true }, { headers: CORS });
 
+import { dropSensitive } from "@/lib/tracking/sensitive";
+
 const MAX_RAW_FIELDS = 60;
 const MAX_RAW_VALUE = 2000;
 
-/** raw_data from the tracker, reduced to short string values under short keys. */
+/**
+ * raw_data from the tracker, reduced to short string values under short keys, with every payment-card, bank-account
+ * and identity-number field removed (lib/tracking/sensitive.js). The tracker already leaves those out; this is the
+ * server's own check, for old cached trackers and HubSpot payloads.
+ */
 function cleanRaw(raw) {
   const out = {};
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
@@ -28,7 +34,9 @@ function cleanRaw(raw) {
     if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") continue;
     out[String(k).slice(0, 100)] = String(v).slice(0, MAX_RAW_VALUE);
   }
-  return out;
+  const { raw: safe, removed } = dropSensitive(out);
+  if (removed > 0) console.info("[track-form] removed " + removed + " sensitive field(s) from a submission"); // a count, never the value
+  return safe;
 }
 
 export async function POST(req) {

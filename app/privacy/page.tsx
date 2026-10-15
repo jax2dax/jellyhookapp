@@ -113,7 +113,7 @@ export default function PrivacyPage() {
         <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">How forms are measured</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            On a tracked form the script records when each field is clicked into and left, whether it was left filled or empty, how many times its value changed, when the browser refused the form because a field was invalid, the form&apos;s list of fields (their names, types and whether they are required), and how long the form was on screen before someone started. It never records what is typed, or how long it is. The values of a form are only sent when the form is submitted, as a lead.
+            On a tracked form the script records when each field is clicked into and left, whether it was left filled or empty, how many times its value changed, when the browser refused the form because a field was invalid, the form&apos;s list of fields (their names, types and whether they are required), and how long the form was on screen before someone started. It never records what is typed, or how long it is. The values of a form are only sent when the form is submitted, as a lead, and even then payment card numbers and security codes, bank account numbers and government identity or tax numbers are left out in the visitor&apos;s browser and checked again on our servers. Site owners can leave out any other field.
           </p>
         </div>
       </section>

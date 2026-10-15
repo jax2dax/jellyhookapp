@@ -1706,8 +1706,17 @@ The long empty strip beside the sidebar button now carries the open page's own t
 
 ## 2026-10-14 - Form activities (phase 1 + phase 2 tracker signals)
 
-- Decisions: abandoned = started and not submitted; pause threshold 1.5 s; page "Form activities" at `/platform/form-activities` (not in the sidebar yet); every form a lead started also shows on the lead page; optional signals approved.
+- Decisions: abandoned = started and not submitted; pause threshold 1.5 s; page "Form activities" at `/platform/form-engagement` (not in the sidebar yet); every form a lead started also shows on the lead page; optional signals approved.
 - Built: `jh-forms/` (timeline + collect, 26 checks), `components/forms/FormActivityChart.tsx` (numbers, time split, activity strip with pauses / other pages / "left ... ↩ back", one lane per field with every visit, untouched fields, errors, left empty, corrections), lead page "Form activity" card (replaces Field Timing), the page and its server action.
 - Tracker + server: field list, on-screen time before starting, per-visit intervals, filled/edited booleans, validation errors; nothing typed is ever sent (proved in real Chrome, `scripts/tracker-e2e/formsignals.js`). Details: mds/build/form-study/tracker-changes.md.
 - To do by hand: run migrations 15 and 16 (16 BEFORE deploying), deploy, then fill a form on a tracked site and open the lead.
 - Not verified: the drawing in a browser on real data.
+
+## 2026-10-14 - Sensitive fields are never stored; data-jh-ignore
+
+- **Why.** The tracker stored every filled field of a submitted lead form except passwords, so card numbers, bank accounts or identity numbers on a customer's form would have landed in our database. Jellyhook is a processor of that data; storing it serves no purpose and brings much stricter obligations.
+- **What.** Left out in the visitor's browser, and checked again on the server: card fields (`autocomplete="cc-..."`, card words in name or label, or a value passing the card checksum), bank accounts, identity and tax numbers (including a value shaped like a US SSN), PINs. New attribute `data-jh-ignore` leaves any field out of everything. HubSpot forms follow the same rules. Sensitive fields keep their timing (never a value) so drop-off at the card field stays visible.
+- **Bug caught on the way.** The first version broke HubSpot capture (helpers in the wrong scope); the form compatibility suite caught it, fixed, 54/54.
+- **Tests.** `lib/tracking/tests/sensitive.test.ts` 46, `scripts/tracker-e2e/sensitive.js` (real Chrome) all pass; all other tracker suites pass.
+- **Docs.** Public `/docs/concepts/sensitive-fields` (new, in the nav), `/docs/concepts/tracking-attributes` (data-jh-ignore section), privacy page sentence; developer reference `mds/documentation/sensitive-fields.md`; doc-to-source map row.
+- **Not done.** Old `raw_data` rows are not cleaned (can be written on request). Not verified on a deployed site.

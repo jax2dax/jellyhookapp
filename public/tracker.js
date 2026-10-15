@@ -389,6 +389,46 @@
   // Shared by the three form sections (generic capture, HubSpot, iframe providers): the site's form
   // mode from /api/site-config, and callbacks waiting for it to arrive.
   const jhState = { configLoaded: false, specifyFormMode: false, waiters: [] };
+
+  // ── SENSITIVE VALUES (shared by the generic form capture and the HubSpot capture; see "SENSITIVE FIELDS" below) ──
+  const SENSITIVE_RE = new RegExp(
+    "(^|_)(" +
+      [
+        "cc_?num(ber)?", "cc_?no", "card_?(number|num|no)", "cardnumber", "credit_?card(_?number)?", "debit_?card(_?number)?", "pan",
+        "cvv2?", "cvc2?", "csc", "security_?code", "card_?(code|verification|cvv|cvc)", "card_?exp(iry|iration)?(_?date)?",
+        "iban", "bic", "swift(_?code)?", "routing(_?number)?", "aba", "sort_?code", "account_?(number|num|no)", "acct_?(number|num|no)?", "bank_?account(_?number)?",
+        "ssn", "social_?security(_?number)?", "sin", "nino", "national_?insurance(_?number)?", "national_?id(_?number)?",
+        "passport(_?(number|no))?", "tax_?(id|number|no)", "tin", "itin", "ein",
+        "pin", "password", "passwd",
+      ].join("|") +
+      ")(_|$)"
+  );
+  function sensitiveKey(name) {
+    const n = String(name || "").toLowerCase().replace(/[-\s.]+/g, "_");
+    return n !== "" && SENSITIVE_RE.test(n);
+  }
+  function luhnOk(digits) {
+    let sum = 0;
+    let alt = false;
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let d = digits.charCodeAt(i) - 48;
+      if (alt) {
+        d *= 2;
+        if (d > 9) d -= 9;
+      }
+      sum += d;
+      alt = !alt;
+    }
+    return sum % 10 === 0;
+  }
+  function sensitiveValue(value, phoneLike) {
+    const v = String(value == null ? "" : value).trim();
+    if (!v) return false;
+    if (/^\d{3}-\d{2}-\d{4}$/.test(v)) return true; // US social security number
+    if (phoneLike || v.charAt(0) === "+" || !/^[\d\s-]+$/.test(v)) return false;
+    const digits = v.replace(/[\s-]/g, "");
+    return digits.length >= 13 && digits.length <= 19 && luhnOk(digits); // payment card number
+  }
   function jhWhenConfigured(fn) {
     if (jhState.configLoaded) fn();
     else jhState.waiters.push(fn);
@@ -925,15 +965,16 @@ function firePageViewStart() {
   function extractEmail(form) {
     const emailInputs = form.querySelectorAll('input[type="email"]');
     for (const el of emailInputs) {
+      if (isIgnored(form, el)) continue;
       const val = getInputValue(el);
       if (val && val.includes("@") && val.includes(".")) return val.trim();
     }
     const tracked = form.querySelector('[data-track="email"]');
-    if (tracked) {
+    if (tracked && !isIgnored(form, tracked)) {
       const val = getInputValue(tracked);
       if (val && val.includes("@")) return val.trim();
     }
-    const allInputs = getAllInputs(form);
+    const allInputs = getAllInputs(form).filter(function (i) { return !isIgnored(form, i); });
     for (const input of allInputs) {
       const signals = [
         input.name, input.id, input.placeholder,
@@ -981,11 +1022,12 @@ function firePageViewStart() {
   // otherwise the one full-name field.
   function extractName(form) {
     const tracked = form.querySelector('[data-track="name"]');
-    if (tracked && getInputValue(tracked)) return getInputValue(tracked).trim();
+    if (tracked && !isIgnored(form, tracked) && getInputValue(tracked)) return getInputValue(tracked).trim();
     let first = "";
     let last = "";
     let full = "";
     for (const input of getAllInputs(form)) {
+      if (isIgnored(form, input)) continue;
       if (input.type === "email" || input.type === "tel") continue;
       const val = getInputValue(input).trim();
       if (!val) continue;
@@ -1006,11 +1048,12 @@ function firePageViewStart() {
   }
 
   function extractPhone(form) {
-    const telInput = form.querySelector('input[type="tel"]');
+    const telInput = Array.from(form.querySelectorAll('input[type="tel"]')).find(function (i) { return !isIgnored(form, i); });
     if (telInput && getInputValue(telInput)) return getInputValue(telInput).trim();
     const tracked = form.querySelector('[data-track="phone"]');
-    if (tracked && getInputValue(tracked)) return getInputValue(tracked).trim();
+    if (tracked && !isIgnored(form, tracked) && getInputValue(tracked)) return getInputValue(tracked).trim();
     for (const input of getAllInputs(form)) {
+      if (isIgnored(form, input)) continue;
       const sig = signalsOf(input);
       if (sig.some(function (x) { return x.indexOf("fax") !== -1; })) continue;
       if (sig.some(function (x) { return PHONE_KEYS.some(function (k) { return x.indexOf(normalize(k)) !== -1; }); })) {
@@ -1021,10 +1064,37 @@ function firePageViewStart() {
     return null;
   }
 
+  // ── SENSITIVE FIELDS (2026-10-14) ─────────────────────────────────────
+  // Values that are never sent, whatever the form: payment cards, bank accounts, government identity and tax
+  // numbers, PINs. A field is left out when its autocomplete says it is a card field ("cc-number", "cc-csc"...), when
+  // its name, id, placeholder, aria-label or label is one of the words below, or when its VALUE looks like a card
+  // number (13-19 digits passing the Luhn check) or a US social security number. Same rules on the server
+  // (lib/tracking/sensitive.js), which checks again. Site owners can leave out anything else with data-jh-ignore.
+  // SENSITIVE_RE / sensitiveKey / sensitiveValue live in the shared scope above (next to jhState), so the HubSpot
+  // section can use them too.
+  function isSensitiveInput(input) {
+    const ac = String(input.getAttribute("autocomplete") || "").toLowerCase();
+    if (ac.indexOf("cc-") !== -1) return true;
+    if (input.type === "password") return true;
+    const names = [input.name, input.id, input.placeholder, input.getAttribute("aria-label"), labelTextOf(input)];
+    if (names.some(sensitiveKey)) return true;
+    const phoneLike = input.type === "tel" || names.some(function (x) { return /phone|mobile|tel|fax/i.test(String(x || "")); });
+    return sensitiveValue(getInputValue(input), phoneLike);
+  }
+
+  // data-jh-ignore: on a field, or on a wrapper inside the form, the field is left out of EVERYTHING: its value, its
+  // timings, the field list, validation errors, and name/email/phone detection. On the form itself, every field is.
+  function isIgnored(form, input) {
+    if (!input || !input.closest) return false;
+    const host = input.closest("[data-jh-ignore]");
+    return !!host && (host === form || form.contains(host));
+  }
+
   // data-track-field: when a form has ANY marked field, only the marked ones
   // are tracked (timings, raw_data). A form with none marked tracks every
   // field, as before. Name/email/phone detection for the lead is NOT limited.
   function fieldAllowed(form, input) {
+    if (isIgnored(form, input)) return false;
     if (!form.querySelector("[data-track-field]")) return true;
     const host = input.closest("[data-track-field]");
     return !!host && form.contains(host);
@@ -1035,6 +1105,7 @@ function firePageViewStart() {
     const allInputs = getAllInputs(form);
     for (const input of allInputs) {
       if (!fieldAllowed(form, input)) continue;
+      if (isSensitiveInput(input)) continue; // card, bank, identity numbers: never sent
       const key = input.name || input.id || input.placeholder || "field_" + Math.random().toString(36).slice(2, 6);
       const val = getInputValue(input);
       if (normalize(key).includes("password") || normalize(key).includes("passwd")) continue;
@@ -2388,6 +2459,17 @@ function firePageViewStart() {
     // Uses _originalFetch (captured at the very top of tracker.js)
     // so it bypasses the fetch interceptor and avoids infinite loops
     // ─────────────────────────────────────────────────────────
+    // HubSpot reports fields as name/value pairs (no element): the sensitive-name and sensitive-value rules apply.
+    function hubSpotSafeFields(fields) {
+      const out = {};
+      for (const k in fields || {}) {
+        if (!Object.prototype.hasOwnProperty.call(fields, k)) continue;
+        if (sensitiveKey(k) || sensitiveValue(fields[k], /phone|mobile|tel|fax/i.test(k))) continue;
+        out[k] = fields[k];
+      }
+      return out;
+    }
+
     function sendHubSpotCapture(args) {
       const { formId, fields, formEl, eventName } = args;
       // The form mode arrives from /api/site-config a moment after load: wait for it, never guess.
@@ -2431,7 +2513,7 @@ function firePageViewStart() {
           phone: phone || null,
           confidence: email ? "high" : "low",
           raw_data: {
-            ...fields,
+            ...hubSpotSafeFields(fields),
             _source: "hubspot",
             _form_id: formId,
             _event: eventName,

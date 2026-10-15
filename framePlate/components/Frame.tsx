@@ -10,6 +10,8 @@
 // (see Bulb.tsx for why that matters).
 "use client";
 
+import { createPortal } from "react-dom";
+
 import * as React from "react";
 import { FullPagePlate } from "./FullPagePlate";
 import { DurationRibbon } from "./DurationRibbon";
@@ -73,41 +75,49 @@ function pct(v: number): string {
   return `${(Math.max(0, v) * 100).toFixed(1)}%`;
 }
 
-const TOOLTIP_WIDTH = 190;
-const TOOLTIP_HEIGHT = 100;
+// Compact hover card that follows the cursor, to its RIGHT (never over the frame being looked at); it flips to the
+// left near the right edge of the screen. Rendered in a portal so no SVG or scroll container clips it.
+const TOOLTIP_MAX_WIDTH = 150;
+const TOOLTIP_OFFSET = 14;
 
 function SwatchRow({ color, label, border }: { color: string; label: string; border?: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
-      <span style={{ width: 9, height: 9, borderRadius: 2, background: color, border: border ?? "none", flexShrink: 0, display: "inline-block" }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+      <span style={{ width: 7, height: 7, borderRadius: 2, background: color, border: border ?? "none", flexShrink: 0, display: "inline-block" }} />
       <span>{label}</span>
     </div>
   );
 }
 
-function SeenTooltip({ item, theme }: { item: VisitGeometry; theme: FramePlateTheme }) {
+function SeenTooltip({ item, theme, at }: { item: VisitGeometry; theme: FramePlateTheme; at: { x: number; y: number } }) {
   const { seenOncePct, seenTwicePct, notSeenPct } = computeSeenBreakdown(item);
+  const flip = typeof window !== "undefined" && at.x + TOOLTIP_OFFSET + TOOLTIP_MAX_WIDTH > window.innerWidth - 8;
   return (
     <div
-      {...({ xmlns: "http://www.w3.org/1999/xhtml" } as React.HTMLAttributes<HTMLDivElement>)}
       style={{
+        position: "fixed",
+        left: flip ? at.x - TOOLTIP_OFFSET - TOOLTIP_MAX_WIDTH : at.x + TOOLTIP_OFFSET,
+        top: at.y + 10,
+        zIndex: 60,
+        pointerEvents: "none",
         background: "var(--fp-plate, #111)",
         border: "1px solid var(--fp-plate-border, #333)",
         borderRadius: 6,
-        padding: "8px 10px",
-        fontSize: 11,
+        padding: "5px 8px",
+        fontSize: 10.5,
         lineHeight: 1.3,
         color: "var(--fp-text, #eee)",
         fontFamily: "system-ui, sans-serif",
         boxShadow: "0 4px 14px rgba(0,0,0,0.4)",
         boxSizing: "border-box",
-        width: TOOLTIP_WIDTH,
+        maxWidth: TOOLTIP_MAX_WIDTH,
+        width: "max-content",
       }}
     >
       <div style={{ fontWeight: 700, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.pagePath || "(unknown)"}</div>
-      <SwatchRow color={theme.seenOnce.color} label={`seen (${pct(seenOncePct)})`} />
-      <SwatchRow color={theme.seenTwice.color} label={`seen 2x+ (${pct(seenTwicePct)})`} />
-      <SwatchRow color={theme.plate.baseColor} border="1px solid var(--fp-plate-border, #555)" label={`not seen (${pct(notSeenPct)})`} />
+      <SwatchRow color={theme.seenOnce.color} label={`seen ${pct(seenOncePct)}`} />
+      <SwatchRow color={theme.seenTwice.color} label={`seen 2x+ ${pct(seenTwicePct)}`} />
+      <SwatchRow color={theme.plate.baseColor} border="1px solid var(--fp-plate-border, #555)" label={`not seen ${pct(notSeenPct)}`} />
     </div>
   );
 }
@@ -116,6 +126,8 @@ export function Frame(props: FrameProps) {
   const { item, width, plateHeight, theme, darken, selected, onHover, onClick } = props;
   const geometry = computeFrameGeometry(props);
   const frameHeight = theme.frame.height;
+  // where the cursor is, for the hover card (hooks before any early return)
+  const [cursor, setCursor] = React.useState<{ x: number; y: number } | null>(null);
 
   if (geometry === null) {
     return <rect width={Number.isFinite(width) && width > 0 ? width : theme.frame.minWidth} height={frameHeight} fill="#552222" stroke="#f00" strokeDasharray="4,4" />;
@@ -126,7 +138,11 @@ export function Frame(props: FrameProps) {
   return (
     <g
       onMouseEnter={() => onHover?.(item)}
-      onMouseLeave={() => onHover?.(null)}
+      onMouseMove={(e) => setCursor({ x: e.clientX, y: e.clientY })}
+      onMouseLeave={() => {
+        onHover?.(null);
+        setCursor(null);
+      }}
       onClick={() => clickable && onClick!(item)}
       style={{ cursor: onHover || clickable ? "pointer" : undefined }}
     >
@@ -164,11 +180,7 @@ export function Frame(props: FrameProps) {
       />
 
       {/* rich hover tooltip — page path + seen/seen-2x+/not-seen as % of the full page */}
-      {item.kind === "visit" && darken && (
-        <foreignObject x={(width - TOOLTIP_WIDTH) / 2} y={theme.frame.padding + 6} width={TOOLTIP_WIDTH} height={TOOLTIP_HEIGHT} style={{ overflow: "visible", pointerEvents: "none" }}>
-          <SeenTooltip item={item} theme={theme} />
-        </foreignObject>
-      )}
+      {item.kind === "visit" && darken && cursor && typeof document !== "undefined" && createPortal(<SeenTooltip item={item} theme={theme} at={cursor} />, document.body)}
     </g>
   );
 }
