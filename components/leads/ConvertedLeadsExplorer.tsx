@@ -163,10 +163,7 @@ export function ConvertedLeadsExplorer({ siteId }: { siteId: string }) {
     <Card>
       <CardContent className="p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-base font-semibold text-foreground">Conversions</div>
-            <div className="text-xs text-muted-foreground">Each card shows the path a lead actually took, start of session through the moment they converted.</div>
-          </div>
+          <div className="text-base font-semibold text-foreground">Converted leads</div>
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={preset}
