@@ -43,7 +43,7 @@ export function LeadOriginRadarChart({ siteId }: { siteId: string }) {
     if (!data) return [];
     const pct = (n: number, total: number) => (total > 0 ? Math.round((n / total) * 1000) / 10 : 0);
     return data.slices.map((s) =>
-      showVisitors ? { source: s.source, leads: pct(s.leads, data.totalLeads), visitors: pct(s.visitors, data.totalVisitors) } : { source: s.source, leads: s.leads },
+      showVisitors ? { source: s.source, leads: pct(s.leads, data.totalLeads), visitors: pct(s.visitors, data.totalVisitors), leadsN: s.leads, visitorsN: s.visitors } : { source: s.source, leads: s.leads, leadsN: s.leads, visitorsN: s.visitors },
     );
   }, [data, showVisitors]);
   const hasVisitors = (data?.totalVisitors ?? 0) > 0;
@@ -87,7 +87,35 @@ export function LeadOriginRadarChart({ siteId }: { siteId: string }) {
         ) : (
           <ChartContainer config={chartConfig} className="h-72 w-full">
             <RadarChart data={chartData}>
-              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    // with both shapes the numbers are shares of each total: say so, and give the real counts
+                    formatter={(value, name, item) => {
+                      const row = (item?.payload ?? {}) as { leadsN?: number; visitorsN?: number };
+                      const isVisitors = name === "visitors";
+                      const n = isVisitors ? row.visitorsN : row.leadsN;
+                      const total = isVisitors ? data?.totalVisitors : data?.totalLeads;
+                      return (
+                        <span className="flex w-full items-center justify-between gap-4">
+                          <span className="flex items-center gap-1.5 text-muted-foreground">
+                            {/* the swatch has the colour of its shape on the chart: blue dashed = visitors, yellow = leads */}
+                            <span
+                              className="inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                              style={isVisitors ? { backgroundColor: "var(--color-visitors)", opacity: 0.85, outline: "1px dashed var(--color-visitors)", outlineOffset: 1 } : { backgroundColor: "var(--color-leads)" }}
+                            />
+                            {isVisitors ? "Visitors" : "Leads"}
+                          </span>
+                          <span className="font-mono font-medium tabular-nums">
+                            {showVisitors ? value + "%" : String(value)}
+                            {showVisitors && <span className="ml-1 font-normal text-muted-foreground">({n} of {total})</span>}
+                          </span>
+                        </span>
+                      );
+                    }}
+                  />
+                }
+              />
               <PolarGrid stroke="var(--border)" />
               <PolarAngleAxis dataKey="source" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
               {showVisitors && hasVisitors && <Radar dataKey="visitors" stroke="var(--color-visitors)" fill="var(--color-visitors)" fillOpacity={0.15} strokeWidth={1.5} strokeDasharray="4 3" />}

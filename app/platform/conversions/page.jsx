@@ -16,20 +16,25 @@ export default async function ConversionsPage() {
         <p className="mt-1 text-sm text-muted-foreground">Each card shows the path a lead actually took, start of session through the moment they converted.</p>
       </header>
 
+        {/* the converted leads first: it is what people open this page for; the charts follow */}
+        <div className="mb-6">
+          <Suspense fallback={<div className="py-10 text-center text-sm text-muted-foreground">Loading conversions…</div>}>
+            <ConvertedLeadsExplorer siteId={site.id} />
+          </Suspense>
+        </div>
+
         <div className="mb-6">
           <Suspense fallback={null}>
             <ReachConversionsSection siteId={site.id} />
           </Suspense>
         </div>
 
-        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* the radar always; the Referrers ring only appears with more sources than the radar has spokes (it hides itself), and the radar then takes the full width */}
+        <div className="mb-6 flex flex-wrap gap-4 [&>*]:w-auto [&>*]:min-w-[min(100%,26rem)] [&>*]:flex-1">
           <ReferrerDonutChart siteId={site.id} />
           <LeadOriginRadarChart siteId={site.id} />
         </div>
 
-        <Suspense fallback={<div className="py-10 text-center text-sm text-muted-foreground">Loading conversions…</div>}>
-          <ConvertedLeadsExplorer siteId={site.id} />
-        </Suspense>
 
     </div>
   );

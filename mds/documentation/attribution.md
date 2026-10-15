@@ -24,3 +24,6 @@ Note: `lastNonDirectLabel` lives in `lib/analytics/attribution.js` because a `"u
 ## Not done
 - `utm_content` / `utm_term` are not recorded by the tracker, so the radar cannot split by subreddit, group, ad or keyword yet (see the demo at `/dev/utm-demo`).
 - The referrer donut and visits-over-time still use the first visit only.
+
+## Referrers ring vs the radar (2026-10-14)
+`RADAR_MAX_SOURCES = 8` (`lib/analytics/attribution.js`) is the radar's spoke count AND the threshold for the Referrers ring: the ring renders only when there are MORE distinct sources than that (`ReferrerDonutChart` returns null otherwise, also while loading, and the conversions page lays the two out with flex so the radar takes the full width alone).

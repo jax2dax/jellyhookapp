@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import { RefreshCw, PieChart as PieIcon } from "lucide-react";
 import { getReferrerBreakdown, type ReferrerBreakdownResult } from "@/lib/actions/referrerBreakdown.action";
+import { RADAR_MAX_SOURCES } from "@/lib/analytics/attribution";
 
 const PALETTE = ["#eab308", "#3b82f6", "#22c55e", "#a855f7", "#ef4444", "#06b6d4", "#f97316", "#6b7280"];
 const MAX_SLICES = 7;
@@ -46,6 +47,11 @@ export function ReferrerDonutChart({ siteId }: { siteId: string }) {
     });
     return { chartData: rows, config: cfg };
   }, [data]);
+
+  // The Leads Origin radar already shows every source up to RADAR_MAX_SOURCES; this ring only adds something once there
+  // are more distinct sources than the radar has spokes (it keeps them all, small ones grouped as "Other").
+  // (Nothing while loading either, so the radar does not jump when the ring turns out not to be needed.)
+  if (data === null || data.slices.length <= RADAR_MAX_SOURCES) return null;
 
   return (
     <Card className="w-full">

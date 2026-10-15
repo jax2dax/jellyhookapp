@@ -23,7 +23,7 @@
 
 import { createSupabaseClient } from "@/lib/supabase/server";
 import { classifyReferrer } from "@/lib/analytics/classifyReferrer";
-import { lastNonDirectLabel } from "@/lib/analytics/attribution";
+import { lastNonDirectLabel, RADAR_MAX_SOURCES } from "@/lib/analytics/attribution";
 import { requireSiteAccess } from "@/lib/actions/siteAccess";
 
 export interface LeadOriginSlice {
@@ -44,8 +44,8 @@ export interface LeadOriginBreakdownResult {
 
 export type AttributionModel = "first" | "lastNonDirect";
 
-const DEFAULT_PLACEHOLDERS = ["Direct", "Facebook", "Instagram", "Google", "LinkedIn", "TikTok"];
-const TOTAL_SLOTS = 6;
+const DEFAULT_PLACEHOLDERS = ["Direct", "Facebook", "Instagram", "Google", "LinkedIn", "TikTok", "Reddit", "Twitter/X"];
+const TOTAL_SLOTS = RADAR_MAX_SOURCES;
 
 /** Every visitor's first-touch source, counted. Uses the first-touch columns on visitors; visitors seen before those were
  * recorded (first_touch_at null) are left out rather than guessed as Direct. */

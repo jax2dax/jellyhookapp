@@ -19,6 +19,44 @@ export default function ConversionsReferencePage() {
 
       <div className="mt-12 space-y-10">
         <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Converted leads</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            One card per converted lead, filterable by date range (last 3 days, last week, last month, all time, or
+            a custom range) and paginated, not every conversion the site has ever had rendered onto one page at
+            once. Each card is collapsed to a single line by default: name, email, the page they converted on, and
+            the date, so a long list of conversions stays scannable; click anywhere on that line to expand it.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            A lead&apos;s name in this list is colored the same yellow the{" "}
+            <Link href="/docs/concepts/session-replay" className="text-[var(--lime)] hover:underline">
+              visit chart
+            </Link>{" "}
+            itself uses for a converted page, since that color means the same thing everywhere in the dashboard, not
+            just here.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Expanding a card shows only that lead&apos;s path to conversion: start of the session through the
+            exact page visit they converted on, nothing after. If the real session kept going past that point, the
+            rest of it is deliberately cut from this view. Click{" "}
+            <span className="text-[#f4f2ea]">View lead information</span> to see the whole thing, uncut, on that
+            lead&apos;s own{" "}
+            <Link href="/docs/reference/lead-profile" className="text-[var(--lime)] hover:underline">
+              profile page
+            </Link>
+            . Clicking a frame inside any card&apos;s chart works exactly like it does there too. See{" "}
+            <Link href="/docs/concepts/session-replay" className="text-[var(--lime)] hover:underline">
+              Visit chart
+            </Link>
+            .
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            The list itself is cached in your browser for a couple of minutes, so switching the date filter back to
+            a range you already looked at recently loads instantly instead of re-querying. Changing the filter to
+            something genuinely new, or waiting past that window, always fetches fresh data.
+          </p>
+        </div>
+
+        <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">New Reach and Conversions</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Each chart has two small facts under its title. <strong>In range</strong> is the total for the whole
@@ -58,7 +96,9 @@ export default function ConversionsReferencePage() {
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Referrers</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Where every new unique visitor actually came from, counted once each under their first-ever visit&apos;s
-            source, not every return visit. See{" "}
+            source, not every return visit. This ring only appears once there are more than eight different sources, which is
+            more than the Leads Origin radar below can show as spokes; up to eight sources the radar already shows them
+            all. Small sources are grouped as Other. See{" "}
             <Link href="/docs/concepts/referrers-attribution" className="text-[var(--lime)] hover:underline">
               Referrers and attribution
             </Link>{" "}
@@ -83,7 +123,7 @@ export default function ConversionsReferencePage() {
               leads better than average. Turn it off to see leads as plain counts.
             </li>
             <li>
-              Six spokes: the sources with the most leads first, then the biggest visitor sources that have not produced a lead yet, then
+              Up to eight spokes: the sources with the most leads first, then the biggest visitor sources that have not produced a lead yet, then
               generic names (Direct, Facebook, Instagram, Google, LinkedIn, TikTok) so the shape stays readable with very little data.
             </li>
           </ul>
@@ -97,43 +137,6 @@ export default function ConversionsReferencePage() {
           </p>
         </div>
 
-        <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Converted leads</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            One card per converted lead, filterable by date range (last 3 days, last week, last month, all time, or
-            a custom range) and paginated, not every conversion the site has ever had rendered onto one page at
-            once. Each card is collapsed to a single line by default: name, email, the page they converted on, and
-            the date, so a long list of conversions stays scannable; click anywhere on that line to expand it.
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            A lead&apos;s name in this list is colored the same yellow the{" "}
-            <Link href="/docs/concepts/session-replay" className="text-[var(--lime)] hover:underline">
-              visit chart
-            </Link>{" "}
-            itself uses for a converted page, since that color means the same thing everywhere in the dashboard, not
-            just here.
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Expanding a card shows only that lead&apos;s path to conversion: start of the session through the
-            exact page visit they converted on, nothing after. If the real session kept going past that point, the
-            rest of it is deliberately cut from this view. Click{" "}
-            <span className="text-[#f4f2ea]">View lead information</span> to see the whole thing, uncut, on that
-            lead&apos;s own{" "}
-            <Link href="/docs/reference/lead-profile" className="text-[var(--lime)] hover:underline">
-              profile page
-            </Link>
-            . Clicking a frame inside any card&apos;s chart works exactly like it does there too. See{" "}
-            <Link href="/docs/concepts/session-replay" className="text-[var(--lime)] hover:underline">
-              Visit chart
-            </Link>
-            .
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            The list itself is cached in your browser for a couple of minutes, so switching the date filter back to
-            a range you already looked at recently loads instantly instead of re-querying. Changing the filter to
-            something genuinely new, or waiting past that window, always fetches fresh data.
-          </p>
-        </div>
       </div>
     </div>
   );

@@ -1729,3 +1729,7 @@ The long empty strip beside the sidebar button now carries the open page's own t
 - Also: Conversions page header moved to the top; sidebar icon for Conversion Paths is now `Route`; demo of detailed UTM breakdown at `/dev/utm-demo` (fake data).
 - Tests: `lib/tracking/tests/attribution.test.ts` (7, including the three founder scenarios). `next build` passes.
 - Docs: `/docs/concepts/referrers-attribution` rewritten in reading order (one visit's source, one source many spellings, which visit gets the credit with an examples table); `/docs/reference/conversions` Leads Origin section; `mds/documentation/attribution.md`.
+
+## 2026-10-14 - Referrers ring appears only when the radar is not enough
+
+The Leads Origin radar now has up to 8 spokes (was 6; two more placeholders: Reddit, Twitter/X). The Referrers ring is hidden unless there are more than 8 distinct sources (`RADAR_MAX_SOURCES` in `lib/analytics/attribution.js`); the radar takes the full width when it is alone. Docs: `/docs/reference/conversions`, `mds/documentation/attribution.md`.
