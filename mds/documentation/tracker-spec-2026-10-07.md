@@ -157,7 +157,7 @@ All use `_originalFetch` (never the patched `window.fetch`), `credentials: "omit
 - **Engagement** keeps its model: one row per `(session_id, page_path, form_index)`, additive
   per-field timing deltas merged on the server. Because sessions now end only by idle, a form
   left mid-fill is abandoned by the session end or the sweep, not by closing the tab. Since 2026-10-14 only a
-  STARTED form can be abandoned; one only seen stays `viewed` (migration 15). New signals (field list, visits,
+  STARTED form can be abandoned; one only seen stays `viewed` (13-abandoned-means-started.sql). New signals (field list, visits,
   filled/edited, validation errors, on-screen time): mds/build/form-study/tracker-changes.md.
 
 ## Page structure

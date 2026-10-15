@@ -113,5 +113,22 @@ ok(t7.formFieldCount === 4 && t7.totals.onscreenBeforeStartMs === 3200, "field c
 const old7 = buildFormTimeline(row, views);
 ok(old7.untouched.length === 0 && old7.formFieldCount === null && old7.totals.onscreenBeforeStartMs === null, "an old row: no field list, no untouched, no on-screen time (shown as unknown, not zero)");
 
+// pauses never overlap the time away: gap 60 s -> 470 s with another page 70-120 and the site left 120-280
+const r8: EngagementRow = {
+  session_id: "s1", page_path: "/contact", status: "abandoned", viewed_at: at(0), first_input_at: at(1), ended_at: at(480), form_fields: [],
+  field_timings: { email: { order: 1, firstFocusAt: at(1), lastUnfocusAt: at(480), totalFocusedMs: 30000, visits: [[at(1), at(60)], [at(470), at(480)]] } },
+};
+const v8: PageViewRow[] = [
+  { page_view_id: "a", session_id: "s1", page_path: "/contact", entered_at: at(-5), left_at: at(70) },
+  { page_view_id: "b", session_id: "s1", page_path: "/pricing", entered_at: at(70), left_at: at(120) },
+  { page_view_id: "c", session_id: "s1", page_path: "/contact", entered_at: at(280), left_at: at(500) },
+];
+const t8 = buildFormTimeline(r8, v8);
+const pauses8 = t8.segments.filter((s) => s.kind === "pause");
+ok(pauses8.length === 2 && t8.totals.pausesMs === 200_000, "a gap with another page and time away inside it gives two pauses of 10 s and 190 s (the on-page pieces only)");
+const sorted8 = [...t8.segments].sort((a, b) => a.from - b.from);
+ok(sorted8.every((s, i) => i === 0 || s.from >= sorted8[i - 1].to - 1), "no two segments overlap: a pause is never drawn over the time away");
+ok(t8.totals.awayMs === 160_000 && t8.totals.otherPagesMs === 50_000, "away 160 s and the other page 50 s stay separate");
+
 console.log(`\n${passes} passed, ${fails} failed`);
 if (fails) process.exit(1);

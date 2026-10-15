@@ -17,7 +17,7 @@ const ENTITY_DOCS: Record<EntityKey, { means: string; asks: string }> = {
   lead: { means: "one submitted form", asks: "who your leads are, where they converted" },
   visitor: { means: "one browser or person", asks: "devices, returning visitors" },
   form: { means: "one form seen by one visitor in one session", asks: "how many started, finished, abandoned" },
-  formField: { means: "one field of a form that someone clicked into", asks: "where people stall on a form" },
+  formField: { means: "one field of a form: one that someone clicked into, or (for forms seen since 14 October 2026) one nobody touched", asks: "where people stall on a form, and which fields they skip" },
   page: { means: "one page address of your site", asks: "ranking pages" },
   awayGap: { means: "a stretch of 15 seconds or more when a visitor left your site and came back", asks: "how long people stay away" },
 };
@@ -43,7 +43,7 @@ export default function BuildingPage() {
           An <B>away period</B> is the time between one page view ending and the next starting in the same session, when it lasts 15 seconds or more. It is the same rule the visit chart useslay uses to draw a purple away bar.
         </P>
         <P>
-          <B>Form fields</B> has one row per field someone clicked into. That is the data behind questions about where people give up on a form. See{" "}
+          <B>Form fields</B> has one row per field someone clicked into, and, for forms seen since 14 October 2026, one row per field nobody touched (marked <B>clicked into</B> false). That is the data behind questions about where people give up on a form and which fields they skip. See{" "}
           <Link href="/docs/hook/examples" className="text-[var(--lime)] hover:underline">
             the form examples
           </Link>
@@ -165,7 +165,7 @@ export default function BuildingPage() {
         </Callout>
         <UL>
           <li>
-            <B>Fields touched</B> counts only fields someone clicked into, so it is a lower bound.
+            <B>Fields touched</B> counts only fields someone clicked into, so it is a lower bound. For forms seen since 14 October 2026 Jellyhook also knows the form&apos;s own field list, so <B>fields in the form</B> and <B>fields never touched</B> are exact; for older forms they are empty, never zero. The same applies to <B>required</B>, <B>visits to the field</B>, <B>left filled</B>, <B>times its value changed</B> and <B>validation errors</B>: empty means &quot;not recorded&quot;, not &quot;none&quot;.
           </li>
           <li>
             Errors say what to change. If something breaks on our side you get a short reference code to quote to support.

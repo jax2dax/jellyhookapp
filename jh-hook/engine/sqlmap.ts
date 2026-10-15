@@ -190,6 +190,9 @@ export const SQL: Record<EntityKey, EntitySql> = {
       id: (a) => `${a}.id::text`,
       page: (a) => `${a}.page_path`,
       formIndex: (a) => `${a}.form_index`,
+      // since 17-form-versions.sql
+      formKey: (a) => `${a}.form_key`,
+      version: (a) => `${a}.form_version_id::text`,
       status: (a) => `${a}.status`,
       lastFieldType: (a) => `${a}.last_field_type`,
       viewedAt: (a) => `${a}.viewed_at`,
@@ -198,6 +201,14 @@ export const SQL: Record<EntityKey, EntitySql> = {
       timeToFirstInput: (a) => ms(`${a}.first_input_at - ${a}.viewed_at`),
       fillTime: (a) => ms(`${a}.ended_at - ${a}.first_input_at`),
       fieldsTouched: (a) => `(SELECT count(*) FROM jsonb_object_keys(COALESCE(${a}.field_timings, '{}'::jsonb)))`,
+      // Since 2026-10-14 (13-form-signals.sql adds the two columns). Every jsonb value is type-checked before use.
+      timeOnScreenBeforeStart: (a) => `${a}.onscreen_before_start_ms::float8`,
+      totalFields: (a) => `(CASE WHEN jsonb_typeof(${a}.form_fields) = 'array' THEN jsonb_array_length(${a}.form_fields)::float8 END)`,
+      // fields of the form with no focused entry in field_timings (an entry that only recorded validation errors has no firstFocusAt)
+      fieldsNotTouched: (a) =>
+        `(CASE WHEN jsonb_typeof(${a}.form_fields) = 'array' THEN (SELECT count(*)::float8 FROM jsonb_array_elements(${a}.form_fields) e WHERE NOT EXISTS (SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(${a}.field_timings) = 'object' THEN ${a}.field_timings ELSE '{}'::jsonb END) t WHERE t.key = e->>'key' AND jsonb_typeof(t.value) = 'object' AND (t.value->>'firstFocusAt') ~ '^[0-9]{4}-')) END)`,
+      validationErrors: (a) =>
+        `(SELECT COALESCE(sum(CASE WHEN jsonb_typeof(t.value->'errors') = 'number' THEN (t.value->>'errors')::float8 END), 0) FROM jsonb_each(CASE WHEN jsonb_typeof(${a}.field_timings) = 'object' THEN ${a}.field_timings ELSE '{}'::jsonb END) t WHERE jsonb_typeof(t.value) = 'object')`,
       session: (a) => `${a}.session_id`,
       visitor: (a) => `${a}.visitor_id`,
     },
@@ -223,9 +234,27 @@ export const SQL: Record<EntityKey, EntitySql> = {
       `CASE WHEN jsonb_typeof(ft.value->'totalFocusedMs') = 'number' THEN (ft.value->>'totalFocusedMs')::float8 END AS focused_ms, ` +
       `CASE WHEN (ft.value->>'firstFocusAt') ~ '^[0-9]{4}-' THEN (ft.value->>'firstFocusAt')::timestamptz END AS first_focus_at, ` +
       `CASE WHEN (ft.value->>'firstKeydownAt') ~ '^[0-9]{4}-' THEN (ft.value->>'firstKeydownAt')::timestamptz END AS first_key_at, ` +
-      `CASE WHEN (ft.value->>'lastUnfocusAt') ~ '^[0-9]{4}-' THEN (ft.value->>'lastUnfocusAt')::timestamptz END AS last_left_at ` +
+      `CASE WHEN (ft.value->>'lastUnfocusAt') ~ '^[0-9]{4}-' THEN (ft.value->>'lastUnfocusAt')::timestamptz END AS last_left_at, ` +
+      // false only for an entry that ONLY recorded validation errors (it was never clicked into); every other entry, even an old one
+      // without a focus time, is a field that was touched, exactly as before
+      `NOT ((ft.value->>'firstFocusAt') IS NULL AND ft.value ? 'errors') AS touched, ` +
+      `CASE WHEN jsonb_typeof(ft.value->'visits') = 'array' THEN jsonb_array_length(ft.value->'visits')::float8 END AS visits, ` +
+      `CASE WHEN jsonb_typeof(ft.value->'filled') = 'boolean' THEN (ft.value->>'filled')::boolean END AS filled, ` +
+      `CASE WHEN jsonb_typeof(ft.value->'edits') = 'number' THEN (ft.value->>'edits')::float8 END AS changes, ` +
+      `CASE WHEN jsonb_typeof(ft.value->'errors') = 'number' THEN (ft.value->>'errors')::float8 END AS errors, ` +
+      `(SELECT (e->>'required')::boolean FROM jsonb_array_elements(CASE WHEN jsonb_typeof(f.form_fields) = 'array' THEN f.form_fields ELSE '[]'::jsonb END) e WHERE e->>'key' = ft.key AND jsonb_typeof(e->'required') = 'boolean' LIMIT 1) AS required ` +
       `FROM ${scoped("form_engagement", "f")} CROSS JOIN LATERAL jsonb_each(COALESCE(f.field_timings, '{}'::jsonb)) ft ` +
-      `WHERE jsonb_typeof(ft.value) = 'object') ${al}`,
+      `WHERE jsonb_typeof(ft.value) = 'object' ` +
+      `UNION ALL ` +
+      // the form's fields nobody focused (form_fields is only recorded for forms seen after 2026-10-14): one row each
+      `SELECT (f.id::text || ':' || (e->>'key')), f.id::text, f.session_id, f.visitor_id, f.page_path, f.status, f.last_field_type, f.last_field_key, e->>'key', ` +
+      `CASE WHEN (e->>'key') LIKE 'custom:%' THEN 'custom' ELSE e->>'key' END, ` +
+      `CASE WHEN (e->>'key') LIKE 'custom:%' THEN substr(e->>'key', 8) ELSE e->>'key' END, ` +
+      `NULL::float8, NULL::float8, NULL::timestamptz, NULL::timestamptz, NULL::timestamptz, false, NULL::float8, NULL::boolean, NULL::float8, ` +
+      `CASE WHEN jsonb_typeof(f.field_timings) = 'object' AND jsonb_typeof(f.field_timings->(e->>'key')) = 'object' THEN CASE WHEN jsonb_typeof(f.field_timings->(e->>'key')->'errors') = 'number' THEN (f.field_timings->(e->>'key')->>'errors')::float8 END END, ` +
+      `CASE WHEN jsonb_typeof(e->'required') = 'boolean' THEN (e->>'required')::boolean END ` +
+      `FROM ${scoped("form_engagement", "f")} CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(f.form_fields) = 'array' THEN f.form_fields ELSE '[]'::jsonb END) e ` +
+      `WHERE jsonb_typeof(e) = 'object' AND e->>'key' IS NOT NULL AND NOT EXISTS (SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(f.field_timings) = 'object' THEN f.field_timings ELSE '{}'::jsonb END) t WHERE t.key = e->>'key' AND jsonb_typeof(t.value) = 'object')) ${al}`,
     key: (a) => `${a}.id`,
     ref: (a) => `${a}.id`,
     fields: {
@@ -233,7 +262,14 @@ export const SQL: Record<EntityKey, EntitySql> = {
       fieldType: (a) => `${a}.field_type`,
       order: (a) => `${a}.field_order`,
       focusedTime: (a) => `${a}.focused_ms`,
-      typed: (a) => `(${a}.first_key_at IS NOT NULL)`,
+      // empty (not false) for a field nobody clicked into, so "clicked in but never typed" does not count it
+      typed: (a) => `(CASE WHEN ${a}.touched THEN ${a}.first_key_at IS NOT NULL END)`,
+      touched: (a) => `${a}.touched`,
+      visits: (a) => `${a}.visits`,
+      filled: (a) => `${a}.filled`,
+      changes: (a) => `${a}.changes`,
+      errors: (a) => `${a}.errors`,
+      required: (a) => `${a}.required`,
       timeToFirstKey: (a) => ms(`${a}.first_key_at - ${a}.first_focus_at`),
       isLastTouched: (a) =>
         `(CASE WHEN ${a}.field_type = 'custom' THEN ${a}.last_field_type = 'custom' AND ${a}.last_field_key = ${a}.field_name ELSE ${a}.last_field_type = ${a}.field_type END)`,

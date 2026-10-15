@@ -1709,7 +1709,7 @@ The long empty strip beside the sidebar button now carries the open page's own t
 - Decisions: abandoned = started and not submitted; pause threshold 1.5 s; page "Form activities" at `/platform/form-engagement` (not in the sidebar yet); every form a lead started also shows on the lead page; optional signals approved.
 - Built: `jh-forms/` (timeline + collect, 26 checks), `components/forms/FormActivityChart.tsx` (numbers, time split, activity strip with pauses / other pages / "left ... ↩ back", one lane per field with every visit, untouched fields, errors, left empty, corrections), lead page "Form activity" card (replaces Field Timing), the page and its server action.
 - Tracker + server: field list, on-screen time before starting, per-visit intervals, filled/edited booleans, validation errors; nothing typed is ever sent (proved in real Chrome, `scripts/tracker-e2e/formsignals.js`). Details: mds/build/form-study/tracker-changes.md.
-- To do by hand: run migrations 15 and 16 (16 BEFORE deploying), deploy, then fill a form on a tracked site and open the lead.
+- To do by hand: run the two migrations 13-abandoned-means-started and 13-form-signals (16 BEFORE deploying), deploy, then fill a form on a tracked site and open the lead.
 - Not verified: the drawing in a browser on real data.
 
 ## 2026-10-14 - Sensitive fields are never stored; data-jh-ignore
@@ -1733,3 +1733,26 @@ The long empty strip beside the sidebar button now carries the open page's own t
 ## 2026-10-14 - Referrers ring appears only when the radar is not enough
 
 The Leads Origin radar now has up to 8 spokes (was 6; two more placeholders: Reddit, Twitter/X). The Referrers ring is hidden unless there are more than 8 distinct sources (`RADAR_MAX_SOURCES` in `lib/analytics/attribution.js`); the radar takes the full width when it is alone. Docs: `/docs/reference/conversions`, `mds/documentation/attribution.md`.
+
+## 2026-10-14 - Form drawing redesigned for readability
+
+Number tiles instead of sentences, a boxed Timeline clearly separated from the numbered Fields rows, seconds written inside the bars (long form, short form, or beside the bar), no long split bar. A pause overlapping time away was found by screenshot and fixed in `jh-forms/timeline.ts` (test added). Demo with fake data: `/dev/form-chart-demo`. Docs: `/docs/concepts/form-engagement` ("Reading the form drawing"), `mds/build/form-study/tracker-changes.md` section 7.
+
+## 2026-10-15 - Hook understands the form signals
+
+`form` gained timeOnScreenBeforeStart, totalFields, fieldsNotTouched, validationErrors; `formField` gained touched (+ rows for untouched fields), visits, filled, changes, errors, required. Old queries keep their meaning. `npm run test:hook` 83 pass on real Postgres. Hook docs updated and re-stamped. **Run 13-form-signals.sql before deploying.** Details: `mds/documentation/hook-forms.md`.
+
+## 2026-10-15 - Form dashboard built on Hook
+
+Top of `/platform/form-engagement`: headline, funnel (seen, started, submitted, started-not-submitted), forms table by page, field table (used, time, before typing, gave up here, corrected, errors, left empty, required), where people give up, per day; range 7/30/90 days and a per-page filter. 19 Hook queries (`jh-forms/dashboard.ts`), run for real on Postgres in `jh-forms/tests/dashboard.test.ts` (19 pass). Demo with fake data: `/dev/form-dashboard-demo`. Details: `mds/documentation/form-dashboard.md`. Needs migration `13-form-signals.sql`.
+
+## 2026-10-15 - Form dashboard rebuilt around form versions, comparison and "unusual"
+
+The dashboard now always shows the site's lead form (most submissions; a picker when there are several) in its **current version** over its whole life. "Compare to" at the top (off by default): all time, an older version, or dates. With a comparison: every card shows the other side and the change (counts per day, rates as a difference, times faster/slower; 30 started on each side or "too few to compare"), the other side's median successful submission is drawn as the healthy reference, the field table shows per-field changes, and anyone well above the reference (Tukey's fence and at least +10 s, 30+ people in the reference) is "unusual": counted per field, tagged in the list, outlined in red in their chart. The lead page compares its chart with the form's all-time reference.
+- Form identity: the tracker sends the form's id/name; the server keys forms `id:` / `name:` / `path:` (generated-looking ids ignored). Same id on several pages = one form. Setup screen got two short lines (same id; `data-jh-ignore`).
+- Versions: `mds/migrations/17-form-versions.sql` (`form_versions`, `jh_place_form_version`): a new field list starts a version at once, except in a version's first 24 h. Ended versions' numbers are frozen. Backfill included. Route survives the migration not having run.
+- Dashboard cached in localStorage (aggregates only; the list of people never). Credit cap 500 per query.
+- Measured: reference from 500 submissions 15 ms; unusual check 0.08 ms for 100 forms; about 40 Hook queries with a comparison.
+- Tests: `npm run test:forms` 202 pass (new: versions 14, formKey 22, averages 44; dashboard 23); Hook engine 83.
+- Docs: `mds/build/form-study/averages-and-versions.md`, `mds/documentation/form-dashboard.md`. Public docs after founder approval.
+- **Run 17-form-versions.sql (after 16) before deploying.**

@@ -1603,6 +1603,10 @@ function firePageViewStart() {
         field_errors_delta: (transient && transient.fieldErrorsDelta) || undefined,
         form_fields: (transient && transient.formFields) || undefined,
         onscreen_before_start_ms: transient && typeof transient.onscreenBeforeStartMs === "number" ? transient.onscreenBeforeStartMs : undefined,
+        // the form's own id / name attributes (getAttribute: form.id / form.name can be shadowed by an input called
+        // "id" or "name"). The server turns them into the form's identity, so one form on several pages is one form.
+        // Rules (and why random-looking ids are ignored): lib/tracking/formKey.js.
+        form_key_hint: { id: form.getAttribute("id") || null, name: form.getAttribute("name") || null },
       };
       jhLog("[Tracker] 📋 Form engagement → sending:", payload);
       _originalFetch(ENGAGEMENT_API_URL, {

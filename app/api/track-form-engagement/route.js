@@ -22,6 +22,7 @@ import { NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { emptyUsage, bump } from "@/lib/tracking/usage";
 import { cleanDelta, cleanErrors, cleanFormFields, mergeFieldTimings } from "@/lib/tracking/formEngagement";
+import { formKeyOf } from "@/lib/tracking/formKey";
 import { CORS, MAX_BODY_BYTES, cleanId, cleanStr, cleanNum, cleanTime, authorizeRequest, applySiteEffects, flushUsage, markHealthEvent } from "@/lib/tracking/server";
 
 // Service role — see app/api/track/route.js's header comment for why.
@@ -77,6 +78,8 @@ export async function POST(req) {
     payload.form_fields = cleanFormFields(payload.form_fields);
     // on-screen time before the first input (form at least half visible, tab visible), sent with the first "started"
     payload.onscreen_before_start_ms = cleanNum(payload.onscreen_before_start_ms, 0, 24 * 3600_000);
+    // the form's identity across pages: its id, else its name, else page + position (lib/tracking/formKey.js)
+    const formKey = formKeyOf(payload.form_key_hint, pagePath, formIndex);
     const reportedActivity = cleanTime(payload.last_activity_at, nowMs);
     payload.last_activity_at = reportedActivity ? reportedActivity.toISOString() : undefined;
 
@@ -97,13 +100,13 @@ export async function POST(req) {
     // Real per-field timings from a form with marked fields prove data-track-field works.
     if (payload.field_timings_delta && payload.has_marked_fields === true) await markHealthEvent(supabase, site.id, pagePath, "field_attr", nowMs);
 
-    const { data: existing } = await supabase
-      .from("form_engagement")
-      .select("id, status, field_timings, last_activity_at, viewed_at")
-      .eq("session_id", payload.session_id)
-      .eq("page_path", payload.page_path)
-      .eq("form_index", payload.form_index)
-      .maybeSingle();
+    // Deploy-order safety: until 17-form-versions.sql has run, form_key / form_version_id do not exist. Every read and
+    // write below then retries without them, so tracking never stops (the rows just get no identity / version).
+    const missingCol = (e) => !!e && /form_key|form_version_id/.test(e.message || "");
+    const findExisting = (cols) =>
+      supabase.from("form_engagement").select(cols).eq("session_id", payload.session_id).eq("page_path", payload.page_path).eq("form_index", payload.form_index).maybeSingle();
+    let { data: existing, error: findError } = await findExisting("id, status, field_timings, last_activity_at, viewed_at, form_key, form_version_id");
+    if (missingCol(findError)) ({ data: existing } = await findExisting("id, status, field_timings, last_activity_at, viewed_at"));
 
     // Status only ever moves forward — viewed < started < submitted/abandoned
     // — so an out-of-order retry (e.g. a "started" arriving after
@@ -139,8 +142,16 @@ export async function POST(req) {
     // the actual submit moment (now — there's no earlier "true" moment for it).
     const endedAt = payload.status === "abandoned" ? resolvedActivityAt : payload.status === "submitted" ? now : null;
 
+    // Places the row in its form's version once its field list is known (mds/migrations/17-form-versions.sql). After the
+    // response: the tracker never waits for it. A failure only leaves the row unversioned (it still counts in "All").
+    const placeVersion = (rowId) =>
+      after(async () => {
+        const { error } = await supabase.rpc("jh_place_form_version", { p_row: rowId });
+        if (error) console.error("🔴 FORM VERSION PLACE ERROR:", error.message);
+      });
+
     if (!existing) {
-      const { error: insertError } = await supabase.from("form_engagement").insert({
+      const row = {
         site_id: site.id,
         visitor_id: payload.visitor_id || null,
         session_id: payload.session_id,
@@ -154,12 +165,19 @@ export async function POST(req) {
         form_bottom_y: payload.form_bottom_y ?? null,
         field_timings: mergeFieldTimings(null, payload.field_timings_delta, payload.field_errors_delta),
         form_fields: payload.form_fields ?? null,
+        form_key: formKey,
         onscreen_before_start_ms: payload.status === "started" ? payload.onscreen_before_start_ms : null,
         last_activity_at: resolvedActivityAt,
         first_input_at: payload.status === "started" ? resolvedActivityAt : null,
         ended_at: endedAt,
-      });
+      };
+      let { data: inserted, error: insertError } = await supabase.from("form_engagement").insert(row).select("id").single();
+      if (missingCol(insertError)) {
+        delete row.form_key;
+        ({ data: inserted, error: insertError } = await supabase.from("form_engagement").insert(row).select("id").single());
+      }
       if (insertError) console.error("🔴 FORM ENGAGEMENT INSERT ERROR:", insertError.message);
+      else if (payload.form_fields && inserted?.id && "form_key" in row) placeVersion(inserted.id);
     } else {
       const update = {
         status: payload.status,
@@ -172,6 +190,7 @@ export async function POST(req) {
       if (payload.page_view_id) update.page_view_id = payload.page_view_id; // informational only, see header comment
       if (payload.field_timings_delta || payload.field_errors_delta) update.field_timings = mergeFieldTimings(existing.field_timings, payload.field_timings_delta, payload.field_errors_delta);
       if (payload.form_fields) update.form_fields = payload.form_fields;
+      if ("form_key" in existing && !existing.form_key) update.form_key = formKey; // the first identity sticks
       if (payload.status === "started" && existing.status === "viewed") {
         update.first_input_at = resolvedActivityAt;
         if (payload.onscreen_before_start_ms !== null) update.onscreen_before_start_ms = payload.onscreen_before_start_ms;
@@ -180,6 +199,7 @@ export async function POST(req) {
 
       const { error: updateError } = await supabase.from("form_engagement").update(update).eq("id", existing.id);
       if (updateError) console.error("🔴 FORM ENGAGEMENT UPDATE ERROR:", updateError.message);
+      else if (payload.form_fields && "form_version_id" in existing && !existing.form_version_id) placeVersion(existing.id);
     }
 
     return NextResponse.json({ success: true }, { headers: corsHeaders() });

@@ -17,6 +17,7 @@ import { LocalDate } from "@/components/LocalDate";
 import { formatDuration, formatRelativeTime } from "@/lib/leadFormat";
 import { FormActivityChart } from "@/components/forms/FormActivityChart";
 import { collectFormActivities } from "@/jh-forms/collect";
+import { getFormReference } from "@/lib/actions/formDashboard.action";
 
 export default async function LeadProfilePage({ params }) {
   const { lead_id } = await params;
@@ -49,9 +50,14 @@ function formTitle(fa) {
   return what + " on " + (fa.page || "a page") + when;
 }
 
-function LeadProfileBody({ profile, raw, siteId }) {
+async function LeadProfileBody({ profile, raw, siteId }) {
   // every form this visitor started (submitted, abandoned or still open), with its session's page views
   const formActivities = collectFormActivities(raw.formEngagement || [], raw.pageViews || []);
+  // each form's "All time" healthy reference (no compare picker here): unusual fields are outlined in red. One read of
+  // the form's newest submitted rows per form (lib/actions/formDashboard.action.ts getFormReference).
+  const keys = [...new Set(formActivities.map((fa) => fa.formKey).filter(Boolean))];
+  const references = new Map(await Promise.all(keys.map(async (k) => [k, await getFormReference(k)])));
+  const refOf = (fa) => (fa.formKey ? references.get(fa.formKey) ?? null : null);
   const {
     identity,
     lastActivity,
@@ -185,7 +191,7 @@ function LeadProfileBody({ profile, raw, siteId }) {
           </CardHeader>
           <CardContent className="space-y-8">
             {formActivities.filter((fa) => fa.status === "submitted").map((fa) => (
-              <FormActivityChart key={fa.id} timeline={fa.timeline} title={formTitle(fa)} />
+              <FormActivityChart key={fa.id} timeline={fa.timeline} title={formTitle(fa)} reference={refOf(fa)} referenceLabel="every successful submission of this form (all time)" />
             ))}
             {/* the forms they did not submit are folded away so they are not mistaken for the lead's own form */}
             {formActivities.some((fa) => fa.status !== "submitted") && (
@@ -202,7 +208,7 @@ function LeadProfileBody({ profile, raw, siteId }) {
                 </summary>
                 <div className="space-y-8 border-t px-4 py-4">
                   {formActivities.filter((fa) => fa.status !== "submitted").map((fa) => (
-                    <FormActivityChart key={fa.id} timeline={fa.timeline} title={formTitle(fa)} />
+                    <FormActivityChart key={fa.id} timeline={fa.timeline} title={formTitle(fa)} reference={refOf(fa)} referenceLabel="every successful submission of this form (all time)" />
                   ))}
                 </div>
               </details>

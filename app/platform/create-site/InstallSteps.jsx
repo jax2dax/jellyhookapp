@@ -194,6 +194,19 @@ export function InstallSteps({ apiKey, trackerBase, specifyForm }) {
             tone={formKind === "starter" || formKind === "gtm" ? "ours" : "context"}
             tabs={{ options: FORM_KINDS, value: formKind, onChange: setFormKind }}
           />
+          {/* two short answers instead of more setup steps (founder decision 2026-10-15); the rules: lib/tracking/formKey.js */}
+          {formKind !== "starter" && (
+            <ul className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
+              <li>
+                Same form on more than one page? Give it the same <code className="rounded bg-muted px-1">id</code> and it is tracked as one form.{" "}
+                <a href="/docs/concepts/form-engagement" target="_blank" rel="noreferrer" className="text-primary hover:underline">How</a>
+              </li>
+              <li>
+                Want a field left out of analytics? Add <code className="rounded bg-muted px-1">data-jh-ignore</code> to it.{" "}
+                <a href="/docs/concepts/tracking-attributes" target="_blank" rel="noreferrer" className="text-primary hover:underline">How</a>
+              </li>
+            </ul>
+          )}
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">Every form on your site is tracked, so there is nothing else to add.</p>

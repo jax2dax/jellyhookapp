@@ -19,7 +19,7 @@ const events = [];
 const PAGE = `<!doctype html><html><head><title>f</title>
 <script src="http://localhost:4103/tracker.js" data-key="${KEY}"></script></head>
 <body style="margin:0"><h1>Top</h1><div style="height:1400px"></div>
-<form data-conversion="true" onsubmit="return false">
+<form id="lead-form" data-conversion="true" onsubmit="return false">
   <input id="email" name="email" type="email" required>
   <input id="name" name="name" required>
   <select id="plan" name="plan"><option value="">-</option><option value="a">A</option></select>
@@ -80,6 +80,8 @@ const ok = (c, m) => { console.log(c ? "ok:" : "FAIL:", m); if (!c) fails++; };
   const fields = viewed && viewed.form_fields;
   console.log("field list:", JSON.stringify(fields));
   ok(Array.isArray(fields) && fields.length === 4, "viewed carries the field list (4 fields, the hidden one left out)");
+  // the form's identity: its id attribute; no name attribute (an input called "name" must not be mistaken for it)
+  ok(eng.every((e) => e.form_key_hint && e.form_key_hint.id === "lead-form" && e.form_key_hint.name === null), "every engagement event carries the form's id, and no name (the input called name is not the form's name)");
   ok(fields && fields.find((f) => f.key === "email" && f.type === "email" && f.required) && fields.find((f) => f.key === "name" && f.required) && fields.find((f) => f.key === "phone" && !f.required) && fields.find((f) => f.type === "select"), "keys, types and the required flag are right");
 
   const started = eng.find((e) => e.status === "started" && typeof e.onscreen_before_start_ms === "number");

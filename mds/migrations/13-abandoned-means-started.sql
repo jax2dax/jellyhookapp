@@ -1,4 +1,4 @@
--- 15 (2026-10-14): "abandoned" now means STARTED and not submitted. A form that was only seen (status 'viewed', no
+-- 13-abandoned-means-started (2026-10-14): "abandoned" now means STARTED and not submitted. A form that was only seen (status 'viewed', no
 -- field ever focused) is no longer abandoned: it stays 'viewed'. Founder decision 2026-10-14 (form activities plan,
 -- mds/build/form-study/plan.md). Run once in the Supabase SQL editor. Safe to run twice.
 --

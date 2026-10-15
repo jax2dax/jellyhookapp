@@ -8,6 +8,9 @@ export interface FormActivity {
   page: string | null;
   status: string;
   seenAt: string | null;
+  /** the form's identity (since 17-form-versions.sql; null before) */
+  formKey: string | null;
+  formVersionId: string | null;
   timeline: FormTimeline;
 }
 
@@ -30,6 +33,8 @@ export function collectFormActivities(rows: EngagementRow[], pageViews: PageView
       page: r.page_path,
       status: r.status,
       seenAt: r.viewed_at,
+      formKey: r.form_key ?? null,
+      formVersionId: r.form_version_id ?? null,
       timeline: buildFormTimeline(r, bySession.get(r.session_id) ?? []),
     }))
     .sort((a, b) => (new Date(b.seenAt ?? 0).getTime() - new Date(a.seenAt ?? 0).getTime()) || (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9));

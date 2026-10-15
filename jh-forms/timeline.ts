@@ -23,7 +23,7 @@ export interface FieldTiming {
   firstKeydownAt?: string | null;
   lastUnfocusAt?: string | null;
   totalFocusedMs?: number;
-  visits?: [string, string][];
+  visits?: ([string, string] | [string, string, number])[];
   filled?: boolean;
   edits?: number;
   errors?: number;
@@ -51,6 +51,9 @@ export interface EngagementRow {
   last_field_key?: string | null;
   form_fields?: FormFieldDef[] | null;
   onscreen_before_start_ms?: number | null;
+  /** since 17-form-versions.sql */
+  form_key?: string | null;
+  form_version_id?: string | null;
 }
 
 export interface PageViewRow {
@@ -245,11 +248,21 @@ export function buildFormTimeline(row: EngagementRow, sessionPageViews: PageView
       continue;
     }
     // the part of the gap spent off this page is "away"/"other page", the rest is a pause on the page
-    const off = outside.reduce((n, o) => n + overlap(gapFrom, gapTo, o.from, o.to), 0);
-    const pause = Math.max(0, gap - off);
-    if (pause >= pauseMinMs) {
-      segments.push({ kind: "pause", from: gapFrom, to: gapTo, ms: pause });
-      pausesMs += pause;
+    // Only the pieces of the gap that are NOT away / on another page are pauses, each drawn where it really was, so a
+    // pause never overlaps the time away. A piece shorter than the threshold is neither (it stays "not explained").
+    const cuts = outside.map((o) => [Math.max(o.from, gapFrom), Math.min(o.to, gapTo)] as const).filter(([a, b]) => b > a).sort((p, q) => p[0] - q[0]);
+    let cursor = gapFrom;
+    const pieces: [number, number][] = [];
+    for (const [a, b] of cuts) {
+      if (a > cursor) pieces.push([cursor, a]);
+      cursor = Math.max(cursor, b);
+    }
+    if (cursor < gapTo) pieces.push([cursor, gapTo]);
+    for (const [a, b] of pieces) {
+      if (b - a >= pauseMinMs) {
+        segments.push({ kind: "pause", from: a, to: b, ms: b - a });
+        pausesMs += b - a;
+      }
     }
   }
   for (const o of outside) segments.push(o.kind === "away" ? { kind: "away", from: o.from, to: o.to, ms: o.to - o.from } : { kind: "otherPage", from: o.from, to: o.to, ms: o.to - o.from, path: o.path });

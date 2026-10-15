@@ -55,7 +55,7 @@ async function main() {
     create table page_views (id uuid primary key default gen_random_uuid(), page_view_id text, session_id text, visitor_id text, site_id uuid, page_url text, page_path text, page_title text, entered_at timestamptz, left_at timestamptz, time_on_page integer, scroll_depth real, max_scroll_depth real, max_scroll_reached_at timestamptz, page_height integer, entry_scroll_depth real, revisit_start_scroll_depth real, viewport_height integer);
     create table form_submissions (id uuid primary key default gen_random_uuid(), site_id uuid, visitor_id text, session_id text, page_url text, page_path text, name text, email text, phone text, confidence text default 'high', raw_data jsonb, submitted_at timestamptz, qualified boolean);
     create table visitors (id uuid primary key default gen_random_uuid(), visitor_id text, site_id uuid, first_seen timestamptz, last_seen timestamptz, device_type text, browser text, os text, language text);
-    create table form_engagement (id uuid primary key default gen_random_uuid(), site_id uuid, visitor_id text, session_id text, page_view_id text, page_path text, form_index integer default 0, status text, last_field_type text, last_field_key text, viewed_at timestamptz, first_input_at timestamptz, ended_at timestamptz, field_timings jsonb default '{}', last_activity_at timestamptz);
+    create table form_engagement (id uuid primary key default gen_random_uuid(), site_id uuid, visitor_id text, session_id text, page_view_id text, page_path text, form_index integer default 0, status text, last_field_type text, last_field_key text, viewed_at timestamptz, first_input_at timestamptz, ended_at timestamptz, field_timings jsonb default '{}', last_activity_at timestamptz, form_fields jsonb, onscreen_before_start_ms integer, form_key text, form_version_id uuid);
   `);
   const iso = (n: number | null) => (n == null ? null : new Date(n).toISOString());
   for (const s of sessions) await pg.query("insert into sessions(session_id,visitor_id,site_id,started_at,ended_at,last_activity_at,utm_source,country) values ($1,$2,$3,$4,$5,$6,$7,$8)", [s.sid, s.vid, s.site, iso(s.start), iso(s.end), iso(s.end ?? s.start), s.utm, s.country]);
@@ -76,6 +76,17 @@ async function main() {
   ];
   for (const f of friction)
     await pg.query("insert into form_engagement(site_id,visitor_id,session_id,page_path,status,last_field_type,last_field_key,field_timings) values ($1,$2,$3,'/demo-form',$4,$5,$6,$7)", [SITE, "v" + f.sid, f.sid, f.status, f.last[0], f.last[1], JSON.stringify(f.t)]);
+  // form-study signals (2026-10-14): a form with its field list, per-visit data, filled/edits/errors, and on-screen time
+  const NEWF = JSON.stringify([{ key: "name", type: "text", required: true }, { key: "email", type: "email", required: true }, { key: "phone", type: "tel", required: false }, { key: "custom:company", type: "text", required: false }]);
+  const NEWT = {
+    name: { order: 1, totalFocusedMs: 4000, firstFocusAt: "2026-10-02T10:00:00Z", firstKeydownAt: "2026-10-02T10:00:01Z", lastUnfocusAt: "2026-10-02T10:00:04Z", visits: [["2026-10-02T10:00:00Z", "2026-10-02T10:00:04Z", 1]], filled: true, edits: 1 },
+    email: { order: 2, totalFocusedMs: 9000, firstFocusAt: "2026-10-02T10:00:05Z", firstKeydownAt: "2026-10-02T10:00:06Z", lastUnfocusAt: "2026-10-02T10:00:30Z", visits: [["2026-10-02T10:00:05Z", "2026-10-02T10:00:09Z", 1], ["2026-10-02T10:00:25Z", "2026-10-02T10:00:30Z", 1]], filled: true, edits: 2, errors: 1 },
+    phone: { order: 3, totalFocusedMs: 1000, firstFocusAt: "2026-10-02T10:00:31Z", lastUnfocusAt: "2026-10-02T10:00:32Z", visits: [["2026-10-02T10:00:31Z", "2026-10-02T10:00:32Z", 0]], filled: false, edits: 0 },
+  };
+  await pg.query("insert into form_engagement(site_id,visitor_id,session_id,page_path,status,last_field_type,field_timings,form_fields,onscreen_before_start_ms) values ($1,'vn1','sn1','/study-form','abandoned','email',$2,$3,4200)", [SITE, JSON.stringify(NEWT), NEWF]);
+  // an entry that only ever recorded a validation error (never focused), and another site's form with a field list
+  await pg.query("insert into form_engagement(site_id,visitor_id,session_id,page_path,status,field_timings,form_fields,onscreen_before_start_ms) values ($1,'vn2','sn2','/study-form','submitted',$2,$3,1000)", [SITE, JSON.stringify({ email: { order: 1, totalFocusedMs: 2000, firstFocusAt: "2026-10-02T11:00:00Z", firstKeydownAt: "2026-10-02T11:00:01Z", lastUnfocusAt: "2026-10-02T11:00:02Z", visits: [["2026-10-02T11:00:00Z", "2026-10-02T11:00:02Z", 1]], filled: true, edits: 1 }, phone: { order: 2, errors: 3 } }), NEWF]);
+  await pg.query("insert into form_engagement(site_id,visitor_id,session_id,page_path,status,field_timings,form_fields) values ($1,'vn3','sn3','/study-form','abandoned','{}',$2)", [OTHER, NEWF]);
   await pg.exec("analyze");
 
   const queries: string[] = [];
@@ -226,6 +237,28 @@ async function main() {
   res = await runHook(db, SITE, H("formField", [demo], { kind: "groupBy", field: "name", measure: { agg: "avg", field: "focusedTime" }, sort: "valueDesc" }));
   ok(res.answer.shape === "table" && res.answer.rows[0]?.key === "phone" && res.answer.rows[0]?.value === 21000, "average time per field, slowest first (phone, 21 sec)");
   ok(near(await one(H("formField", [demo, { id: id(), kind: "field", field: "name", op: "=", value: "email" }], { kind: "aggregate", agg: "avg", field: "timeToFirstKey" })), (1000 + 2000 + 1000) / 3), "average time before typing in the email field");
+
+  // 11b. form study signals (2026-10-14): untouched fields, visits, filled, changes, errors, required, form-level counts
+  const study = { id: "st", kind: "field", field: "page", op: "=", value: "/study-form" } as Condition;
+  const F = (field: string, op: any, value?: any): Condition => ({ id: id(), kind: "field", field, op, value } as Condition);
+  ok((await one(H("formField", [study]))) === 8, "study form: 5 focused/error entries + 3 untouched fields = 8 rows on this site only (the other site's form is not counted)");
+  ok((await one(H("formField", [study, F("touched", "isFalse")]))) === 4, "fields nobody clicked into: company (form 1); phone (failed validation only), name and company (form 2)");
+  ok((await one(H("formField", [study, F("typed", "isFalse")]))) === 1, "'clicked in but never typed' does not count untouched fields (only phone on form 1)");
+  ok((await one(H("formField", [study, F("typed", "isTrue")]))) === 3, "typed in: name, email (form 1), email (form 2)");
+  ok((await one(H("formField", [study, F("visits", ">", 1)]))) === 1, "fields visited more than once: email on form 1 (two stored visits)");
+  ok((await one(H("formField", [study, F("changes", ">", 1)]))) === 1, "fields whose value was changed more than once: email on form 1");
+  ok((await one(H("formField", [study, F("filled", "isFalse")]))) === 1, "fields left empty after being clicked into: phone on form 1");
+  ok((await one(H("formField", [study, F("errors", ">=", 1)]))) === 2, "fields that failed validation: email on form 1, phone on form 2");
+  ok((await one(H("formField", [study, F("required", "isTrue")]))) === 4, "required fields: name and email on both forms");
+  ok((await one(H("formField", [study, F("required", "isTrue"), F("touched", "isFalse")]))) === 1, "required fields nobody touched: name on form 2");
+  res = await runHook(db, SITE, H("formField", [study, F("touched", "isFalse")], { kind: "groupBy", field: "name", measure: { agg: "count" }, sort: "valueDesc" }));
+  ok(res.answer.shape === "table" && res.answer.rows.some((x: any) => x.key === "company" && Number(x.value) === 2), "skipped fields ranked by name: company was never touched twice");
+  ok((await one(H("form", [{ id: id(), kind: "field", field: "page", op: "=", value: "/study-form" }, F("totalFields", "=", 4)]))) === 2, "forms with a known field count of 4");
+  ok((await one(H("form", [{ id: id(), kind: "field", field: "page", op: "=", value: "/study-form" }], { kind: "aggregate", agg: "sum", field: "fieldsNotTouched" }))) === 4, "fields never touched, summed over the two forms (1 on form 1, 3 on form 2: a field that only failed validation was never touched)");
+  ok((await one(H("form", [{ id: id(), kind: "field", field: "page", op: "=", value: "/study-form" }], { kind: "aggregate", agg: "sum", field: "validationErrors" }))) === 4, "validation errors summed: 1 on form 1, 3 on form 2");
+  ok(near(await one(H("form", [{ id: id(), kind: "field", field: "page", op: "=", value: "/study-form" }], { kind: "aggregate", agg: "avg", field: "timeOnScreenBeforeStart" })), 2600), "average time on screen before typing: (4200 + 1000) / 2 ms");
+  ok((await one(H("form", [F("totalFields", "isEmpty")]))) === forms.filter((f) => f.site === SITE).length + 3, "forms with no field list (before 14 Oct 2026) have no total: empty, never zero");
+  ok((await one(H("formField", [demo, F("touched", "isTrue")]))) === 8, "older records (no field list): every row is a touched field, nothing invented");
 
   // 12. old queries keep working (jh-hook/migrate.ts)
   const v1 = { v: 1, return: { entity: "sessions", as: "count" }, filters: [

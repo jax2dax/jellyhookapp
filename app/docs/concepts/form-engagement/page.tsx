@@ -39,6 +39,25 @@ export default function FormEngagementPage() {
         </div>
 
         <div>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Reading the form drawing</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Each form is drawn in three parts. At the top, a row of number tiles: how long before typing, the total activity on the form (first
+            input until it was submitted or given up, pauses and time away included), time in fields, pausing, on other pages and away from the site, and how many fields were touched. Below
+            that, the Timeline: the whole form on one line, in the order things happened, with pauses, other pages and time away as coloured
+            blocks. Below the rule, the fields: one numbered row per field in the order they were used.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            A field&apos;s bar has two parts: a light start (clicked in, nothing typed yet) and a solid part (typing). Each part carries its own
+            seconds, for example 2 s in the light part and 11 s in the solid part: together the 13 seconds the field was in use. When the light
+            part is too short for its seconds, one text sits on the solid part instead, such as &quot;13 s (2 s before typing)&quot;: the 13 seconds
+            already include the 2, they are not added. When the bar is too short for that, only the seconds are inside; when it is too short for any text, the seconds
+            are written next to it. The lighter start of a bar is the time clicked in without typing yet. A field with a dashed outline was
+            never touched. The Timeline is a summary of the rows beneath it, not a field: each field block in it carries the field&apos;s number and name above it
+            (just the number when the block is narrow) and its seconds inside, matching the numbered rows below.
+          </p>
+        </div>
+
+        <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">What else is recorded, and what never is</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             For each field: whether it was filled or left empty when the visitor moved on, how many times its value was

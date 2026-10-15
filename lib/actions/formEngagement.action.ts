@@ -1,6 +1,8 @@
 // lib/actions/formEngagement.action.ts
 // Data for /platform/form-engagement: every form interaction on the current site that was at least started, newest
-// first, with the page views of each session (for pauses, other pages and time away).
+// first, with the page views of each session (for pauses, other pages and time away). With a form (and its current
+// version) given: only that form's rows of that version, any age. Without: the last 30 days of every form (before
+// 17-form-versions.sql has run).
 //
 // Identity: a person is named when that VISITOR submitted a form at any time (in this visit or a later one): the
 // row then shows their name and links to their lead. A visitor who never submitted anything stays anonymous
@@ -27,23 +29,22 @@ export interface FormEngagementItem extends FormActivity {
 
 type Sub = { id: string; session_id: string | null; visitor_id: string | null; name: string | null; email: string | null; page_path: string | null; submitted_at: string | null };
 
-export async function getFormEngagements(): Promise<{ items: FormEngagementItem[]; days: number }> {
+export async function getFormEngagements(filter: { form?: string | null; version?: string | null } = {}): Promise<{ items: FormEngagementItem[]; days: number | null }> {
   const user = await getAuthUser();
   const site = (await requireSite(user.id)) as { id: string };
   const supabase = createSupabaseClient();
   const since = new Date(Date.now() - DAYS * 86_400_000).toISOString();
+  const scoped = typeof filter.form === "string" && filter.form.length > 0 && filter.form.length <= 300;
 
-  const { data: rows, error } = await supabase
-    .from("form_engagement")
-    .select("*")
-    .eq("site_id", site.id)
-    .neq("status", "viewed")
-    .gte("viewed_at", since)
-    .order("viewed_at", { ascending: false })
-    .limit(LIMIT);
+  let q = supabase.from("form_engagement").select("*").eq("site_id", site.id).neq("status", "viewed");
+  if (scoped) {
+    q = q.eq("form_key", filter.form!);
+    if (typeof filter.version === "string" && /^[0-9a-f-]{36}$/i.test(filter.version)) q = q.eq("form_version_id", filter.version);
+  } else q = q.gte("viewed_at", since);
+  const { data: rows, error } = await q.order("viewed_at", { ascending: false }).limit(LIMIT);
   if (error) {
     console.error("[form-engagement] form_engagement:", error.message);
-    return { items: [], days: DAYS };
+    return { items: [], days: scoped ? null : DAYS };
   }
   const sessionIds = [...new Set((rows ?? []).map((r) => r.session_id).filter(Boolean))];
   const visitorIds = [...new Set((rows ?? []).map((r) => r.visitor_id).filter(Boolean))];
@@ -77,5 +78,5 @@ export async function getFormEngagements(): Promise<{ items: FormEngagementItem[
       who: pick ? { name: pick.name, email: pick.email, leadId: pick.id, via: own ? "this" : "other" } : null,
     };
   });
-  return { items, days: DAYS };
+  return { items, days: scoped ? null : DAYS };
 }

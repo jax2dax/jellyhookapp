@@ -57,7 +57,12 @@ export default function ExamplesPage() {
         <Example title="Fields people click but do not type in" build={<><B>Show</B> <B>the number of</B> form fields where typed in it is false.</>} />
         <Example title="Abandoned forms that stopped on the phone field" build={<><B>Show</B> <B>the number of</B> form activity where status is abandoned and <B>+ Look at its...</B> its fields, <B>has at least one</B> where last field touched is true and field is phone.</>} />
         <Example title="Time from seeing a form to typing" build={<><B>Show</B> <B>a calculation:</B> median time from seeing to typing, of form activity.</>} />
-        <P>Remember that fields touched counts only fields someone clicked into, so it is a lower bound.</P>
+        <Example title="Fields people skip" build={<><B>Show</B> <B>a breakdown:</B> number of form fields, for each field, where clicked into is false. Biggest first.</>} why="Only for forms seen since 14 October 2026: older forms do not know which fields they had." />
+        <Example title="Required fields nobody touched" build={<><B>Show</B> <B>the number of</B> form fields where required is true and clicked into is false.</>} />
+        <Example title="Fields that fail validation" build={<><B>Show</B> <B>a breakdown:</B> number of form fields, for each field, where validation errors is at least 1. Biggest first.</>} why="The field whose rules people trip over." />
+        <Example title="Fields people go back and correct" build={<><B>Show</B> <B>a breakdown:</B> number of form fields, for each field, where times its value changed is more than 1. Biggest first.</>} />
+        <Example title="Forms people look at for a while before starting" build={<><B>Show</B> <B>a calculation:</B> median time on screen before typing, of form activity.</>} why="Counts only the time the form was really on screen, not time spent scrolled away." />
+        <P>Remember that fields touched counts only fields someone clicked into, so it is a lower bound. Fields in the form, fields never touched, required, left filled and the other newer signals are empty (not zero) for forms seen before 14 October 2026.</P>
       </Section>
 
       <Section title="Journeys">

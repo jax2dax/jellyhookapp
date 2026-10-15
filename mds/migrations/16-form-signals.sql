@@ -1,4 +1,4 @@
--- 16 (2026-10-14): form study signals. Run once in the Supabase SQL editor BEFORE deploying the code that writes them
+-- 13-form-signals (2026-10-14): form study signals. Run once in the Supabase SQL editor BEFORE deploying the code that writes them
 -- (the form-engagement route inserts these columns; without them every insert fails). Safe to run twice.
 -- Details: mds/build/form-study/tracker-changes.md.
 --
