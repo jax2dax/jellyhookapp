@@ -32,6 +32,14 @@ export interface BuilderInitial {
 type Sel = { rowId: string; cardId: string } | null;
 type Edit = { id: string; field: string } | null;
 
+/** Shown on the AI face: a click puts the sentence in the box. */
+const AI_EXAMPLES = [
+  "Read the pricing page for at least 30 seconds",
+  "Came back 2 or more times and read most of every page",
+  "Saw pricing, then the demo page, in one visit",
+  "Came from Google and filled the form in under a minute",
+];
+
 const SCOPES: { value: Scope; label: string; hint: string }[] = [
   { value: "any", label: "any visit", hint: "Anything they did before sending the form, in any visit" },
   { value: "converting", label: "the converting visit", hint: "Only the visit in which they sent the form" },
@@ -100,6 +108,7 @@ function Key({ children, onClick, disabled, hint, accent }: { children: ReactNod
 
 export function MarkBuilder({ initial, pages, team, me, onSaved, onCancel }: { initial: BuilderInitial; pages: string[]; team: TeamMember[]; me: string; onSaved: (m: MarkView, warning?: string) => void; onCancel: () => void }) {
   const [rule, setRule] = useState<MarkRule>(initial.rule);
+  const [face, setFace] = useState<"ai" | "manual">(() => (initial.rule.rows.length || initial.rule.lead.length ? "manual" : "ai"));
   const [sel, setSel] = useState<Sel>(null);
   const [edit, setEdit] = useState<Edit>(null);
   const [menu, setMenu] = useState<string | null>(null);
@@ -191,6 +200,7 @@ export function MarkBuilder({ initial, pages, team, me, onSaved, onCancel }: { i
       setUndo(rule);
       setRule(r.rule);
       setSel(null);
+      setFace("manual");
       if (!name.trim() && r.name) {
         setName(r.name);
       }
@@ -371,8 +381,64 @@ export function MarkBuilder({ initial, pages, team, me, onSaved, onCancel }: { i
         ))}
       </datalist>
 
-      {/* the device */}
-      <div className="rounded-[1.4rem] border bg-muted/50 p-2.5 shadow-inner">
+      {/* the device: a card with two faces. "Enter with AI" (shown first for a new mark) and "Enter manually" (the
+          screen and the keys, which still has the AI line). Building with AI flips to the manual face to show the result. */}
+      <div className="[perspective:1600px]">
+        <div className={"grid transition-transform duration-500 ease-out [transform-style:preserve-3d] motion-reduce:transition-none " + (face === "manual" ? "[transform:rotateY(180deg)]" : "")}>
+          {/* face 1: Enter with AI */}
+          <div className="flex flex-col rounded-[1.4rem] border bg-muted/50 p-2.5 shadow-inner [backface-visibility:hidden] [grid-area:1/1]" inert={face !== "ai"} aria-hidden={face !== "ai"}>
+            <div className="flex flex-1 flex-col gap-3 rounded-2xl border bg-background p-4 shadow-sm">
+              <div className="flex items-center gap-2">
+                <Sparkles className="size-4 text-primary" />
+                <h3 className="text-sm font-semibold">Enter with AI</h3>
+              </div>
+              <p className="text-xs text-muted-foreground">Describe the leads you want marked, in your own words. The conditions are built for you, and you can check and change them.</p>
+              <div className="jh-ai-glow rounded-xl p-[1.5px]">
+                <textarea
+                  value={ai}
+                  onChange={(e) => setAi(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      runAi();
+                    }
+                  }}
+                  rows={4}
+                  maxLength={400}
+                  placeholder="e.g. Read the pricing page for at least 30 seconds, then looked at the demo page"
+                  aria-label="Describe the leads to mark"
+                  className="relative block w-full resize-none rounded-[10px] bg-background p-3 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/70"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Try one</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {AI_EXAMPLES.map((x) => (
+                    <button key={x} type="button" onClick={() => setAi(x)} className="rounded-full border bg-muted/40 px-2.5 py-1 text-left text-[11px] text-foreground hover:border-primary/50 hover:bg-primary/10">
+                      {x}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {aiNote && <p className={"text-xs " + (aiNote.tone === "error" ? "text-red-600 dark:text-red-400" : "text-muted-foreground")}>{aiNote.text}</p>}
+              <button type="button" onClick={runAi} disabled={!ai.trim() || aiBusy} className="mt-auto flex h-10 items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-40">
+                {aiBusy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                {aiBusy ? "Building…" : "Build the mark"}
+              </button>
+            </div>
+            <button type="button" onClick={() => setFace("manual")} className="mx-auto mt-2 flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground">
+              Enter manually <ArrowRight className="size-3" />
+            </button>
+          </div>
+
+          {/* face 2: Enter manually */}
+          <div className="rounded-[1.4rem] border bg-muted/50 p-2.5 shadow-inner [backface-visibility:hidden] [grid-area:1/1] [transform:rotateY(180deg)]" inert={face !== "manual"} aria-hidden={face !== "manual"}>
+            <div className="mb-2 flex items-center justify-between px-1">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Enter manually</span>
+              <button type="button" onClick={() => setFace("ai")} className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10">
+                <Sparkles className="size-3" /> Enter with AI
+              </button>
+            </div>
         <div className="space-y-2.5 rounded-2xl border bg-background p-3 shadow-sm">
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             Counts
@@ -434,21 +500,25 @@ export function MarkBuilder({ initial, pages, team, me, onSaved, onCancel }: { i
 
         {/* Enter with AI: between the screen and the keys */}
         <div className="mt-2.5 space-y-1.5">
-                  <div className="flex items-center gap-1.5 rounded-lg border bg-muted/30 px-2 focus-within:border-primary/60">
-            <Sparkles className="size-3.5 shrink-0 text-primary" />
-            <input
-              value={ai}
-              onChange={(e) => setAi(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && runAi()}
-              placeholder="Describe the lead: read pricing 30 s, then the demo page"
-              className="h-8 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70"
-              aria-label="Enter with AI"
-              maxLength={400}
-            />
-            <button type="button" onClick={runAi} disabled={!ai.trim() || aiBusy} className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40" aria-label="Build with AI">
-              {aiBusy ? <Loader2 className="size-3.5 animate-spin" /> : <ArrowRight className="size-3.5" />}
-            </button>
+          <div className="jh-ai-glow relative rounded-xl p-[1.5px]">
+            <div className="relative flex items-center gap-2 rounded-[10px] bg-background px-2.5">
+              <Sparkles className="size-4 shrink-0 animate-pulse text-primary" />
+              <input
+                value={ai}
+                onChange={(e) => setAi(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && runAi()}
+                placeholder="Describe the lead in your words"
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/80"
+                aria-label="Enter with AI"
+                maxLength={400}
+              />
+              <button type="button" onClick={runAi} disabled={!ai.trim() || aiBusy} className="flex h-7 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground shadow-sm disabled:opacity-40" aria-label="Build with AI">
+                {aiBusy ? <Loader2 className="size-3.5 animate-spin" /> : <ArrowRight className="size-3.5" />}
+                Build
+              </button>
+            </div>
           </div>
+          {!aiNote && !ai && <p className="px-1 text-[11px] text-muted-foreground">Enter with AI, e.g. &quot;read pricing for 30 s, then the demo page&quot;. Or use the keys.</p>}
           {aiNote && (
             <p className={"text-[11px] " + (aiNote.tone === "error" ? "text-red-600 dark:text-red-400" : "text-muted-foreground")}>
               {aiNote.text}
@@ -478,6 +548,8 @@ export function MarkBuilder({ initial, pages, team, me, onSaved, onCancel }: { i
           <Key onClick={() => addChip({ id: newId("l"), kind: "source", value: "" }, "v")} hint="Where they came from (google, facebook, a campaign)">Came from</Key>
           <Key onClick={() => addChip({ id: newId("l"), kind: "device", value: "mobile" }, "v")} hint="Phone or computer">Device</Key>
           <Key onClick={() => addChip({ id: newId("l"), kind: "formTime", op: "under", seconds: 60 }, "v")} hint="How long the form took">Form time</Key>
+        </div>
+          </div>
         </div>
       </div>
 

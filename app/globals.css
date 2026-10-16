@@ -446,3 +446,31 @@
     animation: none;
   }
 }
+
+/* Enter with AI (components/marks/MarkBuilder.tsx): a slowly turning gradient ring and a soft halo, to invite people to
+   describe a mark in words. The ring is a rotating layer behind the input; still under prefers-reduced-motion. */
+.jh-ai-glow {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 18px -2px color-mix(in oklab, var(--color-primary) 55%, transparent);
+}
+.jh-ai-glow::before {
+  content: "";
+  position: absolute;
+  inset: -150%;
+  background: conic-gradient(var(--color-primary), #22d3ee, #a78bfa, var(--color-primary));
+  animation: jh-ai-spin 4s linear infinite;
+}
+.jh-ai-glow:focus-within {
+  box-shadow: 0 0 26px 0 color-mix(in oklab, var(--color-primary) 70%, transparent);
+}
+@keyframes jh-ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jh-ai-glow::before {
+    animation: none;
+  }
+}

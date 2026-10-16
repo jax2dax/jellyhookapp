@@ -42,6 +42,7 @@ function Toggle({ on, disabled, onChange, label }: { on: boolean; disabled?: boo
 export function MarksPanel({ state, applied, onApply, onChange }: { state: MarksState; applied: string[]; onApply: (ids: string[]) => void; onChange: (c: MarkChange) => void }) {
   const [builder, setBuilder] = useState<BuilderInitial | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
@@ -96,7 +97,20 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
           <Bookmark className="size-4 text-muted-foreground" />
         )}
         <h2 className="text-sm font-semibold">{builder ? (builder.id ? "Edit mark" : "New mark") : "Marks"}</h2>
-        {!builder && <span className="ml-auto text-[11px] text-muted-foreground">{mine.length} of {s.limit} yours</span>}
+        {!builder && (
+          <>
+            <span className="ml-auto text-[11px] text-muted-foreground">{mine.length} of {s.limit}</span>
+            <button
+              type="button"
+              disabled={full || !s.ready}
+              onClick={() => startNew()}
+              title={full ? `You have ${s.limit} marks: delete one to add another` : "New mark"}
+              className="flex h-7 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Plus className="size-3.5" /> New
+            </button>
+          </>
+        )}
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -177,6 +191,28 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                         <MoreHorizontal className="size-4" />
                       </button>
                     </div>
+                    {confirmDelete === m.id && (
+                      <div className="mx-1 mb-1 mt-1 rounded-md border border-red-500/40 bg-red-500/5 p-2.5" role="alertdialog" aria-label={"Delete " + m.name}>
+                        <p className="text-xs text-foreground">
+                          Delete <strong>{m.name}</strong>? Its badges go too{m.visibility !== "private" ? ", for everyone it is shared with" : ""}. This can&apos;t be undone.
+                        </p>
+                        <div className="mt-2 flex justify-end gap-2">
+                          <button type="button" autoFocus onClick={() => setConfirmDelete(null)} className="h-7 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-muted">
+                            Keep it
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConfirmDelete(null);
+                              run(m.id, () => deleteMark(m.id), () => ({ text: `${m.name} deleted.`, change: { type: "deleted", id: m.id } }));
+                            }}
+                            className="h-7 rounded-md bg-red-600 px-2.5 text-xs font-medium text-white hover:bg-red-700"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     {menu === m.id && (
                       <div className="absolute right-1 top-10 z-20 w-44 rounded-md border bg-popover p-1 text-xs shadow-md">
                         {m.mine && (
@@ -197,7 +233,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                             type="button"
                             onClick={() => {
                               setMenu(null);
-                              if (window.confirm(`Delete "${m.name}"? Its badges go too.`)) run(m.id, () => deleteMark(m.id), () => ({ text: `${m.name} deleted.`, change: { type: "deleted", id: m.id } }));
+                              setConfirmDelete(m.id);
                             }}
                             className="w-full rounded px-2 py-1.5 text-left text-red-600 hover:bg-muted dark:text-red-400"
                           >
@@ -231,9 +267,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
               </div>
             )}
 
-            <button type="button" disabled={full} onClick={() => startNew()} className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-sm text-muted-foreground hover:border-foreground/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50">
-              <Plus className="size-4" /> {full ? `${s.limit} marks: delete one to add another` : "New mark"}
-            </button>
+            {full && <p className="px-1 text-[11px] text-muted-foreground">You have {s.limit} marks, the most there can be. Delete one to add another.</p>}
           </div>
         )}
       </div>

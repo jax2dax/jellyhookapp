@@ -21,7 +21,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DateRangeField } from "@/components/ui/DateRangeField";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -29,6 +29,7 @@ import { LocalDate } from "@/components/LocalDate";
 import { addDays, formatLocal, parseLocal, startOfDay } from "@/lib/dateLocal";
 import { oneOf, useDebouncedUrlText, useUrlState } from "@/lib/urlState";
 import { LeadQualifyToggle } from "./LeadQualifyToggle";
+import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { MarkDots, type BadgeMark } from "@/components/marks/MarkBadge";
 
 export interface LeadRow {
@@ -165,6 +166,12 @@ export function LeadsTable({ leads, siteId, marks }: { leads: LeadRow[]; siteId:
         </select>
       </div>
 
+      {applied.length === 0 && leads.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          <strong className="text-foreground">{filtered.length}</strong> {filtered.length === 1 ? "lead" : "leads"}
+          {filtered.length !== leads.length ? " of " + leads.length : ""}
+        </p>
+      )}
       {applied.length > 0 && (
         <p className="text-xs text-muted-foreground">
           <strong className="text-foreground">{matching}</strong> of {filtered.length} leads have {applied.length === 1 ? "the applied mark" : "an applied mark"}; they are listed first.
@@ -177,58 +184,68 @@ export function LeadsTable({ leads, siteId, marks }: { leads: LeadRow[]; siteId:
         </div>
       ) : (
         <div className="relative">
-          <div ref={scroller} onScroll={measure} className="max-h-120 overflow-y-auto rounded-md border">
+          <div ref={scroller} onScroll={measure} className="max-h-[calc(100vh-16rem)] min-h-64 overflow-y-auto rounded-lg border">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  {marks && <TableHead className="w-0 whitespace-nowrap">Marks</TableHead>}
-                  <TableHead>Email</TableHead>
-                  <TableHead>Page</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead className="text-right">Qualify</TableHead>
+              <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur supports-backdrop-filter:bg-muted/60">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-9 pl-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Lead</TableHead>
+                  {marks && <TableHead className="h-9 w-0 whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Marks</TableHead>}
+                  <TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Sent from</TableHead>
+                  <TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Submitted</TableHead>
+                  <TableHead className="h-9 pr-4 text-right text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Qualify</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ordered.map((lead) => (
-                  <TableRow
-                    key={lead.id}
-                    tabIndex={0}
-                    className={"cursor-pointer transition-opacity " + (applied.length && hits(lead.id) === 0 ? "opacity-40 hover:opacity-100" : "")}
-                    onClick={(e) => {
-                      // the qualify toggle and the name link handle their own clicks
-                      if ((e.target as HTMLElement).closest("button, a, input, select, [role='button']")) return;
-                      openLead(lead.id);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
-                        e.preventDefault();
+                {ordered.map((lead) => {
+                  const dim = applied.length > 0 && hits(lead.id) === 0;
+                  return (
+                    <TableRow
+                      key={lead.id}
+                      tabIndex={0}
+                      className={"group cursor-pointer border-border/60 transition-[opacity,background-color] focus-visible:bg-muted/50 focus-visible:outline-none " + (dim ? "opacity-40 hover:opacity-100" : "")}
+                      onClick={(e) => {
+                        // the qualify toggle and the name link handle their own clicks
+                        if ((e.target as HTMLElement).closest("button, a, input, select, [role='button']")) return;
                         openLead(lead.id);
-                      }
-                    }}
-                  >
-                    <TableCell className="font-medium">
-                      <Link href={`/platform/leads/${lead.id}`} className="text-foreground hover:text-primary hover:underline">
-                        {lead.name || "—"}
-                      </Link>
-                    </TableCell>
-                    {marks && (
-                      <TableCell className="py-1.5">
-                        <MarkDots marks={marks.byLead[lead.id] ?? []} />
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          openLead(lead.id);
+                        }
+                      }}
+                    >
+                      <TableCell className="py-2.5 pl-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <InitialsAvatar label={lead.name || lead.email} size="sm" className="size-8 shrink-0 text-[11px]" />
+                          <div className="min-w-0">
+                            <Link href={`/platform/leads/${lead.id}`} className="block truncate text-sm font-medium text-foreground hover:text-primary">
+                              {lead.name || lead.email || "Unnamed lead"}
+                            </Link>
+                            {lead.name && lead.email && <div className="truncate text-xs text-muted-foreground">{lead.email}</div>}
+                          </div>
+                        </div>
                       </TableCell>
-                    )}
-                    <TableCell className="text-muted-foreground">{lead.email || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{lead.page_path || "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      <LocalDate value={lead.submitted_at} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end">
-                        <LeadQualifyToggle siteId={siteId} leadId={lead.id} initialQualified={lead.qualified} compact />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      {marks && (
+                        <TableCell className="py-2.5">
+                          <MarkDots marks={marks.byLead[lead.id] ?? []} />
+                        </TableCell>
+                      )}
+                      <TableCell className="py-2.5">
+                        {lead.page_path ? <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">{lead.page_path}</span> : <span className="text-muted-foreground">-</span>}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap py-2.5 text-xs text-muted-foreground">
+                        <LocalDate value={lead.submitted_at} mode="datetime" />
+                      </TableCell>
+                      <TableCell className="py-2.5 pr-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <LeadQualifyToggle siteId={siteId} leadId={lead.id} initialQualified={lead.qualified} compact />
+                          <ChevronRight className="size-4 text-muted-foreground/0 transition group-hover:text-muted-foreground" aria-hidden />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
