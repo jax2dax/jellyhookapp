@@ -20,6 +20,7 @@ import { collectFormActivities } from "@/jh-forms/collect";
 import { getFormReference } from "@/lib/actions/formDashboard.action";
 import { marksOfLead } from "@/lib/actions/marks.action";
 import { MarkPill } from "@/components/marks/MarkBadge";
+import { InfoTip } from "@/components/forms/InfoTip";
 
 export default async function LeadProfilePage({ params }) {
   const { lead_id } = await params;
@@ -258,10 +259,10 @@ async function LeadProfileBody({ profile, raw, siteId }) {
       {/* ── Section 5: Full session history (converted + non-converted) ── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Session History</CardTitle>
-          <CardDescription>
-            Every visit made from this browser, including sessions where they left without converting. Click a row to see the exact browsing session.
-          </CardDescription>
+          <CardTitle className="flex items-center gap-2 text-base">
+            Session History
+            <InfoTip>Every visit made from this browser, including visits where they left without sending a form. Pick a visit on the left to see it; click a page in the chart to see what they did there.</InfoTip>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <Suspense fallback={<div className="py-6 text-center text-sm text-muted-foreground">Loading sessions…</div>}>

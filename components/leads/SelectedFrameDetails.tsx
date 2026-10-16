@@ -14,11 +14,14 @@ import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDuration } from "@/lib/leadFormat";
 import { computeSeenBreakdown, type TimelineItem, type VisitGeometry } from "@/framePlate";
+import { pageStory } from "@/lib/leadSessions/story";
 
 export interface SelectedFrameDetailsProps {
   item: TimelineItem;
   /** the page this visit's timeline actually ends on (session ended here, not converted, not live) — see SessionStrip's onSelectItem */
   isLastVisit: boolean;
+  /** the page they opened next, for the story ("Then went to /contact") */
+  nextPath?: string | null;
   onClose: () => void;
 }
 
@@ -51,7 +54,8 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export function SelectedFrameDetails({ item, isLastVisit, onClose }: SelectedFrameDetailsProps) {
+export function SelectedFrameDetails({ item, isLastVisit, nextPath, onClose }: SelectedFrameDetailsProps) {
+  const [details, setDetails] = React.useState(false);
   if (item.kind !== "visit") return null; // "away" gap frames aren't selectable — SessionStrip never calls onSelectItem for them
   const visit = item;
 
@@ -65,7 +69,7 @@ export function SelectedFrameDetails({ item, isLastVisit, onClose }: SelectedFra
   const headers = [...(visit.headers || [])].sort((a, b) => a.y - b.y);
 
   return (
-    <div className={`rounded-md border-2 bg-card/50 p-4 ${style.border}`}>
+    <div className={`rounded-md border-2 bg-card/50 p-3.5 ${style.border}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -74,13 +78,20 @@ export function SelectedFrameDetails({ item, isLastVisit, onClose }: SelectedFra
               {style.label}
             </Badge>
           </div>
-          <div className="mt-0.5 text-xs text-muted-foreground">Selected page details</div>
         </div>
         <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close selected page details">
           <X className="h-4 w-4" />
         </button>
       </div>
 
+      <div className="mt-2 flex items-start gap-3">
+        <p className="min-w-0 flex-1 text-sm leading-relaxed text-foreground">{pageStory(visit, isLastVisit ? null : nextPath)}</p>
+        <button type="button" onClick={() => setDetails((d) => !d)} className="shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" aria-expanded={details}>
+          {details ? "Hide details" : "Page details"}
+        </button>
+      </div>
+
+      {details && (
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Fact label="Time on page" value={<span className="font-medium">{formatDuration(visit.durationMs)}</span>} />
@@ -111,6 +122,7 @@ export function SelectedFrameDetails({ item, isLastVisit, onClose }: SelectedFra
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

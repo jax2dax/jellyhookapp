@@ -27,10 +27,8 @@
 
 import * as React from "react";
 import { RefreshCw, Radio, ChevronLeft, ChevronRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDate, formatDuration, formatRelativeTime } from "@/lib/leadFormat";
+import { formatDate, formatRelativeTime } from "@/lib/leadFormat";
+import { journeyStory, sessionStory, shortDuration } from "@/lib/leadSessions/story";
 import { FramePlateChart, resolveViewportHeightPx, type SessionRaw, type TimelineItem } from "@/framePlate";
 import { SessionSummaryDrawer } from "./SessionSummaryDrawer";
 import { ChartLegend } from "./ChartLegend";
@@ -152,6 +150,8 @@ export function LeadSessionExplorer({
   // null = "not refreshed from the client yet, still showing the server-rendered load" —
   // avoids calling Date.now() during render just to seed this.
   const [lastFetchedAt, setLastFetchedAt] = React.useState<number | null>(null);
+  // under the chart, the visit's story shows by default; its numbers ("Session details") on demand
+  const [showSessionDetails, setShowSessionDetails] = React.useState(false);
 
   const sessionsRaw = React.useMemo<SessionRaw[]>(() => {
     return buildSessionsRaw({ ...rawRows, pageStructure: pageStructureRows, formEngagement: formEngagementRows }) as SessionRaw[];
@@ -285,120 +285,114 @@ export function LeadSessionExplorer({
     return <div className="py-6 text-center text-sm text-muted-foreground">No sessions recorded yet.</div>;
   }
 
+  const fallbackVh = resolveViewportHeightPx(undefined, deviceType);
+  const selectedIndex = selectedSession ? sessionsRaw.findIndex((s) => s.id === selectedSession.id) : -1;
+  // the page they went to after the clicked one (for its story)
+  const nextPath = (() => {
+    if (!selectedSession || !selectedFrame || selectedFrame.item.kind !== "visit") return null;
+    const i = selectedSession.visits.findIndex((v) => v.id === selectedFrame.item.id);
+    return i >= 0 ? selectedSession.visits[i + 1]?.pagePath ?? null : null;
+  })();
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          {hasLiveSession && (
-            <Badge className="gap-1">
-              <Radio className="h-3 w-3" /> Live session
-            </Badge>
-          )}
-          <span>{lastFetchedAt ? `Checked ${formatRelativeTime(new Date(lastFetchedAt).toISOString())}` : "Loaded with this page"}</span>
-        </div>
-        <Button variant="outline" size="sm" onClick={refreshSessions} disabled={refreshing}>
-          <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
-      </div>
+    <div className="space-y-3">
+      {/* every visit, in plain words */}
+      <p className="rounded-md border bg-muted/30 px-3.5 py-2.5 text-sm leading-relaxed text-foreground">{journeyStory(sessionsRaw, fallbackVh)}</p>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Visit</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Duration</TableHead>
-            <TableHead>Pages</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {visibleSessions.map((session, i) => {
-            const idx = sessionsPageStart + i; // absolute visit number, not reset per page
-            const isSelected = session.id === effectiveSelectedId;
-            // A lead converts at most once, ever — no need for a whole
-            // "outcome" column just to say converted/live/left. The row
-            // color IS the outcome: yellow if a conversion happened
-            // somewhere in this session, green if the session is still
-            // live. Neither, and the row is just a plain past visit.
-            const converted = session.visits.some((v) => v.converted);
-            const isLive = session.endedAt === null;
-            const durationMs = session.visits.length
-              ? new Date(session.visits[session.visits.length - 1].leftAt).getTime() - new Date(session.startedAt).getTime()
-              : null;
-            const highlightClass = converted
-              ? "bg-yellow-500/10 hover:bg-yellow-500/15"
-              : isLive
-                ? "bg-green-500/10 hover:bg-green-500/15"
-                : "";
-            return (
-              <TableRow
-                key={session.id}
-                className={`cursor-pointer ${highlightClass} ${isSelected ? "bg-muted/50" : ""}`}
-                onClick={() => setSelectedSessionId(session.id)}
-                aria-selected={isSelected}
-              >
-                <TableCell className="font-medium">{idx === sessionsRaw.length - 1 ? "Latest" : `#${idx + 1}`}</TableCell>
-                <TableCell>{formatDate(session.startedAt)}</TableCell>
-                <TableCell>{durationMs != null ? formatDuration(durationMs) : "—"}</TableCell>
-                <TableCell>{session.visits.length}</TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-
-      {totalSessionPages > 1 && (
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            Showing {sessionsPageStart + 1}–{sessionsPageEnd} of {sessionsRaw.length} sessions
-          </span>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setSessionsPage((p) => p + 1)} disabled={clampedSessionsPage >= totalSessionPages}>
-              <ChevronLeft className="h-3.5 w-3.5 mr-1" />
-              Older
-            </Button>
-            <span>
-              Page {clampedSessionsPage} of {totalSessionPages}
+      <div className="grid gap-3 lg:grid-cols-[13.5rem_minmax(0,1fr)]">
+        {/* the visits: a compact list right next to the chart */}
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-md border lg:max-h-[34rem]">
+          <div className="flex h-9 shrink-0 items-center gap-1 border-b bg-muted/40 px-2 text-xs">
+            <span className="font-medium text-foreground">{sessionsRaw.length} visits</span>
+            {hasLiveSession && (
+              <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400" title="A visit is happening now">
+                <Radio className="size-3" /> live
+              </span>
+            )}
+            <span className="ml-auto flex items-center">
+              {totalSessionPages > 1 && (
+                <>
+                  <button type="button" onClick={() => setSessionsPage((p) => p + 1)} disabled={clampedSessionsPage >= totalSessionPages} className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30" aria-label="Older visits" title="Older visits">
+                    <ChevronLeft className="size-3.5" />
+                  </button>
+                  <span className="px-0.5 text-[11px] tabular-nums text-muted-foreground" title={`Visits ${sessionsPageStart + 1}–${sessionsPageEnd} of ${sessionsRaw.length}`}>
+                    {clampedSessionsPage}/{totalSessionPages}
+                  </span>
+                  <button type="button" onClick={() => setSessionsPage((p) => p - 1)} disabled={clampedSessionsPage <= 1} className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30" aria-label="Newer visits" title="Newer visits">
+                    <ChevronRight className="size-3.5" />
+                  </button>
+                </>
+              )}
+              <button type="button" onClick={refreshSessions} disabled={refreshing} className="ml-0.5 flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Refresh" title={lastFetchedAt ? "Refresh (checked " + formatRelativeTime(new Date(lastFetchedAt).toISOString()) + ")" : "Refresh"}>
+                <RefreshCw className={"size-3.5 " + (refreshing ? "animate-spin" : "")} />
+              </button>
             </span>
-            <Button variant="outline" size="sm" onClick={() => setSessionsPage((p) => p - 1)} disabled={clampedSessionsPage <= 1}>
-              Newer
-              <ChevronRight className="h-3.5 w-3.5 ml-1" />
-            </Button>
           </div>
+          <ul className="min-h-0 flex-1 overflow-y-auto" role="listbox" aria-label="Visits">
+            {[...visibleSessions].reverse().map((session) => {
+              const idx = sessionsRaw.indexOf(session);
+              const isSelected = session.id === effectiveSelectedId;
+              const converted = session.visits.some((v) => v.converted);
+              const isLive = session.endedAt === null;
+              const durationMs = session.visits.length ? new Date(session.visits[session.visits.length - 1].leftAt).getTime() - new Date(session.startedAt).getTime() : null;
+              return (
+                <li key={session.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => setSelectedSessionId(session.id)}
+                    className={
+                      "flex w-full items-center gap-2 border-l-2 px-2 py-1.5 text-left text-xs transition " +
+                      (converted ? "border-l-yellow-500 " : isLive ? "border-l-emerald-500 " : "border-l-transparent ") +
+                      (isSelected ? "bg-primary/10" : "hover:bg-muted/60")
+                    }
+                    title={converted ? "Sent the form in this visit" : isLive ? "Happening now" : undefined}
+                  >
+                    <span className={"w-9 shrink-0 tabular-nums " + (isSelected ? "font-semibold text-foreground" : "text-muted-foreground")}>{idx === sessionsRaw.length - 1 ? "Latest" : "#" + (idx + 1)}</span>
+                    <span className="min-w-0 flex-1 truncate text-foreground">{formatDate(session.startedAt)}</span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      {durationMs != null ? shortDuration(durationMs) : "-"} · {session.visits.length}p
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
-      )}
 
-      {selectedSession && <ChartLegend />}
-
-      {selectedSession && (
-        // w-full + min-w-0 + overflow-hidden: without these, a long session
-        // (many page-visit frames) makes FramePlateChart's inner SVG wider
-        // than the card — and since this div sits inside flex/grid ancestors
-        // (SidebarInset, the platform layout's flex column) that don't
-        // shrink their children below content size by default, THIS box
-        // itself was growing to match the SVG's width instead of clipping
-        // it, dragging the whole page into horizontal scroll. min-w-0
-        // overrides that "never shrink below content" default; overflow-
-        // hidden then guarantees anything still wider is clipped right here
-        // rather than escaping upward — FramePlateChart's own inner div
-        // already scrolls horizontally on its own (see SessionStrip), so
-        // this box is only a backstop, not the intended scroll surface.
-        <div className="w-full min-w-0 overflow-hidden rounded-md border bg-card/50 p-3">
-          <FramePlateChart
-            session={selectedSession}
-            deviceType={deviceType}
-            onSelectItem={(item, meta) => setSelectedFrame(item ? { item, isLastVisit: meta.isLastVisit } : null)}
-            className="w-full min-w-0"
-          />
+        {/* the selected visit: its chart, its story, and its details on demand */}
+        <div className="min-w-0 space-y-2">
+          {selectedSession && (
+            // w-full + min-w-0 + overflow-hidden: a long session's chart scrolls inside, never widens the page
+            <div className="w-full min-w-0 overflow-hidden rounded-md border bg-card/50 p-3">
+              <ChartLegend />
+              <FramePlateChart
+                session={selectedSession}
+                deviceType={deviceType}
+                onSelectItem={(item, meta) => setSelectedFrame(item ? { item, isLastVisit: meta.isLastVisit } : null)}
+                className="w-full min-w-0"
+              />
+            </div>
+          )}
+          {selectedFrame && <SelectedFrameDetails item={selectedFrame.item} isLastVisit={selectedFrame.isLastVisit} nextPath={nextPath} onClose={() => setSelectedFrame(null)} />}
+          {selectedSession && (
+            <div className="rounded-md border bg-card/50">
+              <div className="flex items-start gap-3 px-3.5 py-2.5">
+                <p className="min-w-0 flex-1 text-sm leading-relaxed text-foreground">{sessionStory(selectedSession, selectedIndex + 1, fallbackVh)}</p>
+                <button type="button" onClick={() => setShowSessionDetails((v) => !v)} className="shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" aria-expanded={showSessionDetails}>
+                  {showSessionDetails ? "Hide details" : "Session details"}
+                </button>
+              </div>
+              {showSessionDetails && (
+                <div className="border-t p-2">
+                  <SessionSummaryDrawer key={selectedSession.id} session={selectedSession} fallbackViewportHeightPx={fallbackVh} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
-
-      {selectedFrame && <SelectedFrameDetails item={selectedFrame.item} isLastVisit={selectedFrame.isLastVisit} onClose={() => setSelectedFrame(null)} />}
-
-      {/* Separate from the chart itself — same fallback viewport the chart
-          resolved from deviceType, so any seen/unseen math here never
-          disagrees with what the plate above is currently drawing. */}
-      {selectedSession && <SessionSummaryDrawer key={selectedSession.id} session={selectedSession} fallbackViewportHeightPx={resolveViewportHeightPx(undefined, deviceType)} />}
+      </div>
     </div>
   );
 }
