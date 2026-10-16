@@ -8,7 +8,7 @@ import { loadMarks } from "@/lib/actions/marks.action";
 export default async function LeadsPage() {
   const user = await getAuthUser();
   const site = await requireSite(user.id);
-  // marks are stored per lead (lib/marks/evaluate.ts): loading them is a read, no query runs here
+  // only the marks themselves: which leads have them is kept in the browser (components/leads/LeadsWithMarks.tsx)
   const [leads, marks] = await Promise.all([getLeads(site.id), loadMarks()]);
   // See app/platform/acquisition/page.jsx — user.plan/site.plan are never
   // populated from Clerk Billing; getPlanLabel() is the real source of truth.
@@ -16,7 +16,6 @@ export default async function LeadsPage() {
 
   return (
     <div className="min-h-screen bg-background p-6">
-      <h1 className="mb-6 text-lg font-semibold text-foreground">Leads</h1>
       <PlanGate userPlan={userPlan} required="free">
         <Suspense fallback={<div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>}>
           <LeadsWithMarks leads={leads} siteId={site.id} marks={marks} />

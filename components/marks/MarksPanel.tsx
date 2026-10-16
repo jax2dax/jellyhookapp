@@ -1,22 +1,23 @@
 "use client";
 // components/marks/MarksPanel.tsx
-// The marks side panel on the leads page. Closed: a thin rail on the right with one dot per mark (filled = on, ring =
-// off). Open: the list of marks you can see, the templates, and the builder.
-//   - clicking a mark APPLIES it to the table (its leads go first, the rest are dimmed); that is a view, it changes
-//     nothing for anyone else;
-//   - the switch turns a mark ON or OFF (only its creator): an "on" mark puts its badge on every lead that meets it,
-//     whether it is applied or not;
-//   - ⋯ : edit, re-check, delete (yours), or "edit in Hook" for a mark made there.
-// The panel's open/closed state is remembered in this browser only. Design: mds/build/marks/marks.md.
-import { Bookmark, ChevronRight, ExternalLink, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+// The marks panel: always on the right of the leads page, from the top. It lists the marks you can see, the
+// templates, and opens the builder in place.
+//   - clicking a mark APPLIES it to the table (its leads go first, the rest are dimmed): a view, nothing is saved;
+//   - the switch turns a mark ON or OFF (only its creator): one small update, nothing is re-checked;
+//   - the menu: edit, re-check, delete (yours), or "edit in Hook" for a mark made there.
+// Every change is reported to the page (onChange) so it updates in place, without reloading. Design:
+// mds/build/marks/marks.md.
+import { ArrowLeft, Bookmark, ExternalLink, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
+import { useState } from "react";
 import { colorFor, emptyRule, TEMPLATES } from "@/jh-marks/rule";
 import { deleteMark, recheckMark, setMarkActive, type MarkView, type MarksState } from "@/lib/actions/marks.action";
 import { encodeSpecParam } from "@/lib/hook/specParam";
 import { MarkBuilder, type BuilderInitial } from "./MarkBuilder";
 
 type Ready = Extract<MarksState, { ok: true }>;
-const OPEN_KEY = "jh:marks-panel-open";
+
+/** What changed, so the page can update in place. */
+export type MarkChange = { type: "saved"; mark: MarkView } | { type: "deleted"; id: string } | { type: "patched"; id: string; patch: Partial<MarkView> };
 
 function Toggle({ on, disabled, onChange, label }: { on: boolean; disabled?: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
@@ -38,32 +39,13 @@ function Toggle({ on, disabled, onChange, label }: { on: boolean; disabled?: boo
   );
 }
 
-export function MarksPanel({ state, applied, onApply, onChanged }: { state: MarksState; applied: string[]; onApply: (ids: string[]) => void; onChanged: () => void }) {
-  const [open, setOpen] = useState(false);
+export function MarksPanel({ state, applied, onApply, onChange }: { state: MarksState; applied: string[]; onApply: (ids: string[]) => void; onChange: (c: MarkChange) => void }) {
   const [builder, setBuilder] = useState<BuilderInitial | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
-  useEffect(() => {
-    try {
-      // a per-browser convenience (localStorage is the external system read once here)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (window.localStorage.getItem(OPEN_KEY) === "1") setOpen(true);
-    } catch {
-      /* no storage: starts closed */
-    }
-  }, []);
-  const setOpenSaved = (v: boolean) => {
-    setOpen(v);
-    try {
-      window.localStorage.setItem(OPEN_KEY, v ? "1" : "0");
-    } catch {
-      /* fine */
-    }
-  };
-
-  if (!state.ok) return <aside className="w-11 shrink-0 border-l" title={state.error} />;
+  if (!state.ok) return <aside className="sticky top-6 w-[24rem] shrink-0 rounded-lg border bg-card p-3 text-xs text-muted-foreground">{state.error}</aside>;
   const s = state as Ready;
   const mine = s.marks.filter((m) => m.mine);
   const full = mine.length >= s.limit;
@@ -71,7 +53,6 @@ export function MarksPanel({ state, applied, onApply, onChanged }: { state: Mark
   const toggleApply = (id: string) => onApply(applied.includes(id) ? applied.filter((x) => x !== id) : [...applied, id]);
 
   const startNew = (t?: (typeof TEMPLATES)[number]) => {
-    setOpenSaved(true);
     setNote(null);
     setBuilder({
       name: t?.name ?? "",
@@ -92,51 +73,30 @@ export function MarksPanel({ state, applied, onApply, onChanged }: { state: Mark
     }
     setBuilder({ id: m.id, name: m.name, description: m.description ?? "", color: m.color, active: m.active, visibility: m.visibility, sharedWith: m.sharedWith, rule: structuredClone(m.rule), templateKey: m.templateKey });
   };
-  const run = async (id: string, fn: () => Promise<{ ok: boolean; error?: string } & Record<string, unknown>>, done?: (r: Record<string, unknown>) => string) => {
+  const run = async <R extends { ok: boolean }>(id: string, fn: () => Promise<R>, done: (r: R) => { text: string; change: MarkChange }) => {
     setBusy(id);
     setMenu(null);
     const r = await fn();
     setBusy(null);
-    setNote(r.ok ? (done ? { tone: "ok", text: done(r) } : null) : { tone: "error", text: (r as { error: string }).error });
-    if (r.ok) onChanged();
+    if (!r.ok) return setNote({ tone: "error", text: (r as unknown as { error: string }).error });
+    const d = done(r);
+    setNote({ tone: "ok", text: d.text });
+    onChange(d.change);
   };
-
-  // ── closed: the rail ──
-  if (!open) {
-    return (
-      <aside className="sticky top-4 flex h-fit w-11 shrink-0 flex-col items-center gap-2 rounded-lg border bg-card py-3" aria-label="Marks">
-        <button type="button" onClick={() => setOpenSaved(true)} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" title="Marks" aria-label="Open marks">
-          <Bookmark className="size-4" />
-        </button>
-        {s.marks.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => setOpenSaved(true)}
-            title={m.name + (m.active ? "" : " (off)") + (applied.includes(m.id) ? " · applied" : "")}
-            className={"size-3.5 rounded-full transition hover:scale-125 " + (applied.includes(m.id) ? "ring-2 ring-foreground/70 ring-offset-2 ring-offset-card" : "")}
-            style={m.active ? { backgroundColor: m.color } : { boxShadow: `inset 0 0 0 2px ${m.color}` }}
-          />
-        ))}
-        {!full && s.ready && (
-          <button type="button" onClick={() => startNew()} className="mt-1 flex size-6 items-center justify-center rounded-full border border-dashed text-muted-foreground hover:text-foreground" title="New mark" aria-label="New mark">
-            <Plus className="size-3" />
-          </button>
-        )}
-      </aside>
-    );
-  }
 
   // ── open ──
   return (
-    <aside className="sticky top-4 flex h-fit max-h-[calc(100vh-2rem)] w-[24rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card" aria-label="Marks">
-      <header className="flex items-center gap-2 border-b px-3 py-2.5">
-        <Bookmark className="size-4 text-muted-foreground" />
+    <aside className="sticky top-6 flex max-h-[calc(100vh-3rem)] min-h-[calc(100vh-3rem)] w-[24rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card" aria-label="Marks">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+        {builder ? (
+          <button type="button" onClick={() => setBuilder(null)} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Back to the marks">
+            <ArrowLeft className="size-4" />
+          </button>
+        ) : (
+          <Bookmark className="size-4 text-muted-foreground" />
+        )}
         <h2 className="text-sm font-semibold">{builder ? (builder.id ? "Edit mark" : "New mark") : "Marks"}</h2>
-        {!builder && <span className="text-[11px] text-muted-foreground">{mine.length} of {s.limit} yours</span>}
-        <button type="button" onClick={() => { setOpenSaved(false); setBuilder(null); }} className="ml-auto flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close marks">
-          <ChevronRight className="size-4" />
-        </button>
+        {!builder && <span className="ml-auto text-[11px] text-muted-foreground">{mine.length} of {s.limit} yours</span>}
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -152,8 +112,8 @@ export function MarksPanel({ state, applied, onApply, onChanged }: { state: Mark
             onCancel={() => setBuilder(null)}
             onSaved={(m, warning) => {
               setBuilder(null);
-              setNote({ tone: warning ? "error" : "ok", text: warning ?? `${m.name}: ${m.active ? (m.matchCount ?? 0) + " lead" + (m.matchCount === 1 ? "" : "s") + " have it." : "saved, off."}` });
-              onChanged();
+              setNote({ tone: warning ? "error" : "ok", text: warning ?? `${m.name}: ${m.matchCount ?? 0} ${m.matchCount === 1 ? "lead has it" : "leads have it"}${m.active ? "." : " (off)."}` });
+              onChange({ type: "saved", mark: m });
             }}
           />
         ) : (
@@ -193,7 +153,17 @@ export function MarksPanel({ state, applied, onApply, onChanged }: { state: Mark
                       {busy === m.id ? (
                         <Loader2 className="mt-0.5 size-4 animate-spin text-muted-foreground" />
                       ) : (
-                        <Toggle on={m.active} disabled={!m.mine} label={"Turn " + m.name + (m.active ? " off" : " on")} onChange={(v) => run(m.id, () => setMarkActive(m.id, v), (r) => (v ? `${m.name} is on: ${r.matchCount ?? 0} leads.` : `${m.name} is off.`))} />
+                        <Toggle
+                          on={m.active}
+                          disabled={!m.mine}
+                          label={"Turn " + m.name + (m.active ? " off" : " on")}
+                          onChange={(v) =>
+                            run(m.id, () => setMarkActive(m.id, v), (r) => ({
+                              text: v ? `${m.name} is on: ${r.ok ? (r.matchCount ?? 0) : 0} leads.` : `${m.name} is off.`,
+                              change: { type: "patched", id: m.id, patch: r.ok ? { active: v, matchCount: r.matchCount, evaluatedAt: r.evaluatedAt } : { active: v } },
+                            }))
+                          }
+                        />
                       )}
                       <button
                         type="button"
@@ -219,16 +189,15 @@ export function MarksPanel({ state, applied, onApply, onChanged }: { state: Mark
                             Open in Hook <ExternalLink className="size-3" />
                           </button>
                         )}
-                        <button type="button" onClick={() => run(m.id, () => recheckMark(m.id), (r) => `${m.name}: ${r.matchCount} leads.`)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
+                        <button type="button" onClick={() => run(m.id, () => recheckMark(m.id), (r) => ({ text: `${m.name}: ${r.ok ? r.matchCount : 0} leads.`, change: { type: "patched", id: m.id, patch: r.ok ? { matchCount: r.matchCount, evaluatedAt: r.evaluatedAt } : {} } }))} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
                           <RefreshCw className="size-3" /> Re-check all leads
                         </button>
                         {m.mine && (
                           <button
                             type="button"
                             onClick={() => {
-                              if (window.confirm(`Delete "${m.name}"? Its badges go too.`)) run(m.id, () => deleteMark(m.id), () => `${m.name} deleted.`);
                               setMenu(null);
-                              if (applied.includes(m.id)) onApply(applied.filter((x) => x !== m.id));
+                              if (window.confirm(`Delete "${m.name}"? Its badges go too.`)) run(m.id, () => deleteMark(m.id), () => ({ text: `${m.name} deleted.`, change: { type: "deleted", id: m.id } }));
                             }}
                             className="w-full rounded px-2 py-1.5 text-left text-red-600 hover:bg-muted dark:text-red-400"
                           >

@@ -56,9 +56,8 @@ export default function MarksDemoPage() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="mb-1 text-xs font-medium uppercase tracking-wide text-amber-600">Demo, fake data</div>
-      <h1 className="mb-6 text-lg font-semibold text-foreground">Leads</h1>
       <Suspense>
-        <LeadsWithMarks leads={leads} siteId="demo" marks={state} />
+        <LeadsWithMarks leads={leads} siteId="demo" marks={state} preloaded={Object.fromEntries(marks.map((m) => [m.id, state.ok ? state.leadMarks.filter((r) => r.markId === m.id) : []]))} />
       </Suspense>
     </div>
   );

@@ -99,7 +99,7 @@ async function team(siteId: string): Promise<TeamMember[]> {
 }
 
 /** Everything the leads page needs about marks: the visible marks, which leads have the active ones, the team, pages. */
-export async function loadMarks(opts: { leadIds?: string[] } = {}): Promise<MarksState> {
+export async function loadMarks(opts: { leadIds?: string[]; withLeadMarks?: boolean } = {}): Promise<MarksState> {
   try {
     const { userId, siteId } = await who();
     const supabase = createSupabaseClient();
@@ -111,7 +111,7 @@ export async function loadMarks(opts: { leadIds?: string[] } = {}): Promise<Mark
     const marks = (data ?? []).map((r) => toView(r, userId));
     const active = marks.filter((m) => m.active).map((m) => m.id);
     let leadMarks: LeadMark[] = [];
-    if (active.length) {
+    if (active.length && (opts.withLeadMarks || opts.leadIds)) {
       let q = supabase.from("lead_marks").select("lead_id, mark_id, reason").eq("site_id", siteId).in("mark_id", active).limit(20_000);
       if (opts.leadIds) q = q.in("lead_id", opts.leadIds.slice(0, 500));
       const { data: lm } = await q;
@@ -189,7 +189,7 @@ export async function saveMark(input: SaveMarkInput): Promise<SaveMarkResult> {
       saved = data;
     }
     let warning: string | undefined;
-    if (saved && row.active) {
+    if (saved) {
       try {
         saved.match_count = await evaluateMark(siteId, { id: saved.id as string, rule, spec, reads });
         saved.evaluated_at = new Date().toISOString();
@@ -206,17 +206,18 @@ export async function saveMark(input: SaveMarkInput): Promise<SaveMarkResult> {
   }
 }
 
-/** Turns a mark on or off (only your own). Turning it on checks every lead. */
-export async function setMarkActive(id: string, active: boolean): Promise<{ ok: true; matchCount: number | null } | { ok: false; error: string }> {
+/** Turns a mark on or off (only your own): one small update. Results are kept up to date either way (evaluate.ts), so
+ *  nothing is re-checked, unless the mark was never checked at all. */
+export async function setMarkActive(id: string, active: boolean): Promise<{ ok: true; matchCount: number | null; evaluatedAt: string | null } | { ok: false; error: string }> {
   try {
     const { userId, siteId } = await who();
     const supabase = createSupabaseClient();
-    const { data, error } = await supabase.from("marks").update({ active, updated_at: new Date().toISOString() }).eq("id", id).eq("site_id", siteId).eq("created_by", userId).select("id, rule, spec, reads").maybeSingle();
+    const { data, error } = await supabase.from("marks").update({ active, updated_at: new Date().toISOString() }).eq("id", id).eq("site_id", siteId).eq("created_by", userId).select("id, rule, spec, reads, match_count, evaluated_at").maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return { ok: false, error: "Only the person who made this mark can turn it on or off." };
-    if (!active) return { ok: true, matchCount: null };
+    if (!active || data.evaluated_at) return { ok: true, matchCount: (data.match_count as number) ?? null, evaluatedAt: (data.evaluated_at as string) ?? null };
     const n = await evaluateMark(siteId, { id, rule: (data.rule as MarkRule) ?? null, spec: data.spec as HookSpec, reads: data.reads as string });
-    return { ok: true, matchCount: n };
+    return { ok: true, matchCount: n, evaluatedAt: new Date().toISOString() };
   } catch (e) {
     console.error("[marks] on/off failed", e instanceof Error ? e.message : e);
     return { ok: false, error: "That didn't work. Try again." };
@@ -224,14 +225,14 @@ export async function setMarkActive(id: string, active: boolean): Promise<{ ok: 
 }
 
 /** Checks a mark against every lead again (any mark you can see). */
-export async function recheckMark(id: string): Promise<{ ok: true; matchCount: number } | { ok: false; error: string }> {
+export async function recheckMark(id: string): Promise<{ ok: true; matchCount: number; evaluatedAt: string } | { ok: false; error: string }> {
   try {
     const { siteId } = await who();
     const supabase = createSupabaseClient();
     const { data } = await supabase.from("marks").select("id, rule, spec, reads, active").eq("id", id).eq("site_id", siteId).maybeSingle();
     if (!data) return { ok: false, error: "That mark is not available." };
     const n = await evaluateMark(siteId, { id, rule: (data.rule as MarkRule) ?? null, spec: data.spec as HookSpec, reads: data.reads as string });
-    return { ok: true, matchCount: n };
+    return { ok: true, matchCount: n, evaluatedAt: new Date().toISOString() };
   } catch (e) {
     console.error("[marks] re-check failed", e instanceof Error ? e.message : e);
     return { ok: false, error: "The leads could not be checked right now. Try again in a minute." };
@@ -255,9 +256,25 @@ export async function deleteMark(id: string): Promise<{ ok: true } | { ok: false
 
 /** The marks one lead has (active marks you can see), with the reasons: the top of the lead's page. */
 export async function marksOfLead(leadId: string): Promise<{ mark: MarkView; parts: string[] }[]> {
-  const s = await loadMarks({ leadIds: [leadId] });
+  const s = await loadMarks({ leadIds: [leadId], withLeadMarks: true });
   if (!s.ok) return [];
   return s.leadMarks.filter((l) => l.leadId === leadId).map((l) => ({ mark: s.marks.find((m) => m.id === l.markId)!, parts: l.parts })).filter((x) => x.mark);
+}
+
+/** The stored results of some marks (that you can see): the browser asks only for marks whose stamp moved. */
+export async function leadMarksFor(markIds: string[]): Promise<{ ok: true; rows: LeadMark[] } | { ok: false; error: string }> {
+  try {
+    const { siteId } = await who();
+    const ids = markIds.filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 50);
+    if (!ids.length) return { ok: true, rows: [] };
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase.from("lead_marks").select("lead_id, mark_id, reason").eq("site_id", siteId).in("mark_id", ids).limit(20_000);
+    if (error) throw new Error(error.message);
+    return { ok: true, rows: (data ?? []).map((r) => ({ leadId: r.lead_id as string, markId: r.mark_id as string, parts: ((r.reason as { parts?: string[] })?.parts ?? []).slice(0, 8) })) };
+  } catch (e) {
+    console.error("[marks] results read failed", e instanceof Error ? e.message : e);
+    return { ok: false, error: "Badges could not be loaded." };
+  }
 }
 
 function friendly(e: ProviderError): string {

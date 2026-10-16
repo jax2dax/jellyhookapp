@@ -34,7 +34,7 @@ type Edit = { id: string; field: string } | null;
 
 const SCOPES: { value: Scope; label: string; hint: string }[] = [
   { value: "any", label: "any visit", hint: "Anything they did before sending the form, in any visit" },
-  { value: "converting", label: "the sending visit", hint: "Only the visit they sent the form in" },
+  { value: "converting", label: "the converting visit", hint: "Only the visit in which they sent the form" },
   { value: "all", label: "every visit", hint: "Each visit before sending must meet the page rows" },
 ];
 
@@ -374,33 +374,6 @@ export function MarkBuilder({ initial, pages, team, me, onSaved, onCancel }: { i
       {/* the device */}
       <div className="rounded-[1.4rem] border bg-muted/50 p-2.5 shadow-inner">
         <div className="space-y-2.5 rounded-2xl border bg-background p-3 shadow-sm">
-          {/* Enter with AI */}
-          <div className="flex items-center gap-1.5 rounded-lg border bg-muted/30 px-2 focus-within:border-primary/60">
-            <Sparkles className="size-3.5 shrink-0 text-primary" />
-            <input
-              value={ai}
-              onChange={(e) => setAi(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && runAi()}
-              placeholder="Describe the lead: read pricing 30 s, then the demo page"
-              className="h-8 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70"
-              aria-label="Enter with AI"
-              maxLength={400}
-            />
-            <button type="button" onClick={runAi} disabled={!ai.trim() || aiBusy} className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40" aria-label="Build with AI">
-              {aiBusy ? <Loader2 className="size-3.5 animate-spin" /> : <ArrowRight className="size-3.5" />}
-            </button>
-          </div>
-          {aiNote && (
-            <p className={"text-[11px] " + (aiNote.tone === "error" ? "text-red-600 dark:text-red-400" : "text-muted-foreground")}>
-              {aiNote.text}
-              {undo && (
-                <button type="button" className="ml-2 underline underline-offset-2" onClick={() => { setRule(undo); setUndo(null); setAiNote(null); }}>
-                  Undo
-                </button>
-              )}
-            </p>
-          )}
-
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             Counts
             <select value={rule.scope} onChange={(e) => setRule((r) => ({ ...r, scope: e.target.value as Scope }))} className="field-sizing-content rounded border-0 bg-transparent py-0 pl-0.5 pr-6 text-[11px] font-medium text-foreground focus:ring-1 focus:ring-primary" title={SCOPES.find((s) => s.value === rule.scope)?.hint}>
@@ -459,6 +432,35 @@ export function MarkBuilder({ initial, pages, team, me, onSaved, onCancel }: { i
           </div>
         </div>
 
+        {/* Enter with AI: between the screen and the keys */}
+        <div className="mt-2.5 space-y-1.5">
+                  <div className="flex items-center gap-1.5 rounded-lg border bg-muted/30 px-2 focus-within:border-primary/60">
+            <Sparkles className="size-3.5 shrink-0 text-primary" />
+            <input
+              value={ai}
+              onChange={(e) => setAi(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && runAi()}
+              placeholder="Describe the lead: read pricing 30 s, then the demo page"
+              className="h-8 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70"
+              aria-label="Enter with AI"
+              maxLength={400}
+            />
+            <button type="button" onClick={runAi} disabled={!ai.trim() || aiBusy} className="flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40" aria-label="Build with AI">
+              {aiBusy ? <Loader2 className="size-3.5 animate-spin" /> : <ArrowRight className="size-3.5" />}
+            </button>
+          </div>
+          {aiNote && (
+            <p className={"text-[11px] " + (aiNote.tone === "error" ? "text-red-600 dark:text-red-400" : "text-muted-foreground")}>
+              {aiNote.text}
+              {undo && (
+                <button type="button" className="ml-2 underline underline-offset-2" onClick={() => { setRule(undo); setUndo(null); setAiNote(null); }}>
+                  Undo
+                </button>
+              )}
+            </p>
+          )}
+
+        </div>
         {/* the keys */}
         <div className="mt-2.5 grid grid-cols-3 gap-1.5">
           <Key onClick={() => addPage()} hint="A page they saw">Saw page</Key>
@@ -486,12 +488,12 @@ export function MarkBuilder({ initial, pages, team, me, onSaved, onCancel }: { i
         <div className="flex items-center gap-2">
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Name, e.g. Pricing reader" className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm" aria-label="Name" />
         </div>
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} rows={2} placeholder="Notes for the team (optional): what to do with these leads" className="w-full resize-none rounded-md border bg-background p-2 text-xs" />
         <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Colour">
           {MARK_COLORS.map((c) => (
             <button key={c} type="button" onClick={() => setColor(c)} role="radio" aria-checked={color === c} className={"size-5 rounded-full transition " + (color === c ? "ring-2 ring-foreground ring-offset-2 ring-offset-background" : "hover:scale-110")} style={{ backgroundColor: c }} aria-label={c} />
           ))}
         </div>
-        <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} rows={2} placeholder="Notes for the team (optional): what to do with these leads" className="w-full resize-none rounded-md border bg-background p-2 text-xs" />
         <div className="space-y-1.5 text-xs">
           <div className="flex items-center gap-3">
             <span className="text-muted-foreground">Who sees it</span>

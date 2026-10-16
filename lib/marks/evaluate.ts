@@ -5,7 +5,10 @@
 // When it runs:
 //   - a lead sends a form             evaluateLeads(site, [lead])      app/api/track-form/route.js, after the response
 //   - the visit a lead sent ends      evaluateLeads(site, leads)       app/api/track/route.js (scroll/time are final then)
-//   - a mark is saved or turned on    evaluateMark(site, mark)          lib/actions/marks.action.ts
+//   - a mark is saved (its rule changed) evaluateMark(site, mark)       lib/actions/marks.action.ts
+// Every mark is kept up to date, on or off, so turning a mark on or off never re-checks anything: "on" only decides
+// whether its badges show. marks.evaluated_at changes exactly when a mark's results change; the browser keeps each
+// mark's results under that stamp and only asks again when it moves (components/leads/LeadsWithMarks.tsx).
 // Whether a lead has a mark: the mark's Hook query (jh-marks/rule.ts compileRule), on the read-only Hook role.
 // Why: jh-marks/reason.ts from the lead's own rows. Design: mds/build/marks/marks.md.
 import "server-only";
@@ -107,16 +110,18 @@ export async function evaluateMark(siteId: string, mark: MarkToRun): Promise<num
 export async function evaluateLeads(siteId: string, leadIds: string[]): Promise<void> {
   if (!leadIds.length) return;
   try {
-    const { data: marks, error } = await admin.from("marks").select("id, rule, spec, reads").eq("site_id", siteId).eq("active", true).eq("kind", "lead");
+    const { data: marks, error } = await admin.from("marks").select("id, rule, spec, reads").eq("site_id", siteId).eq("kind", "lead");
     if (error || !marks?.length) return; // no marks (or the table is not there yet): nothing to do
     for (const m of marks as MarkToRun[]) {
       try {
         const ids = await matchingLeads(siteId, m.spec, leadIds);
         const reasons = await reasonsFor(siteId, m, ids);
-        await admin.from("lead_marks").delete().eq("mark_id", m.id).in("lead_id", leadIds);
+        const { data: gone } = await admin.from("lead_marks").delete().eq("mark_id", m.id).in("lead_id", leadIds).select("lead_id");
+        const removed = !!gone?.length;
         if (ids.length) await admin.from("lead_marks").insert(ids.map((lead_id) => ({ mark_id: m.id, lead_id, site_id: siteId, reason: { parts: reasons.get(lead_id) ?? [] } })));
         const { count } = await admin.from("lead_marks").select("lead_id", { count: "exact", head: true }).eq("mark_id", m.id);
-        await admin.from("marks").update({ match_count: count ?? null }).eq("id", m.id);
+        // a new stamp only when this mark's results for these leads really changed (the browser refetches on a new stamp)
+        if (ids.length || removed) await admin.from("marks").update({ match_count: count ?? null, evaluated_at: new Date().toISOString() }).eq("id", m.id);
       } catch (e) {
         console.error("[marks] lead check failed", { site: siteId.slice(0, 8), mark: m.id.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
       }
