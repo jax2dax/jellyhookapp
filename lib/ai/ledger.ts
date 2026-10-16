@@ -50,8 +50,10 @@ export interface LedgerRow {
   userId: string;
   siteId: string | null;
   status: "ok" | "clarify" | "unsupported" | "failed" | "error";
-  trace: TranslateTrace | null;
+  trace: Pick<TranslateTrace, "attempts" | "usage" | "costUsd" | "latencyMs"> & { firstError?: string } | null;
   model: string;
+  /** which AI feature: "hook_translate" (Ask Hook, the default) or "mark_translate" (Enter with AI in the mark builder) */
+  feature?: "hook_translate" | "mark_translate";
   credits: number;
   questionChars: number;
   /** Only stored when AI_LOG_PAIRS=1. */
@@ -65,7 +67,7 @@ export async function recordRequest(r: LedgerRow): Promise<void> {
   const { error } = await admin.from("ai_requests").insert({
     user_id: r.userId,
     site_id: r.siteId,
-    feature: "hook_translate",
+    feature: r.feature ?? "hook_translate",
     model: r.model,
     status: r.status,
     attempts: r.trace?.attempts ?? 0,

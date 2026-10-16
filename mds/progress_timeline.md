@@ -1756,3 +1756,12 @@ The dashboard now always shows the site's lead form (most submissions; a picker 
 - Tests: `npm run test:forms` 202 pass (new: versions 14, formKey 22, averages 44; dashboard 23); Hook engine 83.
 - Docs: `mds/build/form-study/averages-and-versions.md`, `mds/documentation/form-dashboard.md`. Public docs after founder approval.
 - **Run 17-form-versions.sql (after 16) before deploying.**
+
+## 2026-10-16 - Marks on leads
+
+A mark is a named set of conditions on what a lead did before sending the form ("Pricing reader": saw /pricing for 30 s or more). Leads that meet an "on" mark get its coloured badge in the leads table (dot, name on hover, reason in the tooltip) and at the top of the lead page (name + reason). A side panel on the right of the leads page (collapsed to coloured dots) lists marks; clicking one applies it to the table (its leads first, the rest dimmed, `?marks=` in the URL). Built in a small device-like builder: "Enter with AI" on top, a screen of chips (joined = same page, gap = another page, a row can be "in this order"), keys below. Personal by default, shareable with the team or chosen members, 5 per person, 3 templates. "Save as mark" in Hook for any query on leads.
+- Badges are stored (`lead_marks`), checked when a lead arrives, when its visit ends, and when a mark is saved: opening the leads page runs no query.
+- Hook gained lead relations for "before sending" (pages, sending visit pages, visits, the sent form) and `pageView.beforeSending`.
+- Removed the "Converted" badge at the top of the lead profile.
+- Tests: `npm run test:marks` 43 (35 on real Postgres against hand-checked leads, 8 for the AI with a fake model). Hook 83, forms 202, AI 50 still pass. Docs in sync (connected rows page updated).
+- Dev doc: `mds/build/marks/marks.md`. Demo: `/dev/marks-demo`. **Run 18-marks.sql before deploying.**

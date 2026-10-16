@@ -31,19 +31,13 @@ import { formatValue } from "@/output/format";
 import { canvasText } from "@/output/plainText";
 import { FORMULA_LABEL, type CanvasView, type Formula } from "@/output/types";
 import { SilhouettePanel } from "@/silhouette";
+import { decodeSpecParam, encodeSpecParam } from "@/lib/hook/specParam";
+import { SaveAsMark } from "@/components/marks/SaveAsMark";
 
 export type WorkspaceMode = "product" | "dev";
 
-function encodeSpec(s: unknown): string {
-  const bytes = new TextEncoder().encode(JSON.stringify(s));
-  let bin = "";
-  bytes.forEach((b) => (bin += String.fromCharCode(b)));
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-function decodeSpec(q: string): unknown {
-  const bin = atob(q.replace(/-/g, "+").replace(/_/g, "/"));
-  return JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
-}
+const encodeSpec = encodeSpecParam;
+const decodeSpec = decodeSpecParam;
 
 const V = SPEC_VERSION as HookSpec["v"];
 const DEFAULT_SPEC: HookSpec = { v: V, entity: "session", where: [], output: { kind: "count" } };
@@ -243,6 +237,7 @@ export function HookWorkspace({ mode }: { mode: WorkspaceMode }) {
               {dev ? "Runs against your current site only. Shows the SQL and raw ids." : "Ask precise questions about your visitors, sessions, leads and forms."}
             </p>
           </div>
+          {!dev && <SaveAsMark spec={spec} />}
           <Button variant="outline" size="sm" onClick={copyLink} title="Copy a link to this query">Copy link</Button>
           <Button variant={codeOpen ? "secondary" : "outline"} size="sm" className="font-mono" onClick={() => setCodeOpen((o) => !o)} aria-expanded={codeOpen} title="Paste or copy the query as code">
             &lt;/&gt;

@@ -18,6 +18,8 @@ import { formatDuration, formatRelativeTime } from "@/lib/leadFormat";
 import { FormActivityChart } from "@/components/forms/FormActivityChart";
 import { collectFormActivities } from "@/jh-forms/collect";
 import { getFormReference } from "@/lib/actions/formDashboard.action";
+import { marksOfLead } from "@/lib/actions/marks.action";
+import { MarkPill } from "@/components/marks/MarkBadge";
 
 export default async function LeadProfilePage({ params }) {
   const { lead_id } = await params;
@@ -58,6 +60,8 @@ async function LeadProfileBody({ profile, raw, siteId }) {
   const keys = [...new Set(formActivities.map((fa) => fa.formKey).filter(Boolean))];
   const references = new Map(await Promise.all(keys.map(async (k) => [k, await getFormReference(k)])));
   const refOf = (fa) => (fa.formKey ? references.get(fa.formKey) ?? null : null);
+  // the marks this lead has (only "on" marks the viewer can see), with why: stored, nothing is computed here
+  const leadMarks = await marksOfLead(raw.focusSubmission.id);
   const {
     identity,
     lastActivity,
@@ -108,6 +112,13 @@ async function LeadProfileBody({ profile, raw, siteId }) {
                   </span>
                 )}
               </div>
+              {leadMarks.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {leadMarks.map(({ mark, parts }) => (
+                    <MarkPill key={mark.id} mark={mark} parts={parts} />
+                  ))}
+                </div>
+              )}
               {otherConversions.length > 0 && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   Submitted from the same browser as {otherConversions.length} other lead{otherConversions.length === 1 ? "" : "s"}, see Conversion Events below.

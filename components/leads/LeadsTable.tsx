@@ -29,6 +29,7 @@ import { LocalDate } from "@/components/LocalDate";
 import { addDays, formatLocal, parseLocal, startOfDay } from "@/lib/dateLocal";
 import { oneOf, useDebouncedUrlText, useUrlState } from "@/lib/urlState";
 import { LeadQualifyToggle } from "./LeadQualifyToggle";
+import { MarkDots, type BadgeMark } from "@/components/marks/MarkBadge";
 
 export interface LeadRow {
   id: string;
@@ -49,7 +50,14 @@ function isSameLocalDay(isoString: string, day: Date): boolean {
   return d.getFullYear() === day.getFullYear() && d.getMonth() === day.getMonth() && d.getDate() === day.getDate();
 }
 
-export function LeadsTable({ leads, siteId }: { leads: LeadRow[]; siteId: string }) {
+/** Marks on leads (components/marks): the badges of every "on" mark, and the marks applied to this view. */
+export interface TableMarks {
+  byLead: Record<string, { mark: BadgeMark; parts: string[] }[]>;
+  /** applied marks: their leads go first (more applied marks first), the rest are dimmed */
+  applied: string[];
+}
+
+export function LeadsTable({ leads, siteId, marks }: { leads: LeadRow[]; siteId: string; marks?: TableMarks }) {
   const router = useRouter();
   const [url, setUrl] = useUrlState({ q: "", date: "all", from: "", to: "", qualify: "all" });
   const [text, setText] = useDebouncedUrlText(url.q, (q) => setUrl({ q }));
@@ -85,6 +93,12 @@ export function LeadsTable({ leads, siteId }: { leads: LeadRow[]; siteId: string
     // from/to are Dates rebuilt each render; their URL strings are the real inputs
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leads, url.q, dateFilter, url.from, url.to, qualifyFilter]);
+
+  // applied marks: matching leads first (the more applied marks they have, the higher), newest first within; the rest after
+  const applied = React.useMemo(() => marks?.applied ?? [], [marks?.applied]);
+  const hits = React.useCallback((id: string) => (marks?.byLead[id] ?? []).filter((m) => applied.includes(m.mark.id)).length, [marks, applied]);
+  const ordered = React.useMemo(() => (applied.length ? [...filtered].sort((a, b) => hits(b.id) - hits(a.id)) : filtered), [filtered, applied, hits]);
+  const matching = applied.length ? ordered.filter((l) => hits(l.id) > 0).length : 0;
 
   // The bottom fade: only while rows are hidden below the visible part.
   const scroller = React.useRef<HTMLDivElement>(null);
@@ -151,6 +165,12 @@ export function LeadsTable({ leads, siteId }: { leads: LeadRow[]; siteId: string
         </select>
       </div>
 
+      {applied.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          <strong className="text-foreground">{matching}</strong> of {filtered.length} leads have {applied.length === 1 ? "the applied mark" : "an applied mark"}; they are listed first.
+        </p>
+      )}
+
       {filtered.length === 0 ? (
         <div className="py-6 text-center text-sm text-muted-foreground">
           {leads.length === 0 ? "No leads yet. Leads appear when visitors submit forms on your site." : "No leads match this search/date/filter."}
@@ -162,6 +182,7 @@ export function LeadsTable({ leads, siteId }: { leads: LeadRow[]; siteId: string
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  {marks && <TableHead className="w-0 whitespace-nowrap">Marks</TableHead>}
                   <TableHead>Email</TableHead>
                   <TableHead>Page</TableHead>
                   <TableHead>Submitted</TableHead>
@@ -169,11 +190,11 @@ export function LeadsTable({ leads, siteId }: { leads: LeadRow[]; siteId: string
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((lead) => (
+                {ordered.map((lead) => (
                   <TableRow
                     key={lead.id}
                     tabIndex={0}
-                    className="cursor-pointer"
+                    className={"cursor-pointer transition-opacity " + (applied.length && hits(lead.id) === 0 ? "opacity-40 hover:opacity-100" : "")}
                     onClick={(e) => {
                       // the qualify toggle and the name link handle their own clicks
                       if ((e.target as HTMLElement).closest("button, a, input, select, [role='button']")) return;
@@ -191,6 +212,11 @@ export function LeadsTable({ leads, siteId }: { leads: LeadRow[]; siteId: string
                         {lead.name || "—"}
                       </Link>
                     </TableCell>
+                    {marks && (
+                      <TableCell className="py-1.5">
+                        <MarkDots marks={marks.byLead[lead.id] ?? []} />
+                      </TableCell>
+                    )}
                     <TableCell className="text-muted-foreground">{lead.email || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{lead.page_path || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">

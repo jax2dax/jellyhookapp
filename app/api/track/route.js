@@ -18,6 +18,7 @@
 import { NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { resolvePendingCountries } from "@/lib/resolvePendingCountries";
+import { evaluateLeads, leadsOfSession } from "@/lib/marks/evaluate";
 import { sweepIfDue } from "@/lib/tracking/sweep";
 import { hashIp, countryNameFromCode } from "@/lib/tracking/ip";
 import { deviceClassFromWidth } from "@/lib/tracking/structure";
@@ -237,6 +238,10 @@ export async function POST(req) {
         for (const f of openForms ?? []) {
           await supabase.from("form_engagement").update({ status: "abandoned", ended_at: f.last_activity_at || f.viewed_at }).eq("id", f.id);
         }
+        // The visit is over, so its pages' time and scroll are final: re-check the marks of the leads sent in it
+        // (lib/marks/evaluate.ts). After the response; a visit with no lead costs one small read.
+        const endedSession = sessionId;
+        after(async () => evaluateLeads(site.id, await leadsOfSession(site.id, endedSession)));
         continue;
       }
 

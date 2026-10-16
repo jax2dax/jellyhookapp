@@ -88,6 +88,7 @@ export const SQL: Record<EntityKey, EntitySql> = {
       isConversionPage: (a) =>
         `EXISTS (SELECT 1 FROM ${scoped("form_submissions", "cs")} WHERE cs.session_id = ${a}.session_id AND ${a}.id = (SELECT ce.id FROM ${scoped("page_views", "ce")} WHERE ce.session_id = ${a}.session_id AND ce.entered_at <= cs.submitted_at ORDER BY ce.entered_at DESC LIMIT 1))`,
       inConvertedSession: (a) => converted(`${a}.session_id`),
+      beforeSending: (a) => `EXISTS (SELECT 1 FROM ${scoped("form_submissions", "bs")} WHERE bs.visitor_id = ${a}.visitor_id AND bs.submitted_at >= ${a}.entered_at)`,
       enteredHour: (a) => `EXTRACT(HOUR FROM ${a}.entered_at AT TIME ZONE 'UTC')`,
       enteredWeekday: (a) => `EXTRACT(DOW FROM ${a}.entered_at AT TIME ZONE 'UTC')`,
     },
@@ -157,6 +158,11 @@ export const SQL: Record<EntityKey, EntitySql> = {
     joins: {
       session: (p, c) => `${c}.session_id = ${p}.session_id`,
       visitor: (p, c) => `${c}.visitor_id = ${p}.visitor_id`,
+      // up to and including the moment of sending (a page entered after it is not "before contacting you")
+      pagesBeforeSubmit: (p, c) => `${c}.visitor_id = ${p}.visitor_id AND ${c}.entered_at <= ${p}.submitted_at`,
+      visitPagesBeforeSubmit: (p, c) => `${c}.session_id = ${p}.session_id AND ${c}.entered_at <= ${p}.submitted_at`,
+      visitsBeforeSubmit: (p, c) => `${c}.visitor_id = ${p}.visitor_id AND ${c}.started_at <= ${p}.submitted_at`,
+      submittedForm: (p, c) => `${c}.session_id = ${p}.session_id AND ${c}.status = 'submitted'`,
     },
   },
 

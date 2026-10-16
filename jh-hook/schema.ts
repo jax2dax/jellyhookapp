@@ -82,6 +82,7 @@ export const SCHEMA: Record<EntityKey, EntityDef> = {
       isExit: { label: "is the exit page", type: "bool" },
       isConversionPage: { label: "converted on this page", type: "bool", hint: "the page view that was open when a form was submitted: the latest one entered at or before the submission. Same rule the conversions page uses" },
       inConvertedSession: { label: "session converted", type: "bool" },
+      beforeSending: { label: "seen before they sent a form", type: "bool", hint: "true when this visitor sent a form at or after this page was opened: the page is part of what they did before contacting you" },
       enteredHour: { label: "hour of day (UTC, 0-23)", type: "number" },
       enteredWeekday: { label: "day of week (UTC, 0 = Sunday)", type: "number" },
     },
@@ -152,6 +153,12 @@ export const SCHEMA: Record<EntityKey, EntityDef> = {
     relations: {
       session: { label: "its session", target: "session", cardinality: "one" },
       visitor: { label: "its visitor", target: "visitor", cardinality: "one" },
+      // What the person did BEFORE contacting you (2026-10-15, for marks): everything of the visitor up to the moment the
+      // form was sent, in every visit, or only in the visit it was sent in.
+      pagesBeforeSubmit: { label: "pages viewed before sending", target: "pageView", cardinality: "many" },
+      visitPagesBeforeSubmit: { label: "pages of the sending visit, before sending", target: "pageView", cardinality: "many" },
+      visitsBeforeSubmit: { label: "visits up to sending", target: "session", cardinality: "many" },
+      submittedForm: { label: "the form they sent", target: "form", cardinality: "many" },
     },
   },
 
@@ -360,7 +367,7 @@ export const FIELD_GROUPS: Record<EntityKey, FieldGroup[]> = {
     { label: "Which page", fields: ["page", "url", "title"] },
     { label: "When and how long", fields: ["enteredAt", "leftAt", "timeOnPage", "visitDuration", "isOpen", "enteredHour", "enteredWeekday"] },
     { label: "How much of the page was seen", fields: ["seenPct", "seenTwicePct", "notSeenPct", "entryPct", "deepestPct", "exitPct", "revisited", "deepestAt", "timeToDeepest"] },
-    { label: "Place in the session", fields: ["position", "isLanding", "isExit", "isConversionPage", "inConvertedSession"] },
+    { label: "Place in the session", fields: ["position", "isLanding", "isExit", "isConversionPage", "inConvertedSession", "beforeSending"] },
     { label: "Screen and page size", fields: ["pageHeight", "viewportHeight", "viewportMeasured"] },
     { label: "Ids", fields: ["id", "session", "visitor"] },
   ],

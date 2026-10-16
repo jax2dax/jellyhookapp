@@ -123,6 +123,33 @@ export default function ConnectedRowsPage() {
         <P>The preview draws these in order, so you can see the path you described before you run it.</P>
       </Section>
 
+      <Section title="What a lead did before sending the form">
+        <P>
+          A form submission (a lead) has four connections for questions about what the person did <B>before</B> contacting you. Nothing after the moment they sent the form is included.
+        </P>
+        <DataTable
+          head={["Connection", "The rows"]}
+          rows={[
+            [<B key="a">pages viewed before sending</B>, "Every page view of that visitor, in every visit, up to the moment the form was sent."],
+            [<B key="b">pages of the sending visit, before sending</B>, "Only the page views of the visit the form was sent in, up to that moment."],
+            [<B key="c">visits up to sending</B>, "Every visit of that visitor that started before the form was sent."],
+            [<B key="d">the form they sent</B>, "The form activity of the form they sent: its fill time and fields."],
+          ]}
+        />
+        <P>
+          A page view also has <B>seen before they sent a form</B>: true when the visitor sent a form after opening that page. Use it inside <B>the pages after it</B> to keep a path to what happened before contacting you.
+        </P>
+        <Example
+          title="Leads who read /pricing for 30 seconds or more before contacting you"
+          build={
+            <>
+              <B>Show</B> <B>the list of</B> <B>form submissions</B> where <B>+ Look at its...</B> pages viewed before sending, <B>has at least one</B> where page is /pricing and time on page at least 30 sec.
+            </>
+          }
+          why="This is how a mark works on the leads page. Save the question as a mark to badge every lead that matches."
+        />
+      </Section>
+
       <DocFooter feature="hook" />
     </div>
   );

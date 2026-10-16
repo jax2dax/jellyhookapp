@@ -17,9 +17,9 @@
 // The Field reference page (app/docs/hook/field-reference) reads the schema directly, so its
 // content can never go stale; the other pages are written by hand and are what this check guards.
 export const DOCS_REVIEWED = {
-  reviewedOn: "2026-10-15",
+  reviewedOn: "2026-10-16",
   hookSpecVersion: 3,
-  hookSchema: "f2e4e078967e2c29",
+  hookSchema: "95f1bc05c41d16ab",
   previewRules: "c48aa8bb55c3b453",
   resultsRules: "5ecdc6005686ab09",
 };

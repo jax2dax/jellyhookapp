@@ -18,6 +18,7 @@ export async function OPTIONS() {
 const ok = () => NextResponse.json({ success: true }, { headers: CORS });
 
 import { dropSensitive } from "@/lib/tracking/sensitive";
+import { evaluateLeads } from "@/lib/marks/evaluate";
 
 const MAX_RAW_FIELDS = 60;
 const MAX_RAW_VALUE = 2000;
@@ -97,7 +98,7 @@ export async function POST(req) {
 
     bump(usage, "forms");
     const pagePath = cleanStr(payload.page_path, 500);
-    const { error: insertError } = await supabase.from("form_submissions").insert({
+    const { data: inserted, error: insertError } = await supabase.from("form_submissions").insert({
       site_id: site.id,
       visitor_id: visitorId,
       session_id: cleanId(payload.session_id),
@@ -109,7 +110,7 @@ export async function POST(req) {
       confidence: payload.confidence === "high" ? "high" : "low",
       raw_data: cleanRaw(payload.raw_data),
       submitted_at: new Date(now).toISOString(),
-    });
+    }).select("id").single();
     if (insertError) {
       console.error("[track-form] insert error:", insertError.message);
       return NextResponse.json({ error: "Server error" }, { status: 500, headers: CORS });
@@ -121,6 +122,8 @@ export async function POST(req) {
     if (payload.raw_data && payload.raw_data._kind === "iframe_submission") await markHealthEvent(supabase, site.id, pagePath, "iframe_forms", now);
 
     after(() => flushUsage(supabase, site.id, usage, now));
+    // the new lead's marks (lib/marks/evaluate.ts): after the response, never slows the tracker
+    if (inserted?.id) after(() => evaluateLeads(site.id, [inserted.id]));
     return ok();
   } catch (err) {
     console.error("[track-form] error:", err);
