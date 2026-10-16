@@ -474,3 +474,15 @@
     animation: none;
   }
 }
+
+/* the lead page's form card turning over between its simple and advanced sides (components/forms/LeadFormsCard.tsx) */
+@keyframes jh-card-flip {
+  from {
+    opacity: 0;
+    transform: perspective(1200px) rotateX(-14deg);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(1200px) rotateX(0deg);
+  }
+}

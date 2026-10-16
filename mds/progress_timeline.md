@@ -1765,3 +1765,10 @@ A mark is a named set of conditions on what a lead did before sending the form (
 - Removed the "Converted" badge at the top of the lead profile.
 - Tests: `npm run test:marks` 43 (35 on real Postgres against hand-checked leads, 8 for the AI with a fake model). Hook 83, forms 202, AI 50 still pass. Docs in sync (connected rows page updated).
 - Dev doc: `mds/build/marks/marks.md`. Demo: `/dev/marks-demo`. **Run 18-marks.sql before deploying.**
+
+## 2026-10-16 - Lead page: plain-words stories, compact visits, simpler form card
+
+- Session History: a story of the whole journey at the top ("10 visits between Oct 7 and Oct 14 ... sent the form on their 10th visit"), the selected visit's story under its chart ("Session details" beside it opens the numbers), and a page's story when a frame is clicked ("Page details" beside it). Built in the browser from the chart's own timeline (`lib/leadSessions/story.ts`): no AI, no query. The page story says WHERE they read, by the nearest heading ("saw 14% of the page, near the bottom, around "Contact us""); the visit story counts how many times they left the site and came back.
+- The visit list is a compact column beside the chart, paging in its header ("‹ 1/2 ›"), refresh as an icon, "Loaded with this page" removed, the card's description moved into an (i).
+- Form activity: "The form they submitted" card removed (its two times are now the bars). The card shows one bar per form (before typing, filling), sent first; an "Advanced" checkbox turns the card over to the field-by-field drawings, rendered only when ticked (`components/forms/LeadFormsCard.tsx`).
+- Demos: `/dev/lead-sessions-demo`, `/dev/lead-forms-demo`.

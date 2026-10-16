@@ -5,7 +5,8 @@
 //   pageStory     one page of that visit, when its frame is clicked
 // Pure and computed in the browser from data already loaded: no AI, no extra query. Every number comes from
 // framePlate's own buildTimeline, so the words can never disagree with what the chart draws.
-import { buildTimeline, type SessionRaw, type TimelineItem, type VisitGeometry } from "@/framePlate";
+import { buildTimeline } from "../../framePlate/geometry/buildTimeline";
+import type { SessionRaw, TimelineItem, VisitGeometry } from "../../framePlate/types";
 
 type Visit = Extract<TimelineItem, { kind: "visit" }> & VisitGeometry;
 
@@ -20,38 +21,60 @@ export function shortDuration(ms: number): string {
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 const ordinal = (n: number) => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th");
 const times = (n: number) => (n === 1 ? "once" : n === 2 ? "twice" : n + " times");
-const readShare = (v: VisitGeometry) => Math.max(0, Math.min(1, v.seenBottom - v.seenOnceTop));
 const pct = (x: number) => Math.round(x * 100) + "%";
 
-function visitsOf(session: SessionRaw, fallbackViewportHeightPx: number): { visits: Visit[]; awayMs: number } {
+function visitsOf(session: SessionRaw, fallbackViewportHeightPx: number): { visits: Visit[]; awayMs: number; awayCount: number } {
   const t = buildTimeline(session, undefined, undefined, fallbackViewportHeightPx);
   const visits = t.filter((i): i is Visit => i.kind === "visit");
-  const awayMs = t.filter((i) => i.kind === "gap").reduce((n, g) => n + ((g as { durationMs?: number }).durationMs ?? 0), 0);
-  return { visits, awayMs };
+  // a gap is a real departure (buildTimeline only makes one when they were away long enough), not a page loading
+  const gaps = t.filter((i) => i.kind === "gap");
+  const awayMs = gaps.reduce((n, g) => n + ((g as { durationMs?: number }).durationMs ?? 0), 0);
+  return { visits, awayMs, awayCount: gaps.length };
 }
 
-/** How much of a page was read, in words: "read nearly all of it", "read most of it (72%)", "only saw the top (18%)". */
-function readWords(v: VisitGeometry): string {
-  const r = readShare(v);
-  if (r >= 0.9) return "read nearly all of it";
-  if (r >= 0.6) return "read most of it (" + pct(r) + ")";
-  if (r >= 0.3) return "read part of it (" + pct(r) + ")";
-  return "only saw the top (" + pct(r) + ")";
+/**
+ * Which part of the page they saw, in words. A share alone misleads (14% can be the bottom of the page, not the top),
+ * so it says WHERE: by the headings inside or next to the part they saw, else by position on the page.
+ *   "read nearly all of it"
+ *   "saw 14% of the page, near the bottom, around "Contact us""
+ *   "saw 30% of the page, the top, down to "Pricing""
+ *   "saw 22% of the page, the middle, just below "How it works""
+ */
+export function whereRead(v: VisitGeometry): string {
+  const top = Math.max(0, v.seenOnceTop);
+  const bottom = Math.min(1, v.seenBottom);
+  const share = Math.max(0, bottom - top);
+  if (share >= 0.9) return "read nearly all of it";
+  const mid = (top + bottom) / 2;
+  const zone = top < 0.05 ? "the top" : bottom > 0.95 ? "the bottom" : mid < 0.4 ? "the upper part" : mid > 0.6 ? "near the bottom" : "the middle";
+  const headers = [...(v.headers ?? [])].sort((x, y) => x.y - y.y);
+  const inside = headers.filter((h) => h.y >= top && h.y <= bottom);
+  let ref = "";
+  if (inside.length === 1) ref = ', around "' + inside[0].text + '"';
+  else if (inside.length > 1) ref = top < 0.05 ? ', down to "' + inside[inside.length - 1].text + '"' : ', from "' + inside[0].text + '" to "' + inside[inside.length - 1].text + '"';
+  else if (headers.length) {
+    // no heading inside what they saw: the closest one above it or below it, whichever is nearer
+    const above = [...headers].reverse().find((h) => h.y < top);
+    const below = headers.find((h) => h.y > bottom);
+    const dAbove = above ? top - above.y : Infinity;
+    const dBelow = below ? below.y - bottom : Infinity;
+    if (above && dAbove <= dBelow) ref = ', just below "' + above.text + '"';
+    else if (below) ref = ', just above "' + below.text + '"';
+  }
+  const verb = share >= 0.6 ? "read most of the page (" + pct(share) + ")" : "saw " + pct(share) + " of the page";
+  return verb + ", " + zone + ref;
 }
 
 /** One page of a visit. `nextPath`: the page they went to next, if any. */
 export function pageStory(v: VisitGeometry, nextPath?: string | null): string {
   const parts: string[] = [];
-  parts.push("Spent " + shortDuration(v.durationMs) + " on " + (v.pagePath || "this page") + " and " + readWords(v) + (v.seenTwiceTop !== null ? ", going back over part of it" : "") + ".");
+  parts.push("Spent " + shortDuration(v.durationMs) + " on " + (v.pagePath || "this page") + " and " + whereRead(v) + (v.seenTwiceTop !== null ? ", going back over part of it" : "") + ".");
   const headers = [...(v.headers ?? [])].sort((a, b) => a.y - b.y);
   if (headers.length) {
     const seen = headers.filter((h) => h.y >= v.seenOnceTop && h.y <= v.seenBottom);
     if (seen.length === headers.length) parts.push("Reached every heading.");
     else if (!seen.length) parts.push("Did not reach any heading.");
-    else {
-      const firstMissed = headers.find((h) => h.y > v.seenBottom);
-      parts.push("Reached " + seen.length + " of " + headers.length + " headings" + (firstMissed ? ', stopping before "' + firstMissed.text + '"' : "") + ".");
-    }
+    else parts.push("Reached " + seen.length + " of " + headers.length + " headings.");
   }
   if (v.outcome === "converted") parts.push("Sent the form here.");
   else if (v.outcome === "live") parts.push("Still on this page.");
@@ -62,7 +85,7 @@ export function pageStory(v: VisitGeometry, nextPath?: string | null): string {
 
 /** One visit (session). `n` is its number among the lead's visits (1 = first). */
 export function sessionStory(session: SessionRaw, n: number, fallbackViewportHeightPx = 0): string {
-  const { visits, awayMs } = visitsOf(session, fallbackViewportHeightPx);
+  const { visits, awayMs, awayCount } = visitsOf(session, fallbackViewportHeightPx);
   if (!visits.length) return "Opened the site but no page was recorded.";
   const total = visits.reduce((s, v) => s + v.durationMs, 0);
   const distinct = new Set(visits.map((v) => v.pagePath)).size;
@@ -74,15 +97,15 @@ export function sessionStory(session: SessionRaw, n: number, fallbackViewportHei
   if (visits.length > 1) {
     parts.push("Started on " + visits[0].pagePath + ".");
     const longest = [...visits].sort((a, b) => b.durationMs - a.durationMs)[0];
-    parts.push("Spent the longest on " + longest.pagePath + " (" + shortDuration(longest.durationMs) + ", " + readWords(longest) + ").");
+    parts.push("Spent the longest on " + longest.pagePath + " (" + shortDuration(longest.durationMs) + "; " + whereRead(longest) + ").");
     const counts = new Map<string, number>();
     for (const v of visits) counts.set(v.pagePath, (counts.get(v.pagePath) ?? 0) + 1);
     const repeated = [...counts].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]);
     if (repeated.length) parts.push("Opened " + repeated.slice(0, 2).map(([p, c]) => p + " " + times(c)).join(" and ") + ".");
   } else {
-    parts.push("Only " + visits[0].pagePath + ", and " + readWords(visits[0]) + ".");
+    parts.push("Only " + visits[0].pagePath + ", and " + whereRead(visits[0]) + ".");
   }
-  if (awayMs >= 60_000) parts.push("Left the site and came back, " + shortDuration(awayMs) + " away in total.");
+  if (awayCount > 0) parts.push("Left the site and came back " + times(awayCount) + " (" + shortDuration(awayMs) + " away" + (awayCount > 1 ? " in total" : "") + ").");
   const last = visits[visits.length - 1];
   const sentOn = visits.find((v) => v.outcome === "converted");
   if (sentOn) parts.push("Sent the form on " + sentOn.pagePath + ".");
