@@ -168,11 +168,11 @@ export default async function FormDashboardDemoPage({ searchParams }: { searchPa
                   <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm">
                     <span className="min-w-40 font-medium">Anonymous visitor {String(1000 + i * 37).slice(0, 4)}</span>
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[11px]">{it.status}</span>
-                    {odd > 0 && <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-700 dark:text-red-300">unusual</span>}
+                    {odd > 0 && <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-700 dark:text-red-300">took much longer than most</span>}
                     <span className="text-xs text-muted-foreground">{it.page}</span>
                   </summary>
                   <div className="border-t px-4 py-4">
-                    <FormActivityChart timeline={it.timeline} reference={other?.reference ?? null} referenceLabel={other ? "the healthy reference (" + other.label + ")" : undefined} />
+                    <FormActivityChart timeline={it.timeline} reference={other?.reference ?? null} referenceLabel={other ? other.label : undefined} />
                   </div>
                 </details>
               </li>

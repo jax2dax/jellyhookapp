@@ -63,14 +63,13 @@ function countCmp(mode: ShowMode, cur: { count: number; rate: number | null; day
       title: `${pct(cur.rate)} vs ${pct(other.rate)} ${rateWord}: a difference of ${Math.abs(diff)} percentage points`,
     };
   }
-  const a = cur.count / cur.days;
-  const b = other.count / other.days;
-  const rel = b > 0 ? Math.round(((a - b) / b) * 100) : null;
+  // counts are not compared as a change: two periods of different length always differ. The change is the rate.
+  const diff = cur.rate !== null && other.rate !== null ? Math.round((cur.rate - other.rate) * 100) : null;
   return {
-    other: "vs " + n(other.count) + " · " + perDay(b) + "/day",
-    change: !ok ? "too few to compare" : rel === null ? null : rel === 0 ? "no change" : arrow(rel) + " " + Math.abs(rel) + "%",
-    tone: ok && rel !== null ? toneOf(rel, upIsGood) : "flat",
-    title: "The two sides cover different lengths of time, so counts are compared per day: " + n(cur.count) + " in " + Math.round(cur.days) + " days vs " + n(other.count) + " in " + Math.round(other.days) + " days",
+    other: "vs " + n(other.count),
+    change: diff === null ? null : !ok ? "too few to compare" : diff === 0 ? "same rate" : arrow(diff) + " " + Math.abs(diff) + "% " + (diff > 0 ? "higher" : "lower") + " rate",
+    tone: ok && diff !== null ? toneOf(diff, upIsGood) : "flat",
+    title: rateWord ? `${pct(cur.rate)} vs ${pct(other.rate)} ${rateWord}` : undefined,
   };
 }
 
@@ -96,11 +95,11 @@ function Cards({ d, mode }: { d: DashboardData; mode: ShowMode }) {
   const day = (count: number) => " · " + perDay(count / cur.days) + "/day";
   return (
     <div className="flex flex-wrap gap-3">
-      <Card label="Forms seen" value={n(f.seen)} sub={"at least half on screen" + day(f.seen)} cmp={g && oth && countCmp("num", side(cur, f.seen, null), side(oth, g.seen, null), ok, true, "")} />
+      <Card label="Saw the form" value={n(f.seen)} sub={"on screen" + day(f.seen)} cmp={g && oth && countCmp("num", side(cur, f.seen, null), side(oth, g.seen, null), ok, true, "")} />
       <Card label="Started" value={mode === "pct" ? pct(f.startRate) : n(f.started)} sub={(mode === "pct" ? n(f.started) + " of " + n(f.seen) + " seen" : pct(f.startRate) + " of those seen") + day(f.started)} cmp={g && oth && countCmp(mode, side(cur, f.started, f.startRate), side(oth, g.started, g.startRate), ok, true, "of those seen")} />
       <Card label="Submitted" value={mode === "pct" ? pct(f.completionRate) : n(f.submitted)} sub={(mode === "pct" ? n(f.submitted) + " of " + n(f.started) + " started" : pct(f.completionRate) + " of those started") + day(f.submitted)} tone="text-yellow-600 dark:text-yellow-400" cmp={g && oth && countCmp(mode, side(cur, f.submitted, f.completionRate), side(oth, g.submitted, g.completionRate), ok, true, "of those started")} />
       <Card
-        label="Started, not submitted"
+        label="Quit the form"
         value={mode === "pct" ? pct(abandonedOf(f)) : n(f.abandoned)}
         sub={(mode === "pct" ? n(f.abandoned) + " of " + n(f.started) + " started" : pct(abandonedOf(f)) + " of those started") + day(f.abandoned) + (f.inProgress > 0 ? " · " + f.inProgress + " still in progress" : "")}
         tone="text-orange-600 dark:text-orange-400"
@@ -152,15 +151,15 @@ function FieldTable({ d }: { d: DashboardData }) {
         <thead className="bg-muted/40 text-xs text-muted-foreground">
           <tr>
             <th className="px-3 py-2 font-medium">Field</th>
-            <th className="px-3 py-2 text-right font-medium" title="Forms in which it was clicked into, of the forms that have it">Used</th>
+            <th className="px-3 py-2 text-right font-medium" title="People who clicked into it, of those who started the form">Used</th>
             <th className="px-3 py-2 text-right font-medium" title="Median time in the field, submitted forms typed by hand">Time in it</th>
             <th className="px-3 py-2 text-right font-medium" title="Median time from clicking in to the first key">Before typing</th>
             <th className="px-3 py-2 text-right font-medium" title="Of those who paused 1.5 s or more after the field: their median pause, and how many they were">Pause after</th>
             <th className="px-3 py-2 text-right font-medium" title="Submitted without ever clicking into it">Skipped</th>
-            <th className="px-3 py-2 text-right font-medium" title="Abandoned forms that ended on this field">Gave up here</th>
+            <th className="px-3 py-2 text-right font-medium" title="Abandoned forms that ended on this field">Quit here</th>
             <th className="px-3 py-2 text-right font-medium" title="Times the browser refused a submit because of this field">Errors</th>
-            <th className="px-3 py-2 text-right font-medium" title="Filled with no key press: autofill, a password manager or paste. Not part of the times.">Without typing</th>
-            {u && <th className="px-3 py-2 text-right font-medium" title={"Submitted forms of the current version whose time in this field is well above the reference (of the newest " + u.of + ")"}>Unusual</th>}
+            <th className="px-3 py-2 text-right font-medium" title="Filled with no key press: autofill, a password manager or paste. Not part of the times.">Autofill or paste</th>
+            {u && <th className="px-3 py-2 text-right font-medium" title={"Submitted forms of the current version whose time in this field is well above the reference (of the newest " + u.of + ")"}>Took much longer than most</th>}
           </tr>
         </thead>
         <tbody>
@@ -239,7 +238,65 @@ function GiveUps({ d }: { d: DashboardData }) {
             </div>
           );
         })}
-      <p className="text-[11px] text-muted-foreground">Share of the abandoned forms that ended on each field{d.compare ? ". The dark line is the comparison." : "."}</p>
+      <p className="text-[11px] text-muted-foreground">Of the people who quit, the share who stopped at each field{d.compare ? ". The dark line is the comparison." : "."}</p>
+    </div>
+  );
+}
+
+/** "Oct 11" */
+const shortDay = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+/** What the comparison is called in plain words: before the change, typical (all time), or the chosen dates. */
+function compareName(d: DashboardData): { short: string; since: string | null } {
+  const c = d.compareChoice;
+  const curVersion = d.versions.find((v) => v.current);
+  if (c.kind === "version") {
+    const prev = d.versions.filter((v) => !v.current)[0];
+    if (prev && prev.id === c.id && curVersion) return { short: "Before your change", since: "Since you changed the form on " + shortDay(curVersion.startedAt) };
+    const v = d.versions.find((x) => x.id === c.id);
+    return { short: "Version " + (v?.label ?? ""), since: "Compared with the version " + (v?.label ?? "") };
+  }
+  if (c.kind === "all") return { short: "Typical (all time)", since: "Compared with all time" };
+  if (c.kind === "custom") return { short: "Typical (" + c.from + " to " + c.to + ")", since: "Compared with " + c.from + " to " + c.to };
+  return { short: "", since: null };
+}
+
+/** The answer first: how many finish, where the rest stop, and what changed. */
+function Summary({ d }: { d: DashboardData }) {
+  const f = d.current.dashboard.funnel;
+  const g = d.compare?.dashboard.funnel ?? null;
+  const top = [...d.current.dashboard.fields].sort((a, b) => b.gaveUp - a.gaveUp)[0];
+  const share = top && f.abandoned > 0 ? top.gaveUp / f.abandoned : 0;
+  const oneIn = share > 0 ? Math.max(1, Math.round(1 / share)) : null;
+  const name = compareName(d);
+  const ok = comparable(d.current, d.compare);
+  const a = d.current.reference?.form.fillMs;
+  const b = d.compare?.reference?.form.fillMs;
+  const dt = a != null && b != null ? a - b : null;
+  return (
+    <div className="space-y-1.5 rounded-lg border bg-card px-5 py-4 text-base text-foreground">
+      <p>
+        <strong>{pct(f.completionRate)}</strong> of people who start your form send it.
+        {top && top.gaveUp > 0 && (
+          <>
+            {" "}Most who quit stop at <strong>{top.name}</strong>
+            {oneIn ? <span className="text-muted-foreground"> ({oneIn === 1 ? "almost all of them" : "1 in " + oneIn})</span> : null}.
+          </>
+        )}
+      </p>
+      {g && name.since && (
+        <p>
+          {name.since}:{" "}
+          {ok ? (
+            <>
+              <strong>{pct(f.completionRate)}</strong> finish it (was {pct(g.completionRate)}).
+              {dt !== null && Math.abs(dt) >= 1000 ? ` People spend ${fmtMs(Math.abs(dt))} ${dt < 0 ? "less" : "more"} on it.` : ""}
+            </>
+          ) : (
+            <span className="text-muted-foreground">too few forms yet to compare ({n(f.started)} vs {n(g.started)} started, 30 needed on each side).</span>
+          )}
+        </p>
+      )}
     </div>
   );
 }
@@ -250,54 +307,48 @@ export function FormDashboardView({ d, mode }: { d: DashboardData; mode: ShowMod
   const curVersion = d.versions.find((v) => v.current);
   const pages = curVersion?.pages.length ? curVersion.pages : cur.dashboard.pages.map((p) => p.page);
   const keys = cur.reference?.fields.map((f) => f.key);
-  if (cur.dashboard.funnel.seen === 0) return <p className="rounded-lg border p-6 text-sm text-muted-foreground">This form has not been seen yet in its current version.</p>;
+  const name = compareName(d);
+  if (cur.dashboard.funnel.seen === 0) return <p className="rounded-lg border p-6 text-sm text-muted-foreground">Nobody has seen this form yet since it was last changed.</p>;
   return (
     <div className="space-y-8">
       <p className="text-xs text-muted-foreground">
-        {cur.label}
-        {curVersion && curVersion.layouts > 1 ? " · edited again in its first day (" + curVersion.layouts + " layouts, counted as one version)" : ""}
+        {curVersion ? "This form since " + shortDay(curVersion.startedAt) : "This form, all time"}
         {pages.length ? " · on " + pages.join(", ") : ""}
-        {oth && (comparable(cur, oth) ? ` · compared with ${oth.label}, based on ${n(cur.dashboard.funnel.started)} vs ${n(oth.dashboard.funnel.started)} started` : ` · ${oth.label} has too few to compare (at least ${MIN_COMPARE_STARTED} started on each side)`)}
       </p>
-      {cur.dashboard.headline && <p className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-sm text-foreground">{cur.dashboard.headline}</p>}
+
+      <Summary d={d} />
 
       <Cards d={d} mode={mode} />
 
+      <section className="space-y-2">
+        <h2 className="text-base font-semibold">Where people quit</h2>
+        <GiveUps d={d} />
+      </section>
+
       <section className="space-y-4">
+        <h2 className="text-base font-semibold">How long a typical sender takes</h2>
         {oth && (
           <div className="rounded-lg border border-emerald-500/40 bg-card p-4">
-            <div className="mb-3 text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-              Healthy reference: {oth.label} <span className="normal-case tracking-normal text-muted-foreground">· the median successful submission</span>
-            </div>
-            {oth.reference ? <Journey fields={oth.reference.fields} typed={oth.reference.typed} keys={keys} /> : <p className="text-sm text-muted-foreground">No submissions in the comparison.</p>}
+            <div className="mb-3 text-xs font-medium text-emerald-700 dark:text-emerald-400">{name.short}</div>
+            {oth.reference ? <Journey fields={oth.reference.fields} typed={oth.reference.typed} keys={keys} /> : <p className="text-sm text-muted-foreground">Nobody sent the form in this period.</p>}
           </div>
         )}
         <div className="rounded-lg border bg-card p-4">
-          <div className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {oth ? "Current version" : "The median successful submission"} <span className="normal-case tracking-normal">· {cur.reference ? cur.reference.typed + " typed submissions" : "none yet"}</span>
-          </div>
-          {cur.reference ? <Journey fields={cur.reference.fields} typed={cur.reference.typed} /> : <p className="text-sm text-muted-foreground">No submissions yet in this version.</p>}
+          {oth && <div className="mb-3 text-xs font-medium text-muted-foreground">Now</div>}
+          {cur.reference ? <Journey fields={cur.reference.fields} typed={cur.reference.typed} /> : <p className="text-sm text-muted-foreground">Nobody has sent the form yet since it was last changed.</p>}
         </div>
-        {cur.reference && cur.reference.withoutTyping > 0 && (
-          <p className="text-xs text-muted-foreground">
-            {cur.reference.withoutTyping} of {cur.reference.sampled} submissions were filled without typing (autofill, a password manager or paste; median total {fmtMs(cur.reference.withoutTypingFillMs)}). They count in the cards, not in the times.
-          </p>
-        )}
+        {cur.reference && cur.reference.withoutTyping > 0 && <p className="text-xs text-muted-foreground">{cur.reference.withoutTyping} of {cur.reference.sampled} used autofill or paste; their times are left out.</p>}
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-base font-semibold">Fields</h2>
-        <FieldTable d={d} />
-        <p className="text-xs text-muted-foreground">
-          * required. Times are medians of submitted forms typed by hand{oth ? "; the small line under a number is the change against the comparison" : ""}.
-          {d.unusual ? ` Unusual: of the newest ${d.unusual.of} submitted forms, how many spent well above the reference in that field.` : ""}
-        </p>
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-base font-semibold">Where people give up</h2>
-        <GiveUps d={d} />
-      </section>
+      <details className="group rounded-lg border">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-foreground">
+          Field details <span className="ml-1 text-xs font-normal text-muted-foreground group-open:hidden">show</span>
+        </summary>
+        <div className="space-y-2 border-t p-4">
+          <FieldTable d={d} />
+          <p className="text-xs text-muted-foreground">* required. Times are for people who sent the form, typed by hand.</p>
+        </div>
+      </details>
     </div>
   );
 }

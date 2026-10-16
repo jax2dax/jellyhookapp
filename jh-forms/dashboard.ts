@@ -60,7 +60,8 @@ export function dashboardSpecs(scope: FormScope): Record<string, HookSpec> {
     dailyStarted: spec("form", form(started), by("viewedAt", COUNT, { bucket: "day", sort: "keyAsc", limit: 400 })),
     dailySubmitted: spec("form", form(f("status", "=", "submitted")), by("viewedAt", COUNT, { bucket: "day", sort: "keyAsc", limit: 400 })),
     // fields: one table per measure, joined by field name. Durations are medians (founder decision 2026-10-15).
-    fieldRows: fieldBy([], COUNT),
+    // out of the forms that were started: a form only seen never had a chance to use its fields
+    fieldRows: fieldBy([f("formStatus", "!=", "viewed")], COUNT),
     fieldTouched: fieldBy([f("touched", "isTrue")], COUNT),
     fieldFocus: fieldBy([f("touched", "isTrue")], { agg: "median", field: "focusedTime" }),
     fieldHesitation: fieldBy([f("typed", "isTrue")], { agg: "median", field: "timeToFirstKey" }),

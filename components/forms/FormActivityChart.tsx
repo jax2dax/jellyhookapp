@@ -171,7 +171,7 @@ export function FormActivityChart({ timeline: t, title, reference, referenceLabe
       {reference && (
         <p className="text-[11px] text-muted-foreground">
           Compared with {referenceLabel ?? "the typical successful submission"}.{" "}
-          {unusual.fields.size + unusual.totals.size > 0 ? <span className="font-medium text-red-600 dark:text-red-400">Outlined in red: unusual, well above what is typical.</span> : "Nothing unusual."}
+          {unusual.fields.size + unusual.totals.size > 0 ? <span className="font-medium text-red-600 dark:text-red-400">Outlined in red: took much longer than most.</span> : "Nothing out of the ordinary."}
         </p>
       )}
       {!t.exact && <p className="text-[11px] text-amber-600 dark:text-amber-400">Older record: some fields were visited more than once, so their bars are approximate.</p>}
@@ -394,7 +394,7 @@ export function FormActivityChart({ timeline: t, title, reference, referenceLabe
                   (f.hesitationMs !== null ? ", " + fmt(f.hesitationMs) + " before the first key" : ", no key pressed") +
                   (f.filled === false ? ", left empty" : f.filled === true ? ", filled" : "") +
                   (f.errors > 0 ? ", " + f.errors + " validation error(s)" : "") +
-                  (typical !== null ? ". Typical: " + fmt(typical) + (odd ? " (unusual)" : "") : "")}
+                  (typical !== null ? ". Typical: " + fmt(typical) + (odd ? " (much longer than most)" : "") : "")}
               </title>
             </g>
           );
@@ -428,7 +428,7 @@ export function FormActivityChart({ timeline: t, title, reference, referenceLabe
         <span className="flex items-center gap-1.5"><span className="inline-block size-2 rounded-full bg-red-500" />validation error</span>
         <span>In a bar: light part = seconds before typing, solid part = seconds typing (together: the time in the field)</span>
         <span>* required · ● the field they were on at the end</span>
-        {reference && <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-4 rounded-sm border border-red-500" />unusual: well above the typical successful submission</span>}
+        {reference && <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-4 rounded-sm border border-red-500" />took much longer than most</span>}
       </div>
     </figure>
   );

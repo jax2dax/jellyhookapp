@@ -109,7 +109,7 @@ export function FormEngagementClient({ siteId }: { siteId: string }) {
   const items = list && list.key === listKey ? list.items : null;
 
   const ref = data?.compare?.reference ?? null;
-  const refLabel = data?.compare ? "the healthy reference (" + data.compare.label + ")" : undefined;
+  const refLabel = data?.compare ? data.compare.label : undefined;
 
   return (
     <div className="space-y-6">
@@ -191,7 +191,7 @@ export function FormEngagementClient({ siteId }: { siteId: string }) {
           Every form started{curVersion ? " in this version" : ""}
           <InfoTip>
             The newest 100. A person is named when they submitted a form at some point; everyone else is an anonymous visitor. Open one to see it field by field.
-            {ref ? " Unusual: well above the healthy reference, outlined in red inside." : ""}
+            {ref ? " Red: took much longer than most." : ""}
           </InfoTip>
         </h2>
         {items === null && data && <p className="text-sm text-muted-foreground">Loading…</p>}
@@ -217,7 +217,7 @@ export function FormEngagementClient({ siteId }: { siteId: string }) {
                       )}
                     </span>
                     <span className={"rounded-full px-2 py-0.5 text-[11px] " + st.cls}>{st.label}</span>
-                    {odd > 0 && <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-700 dark:text-red-300">unusual</span>}
+                    {odd > 0 && <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-700 dark:text-red-300">took much longer than most</span>}
                     {it.who?.via === "other" && <span className="text-[11px] text-muted-foreground">submitted another form</span>}
                     <span className="text-xs text-muted-foreground">{it.page || "-"}</span>
                     <span className="text-xs text-muted-foreground">{it.seenAt ? new Date(it.seenAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}</span>

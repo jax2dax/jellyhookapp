@@ -78,7 +78,7 @@ async function main() {
   ok(f("email").corrected === 2 && f("phone").corrected === 0, "corrected (value changed in more than one visit): email on 2 forms");
   ok(f("name").required && f("email").required && !f("phone").required, "required comes from the form's field list");
   console.log("name:", f("name").touched, "of", f("name").rows);
-  ok(f("name").rows === 8 && f("name").touched === 6, "reach counts the forms that list the field: name was clicked into in 6 of the 8 /contact forms (the 2 only seen never touched it; /demo lists only email)");
+  ok(f("name").rows === 6 && f("name").touched === 6, "reach is out of the forms that were started: name clicked into in 6 of 6 started /contact forms (the 2 only seen do not count)");
   ok(near(f("email").medianHesitationMs, 2000), "median time before typing in the email field: 2 s (five 2 s, one 0.5 s)");
   ok(all.headline !== null && all.headline.includes("phone"), "the headline names the field most people give up on: " + all.headline);
 

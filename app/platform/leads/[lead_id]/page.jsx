@@ -90,7 +90,6 @@ async function LeadProfileBody({ profile, raw, siteId }) {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-lg font-semibold text-foreground">{identity.name || "Unnamed visitor"}</h1>
-                {hasConverted && <Badge>Converted</Badge>}
                 {visitorType && (
                   <Badge variant="outline">
                     {visitorType === "first-time" ? "First-time convert" : `Returning · converted after ${visitsBeforeConversion} visit${visitsBeforeConversion === 1 ? "" : "s"}`}

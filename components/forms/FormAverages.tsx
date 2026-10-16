@@ -11,7 +11,7 @@ export const fmtMs = (ms: number | null | undefined) => {
   const s = Math.round(ms / 1000);
   if (s < 60) return s + " s";
   const m = Math.floor(s / 60);
-  return m + " min " + (s % 60) + " s";
+  return m + "m " + (s % 60) + "s";
 };
 const pct = (v: number | null) => (v === null ? "-" : Math.round(v * 100) + "%");
 
