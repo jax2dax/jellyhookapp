@@ -201,9 +201,9 @@ export function MarkBuilder({ initial, pages, team, me, onSaved, onCancel }: { i
       setRule(r.rule);
       setSel(null);
       setFace("manual");
-      if (!name.trim() && r.name) {
-        setName(r.name);
-      }
+      if (!name.trim() && r.name) setName(r.name);
+      // the purpose is filled in for you, unless you already wrote one
+      if (!description.trim() && r.purpose) setDescription(r.purpose);
       setAiNote({ tone: "info", text: r.assumptions.length ? "Assumed: " + r.assumptions.join("; ") : "Done. Check it below, then save." });
     } else setAiNote({ tone: r.status === "clarify" ? "info" : "error", text: r.status === "clarify" ? r.question : r.reason });
   };
@@ -560,7 +560,7 @@ export function MarkBuilder({ initial, pages, team, me, onSaved, onCancel }: { i
         <div className="flex items-center gap-2">
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Name, e.g. Pricing reader" className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm" aria-label="Name" />
         </div>
-        <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} rows={2} placeholder="Notes for the team (optional): what to do with these leads" className="w-full resize-none rounded-md border bg-background p-2 text-xs" />
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} rows={2} placeholder="Purpose, in plain words: who these leads are and what to do with them (the AI fills this in)" className="w-full resize-none rounded-md border bg-background p-2 text-xs" />
         <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Colour">
           {MARK_COLORS.map((c) => (
             <button key={c} type="button" onClick={() => setColor(c)} role="radio" aria-checked={color === c} className={"size-5 rounded-full transition " + (color === c ? "ring-2 ring-foreground ring-offset-2 ring-offset-background" : "hover:scale-110")} style={{ backgroundColor: c }} aria-label={c} />

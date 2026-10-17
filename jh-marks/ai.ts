@@ -13,7 +13,7 @@ const MAX_CHARS = 400;
 const CACHE_KEY = "jh-mark-v1";
 
 export type MarkAiResult =
-  | { status: "ok"; rule: MarkRule; name: string | null; reads: string; assumptions: string[] }
+  | { status: "ok"; rule: MarkRule; name: string | null; /** the mark's purpose, in plain words (fills the Purpose box) */ purpose: string | null; reads: string; assumptions: string[] }
   | { status: "clarify"; question: string }
   | { status: "unsupported"; reason: string }
   | { status: "failed"; reason: string };
@@ -52,7 +52,7 @@ Every row and every chip must be true (AND). There is no OR: if asked for OR, re
 Limits: 6 rows, 8 chips. Use only page paths from the site list when one fits; otherwise the path the person wrote.
 
 ANSWER (exactly one of)
-{"status":"ok","mark":{...},"name":"Short name, 1-4 words","assumptions":["what you assumed, if anything"]}
+{"status":"ok","mark":{...},"name":"Short name, 1-4 words","purpose":"One plain sentence for a salesperson: who these leads are and why they matter (max 160 characters, no jargon, no numbers repeated from the conditions)","assumptions":["what you assumed, if anything"]}
 {"status":"clarify","question":"one short question"}   only when a key number or page is truly unknowable
 {"status":"unsupported","reason":"what cannot be expressed"}
 
@@ -60,11 +60,11 @@ Reasonable defaults when the sentence is vague: "spent time" = 30 s, "read" = 80
 
 EXAMPLES
 "read pricing for at least 30 seconds, then booked a demo" ->
-{"status":"ok","mark":{"scope":"any","rows":[{"order":"sequence","cards":[{"path":"/pricing","match":"exact","minSeconds":30},{"path":"/demo","match":"exact"}]}],"lead":[]},"name":"Pricing then demo","assumptions":["the demo page is /demo"]}
+{"status":"ok","mark":{"scope":"any","rows":[{"order":"sequence","cards":[{"path":"/pricing","match":"exact","minSeconds":30},{"path":"/demo","match":"exact"}]}],"lead":[]},"name":"Pricing then demo","purpose":"Read the pricing and then went to book a demo: they are weighing the price, so a quick call can close it.","assumptions":["the demo page is /demo"]}
 "came back at least twice from google and read most of every page" ->
-{"status":"ok","mark":{"scope":"any","rows":[],"lead":[{"kind":"visits","min":2},{"kind":"source","value":"google"},{"kind":"readEvery","minPct":80}]},"name":"Engaged Google returner","assumptions":["most = 80%"]}
+{"status":"ok","mark":{"scope":"any","rows":[],"lead":[{"kind":"visits","min":2},{"kind":"source","value":"google"},{"kind":"readEvery","minPct":80}]},"name":"Engaged Google returner","purpose":"Found you on Google, came back and read carefully: a researched, interested lead worth a prompt reply.","assumptions":["most = 80%"]}
 "looked at 3 blog posts" ->
-{"status":"ok","mark":{"scope":"any","rows":[{"order":"any","cards":[{"path":"/blog/","match":"startsWith","minTimes":3}]}],"lead":[]},"name":"Blog reader","assumptions":[]}`;
+{"status":"ok","mark":{"scope":"any","rows":[{"order":"any","cards":[{"path":"/blog/","match":"startsWith","minTimes":3}]}],"lead":[]},"name":"Blog reader","purpose":"Spent time on several blog posts first: they are learning about the problem, so lead with advice, not a price.","assumptions":[]}`;
 }
 
 function userMessage(sentence: string, pages: string[]): string {
@@ -113,8 +113,9 @@ export async function translateMark(sentence: string, pages: string[], deps: { p
       if (raw.status !== "ok" || !isObj(raw.mark)) throw new RuleError('expected {"status":"ok","mark":{...}}');
       const rule = validateRule({ v: 1, ...raw.mark });
       const name = typeof raw.name === "string" && raw.name.trim() ? raw.name.trim().slice(0, 40) : null;
+      const purpose = typeof raw.purpose === "string" && raw.purpose.trim() ? raw.purpose.trim().slice(0, 200) : null;
       const assumptions = Array.isArray(raw.assumptions) ? raw.assumptions.filter((x): x is string => typeof x === "string").map((x) => x.slice(0, 160)).slice(0, 4) : [];
-      return done({ status: "ok", rule, name, reads: describeRule(rule), assumptions });
+      return done({ status: "ok", rule, name, purpose, reads: describeRule(rule), assumptions });
     } catch (e) {
       if (!(e instanceof RuleError)) throw e;
       problem = e.message;

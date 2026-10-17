@@ -58,7 +58,7 @@ export function SaveAsMark({ spec }: { spec: HookSpec }) {
               <button key={c} type="button" onClick={() => setColor(c)} className={"size-5 rounded-full " + (color === c ? "ring-2 ring-foreground ring-offset-2 ring-offset-popover" : "")} style={{ backgroundColor: c }} aria-label={c} />
             ))}
           </div>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} maxLength={500} placeholder="Notes (optional)" className="w-full resize-none rounded-md border bg-background p-2 text-xs" />
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} maxLength={500} placeholder="Purpose (optional): who these leads are and what to do with them" className="w-full resize-none rounded-md border bg-background p-2 text-xs" />
           <label className="flex items-center gap-2 text-xs">
             <input type="checkbox" checked={team} onChange={(e) => setTeam(e.target.checked)} className="size-3" />
             Share with the team

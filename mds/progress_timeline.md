@@ -1772,3 +1772,7 @@ A mark is a named set of conditions on what a lead did before sending the form (
 - The visit list is a compact column beside the chart, paging in its header ("‹ 1/2 ›"), refresh as an icon, "Loaded with this page" removed, the card's description moved into an (i).
 - Form activity: "The form they submitted" card removed (its two times are now the bars). The card shows one bar per form (before typing, filling), sent first; an "Advanced" checkbox turns the card over to the field-by-field drawings, rendered only when ticked (`components/forms/LeadFormsCard.tsx`).
 - Demos: `/dev/lead-sessions-demo`, `/dev/lead-forms-demo`.
+
+## 2026-10-16 - Marks library, site statistics
+
+`/platform/marks` (sidebar "Marks"): My marks grouped by type, and Browse (12 published marks in 4 categories). "Add to marks" copies a mark (yours, editable); "Use mark" connects it (plug icon: the published mark's updates apply, only its page variables are yours). Locking is built (formula hidden, Edit dimmed) but unused. Limits: 5 built by you, 15 in all. The leads panel's templates became a "Browse marks" link. Per-site statistics (`site_stats`): normal visit length three ways, by the founder's frequency-table method (outliers dropped, mean ± 1 SD). New Hook fields: lead.timeAfterSending, form.leftWhileFilling / awaysAfterSeen / pagesSeenToSent. Tests: marks 79 (35 rules, 9 AI, 28 library on real Postgres, 7 statistics), Hook 83. Docs in sync. Dev doc: `mds/build/marks/marks.md` (Library, Site statistics). Demo: `/dev/marks-library-demo`. **Run 19-marks-library.sql after 18.**

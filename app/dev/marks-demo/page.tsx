@@ -22,7 +22,7 @@ const mark = (id: string, name: string, color: string, rule: MarkRule | null, ex
   return {
     id, name, color, description: null, active: true, visibility: "private", sharedWith: [], rule: r,
     spec: r ? compileRule(r) : { v: 3, entity: "lead", where: [], output: { kind: "ids" } }, reads: r ? describeRule(r) : "Leads from the spring campaign (made in Hook)",
-    templateKey: null, mine: true, createdByEmail: "you@example.com", createdAt: "2026-10-10T10:00:00Z", updatedAt: "2026-10-10T10:00:00Z", matchCount: 0, evaluatedAt: null, ...extra,
+    templateKey: null, source: "own", sourceKey: null, vars: [], varValues: {}, locked: false, mine: true, createdByEmail: "you@example.com", createdAt: "2026-10-10T10:00:00Z", updatedAt: "2026-10-10T10:00:00Z", matchCount: 0, evaluatedAt: null, ...extra,
   };
 };
 const marks: MarkView[] = [
@@ -46,7 +46,7 @@ const has: [string, string, string[]][] = [
   ["lead10", "m4", []],
 ];
 const state: MarksState = {
-  ok: true, ready: true, me: "user_me", marks, limit: 5,
+  ok: true, ready: true, me: "user_me", marks, limit: 5, totalLimit: 15,
   leadMarks: has.map(([leadId, markId, parts]) => ({ leadId, markId, parts })),
   team: [{ userId: "user_me", email: "you@example.com" }, { userId: "user_sara", email: "sara@example.com" }, { userId: "user_ben", email: "ben@example.com" }],
   pages: ["/", "/pricing", "/demo", "/contact", "/about", "/blog/", "/case-studies"],

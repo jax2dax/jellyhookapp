@@ -19,7 +19,7 @@
 export const DOCS_REVIEWED = {
   reviewedOn: "2026-10-16",
   hookSpecVersion: 3,
-  hookSchema: "95f1bc05c41d16ab",
+  hookSchema: "a349d944f2c36f4b",
   previewRules: "c48aa8bb55c3b453",
   resultsRules: "5ecdc6005686ab09",
 };

@@ -137,6 +137,12 @@ export default function ConnectedRowsPage() {
           ]}
         />
         <P>
+          A lead also has <B>time on the site after sending</B>: from sending the form to leaving the last page of that visit. A few seconds means they sent it and left.
+        </P>
+        <P>
+          Form activity has three fields about what happened around the form, measured from the form&apos;s own moments: <B>left while filling it</B> (another page, or 10 seconds or more away from the site, between the first thing typed and the end), <B>times away after seeing it</B> (how often they left the site for 10 seconds or more after the form first came on screen), and <B>pages between seeing and the end</B> (other pages opened after seeing the form and before sending or giving up).
+        </P>
+        <P>
           A page view also has <B>seen before they sent a form</B>: true when the visitor sent a form after opening that page. Use it inside <B>the pages after it</B> to keep a path to what happened before contacting you.
         </P>
         <Example

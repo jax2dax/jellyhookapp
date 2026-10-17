@@ -16,7 +16,9 @@ import { createClient } from "@supabase/supabase-js";
 import { runHook } from "@/jh-hook/engine/run";
 import type { HookSpec } from "@/jh-hook/types";
 import { reasonFor, type ReasonInput, type ReasonPage } from "@/jh-marks/reason";
-import type { MarkRule } from "@/jh-marks/rule";
+import { compileRule, type MarkRule } from "@/jh-marks/rule";
+import { catalogMark, type StatsInput } from "@/jh-marks/catalog";
+import { getSiteStats } from "@/lib/stats/siteStats";
 import { pgHookDb } from "@/lib/hook/pgDb";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -29,8 +31,34 @@ const REASON_CAP = 1000;
 export interface MarkToRun {
   id: string;
   rule: MarkRule | null;
-  spec: HookSpec;
+  /** null for a connected mark: the published mark is used (catalog.ts) */
+  spec: HookSpec | null;
   reads?: string | null;
+  source?: "own" | "copy" | "connected";
+  source_key?: string | null;
+  var_values?: Record<string, string> | null;
+}
+
+/** What a published mark may use from the site's statistics. */
+async function statsInput(siteId: string): Promise<StatsInput> {
+  const s = await getSiteStats(siteId);
+  return { sessionHighMs: s?.sessionDuration.beforeConversion?.high ?? null };
+}
+
+/**
+ * The query (and chip rule, for reasons) a mark runs today. A connected mark is built from the published mark with
+ * the person's page variables and this site's statistics, so the publisher's changes apply on its next check.
+ */
+export async function resolveMark(siteId: string, m: MarkToRun): Promise<{ spec: HookSpec; rule: MarkRule | null }> {
+  if (m.source === "connected") {
+    const c = catalogMark(m.source_key);
+    if (!c) throw new Error("published mark not found: " + m.source_key);
+    const made = c.make({ vars: m.var_values ?? {}, stats: await statsInput(siteId) });
+    return "rule" in made ? { rule: made.rule, spec: compileRule(made.rule) } : { rule: null, spec: made.spec };
+  }
+  if (m.spec) return { spec: m.spec, rule: m.rule };
+  if (m.rule) return { spec: compileRule(m.rule), rule: m.rule };
+  throw new Error("mark has no conditions: " + m.id);
 }
 
 async function matchingLeads(siteId: string, spec: HookSpec, onlyLeads?: string[]): Promise<string[]> {
@@ -84,18 +112,19 @@ async function reasonInputs(siteId: string, leadIds: string[]): Promise<Map<stri
   return out;
 }
 
-async function reasonsFor(siteId: string, mark: MarkToRun, leadIds: string[]): Promise<Map<string, string[]>> {
+async function reasonsFor(siteId: string, rule: MarkRule | null, leadIds: string[]): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
-  if (!mark.rule) return out; // made in Hook: the badge says what the mark is ("reads"), not per-lead evidence
+  if (!rule) return out; // a Hook query: the badge says what the mark is (its purpose), not per-lead evidence
   const inputs = await reasonInputs(siteId, leadIds.slice(0, REASON_CAP));
-  for (const [id, input] of inputs) out.set(id, reasonFor(mark.rule, input));
+  for (const [id, input] of inputs) out.set(id, reasonFor(rule, input));
   return out;
 }
 
 /** Re-checks one mark against every lead of the site and replaces its stored results. Returns how many leads have it. */
 export async function evaluateMark(siteId: string, mark: MarkToRun): Promise<number> {
-  const ids = await matchingLeads(siteId, mark.spec);
-  const reasons = await reasonsFor(siteId, mark, ids);
+  const { spec, rule } = await resolveMark(siteId, mark);
+  const ids = await matchingLeads(siteId, spec);
+  const reasons = await reasonsFor(siteId, rule, ids);
   const { error: delErr } = await admin.from("lead_marks").delete().eq("mark_id", mark.id);
   if (delErr) throw new Error("lead_marks delete: " + delErr.message);
   for (const c of chunks(ids, 500)) {
@@ -110,12 +139,17 @@ export async function evaluateMark(siteId: string, mark: MarkToRun): Promise<num
 export async function evaluateLeads(siteId: string, leadIds: string[]): Promise<void> {
   if (!leadIds.length) return;
   try {
-    const { data: marks, error } = await admin.from("marks").select("id, rule, spec, reads").eq("site_id", siteId).eq("kind", "lead");
+    const first = await admin.from("marks").select("id, rule, spec, reads, source, source_key, var_values").eq("site_id", siteId).eq("kind", "lead");
+    // before 19-marks-library.sql: the library columns do not exist yet
+    const res = first.error && /source|var_values/.test(first.error.message) ? await admin.from("marks").select("id, rule, spec, reads").eq("site_id", siteId).eq("kind", "lead") : first;
+    const marks = res.data as MarkToRun[] | null;
+    const error = res.error;
     if (error || !marks?.length) return; // no marks (or the table is not there yet): nothing to do
     for (const m of marks as MarkToRun[]) {
       try {
-        const ids = await matchingLeads(siteId, m.spec, leadIds);
-        const reasons = await reasonsFor(siteId, m, ids);
+        const { spec, rule } = await resolveMark(siteId, m);
+        const ids = await matchingLeads(siteId, spec, leadIds);
+        const reasons = await reasonsFor(siteId, rule, ids);
         const { data: gone } = await admin.from("lead_marks").delete().eq("mark_id", m.id).in("lead_id", leadIds).select("lead_id");
         const removed = !!gone?.length;
         if (ids.length) await admin.from("lead_marks").insert(ids.map((lead_id) => ({ mark_id: m.id, lead_id, site_id: siteId, reason: { parts: reasons.get(lead_id) ?? [] } })));

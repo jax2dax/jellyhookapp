@@ -23,10 +23,11 @@ const fake = (replies: string[]): ModelProvider & { calls: number; last: string 
 const model = MODELS.terra;
 
 async function main() {
-  const good = JSON.stringify({ status: "ok", mark: { scope: "any", rows: [{ order: "sequence", cards: [{ path: "/pricing", match: "exact", minSeconds: 30 }, { path: "/demo", match: "exact" }] }], lead: [] }, name: "Pricing then demo", assumptions: ["demo is /demo"] });
+  const good = JSON.stringify({ status: "ok", mark: { scope: "any", rows: [{ order: "sequence", cards: [{ path: "/pricing", match: "exact", minSeconds: 30 }, { path: "/demo", match: "exact" }] }], lead: [] }, name: "Pricing then demo", purpose: "Weighing the price, so a quick call can close it.", assumptions: ["demo is /demo"] });
   const a = await translateMark("read pricing 30s then demo", ["/pricing", "/demo"], { provider: fake([good]), model });
   ok(a.result.status === "ok" && a.result.rule.rows[0].order === "sequence" && a.result.name === "Pricing then demo", "a good answer becomes a rule the builder can show");
   ok(a.result.status === "ok" && a.result.reads.startsWith("Before sending the form, they saw /pricing (stayed 30 s or more), then /demo"), "with its plain-English reading");
+  ok(a.result.status === "ok" && a.result.purpose === "Weighing the price, so a quick call can close it.", "the AI also writes the purpose, in plain words");
   ok(a.trace.attempts === 1 && a.trace.costUsd > 0, "one attempt, cost recorded");
 
   const bad = JSON.stringify({ status: "ok", mark: { rows: [{ cards: [{ path: "/pricing", minReadPct: 300 }] }] } });

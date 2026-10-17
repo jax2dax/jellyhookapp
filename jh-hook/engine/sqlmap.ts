@@ -51,6 +51,16 @@ const converted = (sessionIdExpr: string) =>
 const firstPage = (a: string, dir: "ASC" | "DESC") =>
   `(SELECT e.page_path FROM ${scoped("page_views", "e")} WHERE e.session_id = ${a}.session_id ORDER BY e.entered_at ${dir} LIMIT 1)`;
 
+// ── Around a form (2026-10-16, for marks). The form's own moments: seen (viewed_at), first input, end (ended_at, or
+// last activity while still open). An "away" here is 10 s or more between leaving one page and opening the next in
+// the same visit (the founder's threshold for these signals; awayGap below uses AWAY_GAP_MIN_MS for the chart).
+const FORM_AWAY = "interval '10 seconds'";
+const formEnd = (a: string) => `COALESCE(${a}.ended_at, ${a}.last_activity_at)`;
+/** page views of the form's visit that start an away period of 10 s or more */
+const awayStarts = (a: string, alias: string) =>
+  `${scoped("page_views", alias)} WHERE ${alias}.session_id = ${a}.session_id AND ${alias}.left_at IS NOT NULL ` +
+  `AND (SELECT min(nx.entered_at) FROM ${scoped("page_views", "nx")} WHERE nx.session_id = ${alias}.session_id AND nx.entered_at > ${alias}.entered_at) - ${alias}.left_at >= ${FORM_AWAY}`;
+
 export const SQL: Record<EntityKey, EntitySql> = {
   pageView: {
     source: (al) => scoped("page_views", al),
@@ -150,6 +160,8 @@ export const SQL: Record<EntityKey, EntitySql> = {
       phone: (a) => `${a}.phone`,
       page: (a) => `${a}.page_path`,
       submittedAt: (a) => `${a}.submitted_at`,
+      // the last moment of the sending visit (its last page left) minus the moment of sending; empty while still open
+      timeAfterSending: (a) => `GREATEST(0, ${ms(`(SELECT max(e.left_at) FROM ${scoped("page_views", "e")} WHERE e.session_id = ${a}.session_id) - ${a}.submitted_at`)})`,
       qualified: (a) => `${a}.qualified`,
       confidence: (a) => `${a}.confidence`,
       visitor: (a) => `${a}.visitor_id`,
@@ -215,6 +227,13 @@ export const SQL: Record<EntityKey, EntitySql> = {
         `(CASE WHEN jsonb_typeof(${a}.form_fields) = 'array' THEN (SELECT count(*)::float8 FROM jsonb_array_elements(${a}.form_fields) e WHERE NOT EXISTS (SELECT 1 FROM jsonb_each(CASE WHEN jsonb_typeof(${a}.field_timings) = 'object' THEN ${a}.field_timings ELSE '{}'::jsonb END) t WHERE t.key = e->>'key' AND jsonb_typeof(t.value) = 'object' AND (t.value->>'firstFocusAt') ~ '^[0-9]{4}-')) END)`,
       validationErrors: (a) =>
         `(SELECT COALESCE(sum(CASE WHEN jsonb_typeof(t.value->'errors') = 'number' THEN (t.value->>'errors')::float8 END), 0) FROM jsonb_each(CASE WHEN jsonb_typeof(${a}.field_timings) = 'object' THEN ${a}.field_timings ELSE '{}'::jsonb END) t WHERE jsonb_typeof(t.value) = 'object')`,
+      leftWhileFilling: (a) =>
+        `(${a}.first_input_at IS NOT NULL AND (` +
+        `EXISTS (SELECT 1 FROM ${scoped("page_views", "lw")} WHERE lw.session_id = ${a}.session_id AND lw.page_path IS DISTINCT FROM ${a}.page_path AND lw.entered_at > ${a}.first_input_at AND lw.entered_at < ${formEnd(a)})` +
+        ` OR EXISTS (SELECT 1 FROM ${awayStarts(a, "la")} AND la.left_at >= ${a}.first_input_at AND la.left_at < ${formEnd(a)})))`,
+      awaysAfterSeen: (a) => `(SELECT count(*)::float8 FROM ${awayStarts(a, "aw")} AND aw.left_at >= ${a}.viewed_at)`,
+      pagesSeenToSent: (a) =>
+        `(SELECT count(DISTINCT ps.page_path)::float8 FROM ${scoped("page_views", "ps")} WHERE ps.session_id = ${a}.session_id AND ps.page_path IS DISTINCT FROM ${a}.page_path AND ps.entered_at > ${a}.viewed_at AND ps.entered_at <= ${formEnd(a)})`,
       session: (a) => `${a}.session_id`,
       visitor: (a) => `${a}.visitor_id`,
     },

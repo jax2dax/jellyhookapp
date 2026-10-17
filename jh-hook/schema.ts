@@ -145,6 +145,7 @@ export const SCHEMA: Record<EntityKey, EntityDef> = {
       phone: { label: "phone", type: "text" },
       page: { label: "submitted on page", type: "text", ref: "page" },
       submittedAt: ts("submitted at"),
+      timeAfterSending: { label: "time on the site after sending", type: "duration", hint: "from sending the form to leaving the last page of that visit. Small = they sent it and left at once" },
       qualified: { label: "marked qualified by sales", type: "bool", hint: "set by sales on the leads page. Empty = not reviewed yet" },
       confidence: { label: "form quality (high = has an email)", type: "enum", enumValues: ["high", "low"], hint: "set automatically when the form is submitted: high if an email was present. Not a person's judgment" },
       visitor: { label: "visitor id", type: "text", ref: "visitor" },
@@ -206,6 +207,9 @@ export const SCHEMA: Record<EntityKey, EntityDef> = {
       totalFields: { label: "fields in the form", type: "number", hint: "the form's own field count, known for forms seen after 14 Oct 2026; empty before" },
       fieldsNotTouched: { label: "fields never touched", type: "number", hint: "fields in the form nobody clicked into. Empty when the form's field list is unknown (before 14 Oct 2026)" },
       validationErrors: { label: "validation errors", type: "number", hint: "times the browser refused a submit because a field was invalid (only the browser's own checks)" },
+      leftWhileFilling: { label: "left while filling it", type: "bool", hint: "between the first thing typed and the end of the form, they opened another page or were away from the site 10 s or more" },
+      awaysAfterSeen: { label: "times away after seeing it", type: "number", hint: "in that visit, how many times they left the site for 10 s or more AFTER the form was first seen" },
+      pagesSeenToSent: { label: "pages between seeing and the end", type: "number", hint: "different pages (not the form's own) opened after the form was first seen and before it was sent or given up" },
       session: { label: "session id", type: "text", ref: "session" },
       visitor: { label: "visitor id", type: "text", ref: "visitor" },
     },
@@ -381,7 +385,7 @@ export const FIELD_GROUPS: Record<EntityKey, FieldGroup[]> = {
   ],
   lead: [
     { label: "Who", fields: ["name", "email", "phone"] },
-    { label: "Submission", fields: ["page", "submittedAt", "confidence", "qualified"] },
+    { label: "Submission", fields: ["page", "submittedAt", "timeAfterSending", "confidence", "qualified"] },
     { label: "Ids", fields: ["id", "visitor", "session"] },
   ],
   visitor: [
@@ -392,6 +396,7 @@ export const FIELD_GROUPS: Record<EntityKey, FieldGroup[]> = {
   form: [
     { label: "Which form", fields: ["page", "formIndex", "formKey", "version"] },
     { label: "Progress", fields: ["status", "lastFieldType", "fieldsTouched", "totalFields", "fieldsNotTouched", "validationErrors"] },
+    { label: "Around the form", fields: ["leftWhileFilling", "awaysAfterSeen", "pagesSeenToSent"] },
     { label: "Timing", fields: ["viewedAt", "firstInputAt", "endedAt", "timeToFirstInput", "timeOnScreenBeforeStart", "fillTime"] },
     { label: "Ids", fields: ["id", "session", "visitor"] },
   ],

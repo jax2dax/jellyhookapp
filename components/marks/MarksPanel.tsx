@@ -7,9 +7,11 @@
 //   - the menu: edit, re-check, delete (yours), or "edit in Hook" for a mark made there.
 // Every change is reported to the page (onChange) so it updates in place, without reloading. Design:
 // mds/build/marks/marks.md.
-import { ArrowLeft, Bookmark, ExternalLink, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronDown, ExternalLink, Lock, Plug, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
 import { useState } from "react";
-import { colorFor, emptyRule, TEMPLATES } from "@/jh-marks/rule";
+import Link from "next/link";
+import { emptyRule } from "@/jh-marks/rule";
+import { MarkVarsEditor } from "./MarkVarsEditor";
 import { deleteMark, recheckMark, setMarkActive, type MarkView, type MarksState } from "@/lib/actions/marks.action";
 import { encodeSpecParam } from "@/lib/hook/specParam";
 import { MarkBuilder, type BuilderInitial } from "./MarkBuilder";
@@ -43,35 +45,42 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
   const [builder, setBuilder] = useState<BuilderInitial | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [varsOpen, setVarsOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const toggleOpen = (id: string) =>
+    setOpen((o) => {
+      const n = new Set(o);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
   if (!state.ok) return <aside className="sticky top-6 w-[24rem] shrink-0 rounded-lg border bg-card p-3 text-xs text-muted-foreground">{state.error}</aside>;
   const s = state as Ready;
   const mine = s.marks.filter((m) => m.mine);
-  const full = mine.length >= s.limit;
-  const usedTemplates = new Set(mine.map((m) => m.templateKey).filter(Boolean));
+  // 5 built by you, 15 in your library in all (marks from the library count only toward the 15)
+  const ownFull = mine.filter((m) => m.source === "own").length >= s.limit;
+  const full = ownFull || mine.length >= s.totalLimit;
   const toggleApply = (id: string) => onApply(applied.includes(id) ? applied.filter((x) => x !== id) : [...applied, id]);
 
-  const startNew = (t?: (typeof TEMPLATES)[number]) => {
+  const startNew = () => {
     setNote(null);
-    setBuilder({
-      name: t?.name ?? "",
-      description: t?.description ?? "",
-      color: t ? colorFor(t.name) : "#3b82f6",
-      active: true,
-      visibility: "private",
-      sharedWith: [],
-      rule: t ? structuredClone(t.rule) : emptyRule(),
-      templateKey: t?.key ?? null,
-    });
+    setBuilder({ name: "", description: "", color: "#3b82f6", active: true, visibility: "private", sharedWith: [], rule: emptyRule(), templateKey: null });
   };
   const edit = (m: MarkView) => {
     setMenu(null);
-    if (!m.rule) {
+    if (m.source === "connected") {
+      // connected: only its pages are yours to change
+      setVarsOpen(m.id);
+      return;
+    }
+    if (!m.rule && m.spec) {
       window.open("/platform/hook?q=" + encodeSpecParam(m.spec), "_blank");
       return;
     }
+    if (!m.rule) return;
     setBuilder({ id: m.id, name: m.name, description: m.description ?? "", color: m.color, active: m.active, visibility: m.visibility, sharedWith: m.sharedWith, rule: structuredClone(m.rule), templateKey: m.templateKey });
   };
   const run = async <R extends { ok: boolean }>(id: string, fn: () => Promise<R>, done: (r: R) => { text: string; change: MarkChange }) => {
@@ -99,7 +108,9 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
         <h2 className="text-sm font-semibold">{builder ? (builder.id ? "Edit mark" : "New mark") : "Marks"}</h2>
         {!builder && (
           <>
-            <span className="ml-auto text-[11px] text-muted-foreground">{mine.length} of {s.limit}</span>
+            <span className="ml-auto text-[11px] text-muted-foreground" title={`${mine.filter((m) => m.source === "own").length} of ${s.limit} built by you, ${mine.length} of ${s.totalLimit} in all`}>
+              {mine.length} of {s.totalLimit}
+            </span>
             <button
               type="button"
               disabled={full || !s.ready}
@@ -154,15 +165,33 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <span className="truncate text-sm font-medium">{m.name}</span>
+                          {m.source === "connected" && <Plug className="size-3 shrink-0 text-sky-600 dark:text-sky-400" aria-label="connected to a published mark" />}
+                          {m.locked && <Lock className="size-3 shrink-0 text-muted-foreground" aria-label="formula hidden by the publisher" />}
                           {on && <span className="rounded px-1 text-[10px] font-medium" style={{ backgroundColor: m.color + "33" }}>applied</span>}
                         </span>
                         <span className="block truncate text-[11px] text-muted-foreground">
                           {m.active ? (m.matchCount ?? 0) + (m.matchCount === 1 ? " lead" : " leads") : "off"}
                           {!m.mine && m.createdByEmail ? " · by " + m.createdByEmail : ""}
                           {m.mine && m.visibility !== "private" ? (m.visibility === "team" ? " · shared with the team" : " · shared with " + m.sharedWith.length) : ""}
-                          {!m.rule ? " · made in Hook" : ""}
+                          {m.source === "connected" ? " · connected" : m.source !== "copy" && !m.rule ? " · made in Hook" : ""}
                         </span>
-                        {m.description && <span className="mt-0.5 line-clamp-2 block text-[11px] text-muted-foreground/80">{m.description}</span>}
+                        {m.description && (
+                          <span className="mt-0.5 flex items-start gap-1">
+                            <span className={"block min-w-0 flex-1 text-[11px] text-muted-foreground/80 " + (open.has(m.id) ? "whitespace-pre-wrap" : "truncate")}>{m.description}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleOpen(m.id);
+                              }}
+                              className="-mt-0.5 flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                              aria-label={open.has(m.id) ? "Collapse the purpose" : "Show the whole purpose"}
+                              aria-expanded={open.has(m.id)}
+                            >
+                              <ChevronDown className={"size-3 transition-transform " + (open.has(m.id) ? "rotate-180" : "")} />
+                            </button>
+                          </span>
+                        )}
                       </span>
                       {busy === m.id ? (
                         <Loader2 className="mt-0.5 size-4 animate-spin text-muted-foreground" />
@@ -213,14 +242,38 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                         </div>
                       </div>
                     )}
+                    {varsOpen === m.id && (
+                      <div className="mx-1 mt-1">
+                        <MarkVarsEditor
+                          mark={m}
+                          pages={s.pages}
+                          onCancel={() => setVarsOpen(null)}
+                          onSaved={(x) => {
+                            setVarsOpen(null);
+                            setNote({ tone: "ok", text: `${x.name}: pages saved, ${x.matchCount ?? 0} leads have it.` });
+                            onChange({ type: "saved", mark: x });
+                          }}
+                        />
+                      </div>
+                    )}
                     {menu === m.id && (
-                      <div className="absolute right-1 top-10 z-20 w-44 rounded-md border bg-popover p-1 text-xs shadow-md">
-                        {m.mine && (
+                      <div className="absolute right-1 top-10 z-20 w-48 rounded-md border bg-popover p-1 text-xs shadow-md">
+                        {m.mine && m.locked && (
+                          <span className="flex w-full items-center gap-2 px-2 py-1.5 text-muted-foreground/60" title="The publisher hid this formula">
+                            <Lock className="size-3" /> Edit
+                          </span>
+                        )}
+                        {m.mine && !m.locked && (
                           <button type="button" onClick={() => edit(m)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
-                            {m.rule ? "Edit" : <>Edit in Hook <ExternalLink className="size-3" /></>}
+                            {m.source === "connected" ? <><Plug className="size-3" /> Set its pages</> : m.rule ? "Edit" : <>Edit in Hook <ExternalLink className="size-3" /></>}
                           </button>
                         )}
-                        {!m.mine && !m.rule && (
+                        {m.mine && m.locked && m.vars.length > 0 && (
+                          <button type="button" onClick={() => { setMenu(null); setVarsOpen(m.id); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
+                            Set its pages
+                          </button>
+                        )}
+                        {!m.mine && !m.rule && m.spec && (
                           <button type="button" onClick={() => edit(m)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
                             Open in Hook <ExternalLink className="size-3" />
                           </button>
@@ -237,7 +290,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                             }}
                             className="w-full rounded px-2 py-1.5 text-left text-red-600 hover:bg-muted dark:text-red-400"
                           >
-                            Delete
+                            {m.source === "connected" ? "Disconnect" : "Delete"}
                           </button>
                         )}
                       </div>
@@ -247,27 +300,15 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
               })}
             </ul>
 
-            {TEMPLATES.some((t) => !usedTemplates.has(t.key)) && (
-              <div className="space-y-1">
-                <h3 className="px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Templates</h3>
-                <ul className="space-y-1">
-                  {TEMPLATES.filter((t) => !usedTemplates.has(t.key)).map((t) => (
-                    <li key={t.key} className="flex items-start gap-2.5 rounded-md px-2.5 py-2 hover:bg-muted/60">
-                      <span className="mt-1 size-3 shrink-0 rounded-full" style={{ boxShadow: `inset 0 0 0 2px ${colorFor(t.name)}` }} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm">{t.name}</span>
-                        <span className="block text-[11px] text-muted-foreground">{t.description}</span>
-                      </span>
-                      <button type="button" disabled={full} onClick={() => startNew(t)} className="rounded-md border px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-40" title={full ? `You have ${s.limit} marks` : t.needsPath ? "Check the page address, then save" : "Use it"}>
-                        Use
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {/* the library: published marks to add (app/platform/marks) */}
+            <Link href="/platform/marks" className="flex items-center justify-between rounded-md border border-dashed px-3 py-2.5 text-sm text-muted-foreground transition hover:border-primary/50 hover:text-foreground">
+              <span className="flex items-center gap-2">
+                <Bookmark className="size-4" /> Browse marks
+              </span>
+              <span className="text-[11px]">ready-made marks to add →</span>
+            </Link>
 
-            {full && <p className="px-1 text-[11px] text-muted-foreground">You have {s.limit} marks, the most there can be. Delete one to add another.</p>}
+            {full && <p className="px-1 text-[11px] text-muted-foreground">{ownFull ? `You have ${s.limit} marks of your own, the most there can be.` : `Your library is full (${s.totalLimit} marks).`} Delete one to add another.</p>}
           </div>
         )}
       </div>

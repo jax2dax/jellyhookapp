@@ -14,11 +14,13 @@ import type { HookSpec } from "@/jh-hook/types";
 import { creditsFor, resolveModel } from "@/jh-ai/models";
 import { providerFor, ProviderError } from "@/jh-ai/providers";
 import { translateMark, type MarkAiResult } from "@/jh-marks/ai";
-import { compileRule, describeRule, MARK_LIMIT, RuleError, validateRule, type MarkRule } from "@/jh-marks/rule";
+import { catalogMark, catalogVersion, type MarkVar } from "@/jh-marks/catalog";
+import { cleanPath, compileRule, describeRule, MARK_LIMIT, RuleError, validateRule, type MarkRule } from "@/jh-marks/rule";
 import { checkQuota, recordRequest } from "@/lib/ai/ledger";
 import { listSitePages } from "@/lib/actions/hook.action";
 import { siteOrThrow } from "@/lib/hook/site";
-import { evaluateMark } from "@/lib/marks/evaluate";
+import { evaluateMark, type MarkToRun } from "@/lib/marks/evaluate";
+import { getSiteStats } from "@/lib/stats/siteStats";
 import { createSupabaseClient } from "@/lib/supabase";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -33,11 +35,19 @@ export interface MarkView {
   active: boolean;
   visibility: Visibility;
   sharedWith: string[];
-  /** null = made in Hook: edit it there */
+  /** null = made in Hook: edit it there (or a locked published mark) */
   rule: MarkRule | null;
-  spec: HookSpec;
+  spec: HookSpec | null;
   reads: string | null;
   templateKey: string | null;
+  /** own (built by the person), copy (of a published mark, theirs), connected (uses a published mark, plug icon) */
+  source: "own" | "copy" | "connected";
+  sourceKey: string | null;
+  /** page variables of a connected mark: their definitions and the person's values */
+  vars: MarkVar[];
+  varValues: Record<string, string>;
+  /** the publisher hid the formula: only page variables can be changed */
+  locked: boolean;
   mine: boolean;
   createdByEmail: string | null;
   createdAt: string;
@@ -58,11 +68,26 @@ export interface TeamMember {
 }
 
 export type MarksState =
-  | { ok: true; ready: boolean; me: string; marks: MarkView[]; leadMarks: LeadMark[]; team: TeamMember[]; pages: string[]; limit: number }
+  | { ok: true; ready: boolean; me: string; marks: MarkView[]; leadMarks: LeadMark[]; team: TeamMember[]; pages: string[]; limit: number; totalLimit: number }
   | { ok: false; error: string };
 
 type Row = Record<string, unknown>;
 const COLS = "id, name, description, color, active, visibility, shared_with, rule, spec, reads, template_key, created_by, created_by_email, created_at, updated_at, match_count, evaluated_at";
+/** with the library columns (19-marks-library.sql); every read falls back to COLS when they do not exist yet */
+const COLS_LIB: string = COLS + ", source, source_key, source_version, var_values, locked";
+const libMissing = (msg: string | undefined) => !!msg && /source|var_values|locked/.test(msg);
+/** At most this many marks per person per site: built by them (MARK_LIMIT) and in all, with copies and connected ones. */
+const TOTAL_LIMIT = 15;
+
+function connectedParts(r: Row): Pick<MarkView, "rule" | "spec" | "reads" | "vars"> {
+  const c = catalogMark(r.source_key as string);
+  if (!c) return { rule: null, spec: null, reads: "This published mark is no longer available.", vars: [] };
+  const made = c.make({ vars: (r.var_values as Record<string, string>) ?? {}, stats: { sessionHighMs: null } });
+  const rule = "rule" in made ? made.rule : null;
+  const spec = "rule" in made ? compileRule(made.rule) : made.spec;
+  const locked = !!r.locked || !!c.locked;
+  return { rule: locked ? null : rule, spec: locked ? null : spec, reads: locked ? null : rule ? describeRule(rule) : c.reads ?? describeSpec(spec), vars: c.vars ?? [] };
+}
 
 const toView = (r: Row, me: string): MarkView => ({
   id: r.id as string,
@@ -82,7 +107,22 @@ const toView = (r: Row, me: string): MarkView => ({
   updatedAt: r.updated_at as string,
   matchCount: (r.match_count as number) ?? null,
   evaluatedAt: (r.evaluated_at as string) ?? null,
+  source: ((r.source as MarkView["source"]) ?? "own"),
+  sourceKey: (r.source_key as string) ?? null,
+  vars: [],
+  varValues: (r.var_values as Record<string, string>) ?? {},
+  locked: !!r.locked,
+  ...(r.source === "connected" ? connectedParts(r) : {}),
 });
+
+/** One mark row the person can see, with the library columns when they exist. */
+async function markRow(supabase: ReturnType<typeof createSupabaseClient>, siteId: string, id: string, cols = COLS_LIB): Promise<Row | null> {
+  const first = await supabase.from("marks").select(cols).eq("id", id).eq("site_id", siteId).maybeSingle();
+  if (first.error && libMissing(first.error.message)) return ((await supabase.from("marks").select(COLS).eq("id", id).eq("site_id", siteId).maybeSingle()).data as unknown as Row) ?? null;
+  return (first.data as unknown as Row) ?? null;
+}
+
+const toRun = (r: Row): MarkToRun => ({ id: r.id as string, rule: (r.rule as MarkRule) ?? null, spec: (r.spec as HookSpec) ?? null, reads: (r.reads as string) ?? null, source: (r.source as MarkToRun["source"]) ?? "own", source_key: (r.source_key as string) ?? null, var_values: (r.var_values as Record<string, string>) ?? {} });
 
 async function who(): Promise<{ userId: string; siteId: string }> {
   const { userId } = await auth();
@@ -103,12 +143,32 @@ export async function loadMarks(opts: { leadIds?: string[]; withLeadMarks?: bool
   try {
     const { userId, siteId } = await who();
     const supabase = createSupabaseClient();
-    const { data, error } = await supabase.from("marks").select(COLS).eq("site_id", siteId).order("created_at", { ascending: true });
+    type Res = { data: unknown[] | null; error: { message: string } | null };
+    let res: Res = await supabase.from("marks").select(COLS_LIB).eq("site_id", siteId).order("created_at", { ascending: true });
+    if (res.error && libMissing(res.error.message)) res = await supabase.from("marks").select(COLS).eq("site_id", siteId).order("created_at", { ascending: true });
+    const { data, error } = res;
     if (error) {
-      if (missingTable(error.message)) return { ok: true, ready: false, me: userId, marks: [], leadMarks: [], team: [], pages: [], limit: MARK_LIMIT };
+      if (missingTable(error.message)) return { ok: true, ready: false, me: userId, marks: [], leadMarks: [], team: [], pages: [], limit: MARK_LIMIT, totalLimit: TOTAL_LIMIT };
       throw new Error(error.message);
     }
-    const marks = (data ?? []).map((r) => toView(r, userId));
+    const rows = (data ?? []) as Row[];
+    // a connected mark whose published version changed: take the new name and purpose, and check the leads again
+    for (const r of rows) {
+      if (r.source !== "connected" || r.created_by !== userId) continue;
+      const c = catalogMark(r.source_key as string);
+      if (!c || r.source_version === catalogVersion(c)) continue;
+      try {
+        r.match_count = await evaluateMark(siteId, toRun(r));
+        r.evaluated_at = new Date().toISOString();
+        r.source_version = catalogVersion(c);
+        r.name = c.name;
+        r.description = c.purpose;
+        await admin.from("marks").update({ source_version: r.source_version, name: c.name, description: c.purpose }).eq("id", r.id as string);
+      } catch (e) {
+        console.error("[marks] connected update failed", { mark: String(r.id).slice(0, 8), error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+    const marks = rows.map((r) => toView(r, userId));
     const active = marks.filter((m) => m.active).map((m) => m.id);
     let leadMarks: LeadMark[] = [];
     if (active.length && (opts.withLeadMarks || opts.leadIds)) {
@@ -118,7 +178,7 @@ export async function loadMarks(opts: { leadIds?: string[]; withLeadMarks?: bool
       leadMarks = (lm ?? []).map((r) => ({ leadId: r.lead_id as string, markId: r.mark_id as string, parts: ((r.reason as { parts?: string[] })?.parts ?? []).slice(0, 8) }));
     }
     const [members, pages] = await Promise.all([team(siteId), listSitePages()]);
-    return { ok: true, ready: true, me: userId, marks, leadMarks, team: members, pages: pages.map((p) => p.path).slice(0, 200), limit: MARK_LIMIT };
+    return { ok: true, ready: true, me: userId, marks, leadMarks, team: members, pages: pages.map((p) => p.path).slice(0, 200), limit: MARK_LIMIT, totalLimit: TOTAL_LIMIT };
   } catch (e) {
     return { ok: false, error: e instanceof RuleError ? e.message : "Marks could not be loaded." };
   }
@@ -172,17 +232,19 @@ export async function saveMark(input: SaveMarkInput): Promise<SaveMarkResult> {
     const row = { name, description, color: input.color, active: !!input.active, visibility, shared_with: sharedWith, rule, spec, reads, updated_at: new Date().toISOString() };
     let saved: Row | null = null;
     if (input.id) {
+      const existing = await markRow(supabase, siteId, input.id);
+      if (existing?.source === "connected") return { ok: false, error: "This mark is connected to a published mark: only its page variables can be changed." };
       const { data, error } = await supabase.from("marks").update(row).eq("id", input.id).eq("site_id", siteId).eq("created_by", userId).select(COLS).maybeSingle();
       if (error) throw new Error(error.message);
       if (!data) return { ok: false, error: "Only the person who made this mark can change it." };
       saved = data;
     } else {
-      const { count } = await supabase.from("marks").select("id", { count: "exact", head: true }).eq("site_id", siteId).eq("created_by", userId);
-      if ((count ?? 0) >= MARK_LIMIT) return { ok: false, error: `You have ${MARK_LIMIT} marks, the most there can be. Delete one to make another.` };
+      const limitError = await overLimit(supabase, siteId, userId, "own");
+      if (limitError) return { ok: false, error: limitError };
       const email = (await currentUser())?.primaryEmailAddress?.emailAddress ?? null;
       const { data, error } = await supabase.from("marks").insert({ ...row, site_id: siteId, kind: "lead", created_by: userId, created_by_email: email, template_key: input.templateKey ?? null }).select(COLS).single();
       if (error) {
-        if (/mark_limit/.test(error.message)) return { ok: false, error: `You have ${MARK_LIMIT} marks, the most there can be. Delete one to make another.` };
+        if (/mark_limit/.test(error.message)) return { ok: false, error: `You have reached the limit (${MARK_LIMIT} of your own, ${TOTAL_LIMIT} in all). Delete one to add another.` };
         if (missingTable(error.message)) return { ok: false, error: "Marks are not set up yet (migration 18)." };
         throw new Error(error.message);
       }
@@ -191,7 +253,7 @@ export async function saveMark(input: SaveMarkInput): Promise<SaveMarkResult> {
     let warning: string | undefined;
     if (saved) {
       try {
-        saved.match_count = await evaluateMark(siteId, { id: saved.id as string, rule, spec, reads });
+        saved.match_count = await evaluateMark(siteId, { id: saved.id as string, rule, spec, reads, source: (saved.source as MarkToRun["source"]) ?? "own" });
         saved.evaluated_at = new Date().toISOString();
       } catch (e) {
         console.error("[marks] check failed", { site: siteId.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
@@ -206,17 +268,112 @@ export async function saveMark(input: SaveMarkInput): Promise<SaveMarkResult> {
   }
 }
 
+/** null when the person may add one more mark of this kind; else what to tell them. */
+async function overLimit(supabase: ReturnType<typeof createSupabaseClient>, siteId: string, userId: string, source: "own" | "copy" | "connected"): Promise<string | null> {
+  const all = await supabase.from("marks").select("id, source").eq("site_id", siteId).eq("created_by", userId);
+  const rows = (all.error && libMissing(all.error.message) ? (await supabase.from("marks").select("id").eq("site_id", siteId).eq("created_by", userId)).data : all.data) ?? [];
+  const own = rows.filter((r) => ((r as Row).source ?? "own") === "own").length;
+  if (rows.length >= TOTAL_LIMIT) return `Your library is full (${TOTAL_LIMIT} marks). Remove one to add another.`;
+  if (source === "own" && own >= MARK_LIMIT) return `You have ${MARK_LIMIT} marks of your own, the most there can be. Delete one to make another (marks from the library don't count).`;
+  return null;
+}
+
+/**
+ * Takes a published mark (jh-marks/catalog.ts). "copy": it becomes the person's own mark (editable; later changes to
+ * the published one do not reach it). "use": connected (its updates apply; only the page variables are theirs).
+ * Either way it arrives OFF: they turn it on in the leads page. It is checked against the leads at once.
+ */
+export async function addFromLibrary(key: string, mode: "copy" | "use", vars: Record<string, string> = {}): Promise<SaveMarkResult> {
+  try {
+    const { userId, siteId } = await who();
+    const c = catalogMark(key);
+    if (!c) return { ok: false, error: "That mark is not in the library." };
+    if (mode === "copy" && c.locked) return { ok: false, error: "The publisher does not allow copies of this mark. Use it instead." };
+    const supabase = createSupabaseClient();
+    const limitError = await overLimit(supabase, siteId, userId, mode === "copy" ? "copy" : "connected");
+    if (limitError) return { ok: false, error: limitError };
+    const cleanVars = cleanVarValues(c.vars ?? [], vars);
+    const email = (await currentUser())?.primaryEmailAddress?.emailAddress ?? null;
+    const base = { site_id: siteId, kind: c.kind, name: c.name, description: c.purpose, color: c.color, active: false, visibility: "private", shared_with: [], created_by: userId, created_by_email: email, template_key: c.key, source_key: c.key, updated_at: new Date().toISOString() };
+    let row: Row;
+    if (mode === "copy") {
+      // a copy is frozen: this site's numbers and page names of today become its own formula
+      const stats = await getSiteStats(siteId);
+      const made = c.make({ vars: cleanVars, stats: { sessionHighMs: stats?.sessionDuration.beforeConversion?.high ?? null } });
+      const rule = "rule" in made ? made.rule : null;
+      const spec = "rule" in made ? compileRule(made.rule) : made.spec;
+      row = { ...base, source: "copy", rule, spec, reads: rule ? describeRule(rule) : c.reads ?? describeSpec(spec), var_values: {} };
+    } else {
+      row = { ...base, source: "connected", rule: null, spec: null, reads: null, var_values: cleanVars, source_version: catalogVersion(c), locked: !!c.locked };
+    }
+    const { data, error } = await supabase.from("marks").insert(row).select(COLS_LIB).single();
+    if (error) {
+      if (/mark_limit/.test(error.message)) return { ok: false, error: `Your library is full (${TOTAL_LIMIT} marks). Remove one to add another.` };
+      if (libMissing(error.message) || missingTable(error.message)) return { ok: false, error: "The marks library is not set up yet (migration 19)." };
+      throw new Error(error.message);
+    }
+    const saved = data as unknown as Row;
+    let warning: string | undefined;
+    try {
+      saved.match_count = await evaluateMark(siteId, toRun(saved));
+      saved.evaluated_at = new Date().toISOString();
+    } catch (e) {
+      console.error("[marks] library check failed", { site: siteId.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
+      warning = "Added, but the leads could not be checked right now. Use Re-check in a minute.";
+    }
+    return { ok: true, mark: toView(saved, userId), warning };
+  } catch (e) {
+    if (e instanceof RuleError) return { ok: false, error: e.message };
+    console.error("[marks] library add failed", e instanceof Error ? e.message : e);
+    return { ok: false, error: "The mark could not be added. Try again." };
+  }
+}
+
+/** Page variables: known keys only, each a page address. */
+function cleanVarValues(defs: MarkVar[], values: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const d of defs) {
+    const v = values[d.key];
+    if (typeof v === "string" && v.trim()) out[d.key] = cleanPath(v);
+  }
+  return out;
+}
+
+/** Sets the page variables of a connected (or locked) mark, then checks the leads again. */
+export async function setMarkVars(id: string, vars: Record<string, string>): Promise<SaveMarkResult> {
+  try {
+    const { userId, siteId } = await who();
+    const supabase = createSupabaseClient();
+    const row = await markRow(supabase, siteId, id);
+    if (!row || row.created_by !== userId) return { ok: false, error: "Only the person who added this mark can change it." };
+    const c = catalogMark(row.source_key as string);
+    if (row.source !== "connected" || !c) return { ok: false, error: "Only a connected mark has page variables." };
+    const varValues = cleanVarValues(c.vars ?? [], vars);
+    const { data, error } = await supabase.from("marks").update({ var_values: varValues, updated_at: new Date().toISOString() }).eq("id", id).eq("created_by", userId).select(COLS_LIB).single();
+    if (error) throw new Error(error.message);
+    const saved = data as unknown as Row;
+    saved.match_count = await evaluateMark(siteId, toRun(saved));
+    saved.evaluated_at = new Date().toISOString();
+    return { ok: true, mark: toView(saved, userId) };
+  } catch (e) {
+    if (e instanceof RuleError) return { ok: false, error: e.message };
+    console.error("[marks] variables failed", e instanceof Error ? e.message : e);
+    return { ok: false, error: "That didn't work. Try again." };
+  }
+}
+
 /** Turns a mark on or off (only your own): one small update. Results are kept up to date either way (evaluate.ts), so
  *  nothing is re-checked, unless the mark was never checked at all. */
 export async function setMarkActive(id: string, active: boolean): Promise<{ ok: true; matchCount: number | null; evaluatedAt: string | null } | { ok: false; error: string }> {
   try {
     const { userId, siteId } = await who();
     const supabase = createSupabaseClient();
-    const { data, error } = await supabase.from("marks").update({ active, updated_at: new Date().toISOString() }).eq("id", id).eq("site_id", siteId).eq("created_by", userId).select("id, rule, spec, reads, match_count, evaluated_at").maybeSingle();
+    const { data, error } = await supabase.from("marks").update({ active, updated_at: new Date().toISOString() }).eq("id", id).eq("site_id", siteId).eq("created_by", userId).select("id, match_count, evaluated_at").maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return { ok: false, error: "Only the person who made this mark can turn it on or off." };
     if (!active || data.evaluated_at) return { ok: true, matchCount: (data.match_count as number) ?? null, evaluatedAt: (data.evaluated_at as string) ?? null };
-    const n = await evaluateMark(siteId, { id, rule: (data.rule as MarkRule) ?? null, spec: data.spec as HookSpec, reads: data.reads as string });
+    const row = await markRow(supabase, siteId, id);
+    const n = await evaluateMark(siteId, toRun(row!));
     return { ok: true, matchCount: n, evaluatedAt: new Date().toISOString() };
   } catch (e) {
     console.error("[marks] on/off failed", e instanceof Error ? e.message : e);
@@ -229,9 +386,9 @@ export async function recheckMark(id: string): Promise<{ ok: true; matchCount: n
   try {
     const { siteId } = await who();
     const supabase = createSupabaseClient();
-    const { data } = await supabase.from("marks").select("id, rule, spec, reads, active").eq("id", id).eq("site_id", siteId).maybeSingle();
+    const data = await markRow(supabase, siteId, id);
     if (!data) return { ok: false, error: "That mark is not available." };
-    const n = await evaluateMark(siteId, { id, rule: (data.rule as MarkRule) ?? null, spec: data.spec as HookSpec, reads: data.reads as string });
+    const n = await evaluateMark(siteId, toRun(data));
     return { ok: true, matchCount: n, evaluatedAt: new Date().toISOString() };
   } catch (e) {
     console.error("[marks] re-check failed", e instanceof Error ? e.message : e);
