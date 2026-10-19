@@ -80,6 +80,18 @@
       });
     } catch (e) {}
   }
+  // 3. The owner's own browser: open any page of the site once with ?jh_ignore=1 in the address and this browser is
+  //    never tracked again (open it with ?jh_ignore=0 to track it again). Nothing is read, stored or sent. For testing
+  //    on your own site without your visits counting as visitors.
+  try {
+    const own = new URLSearchParams(window.location.search).get("jh_ignore");
+    if (own === "1") localStorage.setItem("jh_ignore", "1");
+    else if (own === "0") localStorage.removeItem("jh_ignore");
+    if (localStorage.getItem("jh_ignore") === "1") {
+      if (own === "1") window.console.info("[Jellyhook] this browser is now ignored. Open any page with ?jh_ignore=0 to track it again.");
+      return;
+    }
+  } catch (e) {}
   if (browserSaysNo()) return;
   if (setting("require-consent") !== null) {
     const state = storedConsent();
@@ -148,17 +160,42 @@
   // True only for the very first session of a brand-new visitor: it is what
   // lets the server record first-touch attribution (source, UTM, landing page).
   let freshVisitor = false;
-  let memoryVisitorId = null; // when storage is blocked (private modes), per page load
+  let memoryVisitorId = null; // when NO storage works at all: per page load (the server merges these, see below)
+  // Where this browser can keep the visitor id and the session: localStorage (shared by every tab), else sessionStorage
+  // (kept across refreshes and page changes of this tab: browsers that block localStorage often still allow it), else
+  // nothing. Before 2026-10-17 a blocked localStorage meant a NEW visitor and a NEW session on every refresh.
+  const store = (function () {
+    function works(s) {
+      try {
+        const k = "__jh_probe";
+        s.setItem(k, "1");
+        s.removeItem(k);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+    try {
+      if (works(window.localStorage)) return window.localStorage;
+    } catch (e) {}
+    try {
+      if (works(window.sessionStorage)) return window.sessionStorage;
+    } catch (e) {}
+    return null;
+  })();
   function getVisitorId() {
     try {
-      let id = localStorage.getItem("visitor_id");
+      if (!store) throw new Error("no storage");
+      let id = store.getItem("visitor_id");
       if (!id) {
         id = uuid();
-        localStorage.setItem("visitor_id", id);
+        store.setItem("visitor_id", id);
         freshVisitor = true;
       }
       return id;
     } catch (e) {
+      // no storage at all: the id lasts one page load. The server recognises the same device (same network, same
+      // browser, same day) and counts it as one visitor (mds/migrations/20-visitor-aliases.sql).
       if (!memoryVisitorId) {
         memoryVisitorId = uuid();
         freshVisitor = true;
@@ -247,13 +284,13 @@
 
   const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
   const SESSION_KEY = "jh_session";
-  let memorySession = null; // used when localStorage is blocked
+  let memorySession = null; // used when no storage works
   let session_id = null; // set by ensureSession(), the first time this window is active
   let lastSessionTouch = 0;
 
   function readSession() {
     try {
-      const raw = localStorage.getItem(SESSION_KEY);
+      const raw = store ? store.getItem(SESSION_KEY) : null;
       if (!raw) return memorySession;
       const s = JSON.parse(raw);
       return s && typeof s.id === "string" && typeof s.last === "number" ? s : null;
@@ -264,7 +301,7 @@
   function writeSession(s) {
     memorySession = s;
     try {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+      if (store) store.setItem(SESSION_KEY, JSON.stringify(s));
     } catch (e) {}
   }
 

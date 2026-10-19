@@ -113,6 +113,8 @@ const toView = (r: Row, me: string): MarkView => ({
   varValues: (r.var_values as Record<string, string>) ?? {},
   locked: !!r.locked,
   ...(r.source === "connected" ? connectedParts(r) : {}),
+  // a copy made from a published mark keeps its values editable until its formula is changed by hand in the builder
+  ...(r.source === "copy" && r.source_version !== "edited" ? { vars: catalogMark(r.source_key as string)?.vars ?? [] } : {}),
 });
 
 /** One mark row the person can see, with the library columns when they exist. */
@@ -233,8 +235,8 @@ export async function saveMark(input: SaveMarkInput): Promise<SaveMarkResult> {
     let saved: Row | null = null;
     if (input.id) {
       const existing = await markRow(supabase, siteId, input.id);
-      if (existing?.source === "connected") return { ok: false, error: "This mark is connected to a published mark: only its page variables can be changed." };
-      const { data, error } = await supabase.from("marks").update(row).eq("id", input.id).eq("site_id", siteId).eq("created_by", userId).select(COLS).maybeSingle();
+      if (existing?.source === "connected") return { ok: false, error: "This mark is connected to a published mark: only its values can be changed." };
+      const { data, error } = await supabase.from("marks").update(existing?.source === "copy" ? { ...row, source_version: "edited" } : row).eq("id", input.id).eq("site_id", siteId).eq("created_by", userId).select(COLS).maybeSingle();
       if (error) throw new Error(error.message);
       if (!data) return { ok: false, error: "Only the person who made this mark can change it." };
       saved = data;
@@ -302,7 +304,7 @@ export async function addFromLibrary(key: string, mode: "copy" | "use", vars: Re
       const made = c.make({ vars: cleanVars, stats: { sessionHighMs: stats?.sessionDuration.beforeConversion?.high ?? null } });
       const rule = "rule" in made ? made.rule : null;
       const spec = "rule" in made ? compileRule(made.rule) : made.spec;
-      row = { ...base, source: "copy", rule, spec, reads: rule ? describeRule(rule) : c.reads ?? describeSpec(spec), var_values: {} };
+      row = { ...base, source: "copy", rule, spec, reads: rule ? describeRule(rule) : c.reads ?? describeSpec(spec), var_values: cleanVars, source_version: catalogVersion(c) };
     } else {
       row = { ...base, source: "connected", rule: null, spec: null, reads: null, var_values: cleanVars, source_version: catalogVersion(c), locked: !!c.locked };
     }
@@ -329,12 +331,21 @@ export async function addFromLibrary(key: string, mode: "copy" | "use", vars: Re
   }
 }
 
-/** Page variables: known keys only, each a page address. */
+/** Values: known keys only. A page is cleaned to an address; a number must be a whole number in a sane range; an
+ *  empty number is left out (the mark then uses its own default). */
 function cleanVarValues(defs: MarkVar[], values: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const d of defs) {
     const v = values[d.key];
-    if (typeof v === "string" && v.trim()) out[d.key] = cleanPath(v);
+    if (typeof v !== "string" || !v.trim()) continue;
+    if (d.type === "page") {
+      out[d.key] = cleanPath(v);
+      continue;
+    }
+    const n = Number(v);
+    const max = d.type === "percent" ? 100 : d.type === "seconds" ? 86_400 : 1000;
+    if (!Number.isFinite(n) || n < 1 || n > max) throw new RuleError(`${d.label} must be a number from 1 to ${max}.`);
+    out[d.key] = String(Math.round(n));
   }
   return out;
 }
@@ -347,9 +358,19 @@ export async function setMarkVars(id: string, vars: Record<string, string>): Pro
     const row = await markRow(supabase, siteId, id);
     if (!row || row.created_by !== userId) return { ok: false, error: "Only the person who added this mark can change it." };
     const c = catalogMark(row.source_key as string);
-    if (row.source !== "connected" || !c) return { ok: false, error: "Only a connected mark has page variables." };
+    if (!c || (row.source !== "connected" && row.source !== "copy")) return { ok: false, error: "This mark has no values to set." };
+    if (row.source === "copy" && row.source_version === "edited") return { ok: false, error: "This copy was changed by hand: edit it in the builder." };
     const varValues = cleanVarValues(c.vars ?? [], vars);
-    const { data, error } = await supabase.from("marks").update({ var_values: varValues, updated_at: new Date().toISOString() }).eq("id", id).eq("created_by", userId).select(COLS_LIB).single();
+    const patch: Row = { var_values: varValues, updated_at: new Date().toISOString() };
+    if (row.source === "copy") {
+      // a copy's formula is its own: rebuilt from the new values (and this site's numbers of today), then frozen again
+      const stats = await getSiteStats(siteId);
+      const made = c.make({ vars: varValues, stats: { sessionHighMs: stats?.sessionDuration.beforeConversion?.high ?? null } });
+      const rule = "rule" in made ? made.rule : null;
+      const spec = "rule" in made ? compileRule(made.rule) : made.spec;
+      Object.assign(patch, { rule, spec, reads: rule ? describeRule(rule) : c.reads ?? describeSpec(spec) });
+    }
+    const { data, error } = await supabase.from("marks").update(patch).eq("id", id).eq("created_by", userId).select(COLS_LIB).single();
     if (error) throw new Error(error.message);
     const saved = data as unknown as Row;
     saved.match_count = await evaluateMark(siteId, toRun(saved));

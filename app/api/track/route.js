@@ -20,7 +20,7 @@ import { createClient } from "@supabase/supabase-js";
 import { resolvePendingCountries } from "@/lib/resolvePendingCountries";
 import { evaluateLeads, leadsOfSession } from "@/lib/marks/evaluate";
 import { sweepIfDue } from "@/lib/tracking/sweep";
-import { hashIp, countryNameFromCode } from "@/lib/tracking/ip";
+import { hashIp, hashUa, countryNameFromCode } from "@/lib/tracking/ip";
 import { deviceClassFromWidth } from "@/lib/tracking/structure";
 import { emptyUsage, bump } from "@/lib/tracking/usage";
 import {
@@ -101,32 +101,37 @@ export async function POST(req) {
     // ── per-request context ───────────────────────────────────────────────
     const ip = clientIp(req.headers);
     const ipHash = hashIp(ip);
+    const uaHash = hashUa(userAgent); // with ipHash: "the same browser on the same network" (lib/tracking/identity.js)
     const country = countryNameFromCode(req.headers.get("x-vercel-ip-country"));
     // The raw IP is only kept when nothing else can give us a country, and is
     // erased by resolvePendingCountries as soon as the lookup is done.
     const ipForLookup = !country && ip !== "unknown" ? ip : null;
 
     const visitorsSeen = new Set();
+    const resolvedIds = new Map(); // id sent by the tracker -> the visitor it counts as
+    const resolvedSessions = new Map(); // session id sent by the tracker -> the session it counts as (merged visitors only)
     const nowIso = new Date(now).toISOString();
 
     for (const event of events) {
-      const visitorId = cleanId(event.visitor_id);
-      const sessionId = cleanId(event.session_id);
-      if (!visitorId || !sessionId) {
+      const rawVisitorId = cleanId(event.visitor_id);
+      const rawSessionId = cleanId(event.session_id);
+      if (!rawVisitorId || !rawSessionId) {
         bump(usage, "dropped");
         continue;
       }
       bump(usage, "events");
 
-      // ── VISITOR: one upsert + one conditional touch per visitor per request ──
-      if (!visitorsSeen.has(visitorId)) {
-        visitorsSeen.add(visitorId);
+      // ── VISITOR: resolved once per id per request (jh_resolve_visitor: an alias, a known visitor, a twin of someone who
+      // arrived earlier today from the same IP and browser, or a new visitor), then one conditional touch ──
+      let mergedAway = false;
+      if (!resolvedIds.has(rawVisitorId)) {
         const first = event.type === "session_start" && event.is_first_visit === true;
         const insertRow = {
           site_id: site.id,
-          visitor_id: visitorId,
+          visitor_id: rawVisitorId,
           ip_address: ipForLookup,
           ip_hash: ipHash,
+          ua_hash: uaHash,
           first_seen: nowIso,
           last_seen: nowIso,
           device_type: cleanStr(event.device_type, 20),
@@ -139,25 +144,38 @@ export async function POST(req) {
           insertRow.first_landing_path = cleanStr(event.page_path, 500);
           insertRow.first_touch_at = nowIso;
         }
-        const { error: vErr } = await supabase.from("visitors").upsert(insertRow, { onConflict: "site_id,visitor_id", ignoreDuplicates: true });
-        if (vErr) console.error("[track] visitor upsert error:", vErr.message);
+        const { data: canon, error: rErr } = await supabase.rpc("jh_resolve_visitor", { p_site: site.id, p_visitor: rawVisitorId, p_row: insertRow, p_now: nowIso });
+        if (rErr) {
+          // before 20-visitor-aliases.sql has run: the old behaviour, the id as sent
+          const { ua_hash: _uaHash, ...legacyRow } = insertRow;
+          void _uaHash;
+          const { error: vErr } = await supabase.from("visitors").upsert(legacyRow, { onConflict: "site_id,visitor_id", ignoreDuplicates: true });
+          if (vErr) console.error("[track] visitor upsert error:", vErr.message);
+          resolvedIds.set(rawVisitorId, rawVisitorId);
+        } else {
+          resolvedIds.set(rawVisitorId, typeof canon === "string" && canon ? canon : rawVisitorId);
+        }
+        mergedAway = resolvedIds.get(rawVisitorId) !== rawVisitorId;
+        const resolved = resolvedIds.get(rawVisitorId);
+        if (!visitorsSeen.has(resolved)) {
+          visitorsSeen.add(resolved);
+          // Touch last_seen at most once a minute, backfill device_type / ip_hash if missing.
+          const touch = { last_seen: nowIso };
+          const dt = cleanStr(event.device_type, 20);
+          if (dt) touch.device_type = dt;
+          if (ipHash) touch.ip_hash = ipHash;
+          if (uaHash) touch.ua_hash = uaHash;
+          if (ipForLookup) touch.ip_address = ipForLookup; // re-armed for the lookup of this visitor's next session
+          const { error: tErr } = await supabase.from("visitors").update(touch).eq("site_id", site.id).eq("visitor_id", resolved).lt("last_seen", new Date(now - 60_000).toISOString());
+          if (tErr && /ua_hash/.test(tErr.message)) {
+            delete touch.ua_hash;
+            await supabase.from("visitors").update(touch).eq("site_id", site.id).eq("visitor_id", resolved).lt("last_seen", new Date(now - 60_000).toISOString());
+          }
+        }
 
-        // Touch last_seen at most once a minute, backfill device_type / ip_hash if missing.
-        const touch = { last_seen: nowIso };
-        const dt = cleanStr(event.device_type, 20);
-        if (dt) touch.device_type = dt;
-        if (ipHash) touch.ip_hash = ipHash;
-        if (ipForLookup) touch.ip_address = ipForLookup; // re-armed for the lookup of this visitor's next session
-        await supabase
-          .from("visitors")
-          .update(touch)
-          .eq("site_id", site.id)
-          .eq("visitor_id", visitorId)
-          .lt("last_seen", new Date(now - 60_000).toISOString());
-
-        // A visitor's first touch, if their very first event arrived out of
-        // order (a page view before the session start): fill it once.
-        if (first) {
+        // A visitor's first touch, if their very first event arrived out of order (a page view before the session
+        // start): fill it once. Never for an id that was merged into someone else (that visitor has its own).
+        if (first && !mergedAway) {
           await supabase
             .from("visitors")
             .update({
@@ -169,9 +187,24 @@ export async function POST(req) {
               first_touch_at: nowIso,
             })
             .eq("site_id", site.id)
-            .eq("visitor_id", visitorId)
+            .eq("visitor_id", resolved)
             .is("first_touch_at", null);
         }
+      }
+      // from here on, every row of this event belongs to the visitor the id counts as
+      const visitorId = resolvedIds.get(rawVisitorId);
+
+      // ...and, for a visitor that was merged into another, to that visitor's still-active visit: a refresh in a browser
+      // that blocks storage starts a new session every page load, which is one visit of several page views
+      let sessionId = rawSessionId;
+      if (visitorId !== rawVisitorId) {
+        if (!resolvedSessions.has(rawSessionId)) {
+          const { data: sid, error: sErr } = await supabase.rpc("jh_resolve_session", { p_site: site.id, p_session: rawSessionId, p_visitor: visitorId, p_now: nowIso });
+          resolvedSessions.set(rawSessionId, !sErr && typeof sid === "string" && sid ? sid : rawSessionId);
+        }
+        sessionId = resolvedSessions.get(rawSessionId);
+        // the tracker's own end of a session it believed was its own must not end the visit it was joined to
+        if (sessionId !== rawSessionId && event.type === "session_end") continue;
       }
 
       // ── SESSION START ────────────────────────────────────────────────────

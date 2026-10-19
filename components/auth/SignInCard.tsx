@@ -7,7 +7,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { useSignIn } from "@clerk/nextjs";
+import { useAuth, useSignIn } from "@clerk/nextjs";
 import Link from "next/link";
 import { AuthCardFrame } from "./AuthCardFrame";
 
@@ -32,7 +32,14 @@ function GoogleIcon() {
 
 export function SignInCard() {
   const { signIn } = useSignIn();
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
+  const DASHBOARD = "/platform/dashboard";
+
+  // Already signed in (opened this page again, or a second tab): go to the dashboard. Nothing to sign in to.
+  React.useEffect(() => {
+    if (isLoaded && isSignedIn) router.replace(DASHBOARD);
+  }, [isLoaded, isSignedIn, router]);
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -40,17 +47,22 @@ export function SignInCard() {
   const [submitting, setSubmitting] = React.useState(false);
 
   async function handleGoogle() {
+    if (isSignedIn) return router.replace(DASHBOARD);
     setError(null);
     const { error: ssoError } = await signIn.sso({
       strategy: "oauth_google",
       redirectCallbackUrl: "/sign-in/sso-callback",
       redirectUrl: "/",
     });
-    if (ssoError) setError(ssoError.message);
+    if (ssoError) {
+      if (/already signed in|session_exists/i.test(ssoError.message + " " + (ssoError.code ?? ""))) return router.replace(DASHBOARD);
+      setError(ssoError.message);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isSignedIn) return router.replace(DASHBOARD);
     setSubmitting(true);
     setError(null);
 
@@ -59,6 +71,8 @@ export function SignInCard() {
       password,
     });
     if (passwordError) {
+      // Clerk says a session already exists (signed in in another tab): that is not a failure, go to the dashboard
+      if (/already signed in|session_exists/i.test(passwordError.message + " " + (passwordError.code ?? ""))) return router.replace(DASHBOARD);
       setError(passwordError.message);
       setSubmitting(false);
       return;

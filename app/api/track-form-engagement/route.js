@@ -23,6 +23,7 @@ import { createClient } from "@supabase/supabase-js";
 import { emptyUsage, bump } from "@/lib/tracking/usage";
 import { cleanDelta, cleanErrors, cleanFormFields, mergeFieldTimings } from "@/lib/tracking/formEngagement";
 import { formKeyOf } from "@/lib/tracking/formKey";
+import { canonicalVisitorId } from "@/lib/tracking/identity";
 import { CORS, MAX_BODY_BYTES, cleanId, cleanStr, cleanNum, cleanTime, authorizeRequest, applySiteEffects, flushUsage, markHealthEvent } from "@/lib/tracking/server";
 
 // Service role — see app/api/track/route.js's header comment for why.
@@ -86,6 +87,8 @@ export async function POST(req) {
     const auth = await authorizeRequest(supabase, { apiKey, event: payload, headers: req.headers, now: nowMs });
     if (!auth.site || !auth.key.ok) return NextResponse.json({ success: true }, { headers: corsHeaders() });
     const { site, key, decision, host } = auth;
+    payload.visitor_id = await canonicalVisitorId(supabase, site.id, payload.visitor_id); // lib/tracking/identity.js
+    payload.session_id = await canonicalVisitorId(supabase, site.id, payload.session_id); // an alias of a merged visit
 
     bump(usage, "requests");
     bump(usage, "bytes_in", len);

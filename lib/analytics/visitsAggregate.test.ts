@@ -55,6 +55,13 @@ const b8 = r.buckets[8];
 const g = (label: string) => r.series.find((x) => x.label === label)!.key;
 ok(b8.visits === 2 && b8.parts![g("Google")] === 1 && b8.parts![g("Facebook")] === 1, "unique + split: a person counts once, under their first session's group");
 
+// the legend number is what the bars show: six sessions of one France visitor in one hour = 1, not 6
+const fr = [s("v", 3, 0, "France"), s("v", 3, 10, "France"), s("v", 3, 20, "France"), s("v", 3, 30, "France"), s("v", 3, 40, "France"), s("v", 3, 50, "France"), s("x", 3, 5, "Spain")];
+r = aggregateVisits(fr, { ...opts, split: true, unique: true });
+ok(r.series.find((x) => x.label === "France")!.total === 1 && r.series.find((x) => x.label === "Spain")!.total === 1, "unique: the legend says 1 for six sessions of one visitor in one bar");
+r = aggregateVisits(fr, { ...opts, split: true, unique: false });
+ok(r.series.find((x) => x.label === "France")!.total === 6, "not unique: the legend says 6 (every session)");
+
 // boundaries
 r = aggregateVisits([s("v", 23, 59), s("v", -1, 0), { id: "z", startedAt: null, visitorId: "v", group: "" }], opts);
 ok(r.buckets[23].visits === 1 && r.total === 1, "sessions outside the window or without a start are ignored");

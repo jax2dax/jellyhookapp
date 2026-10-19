@@ -38,7 +38,7 @@ const NAV_ITEMS = [
   { title: "Hook",              url: "/platform/hook",          icon: FishingHook,     plan: "free"   },
   // { title: "Acquisition",       url: "/platform/acquisition",   icon: Globe,           plan: "free"   },
   { title: "Settings",          url: "/platform/settings",      icon: Settings,        plan: "free"  },
-  { title: "Subscription",      url: "/platform/subscription",  icon: CreditCard,      plan: "free"  },
+  // { title: "Subscription", url: "/platform/subscription", icon: CreditCard, plan: "free" }, // hidden for now
    { title: "Network",           url: "/platform/network",      icon: Network,         plan: "free"  },
 ]
 
@@ -58,8 +58,7 @@ function BrandMark() {
   // mismatch that comes with it entirely.
   return (
     <span className="relative flex h-6 w-6 shrink-0 items-center justify-center">
-      <Image src="/jellyhookMarkLight.png" alt="" width={24} height={24} priority className="block h-full w-full object-contain dark:hidden" />
-      <Image src="/jellyhookMark.png" alt="" width={24} height={24} priority className="hidden h-full w-full object-contain dark:block" />
+      <Image src="/jellyhook-nobg.png" alt="" width={24} height={24} priority className="block h-full w-full object-contain" />
     </span>
   )
 }

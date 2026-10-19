@@ -250,7 +250,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                           onCancel={() => setVarsOpen(null)}
                           onSaved={(x) => {
                             setVarsOpen(null);
-                            setNote({ tone: "ok", text: `${x.name}: pages saved, ${x.matchCount ?? 0} leads have it.` });
+                            setNote({ tone: "ok", text: `${x.name}: values saved, ${x.matchCount ?? 0} leads have it.` });
                             onChange({ type: "saved", mark: x });
                           }}
                         />
@@ -265,12 +265,12 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                         )}
                         {m.mine && !m.locked && (
                           <button type="button" onClick={() => edit(m)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
-                            {m.source === "connected" ? <><Plug className="size-3" /> Set its pages</> : m.rule ? "Edit" : <>Edit in Hook <ExternalLink className="size-3" /></>}
+                            {m.source === "connected" ? <><Plug className="size-3" /> Edit its values</> : m.rule ? "Edit" : <>Edit in Hook <ExternalLink className="size-3" /></>}
                           </button>
                         )}
                         {m.mine && m.locked && m.vars.length > 0 && (
                           <button type="button" onClick={() => { setMenu(null); setVarsOpen(m.id); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
-                            Set its pages
+                            Edit its values
                           </button>
                         )}
                         {!m.mine && !m.rule && m.spec && (

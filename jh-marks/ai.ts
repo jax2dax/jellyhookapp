@@ -52,7 +52,7 @@ Every row and every chip must be true (AND). There is no OR: if asked for OR, re
 Limits: 6 rows, 8 chips. Use only page paths from the site list when one fits; otherwise the path the person wrote.
 
 ANSWER (exactly one of)
-{"status":"ok","mark":{...},"name":"Short name, 1-4 words","purpose":"One plain sentence for a salesperson: who these leads are and why they matter (max 160 characters, no jargon, no numbers repeated from the conditions)","assumptions":["what you assumed, if anything"]}
+{"status":"ok","mark":{...},"name":"Short name, 1-4 words","purpose":"One plain sentence about the LEAD, in the past tense, describing what they did and decided, like: Carefully analyzed the price and decided it is not worth it. Max 160 characters, no advice, no jargon, no numbers repeated from the conditions","assumptions":["what you assumed, if anything"]}
 {"status":"clarify","question":"one short question"}   only when a key number or page is truly unknowable
 {"status":"unsupported","reason":"what cannot be expressed"}
 
@@ -60,11 +60,11 @@ Reasonable defaults when the sentence is vague: "spent time" = 30 s, "read" = 80
 
 EXAMPLES
 "read pricing for at least 30 seconds, then booked a demo" ->
-{"status":"ok","mark":{"scope":"any","rows":[{"order":"sequence","cards":[{"path":"/pricing","match":"exact","minSeconds":30},{"path":"/demo","match":"exact"}]}],"lead":[]},"name":"Pricing then demo","purpose":"Read the pricing and then went to book a demo: they are weighing the price, so a quick call can close it.","assumptions":["the demo page is /demo"]}
+{"status":"ok","mark":{"scope":"any","rows":[{"order":"sequence","cards":[{"path":"/pricing","match":"exact","minSeconds":30},{"path":"/demo","match":"exact"}]}],"lead":[]},"name":"Pricing then demo","purpose":"Read the pricing carefully, then went to book a demo: weighed the price and still wanted to talk.","assumptions":["the demo page is /demo"]}
 "came back at least twice from google and read most of every page" ->
-{"status":"ok","mark":{"scope":"any","rows":[],"lead":[{"kind":"visits","min":2},{"kind":"source","value":"google"},{"kind":"readEvery","minPct":80}]},"name":"Engaged Google returner","purpose":"Found you on Google, came back and read carefully: a researched, interested lead worth a prompt reply.","assumptions":["most = 80%"]}
+{"status":"ok","mark":{"scope":"any","rows":[],"lead":[{"kind":"visits","min":2},{"kind":"source","value":"google"},{"kind":"readEvery","minPct":80}]},"name":"Engaged Google returner","purpose":"Found you on Google, came back and read carefully before reaching out.","assumptions":["most = 80%"]}
 "looked at 3 blog posts" ->
-{"status":"ok","mark":{"scope":"any","rows":[{"order":"any","cards":[{"path":"/blog/","match":"startsWith","minTimes":3}]}],"lead":[]},"name":"Blog reader","purpose":"Spent time on several blog posts first: they are learning about the problem, so lead with advice, not a price.","assumptions":[]}`;
+{"status":"ok","mark":{"scope":"any","rows":[{"order":"any","cards":[{"path":"/blog/","match":"startsWith","minTimes":3}]}],"lead":[]},"name":"Blog reader","purpose":"Spent time on several blog posts first, learning about the problem before contacting you.","assumptions":[]}`;
 }
 
 function userMessage(sentence: string, pages: string[]): string {

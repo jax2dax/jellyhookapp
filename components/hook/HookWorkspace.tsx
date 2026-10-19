@@ -406,14 +406,10 @@ function ResultPanel({ outcome, dev, announce }: { outcome: Outcome; dev: boolea
             </button>
           )}
         </div>
+        {(r.plan.notes.length > 0 || r.tunnels.length > 0) && (
         <details>
           <summary className="cursor-pointer text-xs">How it ran</summary>
           <div className="mt-1 space-y-1 text-xs">
-            {r.plan.steps.length > 0 && (
-              <ol className="list-decimal space-y-0.5 pl-5">
-                {r.plan.steps.map((s) => <li key={s.id}>{s.label} <span className="text-muted-foreground">(about {s.estRows} rows alone)</span></li>)}
-              </ol>
-            )}
             {r.plan.notes.map((n, i) => <p key={i} className="text-muted-foreground">{n}</p>)}
             {r.tunnels.length > 0 && (
               <div>
@@ -427,6 +423,7 @@ function ResultPanel({ outcome, dev, announce }: { outcome: Outcome; dev: boolea
             )}
           </div>
         </details>
+        )}
         {dev && a.shape === "list" && a.values.length > 0 && (
           <details>
             <summary className="cursor-pointer text-xs">For developers: the raw values ({a.values.length})</summary>
@@ -440,10 +437,6 @@ function ResultPanel({ outcome, dev, announce }: { outcome: Outcome; dev: boolea
             <p className="mt-1 text-xs text-muted-foreground">Postgres cost {r.cost.pgCost}</p>
           </details>
         )}
-        <details>
-          <summary className="cursor-pointer text-xs">The query (the saved definition, paste it back to reload)</summary>
-          <pre className="mt-1 overflow-auto rounded border p-2 text-xs">{JSON.stringify(spec, null, 2)}</pre>
-        </details>
       </CardContent>
     </Card>
   );

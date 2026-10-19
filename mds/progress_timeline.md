@@ -1776,3 +1776,16 @@ A mark is a named set of conditions on what a lead did before sending the form (
 ## 2026-10-16 - Marks library, site statistics
 
 `/platform/marks` (sidebar "Marks"): My marks grouped by type, and Browse (12 published marks in 4 categories). "Add to marks" copies a mark (yours, editable); "Use mark" connects it (plug icon: the published mark's updates apply, only its page variables are yours). Locking is built (formula hidden, Edit dimmed) but unused. Limits: 5 built by you, 15 in all. The leads panel's templates became a "Browse marks" link. Per-site statistics (`site_stats`): normal visit length three ways, by the founder's frequency-table method (outliers dropped, mean ± 1 SD). New Hook fields: lead.timeAfterSending, form.leftWhileFilling / awaysAfterSeen / pagesSeenToSent. Tests: marks 79 (35 rules, 9 AI, 28 library on real Postgres, 7 statistics), Hook 83. Docs in sync. Dev doc: `mds/build/marks/marks.md` (Library, Site statistics). Demo: `/dev/marks-library-demo`. **Run 19-marks-library.sql after 18.**
+
+## 2026-10-17 - Library values editable, purposes, light theme, small fixes
+
+Every published mark's pages and numbers are editable (typed values: page, seconds, count, percent), on the cards and after adding (copies and connected marks, "Edit its values"). Purposes rewritten about the lead in the past tense. Light theme tokens fixed (muted was lighter than the card; borders and popover). Also: sign-in sends an already signed-in person to the dashboard instead of showing an error, the Subscription sidebar item is hidden, Hook's "How it ran" no longer lists steps and the raw query is gone, Add / Use buttons stay on one line, sidebar logo is jellyhook-nobg.png.
+
+## 2026-10-17 - One person, one visitor (and "ignore my browser")
+
+Six "visitors" from France were one person (one session each, same IP and browser; Vercel Analytics said 1). The tracker mints a visitor id per browser storage, so private windows, cleared site data and storage-blocking browsers each became a visitor, inflating every chart and rate.
+- Ingestion now merges (`mds/migrations/20-visitor-aliases.sql`, `jh_resolve_visitor`): a NEW id from the same IP hash and browser hash as a visitor who first appeared earlier TODAY (UTC) and never sent a form is stored as an alias of that visitor (`visitor_aliases`). Every route resolves ids the same way (`lib/tracking/identity.js`; /api/track via the function; the form routes by lookup), so sessions, page views, forms and leads all land on one visitor. Needs `IP_HASH_SALT` (without it nothing merges). Without the migration the routes behave as before.
+- Trade-off, same as Vercel's: two people on one network with the same browser, both new the same day, count as one until one sends a form.
+- Old rows are not merged (they have no browser hash). A cleanup of the existing duplicates is a separate, optional step.
+- Tracker: `?jh_ignore=1` once in a browser makes it ignore itself (`?jh_ignore=0` to undo), for the owner's own testing. Chart legend numbers now match the bars when Unique visitors is on.
+- Tests: identity on real Postgres (12), tracking 103, chart counting 12, tracker real-browser test passes. Privacy pages mention the browser hash. **Run 20-visitor-aliases.sql, set IP_HASH_SALT, then deploy.**

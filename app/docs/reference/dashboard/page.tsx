@@ -114,11 +114,13 @@ export default function DashboardReferencePage() {
         </div>
 
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">New Reach and Conversions (mini)</h2>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Reach and Conversions</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Small, fixed versions of the last 3 days, no controls. Clicking either one goes straight to the
-            Conversions page, where the full interactive versions live, with a real date range picker. A period
-            with nothing in it still draws the chart, as a flat line at 0 with a short note under it.
+            New visitors and unique conversions on one timeline, with a date range picker. The three buttons above it
+            switch the layout: Merged (the default, one chart with both lines), Split (two charts side by side) and
+            Separate (two full-width charts). The choice is kept in the page address. A period with nothing in it still
+            draws the chart, as a flat line at 0 with a short note under it. (This chart used to live on the
+            Conversions page.)
           </p>
         </div>
 

@@ -3,8 +3,7 @@ import { getRecentActivity, getLeads } from "@/lib/actions/supabase.actions";
 import { getSitePagesOverview } from "@/lib/actions/pagesOverview.action";
 import { VisitsOverTimeChart } from "@/components/charts/visitsOverTime";
 import { PageViewsBar } from "@/components/charts/pageViewsBar";
-import { NewReachChart } from "@/components/charts/NewReachChart";
-import { ConversionsAreaChart } from "@/components/charts/ConversionsAreaChart";
+import { ReachConversionsSection } from "@/components/charts/ReachConversionsSection";
 import { FramePlatePreviewCard } from "@/components/dashboard/FramePlatePreviewCard";
 import { ActiveNowTile } from "@/components/dashboard/ActiveNowTile";
 import { LiveTicker } from "@/components/dashboard/LiveTicker";
@@ -92,10 +91,10 @@ export default async function OverviewPage() {
         <HookShortcutCard />
       </div>
 
-      {/* ── New Reach + Conversions minis — full versions live on /platform/conversions ── */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <NewReachChart siteId={site.id} mini />
-        <ConversionsAreaChart siteId={site.id} mini />
+      {/* ── Reach & Conversions: new visitors and unique conversions, merged by default (Separate and Split on the
+          switch). It lived on /platform/conversions; the two minis that used to sit here are gone. ── */}
+      <div className="mb-6">
+        <ReachConversionsSection siteId={site.id} defaultView="merged" />
       </div>
 
       {/* ── Pages overview: how many people are looking at each page ── */}

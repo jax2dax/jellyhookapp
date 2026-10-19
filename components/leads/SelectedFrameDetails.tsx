@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDuration } from "@/lib/leadFormat";
 import { computeSeenBreakdown, type TimelineItem, type VisitGeometry } from "@/framePlate";
 import { pageStory } from "@/lib/leadSessions/story";
+import { StoryText } from "./StoryText";
 
 export interface SelectedFrameDetailsProps {
   item: TimelineItem;
@@ -85,7 +86,7 @@ export function SelectedFrameDetails({ item, isLastVisit, nextPath, onClose }: S
       </div>
 
       <div className="mt-2 flex items-start gap-3">
-        <p className="min-w-0 flex-1 text-sm leading-relaxed text-foreground">{pageStory(visit, isLastVisit ? null : nextPath)}</p>
+        <StoryText text={pageStory(visit, isLastVisit ? null : nextPath)} className="min-w-0 flex-1 text-sm leading-[1.9] text-foreground" />
         <button type="button" onClick={() => setDetails((d) => !d)} className="shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" aria-expanded={details}>
           {details ? "Hide details" : "Page details"}
         </button>

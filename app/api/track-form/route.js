@@ -19,6 +19,7 @@ const ok = () => NextResponse.json({ success: true }, { headers: CORS });
 
 import { dropSensitive } from "@/lib/tracking/sensitive";
 import { evaluateLeads } from "@/lib/marks/evaluate";
+import { canonicalVisitorId } from "@/lib/tracking/identity";
 
 const MAX_RAW_FIELDS = 60;
 const MAX_RAW_VALUE = 2000;
@@ -80,7 +81,8 @@ export async function POST(req) {
       return ok();
     }
 
-    const visitorId = cleanId(payload.visitor_id);
+    // the visitor this id counts as (lib/tracking/identity.js): a lead is attached to the same visitor its visit was
+    const visitorId = await canonicalVisitorId(supabase, site.id, cleanId(payload.visitor_id));
     const email = cleanStr(payload.email, 320);
 
     // The same person submitting the same email within a minute is one lead.
@@ -101,7 +103,7 @@ export async function POST(req) {
     const { data: inserted, error: insertError } = await supabase.from("form_submissions").insert({
       site_id: site.id,
       visitor_id: visitorId,
-      session_id: cleanId(payload.session_id),
+      session_id: await canonicalVisitorId(supabase, site.id, cleanId(payload.session_id)), // an alias of a merged visit
       page_url: cleanStr(payload.page_url, 1000),
       page_path: pagePath,
       name: cleanStr(payload.name, 200),

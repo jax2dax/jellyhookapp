@@ -23,13 +23,22 @@ export interface CatalogCategory {
   blurb: string;
 }
 
-/** A page the mark names, which each site sets for itself. */
+/** A value of the mark that each person can change: a page the mark names, or a number in its formula. */
 export interface MarkVar {
   key: string;
   label: string;
-  /** the publisher's default */
+  /** page: an address like /pricing. seconds / count / percent: a number. */
+  type: "page" | "seconds" | "count" | "percent";
+  /** the publisher's default. "" on a number = not set (the mark then uses its own rule, e.g. this site's normal). */
   default: string;
 }
+
+/** A number value of a mark, with its default when the person left it empty. */
+const num = (ctx: { vars: Record<string, string> }, vs: MarkVar[], key: string): number | null => {
+  const raw = ctx.vars[key]?.trim() ?? vs.find((x) => x.key === key)?.default ?? "";
+  const n = Number(raw);
+  return raw !== "" && Number.isFinite(n) ? n : null;
+};
 
 /** What `make` may use from the site's statistics (lib/stats/siteStats.ts), in ms; null when not enough data. */
 export interface StatsInput {
@@ -78,23 +87,36 @@ const rel = (relation: string, where: J[], count?: [string, number]): J => ({ id
 const none = (where: J[]): J => ({ id: id(), kind: "group", mode: "and", not: true, where });
 const leads = (where: J[]): { spec: HookSpec } => ({ spec: normalizeSpec({ entity: "lead", where, output: { kind: "ids" } }) });
 const rule = (r: Omit<MarkRule, "v">): { rule: MarkRule } => ({ rule: validateRule({ v: 1, ...r }) });
-const v = (ctx: MakeContext, m: { vars?: MarkVar[] }, key: string) => ctx.vars[key]?.trim() || m.vars?.find((x) => x.key === key)?.default || "/";
+const page = (ctx: MakeContext, vs: MarkVar[], key: string) => ctx.vars[key]?.trim() || vs.find((x) => x.key === key)?.default || "/";
+const N = (ctx: MakeContext, vs: MarkVar[], key: string, fallback: number) => num(ctx, vs, key) ?? fallback;
+const V = (key: string, label: string, type: MarkVar["type"], def: string): MarkVar => ({ key, label, type, default: def });
 
 /** Until a site has enough visits for its own normal (jh-stats/typical.ts), "long" means 5 minutes. */
 export const FALLBACK_SESSION_HIGH_MS = 300_000;
+
+// Purposes are written about the lead, in plain words, like "Carefully analyzed the price and decided it is not worth it".
+const HA = [V("seconds", "Longer than (s)", "seconds", "")];
+const VI = [V("seconds", "Form filled in under (s)", "seconds", "20")];
+const HI = [V("readPct", "Read at least (%)", "percent", "80"), V("pages", "Pages", "count", "2")];
+const CB = [V("visits", "Visits", "count", "2")];
+const PR = [V("pricing", "Pricing page", "page", "/pricing"), V("seconds", "Time on it (s)", "seconds", "30")];
+const RE = [V("times", "Times away", "count", "2")];
+const EX = [V("times", "Times away", "count", "2"), V("visits", "In visits", "count", "2")];
+const CC = [V("pages", "Other pages", "count", "3")];
 
 export const CATALOG: CatalogMark[] = [
   // ── Starters pack ──
   {
     key: "high-activity",
-    reads: "Their visit (the one they contacted you in) was longer than a normal visit on your site.",
     category: "starters",
     kind: "lead",
     name: "High activity",
-    purpose: "Their visit was much longer than is normal on your site: a serious, well-informed lead.",
+    purpose: "Stayed far longer than a normal visitor and went through the site in depth.",
     color: "#22c55e",
-    make: (ctx) => leads([rel("session", [f("duration", ">", Math.round(ctx.stats.sessionHighMs ?? FALLBACK_SESSION_HIGH_MS))])]),
-    note: "Longer than your site's normal visit (typical time before converting, outliers left out, + 1 standard deviation). Until there are 20 visits: 5 minutes.",
+    vars: HA,
+    make: (ctx) => leads([rel("session", [f("duration", ">", Math.round((num(ctx, HA, "seconds") !== null ? num(ctx, HA, "seconds")! * 1000 : ctx.stats.sessionHighMs) ?? FALLBACK_SESSION_HIGH_MS))])]),
+    reads: "Their visit (the one they contacted you in) was longer than the time set here, or than a normal visit on your site when no time is set.",
+    note: "With no time set: longer than your site's normal visit (typical time before converting, outliers left out, + 1 standard deviation). Until there are 20 visits: 5 minutes.",
     author: "Jellyhook",
   },
   {
@@ -102,22 +124,23 @@ export const CATALOG: CatalogMark[] = [
     category: "starters",
     kind: "lead",
     name: "Very interested",
-    purpose: "Filled the form quickly and without hesitation: they knew what they wanted.",
+    purpose: "Knew what they wanted: filled in the form quickly, without hesitating.",
     color: "#3b82f6",
-    make: () => rule({ scope: "any", rows: [], lead: [{ id: "a", kind: "formTime", op: "under", seconds: 20 }] }),
-    note: "Form filled in under 20 s (2 s would only catch autofill and paste).",
+    vars: VI,
+    make: (ctx) => rule({ scope: "any", rows: [], lead: [{ id: "a", kind: "formTime", op: "under", seconds: Math.max(1, N(ctx, VI, "seconds", 20)) }] }),
+    note: "Under 2 seconds would only catch autofill and paste, so the default is 20.",
     author: "Jellyhook",
   },
   {
     key: "hero-cta",
-    reads: "In the visit they contacted you in, the page they landed on led straight to the page where they sent the form.",
     category: "starters",
     kind: "lead",
     name: "Landing page converters",
-    purpose: "Went straight from the page they landed on to the page where they contacted you.",
+    purpose: "Went from the first page they saw straight to contacting you, with no detours.",
     color: "#f59e0b",
     make: () => leads([rel("visitPagesBeforeSubmit", [f("isLanding", "isTrue"), rel("nextPage", [f("isConversionPage", "isTrue")])])]),
-    note: "The page they landed on led straight to the page they sent the form on. Button clicks are not used yet.",
+    reads: "In the visit they contacted you in, the page they landed on led straight to the page where they sent the form.",
+    note: "Button clicks are not used yet.",
     author: "Jellyhook",
   },
   {
@@ -125,9 +148,10 @@ export const CATALOG: CatalogMark[] = [
     category: "starters",
     kind: "lead",
     name: "General high intent",
-    purpose: "Read most of every page they opened, across at least two pages. People who read this carefully came for a reason.",
+    purpose: "Read nearly everything they opened, carefully, across several pages.",
     color: "#14b8a6",
-    make: () => rule({ scope: "any", rows: [], lead: [{ id: "a", kind: "readEvery", minPct: 80 }, { id: "b", kind: "pages", min: 2 }] }),
+    vars: HI,
+    make: (ctx) => rule({ scope: "any", rows: [], lead: [{ id: "a", kind: "readEvery", minPct: Math.min(100, Math.max(1, N(ctx, HI, "readPct", 80))) }, { id: "b", kind: "pages", min: Math.max(1, N(ctx, HI, "pages", 2)) }] }),
     author: "Jellyhook",
   },
   {
@@ -135,9 +159,10 @@ export const CATALOG: CatalogMark[] = [
     category: "starters",
     kind: "lead",
     name: "Came back",
-    purpose: "Visited more than once before contacting you: they thought about it.",
+    purpose: "Thought it over: left, then returned before contacting you.",
     color: "#a855f7",
-    make: () => rule({ scope: "any", rows: [], lead: [{ id: "a", kind: "visits", min: 2 }] }),
+    vars: CB,
+    make: (ctx) => rule({ scope: "any", rows: [], lead: [{ id: "a", kind: "visits", min: Math.max(1, N(ctx, CB, "visits", 2)) }] }),
     author: "Jellyhook",
   },
 
@@ -147,85 +172,86 @@ export const CATALOG: CatalogMark[] = [
     category: "pricing",
     kind: "lead",
     name: "Pricing reader",
-    purpose: "Spent real time on your pricing page before contacting you: the price is on their mind.",
+    purpose: "Looked carefully at the price before deciding to contact you.",
     color: "#ec4899",
-    vars: [{ key: "pricing", label: "Pricing page", default: "/pricing" }],
-    make(ctx) {
-      return rule({ scope: "any", rows: [{ id: "r", order: "any", cards: [{ id: "c", path: v(ctx, this, "pricing"), match: "exact", minSeconds: 30 }] }], lead: [] });
-    },
+    vars: PR,
+    make: (ctx) => rule({ scope: "any", rows: [{ id: "r", order: "any", cards: [{ id: "c", path: page(ctx, PR, "pricing"), match: "exact", minSeconds: Math.max(1, N(ctx, PR, "seconds", 30)) }] }], lead: [] }),
     author: "Jellyhook",
   },
 
   // ── Nurturing seekers ──
   {
     key: "form-hurdle",
-    reads: "In a visit before contacting you, they started a form and left it unfinished.",
     category: "nurturing",
     kind: "lead",
     name: "Form was a hurdle",
-    purpose: "Started a form, left it unfinished, and came back to send one later: something in the form held them back.",
+    purpose: "Started the form, gave up on it, then returned to send one later: something in the form made them stop.",
     color: "#64748b",
     make: () => leads([rel("visitsBeforeSubmit", [rel("forms", [f("status", "=", "abandoned")])])]),
+    reads: "In a visit before contacting you, they started a form and left it unfinished.",
     author: "Jellyhook",
   },
   {
     key: "researchers",
-    reads: "In the visit they contacted you in, after seeing the form they left the site and came back at least twice (each time 10 s or more away).",
     category: "nurturing",
     kind: "lead",
     name: "Researchers",
-    purpose: "After seeing the form, left the site and came back at least twice in that visit, then contacted you: they compared before deciding.",
+    purpose: "Looked at the form, left and came back more than once, comparing options before contacting you.",
     color: "#0ea5e9",
-    // the sending visit: a form there, after it was seen 2+ times away for 10 s or more
-    make: () => leads([rel("session", [rel("forms", [f("awaysAfterSeen", ">=", 2)])])]),
+    vars: RE,
+    make: (ctx) => leads([rel("session", [rel("forms", [f("awaysAfterSeen", ">=", Math.max(1, N(ctx, RE, "times", 2)))])])]),
+    reads: "In the visit they contacted you in, after seeing the form they left the site and came back at least the number of times set here (each time 10 s or more away).",
+    note: "Away means 10 seconds or more between leaving one page and opening the next.",
     author: "Jellyhook",
   },
   {
     key: "extensive-researchers",
-    reads: "In at least two visits, after seeing the form they left the site and came back at least twice (each time 10 s or more away).",
     category: "nurturing",
     kind: "lead",
     name: "Extensive researchers",
-    purpose: "Did that in two or more visits: saw the form, left and came back at least twice, before finally contacting you.",
+    purpose: "Spread their comparison over several visits, seeing the form and leaving more than once, before contacting you.",
     color: "#6366f1",
-    make: () => leads([rel("visitsBeforeSubmit", [rel("forms", [f("awaysAfterSeen", ">=", 2)])], [">=", 2])]),
+    vars: EX,
+    make: (ctx) => leads([rel("visitsBeforeSubmit", [rel("forms", [f("awaysAfterSeen", ">=", Math.max(1, N(ctx, EX, "times", 2)))])], [">=", Math.max(1, N(ctx, EX, "visits", 2))])]),
+    reads: "In at least the number of visits set here, after seeing the form they left the site and came back at least the number of times set here (each time 10 s or more away).",
     author: "Jellyhook",
   },
 
   // ── Uncertain converters ──
   {
     key: "hesitant-converters",
-    reads: "While filling the form they sent, they opened another page or left the site for 10 s or more, and came back to send it.",
     category: "uncertain",
     kind: "lead",
     name: "Hesitant converters",
-    purpose: "Started the form, went to another page or left the site in the middle of it, and still sent it in that visit.",
+    purpose: "Began the form, stepped away in the middle of it, then came back and sent it.",
     color: "#f97316",
     make: () => leads([rel("submittedForm", [f("leftWhileFilling", "isTrue")])]),
+    reads: "While filling the form they sent, they opened another page or left the site for 10 s or more, and came back to send it.",
     author: "Jellyhook",
   },
   {
     key: "convinced-by-content",
-    reads: "After seeing the form they sent, they opened at least 3 other pages before sending it, and never left the site in that visit.",
     category: "uncertain",
     kind: "lead",
     name: "Convinced by the content",
-    purpose: "Saw the form, then read at least 3 other pages without leaving the site, and came back to send it: your pages convinced them.",
+    purpose: "Saw the form, then read more of your pages without leaving, and were convinced enough to send it.",
     color: "#84cc16",
-    make: () => leads([rel("submittedForm", [f("pagesSeenToSent", ">=", 3)]), rel("session", [none([rel("awayGaps", [])])])]),
-    note: "No time away in that visit means no gap of 15 s or more between two pages (the same rule as the visit chart).",
+    vars: CC,
+    make: (ctx) => leads([rel("submittedForm", [f("pagesSeenToSent", ">=", Math.max(1, N(ctx, CC, "pages", 3)))]), rel("session", [none([rel("awayGaps", [])])])]),
+    reads: "After seeing the form they sent, they opened at least the number of other pages set here before sending it, and never left the site in that visit.",
+    note: "No time away means no gap of 15 s or more between two pages (the same rule as the visit chart).",
     author: "Jellyhook",
   },
   {
     key: "saw-form-came-back",
-    reads: "In a visit before contacting you, they saw a form and did not start it.",
     category: "uncertain",
     kind: "lead",
     name: "Saw a form, came back later",
-    purpose: "Saw a form without starting it, and sent one in a later visit: they needed time to decide.",
+    purpose: "Saw the form but did not start it, then returned in a later visit to send one.",
     color: "#eab308",
     make: () => leads([rel("visitsBeforeSubmit", [rel("forms", [f("status", "=", "viewed")])])]),
-    note: "A form seen but not started in any visit before sending; it does not check it was the same form.",
+    reads: "In a visit before contacting you, they saw a form and did not start it.",
+    note: "It does not check it was the same form.",
     author: "Jellyhook",
   },
 ];

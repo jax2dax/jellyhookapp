@@ -1,7 +1,7 @@
 // components/charts/ReachConversionsSection.tsx
 //
-// The /platform/conversions view-mode container: separate (default),
-// split, or merged. Each mode is a genuinely different layout/component,
+// The Reach & Conversions container, on the dashboard (moved there from /platform/conversions on 2026-10-17):
+// separate, split, or merged (the dashboard's default). Each mode is a genuinely different layout/component,
 // not the same two components re-styled:
 //   - separate: NewReachChart + ConversionsAreaChart, full width, stacked,
 //     each fully independent (own Card, own range).
@@ -29,10 +29,11 @@ const VIEW_OPTIONS: { value: ViewMode; label: string; icon: React.ComponentType<
   { value: "merged", label: "Merged", icon: Combine },
 ];
 
-export function ReachConversionsSection({ siteId }: { siteId: string }) {
-  // ?view=split | merged (default: separate), so the chosen layout survives a refresh and can be shared
-  const [url, setUrl] = useUrlState({ view: "separate" });
-  const viewMode = oneOf(url.view, ["separate", "split", "merged"] as const, "separate");
+export function ReachConversionsSection({ siteId, defaultView = "separate" }: { siteId: string; defaultView?: ViewMode }) {
+  // ?view=separate | split | merged (default: defaultView, merged on the dashboard), so the chosen layout survives a
+  // refresh and can be shared
+  const [url, setUrl] = useUrlState({ view: defaultView });
+  const viewMode = oneOf(url.view, ["separate", "split", "merged"] as const, defaultView);
   const setViewMode = (v: ViewMode) => setUrl({ view: v });
 
   return (

@@ -37,7 +37,7 @@ export default function PrivacyConsentPage() {
           ]}
         />
         <P>
-          It does not set cookies. It stores these in the browser&apos;s local storage and sends the events described in <Link href="/docs/installation" className="text-[var(--lime)] hover:underline">Installation and setup</Link> to Jellyhook. The visitor&apos;s IP address is never stored as such: only a salted one-way hash is kept, and the visitor&apos;s country comes from the hosting platform&apos;s own header or a one-time lookup that deletes the address afterwards. The{" "}
+          It does not set cookies. It stores these in the browser&apos;s local storage and sends the events described in <Link href="/docs/installation" className="text-[var(--lime)] hover:underline">Installation and setup</Link> to Jellyhook. The visitor&apos;s IP address is never stored as such: only a salted one-way hash is kept (with a hash of the browser string, so one person on one device counts as one visitor on a given day), and the visitor&apos;s country comes from the hosting platform&apos;s own header or a one-time lookup that deletes the address afterwards. The{" "}
           <Link href="/privacy" className="text-[var(--lime)] hover:underline">privacy policy</Link> has the full list.
         </P>
       </Section>

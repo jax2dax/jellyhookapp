@@ -26,9 +26,10 @@
 "use client";
 
 import * as React from "react";
-import { RefreshCw, Radio, ChevronLeft, ChevronRight } from "lucide-react";
+import { RefreshCw, Radio, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { formatDate, formatRelativeTime } from "@/lib/leadFormat";
 import { journeyStory, sessionStory, shortDuration } from "@/lib/leadSessions/story";
+import { StoryText } from "./StoryText";
 import { FramePlateChart, resolveViewportHeightPx, type SessionRaw, type TimelineItem } from "@/framePlate";
 import { SessionSummaryDrawer } from "./SessionSummaryDrawer";
 import { ChartLegend } from "./ChartLegend";
@@ -152,6 +153,26 @@ export function LeadSessionExplorer({
   const [lastFetchedAt, setLastFetchedAt] = React.useState<number | null>(null);
   // under the chart, the visit's story shows by default; its numbers ("Session details") on demand
   const [showSessionDetails, setShowSessionDetails] = React.useState(false);
+  // the visit list can be folded away to a thin strip of numbers (a per-browser convenience; starts open)
+  const [listOpen, setListOpen] = React.useState(true);
+  React.useEffect(() => {
+    try {
+      // localStorage is the external system read once here
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (window.localStorage.getItem("jh:visit-list-open") === "0") setListOpen(false);
+    } catch {
+      /* starts open */
+    }
+  }, []);
+  const toggleList = () =>
+    setListOpen((o) => {
+      try {
+        window.localStorage.setItem("jh:visit-list-open", o ? "0" : "1");
+      } catch {
+        /* fine */
+      }
+      return !o;
+    });
 
   const sessionsRaw = React.useMemo<SessionRaw[]>(() => {
     return buildSessionsRaw({ ...rawRows, pageStructure: pageStructureRows, formEngagement: formEngagementRows }) as SessionRaw[];
@@ -297,20 +318,24 @@ export function LeadSessionExplorer({
   return (
     <div className="space-y-3">
       {/* every visit, in plain words */}
-      <p className="rounded-md border bg-muted/30 px-3.5 py-2.5 text-sm leading-relaxed text-foreground">{journeyStory(sessionsRaw, fallbackVh)}</p>
+      <StoryText text={journeyStory(sessionsRaw, fallbackVh)} className="rounded-md border bg-muted/40 px-3.5 py-2.5 text-sm leading-[1.9] text-foreground" />
 
-      <div className="grid gap-3 lg:grid-cols-[13.5rem_minmax(0,1fr)]">
+      <div className={"grid gap-3 " + (listOpen ? "lg:grid-cols-[13.5rem_minmax(0,1fr)]" : "lg:grid-cols-[3.25rem_minmax(0,1fr)]")}>
         {/* the visits: a compact list right next to the chart */}
         <div className="flex min-h-0 flex-col overflow-hidden rounded-md border lg:max-h-[34rem]">
-          <div className="flex h-9 shrink-0 items-center gap-1 border-b bg-muted/40 px-2 text-xs">
-            <span className="font-medium text-foreground">{sessionsRaw.length} visits</span>
-            {hasLiveSession && (
-              <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400" title="A visit is happening now">
-                <Radio className="size-3" /> live
-              </span>
+          <div className={"flex h-9 shrink-0 items-center border-b bg-muted/40 text-xs " + (listOpen ? "gap-1 px-2" : "justify-between px-1")}>
+            {listOpen && (
+              <>
+                <span className="font-medium text-foreground">{sessionsRaw.length} visits</span>
+                {hasLiveSession && (
+                  <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400" title="A visit is happening now">
+                    <Radio className="size-3" /> live
+                  </span>
+                )}
+              </>
             )}
-            <span className="ml-auto flex items-center">
-              {totalSessionPages > 1 && (
+            <span className={"flex items-center " + (listOpen ? "ml-auto" : "")}>
+              {listOpen && totalSessionPages > 1 && (
                 <>
                   <button type="button" onClick={() => setSessionsPage((p) => p + 1)} disabled={clampedSessionsPage >= totalSessionPages} className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30" aria-label="Older visits" title="Older visits">
                     <ChevronLeft className="size-3.5" />
@@ -323,8 +348,11 @@ export function LeadSessionExplorer({
                   </button>
                 </>
               )}
-              <button type="button" onClick={refreshSessions} disabled={refreshing} className="ml-0.5 flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Refresh" title={lastFetchedAt ? "Refresh (checked " + formatRelativeTime(new Date(lastFetchedAt).toISOString()) + ")" : "Refresh"}>
+              <button type="button" onClick={refreshSessions} disabled={refreshing} className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Refresh" title={lastFetchedAt ? "Refresh (checked " + formatRelativeTime(new Date(lastFetchedAt).toISOString()) + ")" : "Refresh"}>
                 <RefreshCw className={"size-3.5 " + (refreshing ? "animate-spin" : "")} />
+              </button>
+              <button type="button" onClick={toggleList} className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={listOpen ? "Fold the visit list" : "Show the visit list"} title={listOpen ? "Fold the list: only the numbers stay" : "Show the visits"}>
+                {listOpen ? <PanelLeftClose className="size-3.5" /> : <PanelLeftOpen className="size-3.5" />}
               </button>
             </span>
           </div>
@@ -347,13 +375,19 @@ export function LeadSessionExplorer({
                       (converted ? "border-l-yellow-500 " : isLive ? "border-l-emerald-500 " : "border-l-transparent ") +
                       (isSelected ? "bg-primary/10" : "hover:bg-muted/60")
                     }
-                    title={converted ? "Sent the form in this visit" : isLive ? "Happening now" : undefined}
+                    title={(listOpen ? "" : "Visit " + (idx + 1) + " · " + formatDate(session.startedAt) + " · " + (durationMs != null ? shortDuration(durationMs) : "-") + " · " + session.visits.length + " pages" + (converted ? " · sent the form" : isLive ? " · now" : "")) || (converted ? "Sent the form in this visit" : isLive ? "Happening now" : undefined)}
                   >
-                    <span className={"w-9 shrink-0 tabular-nums " + (isSelected ? "font-semibold text-foreground" : "text-muted-foreground")}>{idx === sessionsRaw.length - 1 ? "Latest" : "#" + (idx + 1)}</span>
-                    <span className="min-w-0 flex-1 truncate text-foreground">{formatDate(session.startedAt)}</span>
-                    <span className="shrink-0 tabular-nums text-muted-foreground">
-                      {durationMs != null ? shortDuration(durationMs) : "-"} · {session.visits.length}p
+                    <span className={(listOpen ? "w-9 " : "w-full text-center ") + "shrink-0 tabular-nums " + (isSelected ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                      {listOpen ? (idx === sessionsRaw.length - 1 ? "Latest" : "#" + (idx + 1)) : idx + 1}
                     </span>
+                    {listOpen && (
+                      <>
+                        <span className="min-w-0 flex-1 truncate text-foreground">{formatDate(session.startedAt)}</span>
+                        <span className="shrink-0 tabular-nums text-muted-foreground">
+                          {durationMs != null ? shortDuration(durationMs) : "-"} · {session.visits.length}p
+                        </span>
+                      </>
+                    )}
                   </button>
                 </li>
               );
@@ -379,7 +413,7 @@ export function LeadSessionExplorer({
           {selectedSession && (
             <div className="rounded-md border bg-card/50">
               <div className="flex items-start gap-3 px-3.5 py-2.5">
-                <p className="min-w-0 flex-1 text-sm leading-relaxed text-foreground">{sessionStory(selectedSession, selectedIndex + 1, fallbackVh)}</p>
+                <StoryText text={sessionStory(selectedSession, selectedIndex + 1, fallbackVh)} className="min-w-0 flex-1 text-sm leading-[1.9] text-foreground" />
                 <button type="button" onClick={() => setShowSessionDetails((v) => !v)} className="shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" aria-expanded={showSessionDetails}>
                   {showSessionDetails ? "Hide details" : "Session details"}
                 </button>

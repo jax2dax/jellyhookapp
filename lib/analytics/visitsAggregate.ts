@@ -5,7 +5,8 @@
 //   - unique: a visitor counts once PER BUCKET, under the group of their
 //     FIRST session in that bucket (so a stack still adds up to the total);
 //   - split: groups ranked by sessions in the whole window (never by the
-//     unique count, so colours don't move when unique is toggled); the top
+//     unique count, so colours don't move when unique is toggled); the legend
+//     number of each group is what its bars add up to; the top
 //     `top` keep keys g0..g(top-1), the rest share "__other__".
 
 export interface AggSession {
@@ -77,6 +78,11 @@ export function aggregateVisits(
       const key = keyOf.get(s.group) ?? OTHER_KEY;
       b.parts[key] = (b.parts[key] ?? 0) + 1;
     }
+  }
+  // The legend's number is what the BARS show for the group (unique per bar when `unique`), not the sessions the group
+  // was ranked by: with Unique visitors on, a legend of 6 next to bars adding up to 4 contradicted the chart.
+  if (split) {
+    for (const sr of series) sr.total = buckets.reduce((a, b) => a + (b.parts?.[sr.key] ?? 0), 0);
   }
   return { buckets, series, total: buckets.reduce((a, b) => a + b.visits, 0) };
 }

@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Conversions page",
-  description: "The New Reach and Conversions charts, the three view modes, the referrer donut, and leads origin radar.",
+  description: "The converted leads, the referrer donut and the leads origin radar. (The Reach and Conversions charts are on the Dashboard.)",
   alternates: { canonical: "/docs/reference/conversions" },
 };
 
@@ -57,39 +57,12 @@ export default function ConversionsReferencePage() {
         </div>
 
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">New Reach and Conversions</h2>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Reach and Conversions</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Each chart has two small facts under its title. <strong>In range</strong> is the total for the whole
-            chosen range. <strong>Growth</strong> compares the most recent interval with the first interval of the
-            range, as a percent with the two numbers in brackets (for example +50% (2 to 3)). The most recent
-            interval is usually still in progress, so it can look low until it ends. (The old Conversion Rate Over
-            Time chart was removed: it repeated the Conversions chart.)
+            The New Reach and Conversions charts (new visitors, and unique people who converted, over time) are now on
+            the <Link href="/docs/reference/dashboard" className="text-[var(--lime)] hover:underline">Dashboard</Link>,
+            with the Merged, Split and Separate layouts.
           </p>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            New Reach counts new unique visitors gained over time. Conversions counts unique visitors who converted
-            over time, one person counted once per time period even if they submitted more than once in it.
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Both default to showing the site&apos;s entire history. Switch to a custom range to narrow either one
-            down, picked independently of each other.
-          </p>
-        </div>
-
-        <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Three ways to view them</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            The layout you pick (Separate, Split or Merged) and the Conversions list&apos;s range and page are kept in the page
-            address, so a refresh or a shared link shows the same view.
-          </p>
-          <ul className="space-y-2 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            <li>Separate: both charts full width, stacked, each with its own independent date range.</li>
-            <li>Split: the same two charts side by side in one card, still two independent ranges.</li>
-            <li>
-              Merged: one chart, one shared date range, both lines drawn together. This is a different chart
-              entirely, not the same two lines squeezed into one, and it replaces the other two while active
-              rather than sitting underneath them.
-            </li>
-          </ul>
         </div>
 
         <div>

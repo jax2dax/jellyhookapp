@@ -109,7 +109,7 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
       {menu === m.id && (
         <div className="absolute right-1 top-9 z-20 w-44 rounded-md border bg-popover p-1 text-xs shadow-md">
           {m.locked || m.source === "connected" ? (
-            <span className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground/60" title={m.locked ? "The publisher hid this formula" : "Connected: the formula is the publisher's"}>
+            <span className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground/60" title={m.locked ? "The publisher hid this formula" : "Connected: its formula is the publisher's; edit its values"}>
               {m.locked ? <Lock className="size-3" /> : <Plug className="size-3" />} Edit
             </span>
           ) : (
@@ -128,7 +128,7 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
           )}
           {m.vars.length > 0 && (
             <button type="button" onClick={() => { setMenu(null); setVarsOpen(m.id); }} className="w-full rounded px-2 py-1.5 text-left hover:bg-muted">
-              Set its pages
+              Edit its values
             </button>
           )}
           <button type="button" onClick={() => { setMenu(null); setConfirm(m.id); }} className="w-full rounded px-2 py-1.5 text-left text-red-600 hover:bg-muted dark:text-red-400">
@@ -145,7 +145,7 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
             onSaved={(x) => {
               setVarsOpen(null);
               upsert(x);
-              setNote({ tone: "ok", text: `${x.name}: pages saved, ${x.matchCount ?? 0} leads match.` });
+              setNote({ tone: "ok", text: `${x.name}: values saved, ${x.matchCount ?? 0} leads match.` });
             }}
           />
         </div>
@@ -214,22 +214,32 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
                       <p className={"text-xs text-muted-foreground " + (open ? "" : "line-clamp-1")}>{c.purpose}</p>
                       {open && (
                         <div className="space-y-1.5">
-                          <p className="rounded bg-muted/40 px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground">{preview ?? "Formula hidden by the publisher."}</p>
+                          <p className="rounded-md border bg-muted px-2 py-1.5 text-[11px] leading-relaxed text-foreground/80">{preview ?? "Formula hidden by the publisher."}</p>
                           {c.note && <p className="text-[11px] text-muted-foreground/90">{c.note}</p>}
                         </div>
                       )}
-                      {(c.vars ?? []).map((v) => (
-                        <label key={v.key} className="flex items-center gap-1.5 text-[11px]">
-                          <span className="shrink-0 text-muted-foreground">{v.label}</span>
-                          <input
-                            list="jh-library-pages"
-                            value={vars[c.key]?.[v.key] ?? v.default}
-                            onChange={(e) => setVars((x) => ({ ...x, [c.key]: { ...(x[c.key] ?? {}), [v.key]: e.target.value } }))}
-                            className="h-5 min-w-0 flex-1 rounded border bg-background px-1.5 font-mono text-[11px]"
-                          />
-                        </label>
-                      ))}
-                      <div className="mt-auto flex items-center gap-1.5 pt-0.5">
+                      {(c.vars ?? []).length > 0 && (
+                        <div className="space-y-1">
+                          {(c.vars ?? []).map((v) => (
+                            <label key={v.key} className="flex items-center gap-1.5 text-[11px]">
+                              <span className="w-24 shrink-0 truncate text-muted-foreground" title={v.label}>
+                                {v.label}
+                              </span>
+                              <input
+                                list={v.type === "page" ? "jh-library-pages" : undefined}
+                                type={v.type === "page" ? "text" : "number"}
+                                min={v.type === "page" ? undefined : 1}
+                                value={vars[c.key]?.[v.key] ?? v.default}
+                                placeholder={v.type === "page" ? v.default : v.default || "site's normal"}
+                                onChange={(e) => setVars((x) => ({ ...x, [c.key]: { ...(x[c.key] ?? {}), [v.key]: e.target.value } }))}
+                                className="h-5 min-w-0 flex-1 rounded border border-input bg-background px-1.5 font-mono text-[11px]"
+                              />
+                              {v.type !== "page" && <span className="text-muted-foreground">{v.type === "seconds" ? "s" : v.type === "percent" ? "%" : "x"}</span>}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-auto flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden pt-0.5">
                         {have ? (
                           <span className="flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-400">
                             <Check className="size-3" /> {have.source === "connected" ? "Connected" : "In your marks"}
@@ -241,7 +251,7 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
                               disabled={full || !!busy || !!c.locked}
                               onClick={() => take(c, "copy")}
                               title={c.locked ? "The publisher does not allow copies" : "A copy that is yours to edit; later changes to this mark don't reach it"}
-                              className="flex h-6 items-center gap-1 rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground disabled:opacity-40"
+                              className="flex h-6 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground disabled:opacity-40"
                             >
                               {busy === c.key + "copy" ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />} Add to marks
                             </button>
@@ -250,7 +260,7 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
                               disabled={full || !!busy}
                               onClick={() => take(c, "use")}
                               title="Connect it: when this mark is improved, yours is too. You only set its pages."
-                              className="flex h-6 items-center gap-1 rounded-md border px-2 text-[11px] hover:bg-muted disabled:opacity-40"
+                              className="flex h-6 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap rounded-md border px-2 text-[11px] hover:bg-muted disabled:opacity-40"
                             >
                               {busy === c.key + "use" ? <Loader2 className="size-3 animate-spin" /> : <Plug className="size-3" />} Use mark
                             </button>
