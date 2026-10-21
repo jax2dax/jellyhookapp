@@ -1784,8 +1784,12 @@ Every published mark's pages and numbers are editable (typed values: page, secon
 ## 2026-10-17 - One person, one visitor (and "ignore my browser")
 
 Six "visitors" from France were one person (one session each, same IP and browser; Vercel Analytics said 1). The tracker mints a visitor id per browser storage, so private windows, cleared site data and storage-blocking browsers each became a visitor, inflating every chart and rate.
-- Ingestion now merges (`mds/migrations/20-visitor-aliases.sql`, `jh_resolve_visitor`): a NEW id from the same IP hash and browser hash as a visitor who first appeared earlier TODAY (UTC) and never sent a form is stored as an alias of that visitor (`visitor_aliases`). Every route resolves ids the same way (`lib/tracking/identity.js`; /api/track via the function; the form routes by lookup), so sessions, page views, forms and leads all land on one visitor. Needs `IP_HASH_SALT` (without it nothing merges). Without the migration the routes behave as before.
+- Ingestion now merges (`mds/migrations/19-visitor-aliases.sql`, `jh_resolve_visitor`): a NEW id from the same IP hash and browser hash as a visitor who first appeared earlier TODAY (UTC) and never sent a form is stored as an alias of that visitor (`visitor_aliases`). Every route resolves ids the same way (`lib/tracking/identity.js`; /api/track via the function; the form routes by lookup), so sessions, page views, forms and leads all land on one visitor. Needs `IP_HASH_SALT` (without it nothing merges). Without the migration the routes behave as before.
 - Trade-off, same as Vercel's: two people on one network with the same browser, both new the same day, count as one until one sends a form.
 - Old rows are not merged (they have no browser hash). A cleanup of the existing duplicates is a separate, optional step.
 - Tracker: `?jh_ignore=1` once in a browser makes it ignore itself (`?jh_ignore=0` to undo), for the owner's own testing. Chart legend numbers now match the bars when Unique visitors is on.
-- Tests: identity on real Postgres (12), tracking 103, chart counting 12, tracker real-browser test passes. Privacy pages mention the browser hash. **Run 20-visitor-aliases.sql, set IP_HASH_SALT, then deploy.**
+- Tests: identity on real Postgres (12), tracking 103, chart counting 12, tracker real-browser test passes. Privacy pages mention the browser hash. **Run 19-visitor-aliases.sql, set IP_HASH_SALT, then deploy.**
+
+## 2026-10-19 - Time per heading (phase 1)
+
+The tracker now counts how long each part of a page (by its h1/h2/h3) is in front of the visitor, sent with page_view_end (no extra request), stored as one small jsonb on the page view (`page_views.heading_time`, migration 19-heading-time). The lead page's page story says where the time went by section. Measured: 75-91 bytes per page view, about 5 ms of script time per 60 scrolls. Plan, decisions, test steps and next phases: `mds/build/heading-time/plan.md`. **Run 19-heading-time.sql.**

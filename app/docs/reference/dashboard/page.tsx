@@ -44,9 +44,16 @@ export default function DashboardReferencePage() {
         </div>
 
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Sessions online</h2>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Sessions online / Pages online</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            A live chart of how many visitors were actively on a page at the same time, drawn over a chosen
+            One live chart; its title is a dropdown to switch what it counts. <strong>Sessions online</strong> (the default) counts visits that are open: it
+            goes up when a visit starts and down when the visitor was last seen, so someone who leaves the site and
+            comes back within the same visit stays counted. Its line is a little thicker, and its height fits the
+            highest and lowest values on screen, gliding smoothly as you zoom or move, like a trading chart.
+            <strong> Pages online</strong> is described below.
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            Pages online: a live chart of how many visitors were actively on a page at the same time, drawn over a chosen
             interval (from 5 seconds up to 1 day per point). It moves on its own while you watch it: the right edge
             is always now, and it keeps counting forward every second.
           </p>
@@ -84,7 +91,7 @@ export default function DashboardReferencePage() {
         <div>
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Visits over time</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            A different chart from Sessions online above: this one is a bar chart of how many sessions started in
+            A different chart from Sessions online and Pages online above: this one is a bar chart of how many sessions started in
             each period, not how many were open at once. Windows: the last 24 hours (one bar per hour), 7 days or
             a month (one bar per day), 3 months (one bar per week), or all time.
           </p>

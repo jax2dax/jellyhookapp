@@ -23,6 +23,25 @@ export interface ScrollSample {
   y: number;
 }
 
+export interface SectionTime {
+  /** the section's heading text; null for the top of the page (above the first section) or a heading no longer on the page */
+  text: string | null;
+  ms: number;
+  /** times the visitor came (back) to it */
+  entries: number;
+  /** true for the top of the page */
+  isTop: boolean;
+  subs: { text: string | null; ms: number; entries: number; y0?: number; y1?: number }[];
+  /** place on the page as fractions of its height (0-1); absent when the page's headings were not known, then it cannot be drawn */
+  y0?: number;
+  y1?: number;
+  /** the section heading's own time, without its sub-headings' */
+  ownMs?: number;
+  /** headings of one level on the same row sit side by side: this is column `col` (0-based) of `cols`; absent = 1 column */
+  col?: number;
+  cols?: number;
+}
+
 export interface PageVisitRaw {
   id: string;
   pagePath: string;
@@ -47,6 +66,8 @@ export interface PageVisitRaw {
   converted?: boolean;
   /** header positions on the page, 0-1 fraction of page height (optional) */
   headers?: { text: string; y: number }[];
+  /** time per section of the page (page_views.heading_time), null/undefined when not recorded */
+  sections?: SectionTime[] | null;
   /**
    * true when this exact page_view has no left_at yet — the visitor is
    * still looking at THIS page right now. Distinct from SessionRaw.endedAt:
@@ -156,6 +177,7 @@ export interface VisitGeometry {
   converted: boolean;
   outcome: FrameOutcome;
   headers?: { text: string; y: number }[];
+  sections?: SectionTime[] | null;
   /** page-fraction (0-1) span of the actual form, converted from PageVisitRaw.formTopY/formBottomY — null when not measured, see there */
   formTopFrac?: number | null;
   formBottomFrac?: number | null;
@@ -338,8 +360,13 @@ export type DeepPartial<T> = T extends object
     }
   : T;
 
+/** What the plate's inside shows: "seen" = the green seen bands (default); "sections" = the page's sections as a heat map of time spent, with the smaller headings inside them; "sections-main" = the same without the smaller headings (only the main sections). */
+export type PlateView = "seen" | "sections" | "sections-main";
+
 export interface FramePlateChartProps {
   session: SessionRaw;
+  /** "sections" draws each visit's time per section instead of the seen bands; visits without section times keep the seen bands. Default "seen". */
+  view?: PlateView;
   theme?: DeepPartial<FramePlateTheme>;
   /**
    * ISO timestamp — visits/gaps starting at or after this are not rendered.

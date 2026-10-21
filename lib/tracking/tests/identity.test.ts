@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- test fixtures are plain JSON rows */
-// lib/tracking/tests/identity.test.ts - one person, one visitor (mds/migrations/20-visitor-aliases.sql), run on PGlite
+// lib/tracking/tests/identity.test.ts - one person, one visitor (mds/migrations/19-visitor-aliases.sql), run on PGlite
 // (real Postgres): ids from one device merge; other devices, leads and other days do not. Run: npm run test:tracking
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -25,7 +25,7 @@ async function main() {
     create table public.sessions (id uuid primary key default gen_random_uuid(), session_id text unique, visitor_id text, site_id uuid, started_at timestamptz, ended_at timestamptz, last_activity_at timestamptz);
     create table public.form_submissions (id uuid primary key default gen_random_uuid(), site_id uuid, visitor_id text);
     insert into public.sites values ('${SITE}'), ('${OTHER}');`);
-  const sql = readFileSync(join(process.cwd(), "mds/migrations/20-visitor-aliases.sql"), "utf8");
+  const sql = readFileSync(join(process.cwd(), "mds/migrations/19-visitor-aliases.sql"), "utf8");
   await pg.exec(sql);
   await pg.exec(sql); // safe to run twice
 

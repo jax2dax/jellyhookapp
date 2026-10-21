@@ -137,8 +137,8 @@ export default function UseCasesPage() {
           title="Example: a founder posts a link and checks the site"
           build={
             <>
-              The Overview shows <B>Active now</B> (people on the site this moment), the <B>Sessions online</B> chart (how many were on at
-              once, over time) and the <B>Live Ticker</B> (the newest page views). The <B>Pages</B> table then ranks pages by views, with
+              The Overview shows <B>Active now</B> (people on the site this moment), the <B>Sessions online</B> and <B>Pages online</B> charts (how many visits
+              and how many open pages at once, over time; one chart, switched by its title) and the <B>Live Ticker</B> (the newest page views). The <B>Pages</B> table then ranks pages by views, with
               average time and scroll.
             </>
           }

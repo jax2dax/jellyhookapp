@@ -3,6 +3,7 @@ export { FramePlateChart } from "./components/FramePlateChart";
 export { SessionStrip } from "./components/SessionStrip";
 export { Frame } from "./components/Frame";
 export { FullPagePlate } from "./components/FullPagePlate";
+export { SectionBands, sectionDuration, placedSections, isSectionView, heatColor } from "./components/SectionBands";
 export { Bulb } from "./components/Bulb";
 export { DurationRibbon } from "./components/DurationRibbon";
 
@@ -34,5 +35,7 @@ export type {
   BulbShapeConfig,
   FramePlateTheme,
   FramePlateChartProps,
+  PlateView,
+  SectionTime,
   DeepPartial,
 } from "./types";

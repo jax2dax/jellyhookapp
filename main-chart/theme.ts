@@ -33,6 +33,8 @@ export interface MainChartPalette {
 export const mainChartTheme = {
   heightPx: 300,
   lineWidth: 1.5,
+  /** the Sessions online chart's line: a little thicker (founder, 2026-10-20) */
+  sessionsLineWidth: 2.5,
   /** must match lib/closeStaleSessions.js's SESSION_IDLE_TIMEOUT_MS: how long a dead tab can stay "open" before the server closes it */
   provisionalWindowMs: 30 * 60 * 1000,
   /** smallest zoom: this many buckets across the plot */

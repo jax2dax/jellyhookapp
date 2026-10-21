@@ -11,7 +11,7 @@
 import type { FramePlateTheme, DeepPartial } from "../types";
 
 export const defaultTheme: FramePlateTheme = {
-  canvasBackground: "var(--fp-canvas, #0a0a0a)",
+  canvasBackground: "transparent",
   plate: {
     width: 70,
     minHeight: 35,

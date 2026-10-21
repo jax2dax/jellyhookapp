@@ -26,15 +26,16 @@
 "use client";
 
 import * as React from "react";
-import { RefreshCw, Radio, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { RefreshCw, Radio, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, FileText, Layers } from "lucide-react";
 import { formatDate, formatRelativeTime } from "@/lib/leadFormat";
-import { journeyStory, sessionStory, shortDuration } from "@/lib/leadSessions/story";
-import { StoryText } from "./StoryText";
-import { FramePlateChart, resolveViewportHeightPx, type SessionRaw, type TimelineItem } from "@/framePlate";
+import { journeyStory, sessionStorySentences, shortDuration } from "@/lib/leadSessions/story";
+import { StoryText, StorySentences, StoryFormatToggle, useStoryLines } from "./StoryText";
+import { FramePlateChart, resolveViewportHeightPx, type PlateView, type SessionRaw, type TimelineItem } from "@/framePlate";
 import { SessionSummaryDrawer } from "./SessionSummaryDrawer";
 import { ChartLegend } from "./ChartLegend";
 import { useUrlState } from "@/lib/urlState";
 import { SelectedFrameDetails } from "./SelectedFrameDetails";
+import { Collapse } from "./Collapse";
 import { buildSessionsRaw } from "@/lib/leadSessions/transform";
 import { getLeadSessionRows, getLeadPageStructureRows, getLeadFormEngagementRows } from "@/lib/actions/leadSessions.action";
 import {
@@ -66,6 +67,8 @@ export interface PageViewRow {
   max_scroll_depth: number | null;
   revisit_start_scroll_depth: number | null;
   scroll_depth: number | null;
+  /** time per heading (lib/tracking/headingTime.js); absent before it was recorded */
+  heading_time?: unknown;
 }
 export interface SubmissionRow {
   id: string;
@@ -77,6 +80,7 @@ export interface PageStructureRow {
   page_path: string;
   header_index: number;
   header_text: string;
+  header_tag?: string;
   position_y: number;
   page_height: number;
 }
@@ -93,6 +97,9 @@ interface RawRows {
   submissions: SubmissionRow[];
 }
 
+// "By section": wider plates so each section's heading and time can be written on it (framePlate/components/SectionBands.tsx)
+const SECTION_PLATE_THEME = { plate: { width: 160 }, frame: { minWidth: 186, typicalWidth: 196, maxWidth: 320 } };
+
 // A visitor with a long history otherwise renders one ever-growing table —
 // this caps a page at 10 rows and pages back in time from there. sessionsRaw
 // is ascending (oldest first, per buildSessionsRaw), so "page 1" is a slice
@@ -106,6 +113,8 @@ interface LeadSessionExplorerProps {
   initialSessionRows: SessionRow[];
   initialPageViewRows: PageViewRow[];
   initialSubmissionRows: SubmissionRow[];
+  /** demo pages only: the page headings, instead of fetching them (the fetch needs a signed-in site) */
+  initialStructureRows?: PageStructureRow[];
 }
 
 export function LeadSessionExplorer({
@@ -115,6 +124,7 @@ export function LeadSessionExplorer({
   initialSessionRows,
   initialPageViewRows,
   initialSubmissionRows,
+  initialStructureRows,
 }: LeadSessionExplorerProps) {
   const [rawRows, setRawRows] = React.useState<RawRows>({
     sessions: initialSessionRows || [],
@@ -128,7 +138,7 @@ export function LeadSessionExplorer({
   // from its server-rendered HTML (server always sees no cache), which is
   // exactly what was causing a real hydration mismatch on any page view
   // whose own page_height fell back to a cached page_structure height.
-  const [pageStructureRows, setPageStructureRows] = React.useState<PageStructureRow[]>([]);
+  const [pageStructureRows, setPageStructureRows] = React.useState<PageStructureRow[]>(initialStructureRows ?? []);
   // Not seeded from a server prop or cache tier. Fetched once when the component mounts, then refreshed together with
   // the sessions (refreshSessions): while a session is live its form appears, gets its field stripes and changes
   // colour as the visitor works on it.
@@ -137,7 +147,12 @@ export function LeadSessionExplorer({
   // so a refresh or a shared link opens the same session (lib/urlState.ts).
   const [urlState, setUrlState] = useUrlState({ session: "" });
   const selectedSessionId = urlState.session || null;
-  const setSelectedSessionId = (id: string | null) => setUrlState({ session: id ?? "" });
+  // picking another visit blinks the whole chart once, so it is clear that another visit is being drawn
+  const [blink, setBlink] = React.useState(0);
+  const setSelectedSessionId = (id: string | null) => {
+    if (id !== selectedSessionId) setBlink((n) => n + 1);
+    setUrlState({ session: id ?? "" });
+  };
   // Click-to-pin frame details — separate from hover. Cleared whenever the
   // selected SESSION changes, since a frame id from one session's timeline
   // means nothing in another's.
@@ -153,17 +168,31 @@ export function LeadSessionExplorer({
   const [lastFetchedAt, setLastFetchedAt] = React.useState<number | null>(null);
   // under the chart, the visit's story shows by default; its numbers ("Session details") on demand
   const [showSessionDetails, setShowSessionDetails] = React.useState(false);
+  // the visit's story as one paragraph or one sentence per line (shared with the page story)
+  const [storyLines, setStoryLines] = useStoryLines();
   // the visit list can be folded away to a thin strip of numbers (a per-browser convenience; starts open)
   const [listOpen, setListOpen] = React.useState(true);
+  // what the plates show: the seen bands, or time per section (remembered per browser)
+  const [plateView, setPlateView] = React.useState<PlateView>("seen");
   React.useEffect(() => {
     try {
       // localStorage is the external system read once here
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (window.localStorage.getItem("jh:visit-list-open") === "0") setListOpen(false);
+      const saved = window.localStorage.getItem("jh:plate-view");
+      if (saved === "sections" || saved === "sections-main") setPlateView(saved);
     } catch {
       /* starts open */
     }
   }, []);
+  const choosePlateView = (v: PlateView) => {
+    setPlateView(v);
+    try {
+      window.localStorage.setItem("jh:plate-view", v);
+    } catch {
+      /* fine */
+    }
+  };
   const toggleList = () =>
     setListOpen((o) => {
       try {
@@ -228,6 +257,7 @@ export function LeadSessionExplorer({
     // A visit recorded AFTER the cache was filled may belong to a newer
     // structure version the cache doesn't have: refetch rather than draw it
     // with an older version's headers.
+    if (initialStructureRows) return; // a demo: the headings were given
     const newestVisitMs = rawRows.pageViews.reduce((m, pv) => Math.max(m, pv.entered_at ? new Date(pv.entered_at as string).getTime() : 0), 0);
     if (cached && !cached.isStale && cached.fetchedAt >= newestVisitMs) {
       // Populated here, post-mount, instead of a lazy initializer — see the
@@ -251,7 +281,7 @@ export function LeadSessionExplorer({
     return () => {
       cancelled = true;
     };
-  }, [siteId, rawRows.pageViews]);
+  }, [siteId, rawRows.pageViews, initialStructureRows]);
 
   // ── Form engagement: first load. Later refreshes ride along with refreshSessions (the live poll and the refresh
   // button) — see the state declaration above. ──
@@ -318,11 +348,15 @@ export function LeadSessionExplorer({
   return (
     <div className="space-y-3">
       {/* every visit, in plain words */}
-      <StoryText text={journeyStory(sessionsRaw, fallbackVh)} className="rounded-md border bg-muted/40 px-3.5 py-2.5 text-sm leading-[1.9] text-foreground" />
+      <div className="rounded-md border bg-muted/40 px-3.5 pb-2.5 pt-2">
+        <div className="text-sm font-medium text-foreground">Whole Journey Summary</div>
+        <StoryText text={journeyStory(sessionsRaw, fallbackVh)} className="pt-1 text-sm leading-[1.9] text-foreground" />
+      </div>
 
       <div className={"grid gap-3 " + (listOpen ? "lg:grid-cols-[13.5rem_minmax(0,1fr)]" : "lg:grid-cols-[3.25rem_minmax(0,1fr)]")}>
-        {/* the visits: a compact list right next to the chart */}
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-md border lg:max-h-[34rem]">
+        {/* the visits: a compact list right next to the chart, exactly as tall as the chart (it scrolls inside) */}
+        <div className="relative min-w-0">
+        <div className="flex max-h-[24rem] min-h-0 flex-col overflow-hidden rounded-md border lg:absolute lg:inset-0 lg:max-h-none">
           <div className={"flex h-9 shrink-0 items-center border-b bg-muted/40 text-xs " + (listOpen ? "gap-1 px-2" : "justify-between px-1")}>
             {listOpen && (
               <>
@@ -395,37 +429,153 @@ export function LeadSessionExplorer({
           </ul>
         </div>
 
-        {/* the selected visit: its chart, its story, and its details on demand */}
-        <div className="min-w-0 space-y-2">
+        </div>
+
+        {/* the selected visit: its chart, then each card with a label on its left saying what it is about */}
+        <div className="min-w-0">
           {selectedSession && (
             // w-full + min-w-0 + overflow-hidden: a long session's chart scrolls inside, never widens the page
-            <div className="w-full min-w-0 overflow-hidden rounded-md border bg-card/50 p-3">
-              <ChartLegend />
+            <div key={blink} className="w-full min-w-0 overflow-hidden rounded-md border bg-card/50 p-3" style={blink > 0 ? { animation: "jh-chart-blink 520ms ease-in-out" } : undefined}>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <ChartLegend />
+                <PlateViewSwitch value={plateView} onChange={choosePlateView} hasSections={selectedSession.visits.some((v) => (v.sections?.length ?? 0) > 0)} />
+              </div>
               <FramePlateChart
                 session={selectedSession}
+                view={plateView}
+                theme={plateView !== "seen" ? SECTION_PLATE_THEME : undefined}
                 deviceType={deviceType}
                 onSelectItem={(item, meta) => setSelectedFrame(item ? { item, isLastVisit: meta.isLastVisit } : null)}
                 className="w-full min-w-0"
               />
             </div>
           )}
-          {selectedFrame && <SelectedFrameDetails item={selectedFrame.item} isLastVisit={selectedFrame.isLastVisit} nextPath={nextPath} onClose={() => setSelectedFrame(null)} />}
-          {selectedSession && (
-            <div className="rounded-md border bg-card/50">
-              <div className="flex items-start gap-3 px-3.5 py-2.5">
-                <StoryText text={sessionStory(selectedSession, selectedIndex + 1, fallbackVh)} className="min-w-0 flex-1 text-sm leading-[1.9] text-foreground" />
-                <button type="button" onClick={() => setShowSessionDetails((v) => !v)} className="shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" aria-expanded={showSessionDetails}>
-                  {showSessionDetails ? "Hide details" : "Session details"}
-                </button>
-              </div>
-              {showSessionDetails && (
-                <div className="border-t p-2">
-                  <SessionSummaryDrawer key={selectedSession.id} session={selectedSession} fallbackViewportHeightPx={fallbackVh} />
-                </div>
-              )}
-            </div>
-          )}
         </div>
+
+        {selectedFrame && selectedFrame.item.kind === "visit" && (
+          <Reveal key={"l" + selectedFrame.item.id} className="hidden lg:block">
+          <CardLabel
+            folded={!listOpen}
+            icon={<FileText className="size-3.5" />}
+            title="Page info"
+            name={selectedFrame.item.pagePath || "(unknown)"}
+          />
+          </Reveal>
+        )}
+        {selectedFrame && (
+          <Reveal key={"c" + selectedFrame.item.id} className="min-w-0">
+            <SelectedFrameDetails item={selectedFrame.item} isLastVisit={selectedFrame.isLastVisit} nextPath={nextPath} onClose={() => setSelectedFrame(null)} />
+          </Reveal>
+        )}
+
+        {selectedSession && (
+          <CardLabel
+            folded={!listOpen}
+            icon={<Layers className="size-3.5" />}
+            title="Session info"
+            name={(selectedIndex === sessionsRaw.length - 1 ? "Latest visit" : "Visit #" + (selectedIndex + 1)) + " · " + formatDate(selectedSession.startedAt)}
+          />
+        )}
+        {selectedSession && (
+          <div className="min-w-0 rounded-md border bg-card/50">
+            <div className="px-3.5 pt-2 text-sm font-medium text-foreground">Session summary</div>
+            <div className="flex items-start gap-3 px-3.5 pb-2.5 pt-1">
+              <StorySentences sentences={sessionStorySentences(selectedSession, selectedIndex + 1, fallbackVh)} lines={storyLines} className="min-w-0 flex-1 text-sm leading-[1.9] text-foreground" />
+              <StoryFormatToggle lines={storyLines} onChange={setStoryLines} />
+              <button type="button" onClick={() => setShowSessionDetails((v) => !v)} className="shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" aria-expanded={showSessionDetails}>
+                {showSessionDetails ? "Hide details" : "Session details"}
+              </button>
+            </div>
+            <Collapse open={showSessionDetails}>
+              <div className="border-t p-2">
+                <SessionSummaryDrawer key={selectedSession.id} session={selectedSession} fallbackViewportHeightPx={fallbackVh} />
+              </div>
+            </Collapse>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A card that arrives smoothly: it opens from zero height while it fades in and settles down (the page summary, when a
+ * page is clicked in the chart). Pure presentation; the content is there from the first frame.
+ */
+function Reveal({ children, className }: { children: React.ReactNode; className?: string }) {
+  const [shown, setShown] = React.useState(false);
+  React.useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return (
+    <div className={"grid transition-[grid-template-rows] duration-300 ease-out " + (shown ? "grid-rows-[1fr] " : "grid-rows-[0fr] ") + (className ?? "")}>
+      <div className="min-h-0 overflow-hidden">
+        <div style={{ animation: "jh-card-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both" }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The left of a card, under the visit list: what the card on its right is about. Wide screens only (on a phone the
+ * cards stack and need no label). With the list folded, only the icon stays.
+ */
+function CardLabel({ folded, icon, title, name }: { folded: boolean; icon: React.ReactNode; title: string; name: string }) {
+  if (folded) {
+    return (
+      <div className="hidden justify-center pt-3 text-muted-foreground lg:flex" title={title + ": " + name}>
+        {icon}
+      </div>
+    );
+  }
+  return (
+    <div className="hidden min-w-0 border-l-2 border-primary/40 py-1 pl-2.5 lg:block">
+      <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {icon}
+        {title}
+      </div>
+      <div className="mt-0.5 truncate text-sm font-medium text-foreground">{name}</div>
+    </div>
+  );
+}
+
+/**
+ * Seen / By section: what the plates show inside. "By section" is a heat map of time per heading (recorded since
+ * 2026-10-19); the Sub-headings box adds or removes the smaller headings inside each main section.
+ */
+function PlateViewSwitch({ value, onChange, hasSections }: { value: PlateView; onChange: (v: PlateView) => void; hasSections: boolean }) {
+  const bySection = value !== "seen";
+  const opt = (active: boolean, label: string, title: string, onClick: () => void, disabled = false) => (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      disabled={disabled}
+      title={title}
+      onClick={onClick}
+      className={"rounded px-2 py-0.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 " + (active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex items-center gap-3">
+      {bySection && (
+        <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground" title="Show the smaller headings inside each main section. Untick to see only the main sections.">
+          <input type="checkbox" checked={value === "sections"} onChange={(e) => onChange(e.target.checked ? "sections" : "sections-main")} />
+          Sub-headings
+        </label>
+      )}
+      <div role="radiogroup" aria-label="What the pages show" className="flex items-center gap-0.5 rounded-md border bg-muted/40 p-0.5">
+        {opt(!bySection, "Seen", "How much of each page they scrolled past", () => onChange("seen"))}
+        {opt(
+          bySection,
+          "By section",
+          hasSections ? "A heat map of the page by its headings: the deeper the green, the longer it was on screen" : "No time per section was recorded for this visit (recorded since Oct 19, 2026)",
+          () => onChange("sections"),
+          !hasSections && !bySection,
+        )}
       </div>
     </div>
   );

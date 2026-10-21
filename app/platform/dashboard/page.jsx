@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDuration } from "@/lib/leadFormat";
 import { LocalDate } from "@/components/LocalDate";
-import { MainChart } from "@/main-chart";
+import { OnlineChart } from "@/main-chart";
 
 export default async function OverviewPage() {
   const user = await getAuthUser();
@@ -78,9 +78,10 @@ export default async function OverviewPage() {
         />
       </div>
 
-      {/* ── Main chart: sessions online over time ───────────────────── */}
+      {/* ── Main charts: pages online (open page views, dips when a page closes) and sessions online (start to last
+          seen, does not dip when someone leaves and comes back in the same session) ── */}
       <div className="mb-6">
-        <MainChart siteId={site.id} />
+        <OnlineChart siteId={site.id} />
       </div>
 
       {/* ── Visits over time + the Hook shortcut (replaced Site Health) ── */}

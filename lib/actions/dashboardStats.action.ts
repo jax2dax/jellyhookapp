@@ -37,11 +37,27 @@ const SOURCE: Record<Exclude<StatMetric, "conversionRate">, { table: string; col
   leads: { table: "form_submissions", column: "submitted_at" },
 };
 
+/**
+ * Runs a Supabase read, trying again a couple of times when the connection itself failed ("fetch failed", a timeout, a
+ * reset): those are momentary network problems between this server and the database, not a bad query, and one retry
+ * almost always gets through. A real database error (bad column, permission) is returned at once.
+ */
+const NETWORK_ERROR = /fetch failed|network|timeout|timed out|ECONN|ENOTFOUND|EAI_AGAIN|socket|terminated/i;
+async function resilient<T extends { error: { message: string } | null }>(run: () => PromiseLike<T>): Promise<T> {
+  let res = await run();
+  for (const wait of [300, 900]) {
+    if (!res.error || !NETWORK_ERROR.test(res.error.message)) break;
+    await new Promise((r) => setTimeout(r, wait));
+    res = await run();
+  }
+  return res;
+}
+
 async function countIn(supabase: Supabase, siteId: string, table: string, column: string, from?: string, to?: string): Promise<number> {
   let q = supabase.from(table).select("id", { count: "exact", head: true }).eq("site_id", siteId);
   if (from) q = q.gte(column, from);
   if (to) q = q.lt(column, to);
-  const { count, error } = await q;
+  const { count, error } = await resilient(() => q);
   if (error) throw new Error(`${table} count: ${error.message}`);
   return count ?? 0;
 }
@@ -53,7 +69,7 @@ async function distinctVisitors(supabase: Supabase, siteId: string, table: strin
     let q = supabase.from(table).select("visitor_id").eq("site_id", siteId).not("visitor_id", "is", null);
     if (from) q = q.gte(column, from);
     if (to) q = q.lt(column, to);
-    const { data, error } = await q.order(column, { ascending: true }).range(offset, offset + PAGE - 1);
+    const { data, error } = await resilient(() => q.order(column, { ascending: true }).range(offset, offset + PAGE - 1));
     if (error) throw new Error(`${table} visitors: ${error.message}`);
     for (const r of data ?? []) if (r.visitor_id) out.add(String(r.visitor_id));
     if (!data || data.length < PAGE) break;

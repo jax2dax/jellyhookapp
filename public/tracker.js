@@ -195,7 +195,7 @@
       return id;
     } catch (e) {
       // no storage at all: the id lasts one page load. The server recognises the same device (same network, same
-      // browser, same day) and counts it as one visitor (mds/migrations/20-visitor-aliases.sql).
+      // browser, same day) and counts it as one visitor (mds/migrations/19-visitor-aliases.sql).
       if (!memoryVisitorId) {
         memoryVisitorId = uuid();
         freshVisitor = true;
@@ -561,6 +561,194 @@ function getPageHeightPayload() {
   }
 }
 
+  // ─────────────────────────────────────────────────────────────────────
+  // HEADING TIME: how long each part of the page was in front of the visitor (mds/build/heading-time/plan.md)
+  //
+  // The page's h1/h2/h3 are listed with their position. The "active" heading is the closest one ABOVE the middle of
+  // the screen (at the very bottom of the page: the last one on screen, so short last sections still get their time).
+  // Time is added to the active heading while this page view is open (open already means visible, focused, not idle),
+  // and every time a heading becomes active its count goes up by one. Sent with page_view_end, so it costs no request.
+  // Cheap: positions are measured only when the page changes size, a scroll does a binary search on a cached list.
+  // Each heading is named by a short hash of its text (+ "#2" for a repeated text), so the server can match it to the
+  // page's stored headings without the text being sent again. "^" is the part above the first heading.
+  // ─────────────────────────────────────────────────────────────────────
+  const headingMeter = (function () {
+    const MAX_SCAN = 80;
+    const MAX_KEPT = 40;
+    const TIE_PX = 24; // headings this close (vertically) and of one level share a row
+    let list = []; // [{ k, l, o, y }] sorted by y
+    let topLevel = 1;
+    let scannedHeight = 0;
+    let scannedAt = 0;
+    let acc = null; // key -> [level, order, ms, entries]
+    let activeKey = null; // the signature of what is active now (keys joined), to notice a change
+    let activeKeys = []; // the keys that get the time
+    let lastTick = 0;
+    let timer = null;
+    let rafPending = false;
+
+    function keyOfText(text) {
+      let h = 5381;
+      for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+      return (h >>> 0).toString(36);
+    }
+    function scan() {
+      list = [];
+      scannedAt = Date.now();
+      scannedHeight = getPageHeightPx();
+      try {
+        const seen = {};
+        const nodes = Array.from(document.querySelectorAll("h1, h2, h3")).slice(0, MAX_SCAN);
+        const sy = window.scrollY;
+        for (const el of nodes) {
+          const text = (el.innerText || el.textContent || "").replace(/\s+/g, " ").trim().toLowerCase().slice(0, 120);
+          if (!text) continue;
+          const base = keyOfText(text);
+          seen[base] = (seen[base] || 0) + 1; // counted for hidden ones too, so "#2" means the same as on the server
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 && r.height === 0) continue; // hidden (closed accordion, inactive tab)
+          list.push({ k: seen[base] > 1 ? base + "#" + seen[base] : base, l: Number(el.tagName.charAt(1)) || 3, y: r.top + sy });
+        }
+        list.sort(function (a, b) {
+          return a.y - b.y;
+        });
+        list.forEach(function (h, i) {
+          h.o = i;
+        });
+        topLevel = list.length ? Math.min.apply(null, list.map((h) => h.l)) : 1;
+      } catch (e) {
+        list = [];
+      }
+    }
+    function activeNow() {
+      const vh = getViewportHeightPx();
+      const sy = window.scrollY;
+      const atBottom = sy + vh >= getPageHeightPx() - 2;
+      const line = atBottom ? sy + vh : sy + vh / 2;
+      let lo = 0;
+      let hi = list.length - 1;
+      let found = -1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (list[mid].y <= line) {
+          found = mid;
+          lo = mid + 1;
+        } else hi = mid - 1;
+      }
+      if (found < 0) return [];
+      // headings of the same level on the same row (side-by-side columns) are all in front of the visitor together:
+      // each gets the time (so the times of a multi-column row add up to more than the page time, on purpose)
+      const group = [list[found]];
+      for (let i = found - 1; i >= 0 && list[found].y - list[i].y <= TIE_PX && list[i].l === list[found].l; i--) group.unshift(list[i]);
+      return group;
+    }
+    function add(key, h, ms) {
+      let e = acc.get(key);
+      if (!e) {
+        if (acc.size >= MAX_KEPT) return null;
+        e = h ? [h.l, h.o, 0, 0] : [0, -1, 0, 0];
+        acc.set(key, e);
+      }
+      e[2] += ms;
+      return e;
+    }
+    function tick() {
+      if (!acc || !pageViewOpen) return;
+      const now = Date.now();
+      const dt = Math.min(Math.max(0, now - lastTick), 5000); // a throttled timer must not pour minutes into one heading
+      lastTick = now;
+      if (activeKey !== null && dt > 0) activeKeys.forEach(function (k) { add(k, null, dt); });
+      // the page grew or shrank (images, lazy content, a single-page app route rendering): measure again
+      const ph = getPageHeightPx();
+      if (Math.abs(ph - scannedHeight) > 50 || (!list.length && now - scannedAt > 3000)) scan();
+      const group = activeNow();
+      const keys = group.length ? group.map(function (g) { return g.k; }) : ["^"];
+      const sig = keys.join("|");
+      if (sig !== activeKey) {
+        activeKey = sig;
+        activeKeys = keys;
+        group.forEach(function (h) {
+          // a sub-heading's section heading is always kept (even with no time of its own), so its time can be grouped
+          if (h.l > topLevel) {
+            for (let i = h.o - 1; i >= 0; i--) if (list[i].l === topLevel) { add(list[i].k, list[i], 0); break; }
+          }
+        });
+        if (!group.length) {
+          const e = add("^", null, 0);
+          if (e) e[3] += 1;
+        }
+        group.forEach(function (h) {
+          const e = add(h.k, h, 0);
+          if (e) e[3] += 1;
+        });
+      }
+    }
+    function onScroll() {
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(function () {
+        rafPending = false;
+        tick();
+      });
+    }
+    return {
+      start: function () {
+        try {
+          acc = new Map();
+          activeKey = null;
+          activeKeys = [];
+          lastTick = Date.now();
+          scan();
+          tick();
+          // installed in <head>, the tracker starts before the page's headings exist: look again the moment they do
+          if (document.readyState === "loading") {
+            document.addEventListener(
+              "DOMContentLoaded",
+              function () {
+                scan();
+                tick();
+              },
+              { once: true }
+            );
+          }
+          if (!timer) timer = setInterval(tick, 1000);
+          window.addEventListener("scroll", onScroll, { passive: true });
+        } catch (e) {
+          acc = null;
+        }
+      },
+      /** Ends the count and returns what to send ({ t: top level, h: [[key, level, order, tenths of a second, entries]] }) or null. */
+      stop: function (endAtMs) {
+        try {
+          if (!acc) return null;
+          const wasOpen = pageViewOpen;
+          pageViewOpen = true; // closePageView already flipped it: count the last stretch
+          tick();
+          pageViewOpen = wasOpen;
+          // closed for idle: what the timer added after the visitor really stopped is taken back
+          if (endAtMs && lastTick > endAtMs && activeKey !== null) {
+            activeKeys.forEach(function (k) {
+              const e = acc.get(k);
+              if (e) e[2] = Math.max(0, e[2] - (lastTick - endAtMs));
+            });
+          }
+          if (timer) clearInterval(timer);
+          timer = null;
+          window.removeEventListener("scroll", onScroll);
+          const out = [];
+          acc.forEach(function (e, k) {
+            const tenths = Math.round(e[2] / 100);
+            if (tenths > 0 || e[0] === topLevel) out.push([k, e[0], e[1], tenths, e[3]]);
+          });
+          acc = null;
+          return out.length ? { t: topLevel, h: out } : null;
+        } catch (e) {
+          return null;
+        }
+      },
+    };
+  })();
+
 function firePageViewStart() {
   const pageHeight = getPageHeightPayload();
   // Never assume the visitor entered at the top — they might be returning
@@ -641,8 +829,11 @@ function firePageViewStart() {
     if (exitPageHeight !== null) {
       jhLog("[Tracker] 📐 Sending corrected page_height at exit:", exitPageHeight, "for", window.location.pathname);
     }
+    const headingTime = headingMeter.stop(endAtMs);
+    if (headingTime) jhLog("[Tracker] heading time:", headingTime);
     sendExitEvent({
       type: "page_view_end",
+      heading_time: headingTime || undefined,
       visitor_id,
       session_id,
       page_view_id,
@@ -745,6 +936,7 @@ function firePageViewStart() {
     observedMaxHeight = 0;
     pageViewOpen = true;
     firePageViewStart();
+    headingMeter.start();
     for (const fn of pageOpenListeners) {
       try {
         fn();

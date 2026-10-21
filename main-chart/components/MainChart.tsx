@@ -16,12 +16,13 @@
 import * as React from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
-import { Radio, CalendarRange, ChevronsRight, Minus, Plus } from "lucide-react";
+import { Radio, CalendarRange, ChevronDown, ChevronsRight, Minus, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DateRangeField } from "@/components/ui/DateRangeField";
 import { storeFor } from "../data/spanStore";
+import type { SpanSource } from "../types";
 import { computeSeries, valueAt } from "../engine/computeSeries";
 import { computeTrend } from "../engine/computeTrend";
 import { DEFAULT_INTERVAL_KEY, INTERVALS, intervalByKey } from "../engine/intervals";
@@ -110,8 +111,67 @@ function toLocalInputValue(t: number): string {
 
 const EMPTY_DATA: uPlot.AlignedData = [[], [], []];
 
-export function MainChart({ siteId }: { siteId: string }) {
-  const store = React.useMemo(() => storeFor(siteId), [siteId]);
+/**
+ * The sessions chart's y axis: fits the lowest and highest values in view (with a little room), and glides there
+ * over GLIDE_MS instead of jumping, so zooming and panning feel smooth. A new target mid-glide starts from where the
+ * axis is now. Pages keep their fixed 0-based axis (this is not called for them).
+ */
+const GLIDE_MS = 260;
+const glideState = new WeakMap<uPlot, { lo: number; hi: number; raf: number | null }>();
+function glideY(u: uPlot, s: ComputedSeries | null, from: number, to: number) {
+  let lo = Infinity;
+  let hi = -Infinity;
+  if (s) {
+    for (let i = 0; i < s.xs.length; i++) {
+      const x = s.xs[i];
+      if (x < from || x > to) continue;
+      const p = s.peak[i];
+      const l = s.low[i];
+      if (p != null) { lo = Math.min(lo, p); hi = Math.max(hi, p); }
+      if (l != null) { lo = Math.min(lo, l); hi = Math.max(hi, l); }
+    }
+  }
+  if (!Number.isFinite(lo)) { lo = 0; hi = 1; }
+  const pad = Math.max(1, (hi - lo) * 0.15);
+  const tLo = Math.max(0, Math.floor(lo - pad));
+  const tHi = Math.max(tLo + 2, Math.ceil(hi + pad));
+  const st = glideState.get(u);
+  if (!st) {
+    glideState.set(u, { lo: tLo, hi: tHi, raf: null });
+    u.setScale("y", { min: tLo, max: tHi });
+    return;
+  }
+  if (st.raf !== null) cancelAnimationFrame(st.raf);
+  const fromLo = st.lo;
+  const fromHi = st.hi;
+  if (fromLo === tLo && fromHi === tHi) {
+    u.setScale("y", { min: tLo, max: tHi });
+    st.raf = null;
+    return;
+  }
+  const t0 = performance.now();
+  const step = (t: number) => {
+    const k = Math.min(1, (t - t0) / GLIDE_MS);
+    const e = 1 - Math.pow(1 - k, 3); // ease out
+    st.lo = fromLo + (tLo - fromLo) * e;
+    st.hi = fromHi + (tHi - fromHi) * e;
+    u.setScale("y", { min: st.lo, max: st.hi });
+    st.raf = k < 1 ? requestAnimationFrame(step) : null;
+  };
+  st.raf = requestAnimationFrame(step);
+}
+
+/**
+ * source "pages" (default): "Pages online", open page views, down the moment a page closes.
+ * source "sessions": "Sessions online", open sessions from start to last seen; thicker line, and the y axis follows
+ * the highest and lowest values in view (gliding smoothly as you zoom and pan), like a trading chart.
+ */
+export function MainChart({ siteId, source = "pages", onSourceChange }: { siteId: string; source?: SpanSource; onSourceChange?: (s: SpanSource) => void }) {
+  const store = React.useMemo(() => storeFor(siteId, source), [siteId, source]);
+  const isSessions = source === "sessions";
+  /** the y axis fits the visible values (sessions) instead of always starting at 0 (pages) */
+  const fitY = isSessions;
+  const fitYRef = React.useRef(fitY);
 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const plotRef = React.useRef<uPlot | null>(null);
@@ -241,6 +301,7 @@ export function MainChart({ siteId }: { siteId: string }) {
       u.setData(s ? [s.xs, s.peak, s.low] : EMPTY_DATA, false);
       u.setScale("x", { min: v.from, max: v.to });
     });
+    if (fitYRef.current) glideY(u, s, v.from, Math.min(v.to, now));
     const isEmpty = s !== null && s.xs.length > 0 && s.peak.every((v) => !v);
     setViewEmpty((prev) => (prev === isEmpty ? prev : isEmpty));
     setSeriesMode((prev) =>
@@ -303,7 +364,10 @@ export function MainChart({ siteId }: { siteId: string }) {
       cursor: { drag: { x: false, y: false, setScale: false }, points: { show: false }, y: false },
       scales: {
         x: { time: true, auto: false },
-        y: { range: (_u, _min, max) => [0, Math.max(1, Math.ceil((max ?? 0) * 1.12))] },
+        // pages: from 0 to a little above the highest value. sessions: driven by glideY (fits what is in view).
+        y: fitYRef.current
+          ? { auto: false, range: (_u, min, max) => [min ?? 0, max ?? 1] }
+          : { range: (_u, _min, max) => [0, Math.max(1, Math.ceil((max ?? 0) * 1.12))] },
       },
       axes: [
         {
@@ -328,7 +392,7 @@ export function MainChart({ siteId }: { siteId: string }) {
         {
           label: "Peak online",
           stroke: (u) => zoneStyle(u, currentPalette().line, currentPalette().provisionalLine),
-          width: theme.lineWidth,
+          width: fitYRef.current ? theme.sessionsLineWidth : theme.lineWidth,
           paths: linePath,
           points: { show: false },
         },
@@ -546,6 +610,8 @@ export function MainChart({ siteId }: { siteId: string }) {
       over.removeEventListener("pointermove", onPointerMove);
       over.removeEventListener("pointerup", onPointerUp);
       over.removeEventListener("pointercancel", onPointerUp);
+      const glide = glideState.get(u); // a y glide still running must not touch a destroyed plot
+      if (glide?.raf != null) cancelAnimationFrame(glide.raf);
       u.destroy();
       plotRef.current = null;
     };
@@ -712,7 +778,25 @@ export function MainChart({ siteId }: { siteId: string }) {
       <CardContent className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-base font-semibold text-foreground">
-            Sessions online
+            {onSourceChange ? (
+              // the title is the switch: Sessions online / Pages online
+              <span className="relative inline-flex items-center">
+                <select
+                  value={source}
+                  onChange={(e) => onSourceChange(e.target.value as SpanSource)}
+                  aria-label="What the chart counts"
+                  className="cursor-pointer appearance-none rounded-md bg-transparent py-0.5 pl-1 pr-6 text-base font-semibold text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="sessions">Sessions online</option>
+                  <option value="pages">Pages online</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-1 size-4 text-muted-foreground" />
+              </span>
+            ) : isSessions ? (
+              "Sessions online"
+            ) : (
+              "Pages online"
+            )}
             {mode === "live" && <span className={`h-1.5 w-1.5 rounded-full bg-emerald-500 ${following ? "animate-pulse" : "opacity-40"}`} />}
           </div>
 
@@ -811,7 +895,9 @@ export function MainChart({ siteId }: { siteId: string }) {
               )}
               {lineStyle === "trend"
                 ? `average online wherever it changed, per ${intervalByKey(intervalKey).label}`
-                : `most people online at once, per ${intervalByKey(intervalKey).label}`}
+                : isSessions
+                  ? `most sessions open at once (start to last seen), per ${intervalByKey(intervalKey).label}`
+                  : `most pages open at once, per ${intervalByKey(intervalKey).label}`}
             </>
           )}
         </div>
@@ -923,4 +1009,31 @@ export function MainChart({ siteId }: { siteId: string }) {
       </CardContent>
     </Card>
   );
+}
+
+/**
+ * The dashboard's online chart: one chart, its title a dropdown between Sessions online (default) and Pages online.
+ * Each choice is its own chart (and data store), so switching redraws from that source; the choice is remembered in
+ * this browser.
+ */
+export function OnlineChart({ siteId }: { siteId: string }) {
+  const [source, setSource] = React.useState<SpanSource>("sessions");
+  React.useEffect(() => {
+    try {
+      // localStorage is the external system read once here
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (window.localStorage.getItem("jh:online-chart") === "pages") setSource("pages");
+    } catch {
+      /* sessions */
+    }
+  }, []);
+  const choose = (s: SpanSource) => {
+    setSource(s);
+    try {
+      window.localStorage.setItem("jh:online-chart", s);
+    } catch {
+      /* fine */
+    }
+  };
+  return <MainChart key={source} siteId={siteId} source={source} onSourceChange={choose} />;
 }

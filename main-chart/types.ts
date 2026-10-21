@@ -88,3 +88,6 @@ export interface ComputedSeries {
   /** the bucket grid's offset (see engine/intervals.ts); markers snap onto the same grid */
   offsetMs: number;
 }
+
+/** What the chart counts: open pages (page_views) or open sessions (sessions, from start to last seen). */
+export type SpanSource = "pages" | "sessions";

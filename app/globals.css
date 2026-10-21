@@ -325,6 +325,37 @@
   background: transparent;
 }
 
+/* The page's own scrollbar (the one on the right edge of the window, the <html> element) is separate from the ones
+   inside charts and tables above: thin, rounded and quiet. More specific than the `*` rules, so only it changes. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--muted-foreground) 55%, transparent) transparent;
+}
+html::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+html::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+  clip-path: none;
+  border-radius: 3px;
+}
+html::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}
+
+/* A card that appears (the page summary when a page is clicked): fades in and settles from slightly above */
+@keyframes jh-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ---------- feedback nudge sweep (SupportFeedbackButton) ----------
    A soft, translucent gradient drifting across and fading out — not a
    hard-edged solid block. A flat color sliding in and vanishing abruptly
@@ -478,6 +509,26 @@
   }
 }
 
+/* a field's time bar growing out from the left, and rows arriving one after the other (components/forms/LeadFormsCard.tsx) */
+@keyframes jh-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes jh-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* the lead page's form card turning over between its simple and advanced sides (components/forms/LeadFormsCard.tsx) */
 @keyframes jh-card-flip {
   from {
@@ -487,5 +538,18 @@
   to {
     opacity: 1;
     transform: perspective(1200px) rotateX(0deg);
+  }
+}
+
+/* the visit chart blinking once when another visit is picked (components/leads/LeadSessionExplorer.tsx) */
+@keyframes jh-chart-blink {
+  0% {
+    opacity: 1;
+  }
+  35% {
+    opacity: 0.12;
+  }
+  100% {
+    opacity: 1;
   }
 }

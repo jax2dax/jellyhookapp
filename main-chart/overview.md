@@ -1,4 +1,11 @@
-# Main chart: sessions online over time
+# Main chart: pages online and sessions online over time
+
+One chart on the dashboard, its title a dropdown (`OnlineChart`, choice remembered as `jh:online-chart`), two sources from one engine (`source` prop, founder 2026-10-20): **Pages online** (`source="pages"`, the default,
+everything below) and **Sessions online** (`source="sessions"`): open `sessions` rows from `started_at` to the last
+seen time (`last_activity_at`, never after `ended_at`; a session still open counts to now). Leaving the site and
+coming back inside one session does not dip on Sessions online. Its line is thicker (`theme.sessionsLineWidth`) and its
+y axis fits the values in view and glides there (`glideY` in components/MainChart.tsx). Each source has its own store
+(`storeFor(siteId, source)`).
 
 A TradingView-style chart on `/platform/dashboard` that answers one
 question: **how many people were on the site at the same time, and when?**

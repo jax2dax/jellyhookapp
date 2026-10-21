@@ -21,6 +21,7 @@ import { resolvePendingCountries } from "@/lib/resolvePendingCountries";
 import { evaluateLeads, leadsOfSession } from "@/lib/marks/evaluate";
 import { sweepIfDue } from "@/lib/tracking/sweep";
 import { hashIp, hashUa, countryNameFromCode } from "@/lib/tracking/ip";
+import { cleanHeadingTime } from "@/lib/tracking/headingTime";
 import { deviceClassFromWidth } from "@/lib/tracking/structure";
 import { emptyUsage, bump } from "@/lib/tracking/usage";
 import {
@@ -146,7 +147,7 @@ export async function POST(req) {
         }
         const { data: canon, error: rErr } = await supabase.rpc("jh_resolve_visitor", { p_site: site.id, p_visitor: rawVisitorId, p_row: insertRow, p_now: nowIso });
         if (rErr) {
-          // before 20-visitor-aliases.sql has run: the old behaviour, the id as sent
+          // before 19-visitor-aliases.sql has run: the old behaviour, the id as sent
           const { ua_hash: _uaHash, ...legacyRow } = insertRow;
           void _uaHash;
           const { error: vErr } = await supabase.from("visitors").upsert(legacyRow, { onConflict: "site_id,visitor_id", ignoreDuplicates: true });
@@ -383,8 +384,16 @@ export async function POST(req) {
         if (vh !== null) update.viewport_height = vh;
         const ph = cleanNum(event.page_height, 0, 10_000_000);
         if (ph !== null) update.page_height = ph;
+        // time per heading on this page view (lib/tracking/headingTime.js), sent with its end
+        const headingTime = cleanHeadingTime(event.heading_time, duration);
+        if (headingTime) update.heading_time = headingTime;
 
-        const { data: updated, error } = await supabase.from("page_views").update(update).eq("page_view_id", pageViewId).eq("site_id", site.id).select("id");
+        let { data: updated, error } = await supabase.from("page_views").update(update).eq("page_view_id", pageViewId).eq("site_id", site.id).select("id");
+        if (error && /heading_time/.test(error.message || "")) {
+          // before 19-heading-time.sql has run: store everything else
+          delete update.heading_time;
+          ({ data: updated, error } = await supabase.from("page_views").update(update).eq("page_view_id", pageViewId).eq("site_id", site.id).select("id"));
+        }
         if (error) {
           console.error("[track] page_view_end update error:", error.message);
         } else if (!updated || updated.length === 0) {

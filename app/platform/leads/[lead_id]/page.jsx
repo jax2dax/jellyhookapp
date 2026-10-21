@@ -149,12 +149,38 @@ async function LeadProfileBody({ profile, raw, siteId }) {
         visitsBeforeConversion={visitsBeforeConversion}
       />
 
-      {/* ── Section 2b: the lead's forms: a bar per form, or field by field under "Advanced"
+      {/* ── Session history (converted + non-converted), straight after the stats ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            Session History
+            <InfoTip>Every visit made from this browser, including visits where they left without sending a form. Pick a visit on the left to see it; click a page in the chart to see what they did there.</InfoTip>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Suspense fallback={<div className="py-6 text-center text-sm text-muted-foreground">Loading sessions…</div>}>
+            <LeadSessionExplorer
+              siteId={siteId}
+              visitorId={raw.focusSubmission?.visitor_id || ""}
+              deviceType={raw.visitor?.device_type}
+              initialSessionRows={raw.sessions}
+              initialPageViewRows={raw.pageViews}
+              initialSubmissionRows={raw.submissions}
+            />
+          </Suspense>
+        </CardContent>
+      </Card>
+      {/* ── the lead's forms: a bar per form, or field by field under "Advanced"
           (components/forms/LeadFormsCard.tsx). The old "The form they submitted" card is gone: its two times are
           the bar's two parts. ── */}
       {formActivities.length > 0 && <LeadFormsCard activities={formActivities} references={Object.fromEntries(references)} />}
 
-      {/* ── Section 3: Path to conversion ───────────────────────────────── */}
+      {/* ── Section 4: Conversion events (only when there is more than one) ─ */}
+      {conversions.length > 1 && (
+        <ConversionEventsBadges events={conversions.map((c) => ({ id: c.id, pagePath: c.pagePath, submittedAt: c.submittedAt, isFocus: !!c.isFocus }))} />
+      )}
+
+      {/* ── Path to conversion, at the very bottom ───────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Path to Conversion</CardTitle>
@@ -177,32 +203,6 @@ async function LeadProfileBody({ profile, raw, siteId }) {
         </CardContent>
       </Card>
 
-      {/* ── Section 4: Conversion events (only when there is more than one) ─ */}
-      {conversions.length > 1 && (
-        <ConversionEventsBadges events={conversions.map((c) => ({ id: c.id, pagePath: c.pagePath, submittedAt: c.submittedAt, isFocus: !!c.isFocus }))} />
-      )}
-
-      {/* ── Section 5: Full session history (converted + non-converted) ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            Session History
-            <InfoTip>Every visit made from this browser, including visits where they left without sending a form. Pick a visit on the left to see it; click a page in the chart to see what they did there.</InfoTip>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Suspense fallback={<div className="py-6 text-center text-sm text-muted-foreground">Loading sessions…</div>}>
-            <LeadSessionExplorer
-              siteId={siteId}
-              visitorId={raw.focusSubmission?.visitor_id || ""}
-              deviceType={raw.visitor?.device_type}
-              initialSessionRows={raw.sessions}
-              initialPageViewRows={raw.pageViews}
-              initialSubmissionRows={raw.submissions}
-            />
-          </Suspense>
-        </CardContent>
-      </Card>
     </div>
   );
 }

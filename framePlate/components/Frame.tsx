@@ -16,13 +16,16 @@ import * as React from "react";
 import { FullPagePlate } from "./FullPagePlate";
 import { DurationRibbon } from "./DurationRibbon";
 import { computeSeenBreakdown } from "../format";
-import type { FramePlateTheme, TimelineItem, VisitGeometry } from "../types";
+import { SectionTooltipBody, isSectionView, placedSections } from "./SectionBands";
+import type { FramePlateTheme, PlateView, TimelineItem, VisitGeometry } from "../types";
 
 export interface FrameProps {
   item: TimelineItem;
   width: number;
   plateHeight: number;
   theme: FramePlateTheme;
+  /** what the plate shows inside, see PlateView */
+  view?: PlateView;
   /** true once this specific frame has been hovered past the hover delay */
   darken?: boolean;
   /** true when this frame is the one currently pinned open in the click-to-select details panel */
@@ -89,14 +92,15 @@ function SwatchRow({ color, label, border }: { color: string; label: string; bor
   );
 }
 
-function SeenTooltip({ item, theme, at }: { item: VisitGeometry; theme: FramePlateTheme; at: { x: number; y: number } }) {
+function SeenTooltip({ item, theme, at, bySection, withSubs }: { item: VisitGeometry; theme: FramePlateTheme; at: { x: number; y: number }; bySection?: boolean; withSubs?: boolean }) {
   const { seenOncePct, seenTwicePct, notSeenPct } = computeSeenBreakdown(item);
-  const flip = typeof window !== "undefined" && at.x + TOOLTIP_OFFSET + TOOLTIP_MAX_WIDTH > window.innerWidth - 8;
+  const maxWidth = bySection ? 230 : TOOLTIP_MAX_WIDTH;
+  const flip = typeof window !== "undefined" && at.x + TOOLTIP_OFFSET + maxWidth > window.innerWidth - 8;
   return (
     <div
       style={{
         position: "fixed",
-        left: flip ? at.x - TOOLTIP_OFFSET - TOOLTIP_MAX_WIDTH : at.x + TOOLTIP_OFFSET,
+        left: flip ? at.x - TOOLTIP_OFFSET - maxWidth : at.x + TOOLTIP_OFFSET,
         top: at.y + 10,
         zIndex: 60,
         pointerEvents: "none",
@@ -110,20 +114,27 @@ function SeenTooltip({ item, theme, at }: { item: VisitGeometry; theme: FramePla
         fontFamily: "system-ui, sans-serif",
         boxShadow: "0 4px 14px rgba(0,0,0,0.4)",
         boxSizing: "border-box",
-        maxWidth: TOOLTIP_MAX_WIDTH,
+        maxWidth,
         width: "max-content",
+        minWidth: bySection ? 170 : undefined,
       }}
     >
       <div style={{ fontWeight: 700, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.pagePath || "(unknown)"}</div>
-      <SwatchRow color={theme.seenOnce.color} label={`seen ${pct(seenOncePct)}`} />
-      <SwatchRow color={theme.seenTwice.color} label={`seen 2x+ ${pct(seenTwicePct)}`} />
-      <SwatchRow color={theme.plate.baseColor} border="1px solid var(--fp-plate-border, #555)" label={`not seen ${pct(notSeenPct)}`} />
+      {bySection ? (
+        <SectionTooltipBody visit={item} withSubs={withSubs} />
+      ) : (
+        <>
+          <SwatchRow color={theme.seenOnce.color} label={`seen ${pct(seenOncePct)}`} />
+          <SwatchRow color={theme.seenTwice.color} label={`seen 2x+ ${pct(seenTwicePct)}`} />
+          <SwatchRow color={theme.plate.baseColor} border="1px solid var(--fp-plate-border, #555)" label={`not seen ${pct(notSeenPct)}`} />
+        </>
+      )}
     </div>
   );
 }
 
 export function Frame(props: FrameProps) {
-  const { item, width, plateHeight, theme, darken, selected, onHover, onClick } = props;
+  const { item, width, plateHeight, theme, view, darken, selected, onHover, onClick } = props;
   const geometry = computeFrameGeometry(props);
   const frameHeight = theme.frame.height;
   // where the cursor is, for the hover card (hooks before any early return)
@@ -164,7 +175,7 @@ export function Frame(props: FrameProps) {
 
       {item.kind === "visit" && (
         <g transform={`translate(${geometry.plateX}, ${geometry.plateY})`}>
-          <FullPagePlate visit={item} width={theme.plate.width} height={plateHeight} theme={theme} />
+          <FullPagePlate visit={item} width={theme.plate.width} height={plateHeight} theme={theme} view={view} />
         </g>
       )}
 
@@ -180,7 +191,7 @@ export function Frame(props: FrameProps) {
       />
 
       {/* rich hover tooltip — page path + seen/seen-2x+/not-seen as % of the full page */}
-      {item.kind === "visit" && darken && cursor && typeof document !== "undefined" && createPortal(<SeenTooltip item={item} theme={theme} at={cursor} />, document.body)}
+      {item.kind === "visit" && darken && cursor && typeof document !== "undefined" && createPortal(<SeenTooltip item={item} theme={theme} at={cursor} bySection={isSectionView(view) && placedSections(item).length > 0} withSubs={view !== "sections-main"} />, document.body)}
     </g>
   );
 }

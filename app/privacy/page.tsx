@@ -17,7 +17,7 @@ const YOUR_ACCOUNT_DATA = [
 
 const VISITOR_DATA = [
   ["Visitor & session identity", "A random ID generated in the visitor's browser (not tied to a real name unless they submit a form) plus session timing."],
-  ["Page activity", "Page paths, time spent on each page, scroll depth, and whether a page was revisited."],
+  ["Page activity", "Page paths, time spent on each page, scroll depth, whether a page was revisited, and how long each part of the page (by its headings) was on screen."],
   ["Technical context", "Device type, screen width, approximate country, timezone, and referrer URL. The country normally comes from the hosting platform's own header. When that is missing, the visitor's IP address is held briefly, sent over HTTPS to a third-party lookup service (ipwho.is) to get the country, and then deleted whether or not the lookup worked. We also keep a salted one-way hash of the IP and of the browser's identifier string, which together recognise one device (so one person opening the site in several private windows on the same day counts as one visitor) but cannot be turned back into an address or a browser string. Our hosting provider's own request logs are outside Jellyhook's control."],
   ["First visit", "For a new visitor, the referrer, campaign tags (UTM) and landing page of their very first visit, kept to show where visitors originally came from."],
   ["Clicks", "Only on elements you mark with data-track-click on your own pages."],

@@ -5,7 +5,13 @@
 // intervals never cost a request. See main-chart/docs/data-flow.md for
 // which query runs when.
 //
-// Spans come from `page_views` (entered_at/left_at), not `sessions`
+// Two sources (SpanSource), drawn as two charts on the dashboard:
+//   "pages"     page_views, entered_at -> left_at: "Pages online", down the moment a page closes (described below)
+//   "sessions"  sessions, started_at -> last seen (last_activity_at; ended_at if that is missing; still open = now):
+//               "Sessions online", up when a visit starts, down when the visitor was last seen. Leaving the site and
+//               coming back inside the same session does NOT dip.
+//
+// For "pages": spans come from `page_views` (entered_at/left_at), not `sessions`
 // (started_at/ended_at). A session can stay open across a visitor leaving
 // the site entirely and coming back later — see mds/database.md's
 // `sessions` note on "away" gaps — so sourcing from sessions would count
@@ -19,7 +25,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseClient } from "@/lib/supabase/server";
 import { requireSiteAccess } from "@/lib/actions/siteAccess";
-import type { MarkerLayer, MarkerPayload, SpanPayload } from "@/main-chart/types";
+import type { MarkerLayer, MarkerPayload, SpanPayload, SpanSource } from "@/main-chart/types";
 
 // site_members is service-role only under RLS (see mds/database.md). Only
 // ever queried here AFTER requireSiteAccess, and only for the one site.
@@ -39,7 +45,22 @@ const CARRY_IN_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
 const ID_BATCH = 100; // keeps the `id=in.(...)` query string well under URL length limits
 
-type Row = { id: string; entered_at: string | null; left_at: string | null };
+type Row = Record<string, string | null> & { id: string };
+
+/** The table and columns behind each source. */
+const SOURCE = {
+  pages: { table: "page_views", start: "entered_at", select: "id, entered_at, left_at", openCol: "left_at" },
+  sessions: { table: "sessions", start: "started_at", select: "id, started_at, ended_at, last_activity_at", openCol: "ended_at" },
+} as const;
+
+/** When a row's span ends (null = still open). A session ends where the visitor was last seen, never after it ended. */
+function endOf(r: Row, source: SpanSource): number | null {
+  if (source === "pages") return r.left_at ? Date.parse(r.left_at) : null;
+  if (!r.ended_at) return null;
+  const ended = Date.parse(r.ended_at);
+  const last = r.last_activity_at ? Date.parse(r.last_activity_at) : NaN;
+  return Number.isFinite(last) ? Math.min(last, ended) : ended;
+}
 
 /**
  * serverNow rides along with every response. The tracker stamps page views
@@ -65,13 +86,15 @@ type SupabaseClient = Awaited<ReturnType<typeof createSupabaseClient>>;
 type DbError = { message: string; code?: string };
 type RangeQuery<T> = { range(from: number, to: number): PromiseLike<{ data: T[] | null; error: DbError | null }> };
 
-function toPayload(rows: Row[]): SpanPayload {
+function toPayload(rows: Row[], source: SpanSource): SpanPayload {
   const payload: SpanPayload = { ids: [], starts: [], ends: [] };
+  const startCol = SOURCE[source].start;
   for (const r of rows) {
-    if (!r.entered_at) continue;
+    const start = r[startCol];
+    if (!start) continue;
     payload.ids.push(r.id);
-    payload.starts.push(Date.parse(r.entered_at));
-    payload.ends.push(r.left_at ? Date.parse(r.left_at) : null);
+    payload.starts.push(Date.parse(start));
+    payload.ends.push(endOf(r, source));
   }
   return payload;
 }
@@ -164,23 +187,21 @@ export async function getMarkerEvents(siteId: string, layer: MarkerLayer, fromMs
  * when it opens, so a quiet site doesn't open on an empty hour. Null when
  * there has never been a single page view.
  */
-export async function getActivityBounds(siteId: string): Promise<{ firstActivityAt: number | null; lastActivityAt: number | null; serverNow: number }> {
+export async function getActivityBounds(siteId: string, source: SpanSource = "pages"): Promise<{ firstActivityAt: number | null; lastActivityAt: number | null; serverNow: number }> {
   await requireSiteAccess(siteId);
   const serverNow = Date.now();
   const supabase = await createSupabaseClient();
+  const { table, start } = SOURCE[source];
   const edge = (ascending: boolean) =>
-    supabase.from("page_views").select("entered_at").eq("site_id", siteId).not("entered_at", "is", null).order("entered_at", { ascending }).limit(1).maybeSingle();
+    supabase.from(table).select(start).eq("site_id", siteId).not(start, "is", null).order(start, { ascending }).limit(1).maybeSingle<Record<string, string | null>>();
   const [first, last] = await Promise.all([edge(true), edge(false)]);
   const error = first.error || last.error;
   if (error) {
     console.error("[mainChart] getActivityBounds failed:", error.message);
     throw new Error(`Failed to load page views: ${error.message}`);
   }
-  return {
-    firstActivityAt: first.data?.entered_at ? Date.parse(first.data.entered_at) : null,
-    lastActivityAt: last.data?.entered_at ? Date.parse(last.data.entered_at) : null,
-    serverNow,
-  };
+  const at = (row: Record<string, string | null> | null) => (row?.[start] ? Date.parse(row[start] as string) : null);
+  return { firstActivityAt: at(first.data), lastActivityAt: at(last.data), serverNow };
 }
 
 /**
@@ -188,7 +209,7 @@ export async function getActivityBounds(siteId: string): Promise<{ firstActivity
  * started up to CARRY_IN_LOOKBACK_MS before fromMs and was still open at
  * fromMs. Together: everything needed to draw [fromMs, toMs) correctly.
  */
-export async function getOnlineSpans(siteId: string, fromMs: number, toMs: number): Promise<SpanResponse> {
+export async function getOnlineSpans(siteId: string, fromMs: number, toMs: number, source: SpanSource = "pages"): Promise<SpanResponse> {
   await requireSiteAccess(siteId);
   // Taken BEFORE querying: anything touched after this moment is
   // guaranteed to be picked up by the next live poll.
@@ -197,23 +218,23 @@ export async function getOnlineSpans(siteId: string, fromMs: number, toMs: numbe
   const to = new Date(toMs).toISOString();
   const lookback = new Date(fromMs - CARRY_IN_LOOKBACK_MS).toISOString();
 
+  const { table, start, select, openCol } = SOURCE[source];
   const [inRange, carryIn] = await Promise.all([
-    fetchAllPages("spans", (s) =>
-      s.from("page_views").select("id, entered_at, left_at").eq("site_id", siteId).gte("entered_at", from).lt("entered_at", to).order("entered_at").order("id")
-    ),
-    fetchAllPages("carry-in", (s) =>
+    fetchAllPages<Row>("spans", (s) => s.from(table).select(select).eq("site_id", siteId).gte(start, from).lt(start, to).order(start).order("id").returns<Row[]>()),
+    fetchAllPages<Row>("carry-in", (s) =>
       s
-        .from("page_views")
-        .select("id, entered_at, left_at")
+        .from(table)
+        .select(select)
         .eq("site_id", siteId)
-        .gte("entered_at", lookback)
-        .lt("entered_at", from)
-        .or(`left_at.gte."${from}",left_at.is.null`)
-        .order("entered_at")
+        .gte(start, lookback)
+        .lt(start, from)
+        .or(`${openCol}.gte."${from}",${openCol}.is.null`)
+        .order(start)
         .order("id")
+        .returns<Row[]>()
     ),
   ]);
-  return { payload: toPayload([...carryIn, ...inRange]), serverNow };
+  return { payload: toPayload([...carryIn, ...inRange], source), serverNow };
 }
 
 /**
@@ -236,20 +257,20 @@ export async function getLiveSpanUpdates(
   siteId: string,
   touchedSinceMs: number,
   openIds: string[],
-  markerSince: Partial<Record<MarkerLayer, number>> = {}
+  markerSince: Partial<Record<MarkerLayer, number>> = {},
+  source: SpanSource = "pages"
 ): Promise<LiveResponse> {
   await requireSiteAccess(siteId);
   const serverNow = Date.now();
   const since = new Date(touchedSinceMs).toISOString();
+  const { table, start, select } = SOURCE[source];
 
-  const touched = fetchAllPages("touched", (s) =>
-    s.from("page_views").select("id, entered_at, left_at").eq("site_id", siteId).gte("entered_at", since).order("entered_at").order("id")
-  );
+  const touched = fetchAllPages<Row>("touched", (s) => s.from(table).select(select).eq("site_id", siteId).gte(start, since).order(start).order("id").returns<Row[]>());
 
   const batches: Promise<Row[]>[] = [];
   for (let i = 0; i < openIds.length; i += ID_BATCH) {
     const ids = openIds.slice(i, i + ID_BATCH);
-    batches.push(fetchAllPages("open-ids", (s) => s.from("page_views").select("id, entered_at, left_at").eq("site_id", siteId).in("id", ids).order("id")));
+    batches.push(fetchAllPages<Row>("open-ids", (s) => s.from(table).select(select).eq("site_id", siteId).in("id", ids).order("id").returns<Row[]>()));
   }
 
   const markerJobs = (Object.entries(markerSince) as [MarkerLayer, number][]).map(async ([layer, sinceMs]): Promise<[MarkerLayer, MarkerPayload]> => {
@@ -258,5 +279,5 @@ export async function getLiveSpanUpdates(
   });
 
   const [touchedRows, markerResults, ...openRows] = await Promise.all([touched, Promise.all(markerJobs), ...batches]);
-  return { payload: toPayload([...touchedRows, ...openRows.flat()]), serverNow, markers: Object.fromEntries(markerResults) };
+  return { payload: toPayload([...touchedRows, ...openRows.flat()], source), serverNow, markers: Object.fromEntries(markerResults) };
 }

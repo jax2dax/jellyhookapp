@@ -180,6 +180,10 @@ create table public.page_views (
   entry_scroll_depth real null,
   revisit_start_scroll_depth real null,
   viewport_height integer null,
+  -- added 2026-10-19 (mds/migrations/19-heading-time.sql): time per heading on this page view, sent with
+  -- page_view_end. { t: top heading level, h: [[key, level, order, tenths of a second, entries]] }, 40-150 bytes.
+  -- Shape and reading: lib/tracking/headingTime.js. Plan: mds/build/heading-time/plan.md
+  heading_time jsonb null,
   constraint page_views_pkey primary key (id),
   constraint page_views_page_view_id_key unique (page_view_id)
 );

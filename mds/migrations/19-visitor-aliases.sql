@@ -1,4 +1,4 @@
--- 20-visitor-aliases (2026-10-17): one person, one visitor. Run once in the Supabase SQL editor BEFORE deploying the
+-- 19-visitor-aliases (2026-10-17): one person, one visitor. Run once in the Supabase SQL editor BEFORE deploying the
 -- code that calls jh_resolve_visitor. Safe to run twice. The routes survive without it (they use the id as sent, as
 -- before), so the order is not dangerous, only the merging does not happen until it has run.
 --

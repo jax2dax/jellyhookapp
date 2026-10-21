@@ -9,7 +9,7 @@
 // full fetch lifecycle.
 import { getActivityBounds, getLiveSpanUpdates, getMarkerEvents, getOnlineSpans, type SpanResponse } from "@/lib/actions/mainChart.action";
 import { buildTimeline } from "../engine/buildTimeline";
-import type { EventTimeline, MarkerEvent, MarkerLayer, MarkerPayload, OnlineSpan, SpanPayload } from "../types";
+import type { EventTimeline, MarkerEvent, MarkerLayer, MarkerPayload, OnlineSpan, SpanPayload, SpanSource } from "../types";
 
 /** Overlap between consecutive live polls, so nothing touched near the boundary slips between them. */
 const POLL_OVERLAP_MS = 30_000;
@@ -50,6 +50,8 @@ function toEvents(payload: MarkerPayload): MarkerEvent[] {
 
 export class SpanStore {
   readonly siteId: string;
+  /** open pages, or open sessions (see SpanSource) */
+  readonly source: SpanSource;
   private spans = new Map<string, OnlineSpan>();
   /** entered_at ranges fully loaded, sorted, non-overlapping. A range ending at Infinity is kept current by polling. */
   private covered: Range[] = [];
@@ -83,8 +85,9 @@ export class SpanStore {
   pending = 0;
   error: string | null = null;
 
-  constructor(siteId: string) {
+  constructor(siteId: string, source: SpanSource = "pages") {
     this.siteId = siteId;
+    this.source = source;
   }
 
   subscribe(fn: () => void): () => void {
@@ -197,7 +200,7 @@ export class SpanStore {
 
   private async loadBounds() {
     if (this.firstActivityAt !== undefined) return;
-    const res = await getActivityBounds(this.siteId);
+    const res = await getActivityBounds(this.siteId, this.source);
     this.noteServerTime(res);
     this.firstActivityAt = res.firstActivityAt ?? res.serverNow;
     if (res.lastActivityAt !== null && (this.lastActivityAt === undefined || res.lastActivityAt > this.lastActivityAt)) this.lastActivityAt = res.lastActivityAt;
@@ -227,7 +230,7 @@ export class SpanStore {
         for (const [a, b] of missingIn(this.covered, start, to)) {
           const live = b === Infinity;
           const fetchTo = live ? this.now() + LIVE_FETCH_AHEAD_MS : b;
-          const res: SpanResponse = await getOnlineSpans(this.siteId, a, fetchTo);
+          const res: SpanResponse = await getOnlineSpans(this.siteId, a, fetchTo, this.source);
           this.noteServerTime(res);
           this.merge(res.payload);
           this.covered = withRange(this.covered, [a, b]);
@@ -287,7 +290,7 @@ export class SpanStore {
           const cursor = this.markerCursor[layer];
           if (cursor !== undefined) markerSince[layer] = cursor - POLL_OVERLAP_MS;
         }
-        const res = await getLiveSpanUpdates(this.siteId, (this.liveCursor as number) - POLL_OVERLAP_MS, this.openIds(), markerSince);
+        const res = await getLiveSpanUpdates(this.siteId, (this.liveCursor as number) - POLL_OVERLAP_MS, this.openIds(), markerSince, this.source);
         this.noteServerTime(res);
         this.merge(res.payload);
         this.liveCursor = res.serverNow;
@@ -306,14 +309,15 @@ export class SpanStore {
 
 const stores = new Map<string, SpanStore>();
 
-export function storeFor(siteId: string): SpanStore {
+export function storeFor(siteId: string, source: SpanSource = "pages"): SpanStore {
   // During server rendering: a throwaway store. Nothing is ever loaded on the
   // server, and registering it would keep one per site in server memory, shared across requests.
-  if (typeof window === "undefined") return new SpanStore(siteId);
-  let store = stores.get(siteId);
+  if (typeof window === "undefined") return new SpanStore(siteId, source);
+  const key = source + "|" + siteId;
+  let store = stores.get(key);
   if (!store) {
-    store = new SpanStore(siteId);
-    stores.set(siteId, store);
+    store = new SpanStore(siteId, source);
+    stores.set(key, store);
   }
   return store;
 }

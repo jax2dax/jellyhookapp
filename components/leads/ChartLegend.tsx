@@ -17,6 +17,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Info, X } from "lucide-react";
 import { defaultTheme } from "@/framePlate/theme/defaultTheme";
+import { heatColor } from "@/framePlate";
 import type { FrameOutcome } from "@/framePlate/types";
 
 // Only outcomes real code actually assigns today — "active" and "expired"
@@ -57,8 +58,27 @@ function DashedLineSwatch({ color, dashArray }: { color: string; dashArray: stri
   );
 }
 
+/** How the "By section" heat map reads: pale green = little time, deep green = the most (of that page). */
+function HeatMapKey() {
+  const steps = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1];
+  return (
+    <div className="p-4">
+      <div className="flex">
+        {steps.map((t) => (
+          <span key={t} className="block h-9 flex-1 first:rounded-l-md last:rounded-r-md" style={{ backgroundColor: heatColor(t) }} />
+        ))}
+      </div>
+      <div className="mt-1.5 flex justify-between text-xs text-muted-foreground">
+        <span>less time</span>
+        <span>more time</span>
+      </div>
+    </div>
+  );
+}
+
 export function ChartLegend() {
   const [open, setOpen] = React.useState(false);
+  const [tab, setTab] = React.useState<"key" | "heat">("key");
 
   React.useEffect(() => {
     if (!open) return;
@@ -66,7 +86,7 @@ export function ChartLegend() {
     return () => clearTimeout(t);
   }, [open]);
 
-  const { bulbs, header, referenceLine, seenOnce, frame } = defaultTheme;
+  const { bulbs, header, referenceLine, frame } = defaultTheme;
 
   return (
     <div className="relative">
@@ -87,12 +107,32 @@ export function ChartLegend() {
           className="absolute left-0 top-full z-30 mt-2 w-[min(90vw,520px)] rounded-lg border bg-white text-black shadow-lg dark:bg-black dark:text-white"
         >
           <div className="flex items-start justify-between border-b px-4 py-3">
-            <div className="text-sm font-medium">Chart color key</div>
+            <div role="tablist" className="flex items-center gap-1">
+              {(
+                [
+                  ["key", "Chart color key"],
+                  ["heat", "Heat map"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === id}
+                  onClick={() => setTab(id)}
+                  className={"rounded-md px-2.5 py-1 text-sm transition-colors " + (tab === id ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
           </div>
 
+          {tab === "heat" && <HeatMapKey />}
+          {tab === "key" && (
           <div className="grid grid-cols-1 gap-6 p-4 sm:grid-cols-2">
             {/* ── Left half: frame background = what happened on that page visit ── */}
             <div>
@@ -104,10 +144,6 @@ export function ChartLegend() {
                     <span>{label}</span>
                   </li>
                 ))}
-                <li className="flex items-center gap-2.5 text-sm">
-                  <FrameSwatch color={seenOnce.color} />
-                  <span>Content the visitor actually scrolled past</span>
-                </li>
               </ul>
             </div>
 
@@ -142,6 +178,8 @@ export function ChartLegend() {
               </ul>
             </div>
           </div>
+
+          )}
 
           <div className="border-t px-4 py-2.5">
             <Link href="/docs/concepts/session-replay" className="text-sm text-primary hover:underline">

@@ -54,6 +54,8 @@ export function WindowStatTile({
   const [win, setWin] = React.useState<StatWindow>(defaultWindow);
   const [stat, setStat] = React.useState<WindowStat | null>(null);
   const [failed, setFailed] = React.useState(false);
+  // a failed load tries again by itself a few seconds later (a momentary network problem usually passes)
+  const [attempt, setAttempt] = React.useState(0);
 
   // the remembered window (browser storage is an external system)
   React.useEffect(() => {
@@ -75,15 +77,20 @@ export function WindowStatTile({
         setFailed(false);
       })
       .catch((e) => {
-        console.error(`[WindowStatTile] ${metric} ${win}:`, e);
-        if (live) setFailed(true);
+        console.warn(`[WindowStatTile] ${metric} ${win} (attempt ${attempt + 1}):`, e?.message ?? e);
+        if (!live) return;
+        setFailed(true);
+        if (attempt < 3) retryTimer = window.setTimeout(() => setAttempt((n) => n + 1), 4000 * (attempt + 1));
       });
+    let retryTimer: number | undefined;
     return () => {
       live = false;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
-  }, [siteId, metric, win]);
+  }, [siteId, metric, win, attempt]);
 
   const choose = (w: StatWindow) => {
+    setAttempt(0);
     setWin(w);
     try {
       localStorage.setItem(storageKey, w);
@@ -111,14 +118,14 @@ export function WindowStatTile({
             value={win}
             onChange={(e) => choose(e.target.value as StatWindow)}
           >
-            <option value="24h">24h</option>
-            <option value="7d">7d</option>
-            <option value="30d">30d</option>
+            <option value="24h">Last 24 hrs</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
             {allowAll && <option value="all">All time</option>}
           </select>
         </div>
         <div className="mt-0.5 flex items-baseline gap-2">
-          <p className="text-lg font-bold leading-tight text-foreground" title={failed ? "Couldn't load this number. Try reloading." : undefined}>
+          <p className="text-lg font-bold leading-tight text-foreground" title={failed ? "Couldn't load this number (the database could not be reached). Trying again..." : undefined}>
             {value}
           </p>
           {shown && shown.previous !== null && <Trend stat={shown} noun={noun} />}

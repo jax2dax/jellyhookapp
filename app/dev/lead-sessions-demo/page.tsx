@@ -3,7 +3,8 @@
 // stories. 12 visits over a week; the 10th sends the form. Page structure and form rows are not loaded here (those
 // fetches need a signed-in site and fail quietly).
 import { Suspense } from "react";
-import { LeadSessionExplorer, type PageViewRow, type SessionRow, type SubmissionRow } from "@/components/leads/LeadSessionExplorer";
+import { LeadSessionExplorer, type PageStructureRow, type PageViewRow, type SessionRow, type SubmissionRow } from "@/components/leads/LeadSessionExplorer";
+import { keyOfText } from "@/lib/tracking/headingTime";
 import { InfoTip } from "@/components/forms/InfoTip";
 
 const T0 = Date.parse("2026-10-07T09:00:00Z");
@@ -20,6 +21,20 @@ const PLAN: [number, [string, number, number][]][] = [
   [7.3, [["/pricing", 40, 0.9], ["/contact", 95, 1]]],
 ];
 
+// the headings of each page (h1 = a section, h2 = inside it) and a made-up share of the page's time for each
+const HEADINGS: Record<string, [string, "h1" | "h2", number][]> = {
+  "/": [["Hi, we build websites that bring leads", "h1", 0.35], ["What we do", "h2", 0.15], ["Our work", "h1", 0.3], ["Results", "h2", 0.2]],
+  "/pricing": [["Pricing", "h1", 0.1], ["Starter", "h2", 0.15], ["Business", "h2", 0.35], ["Questions people ask", "h1", 0.25], ["Can I cancel?", "h2", 0.15]],
+  "/case-studies": [["Case studies", "h1", 0.3], ["A dentist in Austin", "h2", 0.45], ["A law firm", "h2", 0.25]],
+  "/contact": [["Contact us", "h1", 0.6], ["Where we are", "h2", 0.4]],
+};
+const structure: PageStructureRow[] = Object.entries(HEADINGS).flatMap(([path, hs]) => hs.map(([text, tag], i) => ({ page_path: path, header_index: i, header_text: text, header_tag: tag, position_y: 300 + i * 600, page_height: 3200 })));
+const headingTime = (path: string, secs: number) => {
+  const hs = HEADINGS[path];
+  if (!hs) return null;
+  return { t: 1, h: hs.map(([text, tag, share], i) => [keyOfText(text), tag === "h1" ? 1 : 2, i, Math.round(secs * share * 10), i === 0 ? 1 : 1 + (i % 2)]) };
+};
+
 const sessions: SessionRow[] = [];
 const pageViews: PageViewRow[] = [];
 const submissions: SubmissionRow[] = [];
@@ -29,7 +44,7 @@ PLAN.forEach(([dayOffset, pages], i) => {
   const start = t;
   pages.forEach(([path, secs, depth], k) => {
     const left = t + secs * 1000;
-    pageViews.push({ id: sid + "p" + k, page_view_id: sid + "p" + k, session_id: sid, visitor_id: "v1", page_path: path, entered_at: new Date(t).toISOString(), left_at: new Date(left).toISOString(), page_height: 3200, entry_scroll_depth: 0, max_scroll_depth: depth, revisit_start_scroll_depth: k % 3 === 1 ? 0.2 : null, scroll_depth: depth * 0.8 });
+    pageViews.push({ id: sid + "p" + k, page_view_id: sid + "p" + k, session_id: sid, visitor_id: "v1", page_path: path, entered_at: new Date(t).toISOString(), left_at: new Date(left).toISOString(), page_height: 3200, entry_scroll_depth: 0, max_scroll_depth: depth, revisit_start_scroll_depth: k % 3 === 1 ? 0.2 : null, scroll_depth: depth * 0.8, heading_time: headingTime(path, secs) });
     t = left + 1500;
   });
   sessions.push({ id: sid, session_id: sid, visitor_id: "v1", started_at: new Date(start).toISOString(), ended_at: new Date(t).toISOString() });
@@ -45,7 +60,7 @@ export default function LeadSessionsDemoPage() {
           Session History <InfoTip>Every visit made from this browser. Pick a visit on the left; click a page in the chart.</InfoTip>
         </h2>
         <Suspense>
-          <LeadSessionExplorer siteId="demo" visitorId="v1" deviceType="desktop" initialSessionRows={sessions} initialPageViewRows={pageViews} initialSubmissionRows={submissions} />
+          <LeadSessionExplorer siteId="demo" visitorId="v1" deviceType="desktop" initialSessionRows={sessions} initialPageViewRows={pageViews} initialSubmissionRows={submissions} initialStructureRows={structure} />
         </Suspense>
       </div>
     </div>

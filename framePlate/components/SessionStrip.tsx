@@ -17,7 +17,7 @@ import * as React from "react";
 import { Frame } from "./Frame";
 import { scaleFrameWidths, frameWidthConfigFromTheme } from "../geometry/scaleFrameWidths";
 import { scalePlateHeights } from "../geometry/scalePlateHeight";
-import type { FramePlateTheme, TimelineItem } from "../types";
+import type { FramePlateTheme, PlateView, TimelineItem } from "../types";
 
 export interface SessionSelectMeta {
   /** true when the clicked visit is the last visit in the whole timeline — the page the session itself ended on (if it's not still live/converted) */
@@ -27,6 +27,8 @@ export interface SessionSelectMeta {
 export interface SessionStripProps {
   timeline: TimelineItem[];
   theme: FramePlateTheme;
+  /** what the plates show inside, see PlateView */
+  view?: PlateView;
   hoverDelayMs?: number;
   onHoverItem?: (item: TimelineItem | null) => void;
   /** fires with the clicked visit (or null when the already-selected one is clicked again, toggling it off) */
@@ -36,7 +38,7 @@ export interface SessionStripProps {
   className?: string;
 }
 
-export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem, onSelectItem, highlightIds, className }: SessionStripProps) {
+export function SessionStrip({ timeline, theme, view, hoverDelayMs = 150, onHoverItem, onSelectItem, highlightIds, className }: SessionStripProps) {
   const highlighting = !!highlightIds && highlightIds.size > 0;
   // hoveredId fires onHoverItem immediately (so consumers like an info
   // panel feel responsive); activeHoverId is what actually drives the
@@ -173,6 +175,7 @@ export function SessionStrip({ timeline, theme, hoverDelayMs = 150, onHoverItem,
               width={layout.widths[i]}
               plateHeight={layout.plateHeightByIndex[i]}
               theme={layout.themeForFrames}
+              view={view}
               darken={activeHoverId === item.id}
               selected={selectedId === item.id}
               onHover={handleHover}
