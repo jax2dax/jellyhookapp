@@ -18,7 +18,7 @@ export async function OPTIONS() {
 const ok = () => NextResponse.json({ success: true }, { headers: CORS });
 
 import { dropSensitive } from "@/lib/tracking/sensitive";
-import { evaluateLeads } from "@/lib/marks/evaluate";
+import { checkNewLeads } from "@/lib/notifications/check";
 import { canonicalVisitorId } from "@/lib/tracking/identity";
 
 const MAX_RAW_FIELDS = 60;
@@ -124,8 +124,9 @@ export async function POST(req) {
     if (payload.raw_data && payload.raw_data._kind === "iframe_submission") await markHealthEvent(supabase, site.id, pagePath, "iframe_forms", now);
 
     after(() => flushUsage(supabase, site.id, usage, now));
-    // the new lead's marks (lib/marks/evaluate.ts): after the response, never slows the tracker
-    if (inserted?.id) after(() => evaluateLeads(site.id, [inserted.id]));
+    // the new lead's marks and notification rules, after the response (never slows the tracker), in its site's lane:
+    // lib/notifications/check.ts. Before migration 20 it falls back to checking the marks only.
+    if (inserted?.id) after(() => checkNewLeads(site.id, [inserted.id]));
     return ok();
   } catch (err) {
     console.error("[track-form] error:", err);

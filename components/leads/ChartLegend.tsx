@@ -72,6 +72,7 @@ function HeatMapKey() {
         <span>less time</span>
         <span>more time</span>
       </div>
+      <p className="mt-3 text-xs text-muted-foreground">Compared across every page of the selected visit: the deepest green is the section with the most time in the whole visit, the palest the least.</p>
     </div>
   );
 }

@@ -1793,3 +1793,8 @@ Six "visitors" from France were one person (one session each, same IP and browse
 ## 2026-10-19 - Time per heading (phase 1)
 
 The tracker now counts how long each part of a page (by its h1/h2/h3) is in front of the visitor, sent with page_view_end (no extra request), stored as one small jsonb on the page view (`page_views.heading_time`, migration 19-heading-time). The lead page's page story says where the time went by section. Measured: 75-91 bytes per page view, about 5 ms of script time per 60 scrolls. Plan, decisions, test steps and next phases: `mds/build/heading-time/plan.md`. **Run 19-heading-time.sql.**
+
+
+## 2026-10-22 - Notifications and lead groups
+
+Rules: when a new lead has all of a rule's marks (your own marks, switched on; shared marks are copied first; connected marks are not allowed), the chosen people (all members by default) are told in Jellyhook, and optionally in Slack or a signed webhook. Checked once at form submission through a per-site queue in Postgres (`check_jobs`, a lease per site, `/api/jobs/drain` run by Supabase Cron). Once per visitor per rule per 24 h. Nothing personal leaves Jellyhook (mark names and a members-only link). Limits: 10 rules per person, 500 external messages per site per day. Rules belong to the site, not their maker. Groups: plain boxes of leads on the Leads page (tabs, select rows, Add to group / New group from selection), Teammates or Only me, 30 per site; a rule can also add its leads to a group. "Use mark" (connect) removed from the library. Docs: `/docs/reference/notifications`, `/docs/reference/groups`; dev docs `mds/build/notifications/`. Demo: `/dev/notifications-demo`. **Run 20-groups-and-notifications.sql, set CRON_SECRET, schedule the drain.**

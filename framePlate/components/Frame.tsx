@@ -16,7 +16,7 @@ import * as React from "react";
 import { FullPagePlate } from "./FullPagePlate";
 import { DurationRibbon } from "./DurationRibbon";
 import { computeSeenBreakdown } from "../format";
-import { SectionTooltipBody, isSectionView, placedSections } from "./SectionBands";
+import { SectionTooltipBody, isSectionView, type HeatRange } from "./SectionBands";
 import type { FramePlateTheme, PlateView, TimelineItem, VisitGeometry } from "../types";
 
 export interface FrameProps {
@@ -26,6 +26,8 @@ export interface FrameProps {
   theme: FramePlateTheme;
   /** what the plate shows inside, see PlateView */
   view?: PlateView;
+  /** the heat map's scale across the whole visit */
+  heatRange?: HeatRange;
   /** true once this specific frame has been hovered past the hover delay */
   darken?: boolean;
   /** true when this frame is the one currently pinned open in the click-to-select details panel */
@@ -134,7 +136,7 @@ function SeenTooltip({ item, theme, at, bySection, withSubs }: { item: VisitGeom
 }
 
 export function Frame(props: FrameProps) {
-  const { item, width, plateHeight, theme, view, darken, selected, onHover, onClick } = props;
+  const { item, width, plateHeight, theme, view, heatRange, darken, selected, onHover, onClick } = props;
   const geometry = computeFrameGeometry(props);
   const frameHeight = theme.frame.height;
   // where the cursor is, for the hover card (hooks before any early return)
@@ -175,7 +177,7 @@ export function Frame(props: FrameProps) {
 
       {item.kind === "visit" && (
         <g transform={`translate(${geometry.plateX}, ${geometry.plateY})`}>
-          <FullPagePlate visit={item} width={theme.plate.width} height={plateHeight} theme={theme} view={view} />
+          <FullPagePlate visit={item} width={theme.plate.width} height={plateHeight} theme={theme} view={view} heatRange={heatRange} />
         </g>
       )}
 
@@ -191,7 +193,7 @@ export function Frame(props: FrameProps) {
       />
 
       {/* rich hover tooltip — page path + seen/seen-2x+/not-seen as % of the full page */}
-      {item.kind === "visit" && darken && cursor && typeof document !== "undefined" && createPortal(<SeenTooltip item={item} theme={theme} at={cursor} bySection={isSectionView(view) && placedSections(item).length > 0} withSubs={view !== "sections-main"} />, document.body)}
+      {item.kind === "visit" && darken && cursor && typeof document !== "undefined" && createPortal(<SeenTooltip item={item} theme={theme} at={cursor} bySection={isSectionView(view)} withSubs={view !== "sections-main"} />, document.body)}
     </g>
   );
 }

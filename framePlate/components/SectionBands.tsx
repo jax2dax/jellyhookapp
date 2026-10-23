@@ -42,14 +42,59 @@ const clip = (text: string, maxPx: number, font: number) => {
 const TEXT = { fill: "#fff", stroke: "#000", strokeOpacity: 0.65, strokeWidth: 2.2, paintOrder: "stroke" as const, strokeLinejoin: "round" as const };
 // main headings and their time are light blue, so they never read as one of the smaller headings
 const H1_TEXT = { ...TEXT, fill: "#bfdbfe" };
+// on the pale half of the scale the text turns dark (with a light outline), so it stays readable on every green
+const TEXT_DARK = { ...TEXT, fill: "#052e16", stroke: "#fff", strokeOpacity: 0.6 };
+const H1_TEXT_DARK = { ...TEXT_DARK, fill: "#1e3a8a" };
+const PALE_BELOW = 0.5;
 
-// the heat ramp: a pale green for a little time down to a deep, dark green for the most time (of this visit's sections)
-const LOW = [112, 184, 128];
-const HIGH = [0, 32, 10];
+// the heat ramp, three stops so the greens differ a lot: a light mint for the least time, a vivid green through the
+// middle, a near-black forest green for the most (of this visit's sections)
+const RAMP: [number, number, number][] = [
+  [178, 232, 188],
+  [52, 178, 84],
+  [0, 20, 6],
+];
 export function heatColor(share: number): string {
-  const t = Math.pow(Math.min(1, Math.max(0, share)), 0.75);
-  const c = LOW.map((l, i) => Math.round(l + (HIGH[i] - l) * t));
+  const t = Math.min(1, Math.max(0, share));
+  const seg = t < 0.5 ? 0 : 1;
+  const k = (t - seg * 0.5) / 0.5;
+  const a = RAMP[seg];
+  const b = RAMP[seg + 1];
+  const c = a.map((v, i) => Math.round(v + (b[i] - v) * k));
   return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+/**
+ * The scale of the heat map: the least and the most time any main section got, across EVERY page of the visit shown
+ * (not per page), so the same color means the same amount of time on every page of the visit.
+ */
+export interface HeatRange {
+  min: number;
+  max: number;
+}
+
+/** Where a time falls on the visit's scale: 0 = the least any section got, 1 = the most. */
+export function heatShare(ms: number, range: HeatRange | undefined, fallbackMax: number): number {
+  const min = range?.min ?? 0;
+  const max = range?.max ?? fallbackMax;
+  if (ms <= 0 || max <= 0) return 0;
+  if (max <= min) return 1;
+  return Math.min(1, Math.max(0, (ms - min) / (max - min)));
+}
+
+/** The range for a list of timeline items (visits only): over their main sections that got time. */
+export function heatRangeOf(items: readonly { kind: string; sections?: SectionTime[] | null }[]): HeatRange | undefined {
+  let min = Infinity;
+  let max = 0;
+  for (const it of items) {
+    if (it.kind !== "visit") continue;
+    for (const s of it.sections ?? []) {
+      if (s.isTop || s.ms <= 0 || typeof s.y0 !== "number") continue;
+      min = Math.min(min, s.ms);
+      max = Math.max(max, s.ms);
+    }
+  }
+  return max > 0 ? { min, max } : undefined;
 }
 
 /** Sections that can be drawn (they know their place on the page). */
@@ -57,7 +102,7 @@ export function placedSections(visit: Pick<VisitGeometry, "sections">): SectionT
   return (visit.sections ?? []).filter((s) => typeof s.y0 === "number" && typeof s.y1 === "number" && (s.y1 as number) > (s.y0 as number));
 }
 
-export function SectionBands({ visit, width, height, view }: { visit: VisitGeometry; width: number; height: number; theme: FramePlateTheme; view?: PlateView }) {
+export function SectionBands({ visit, width, height, view, heatRange }: { visit: VisitGeometry; width: number; height: number; theme: FramePlateTheme; view?: PlateView; heatRange?: HeatRange }) {
   const uid = React.useId().replace(/[:]/g, "");
   const sections = placedSections(visit);
   const withSubs = view !== "sections-main";
@@ -72,7 +117,7 @@ export function SectionBands({ visit, width, height, view }: { visit: VisitGeome
         const cols = Math.max(1, s.cols ?? 1);
         const colW = (full - COL_GAP * (cols - 1)) / cols;
         const bx = x0 + (s.col ?? 0) * (colW + COL_GAP);
-        const share = maxMs > 0 ? s.ms / maxMs : 0;
+        const share = heatShare(s.ms, heatRange, maxMs);
         const subs = withSubs && cols === 1 ? s.subs.filter((x) => typeof x.y0 === "number" && typeof x.y1 === "number" && (x.y1 as number) > (x.y0 as number)) : [];
         // With its sub-headings drawn, the section's own band (the part between its heading and the first sub-heading,
         // and around the mini-plates) is coloured by its OWN time: the total minus what the sub-headings got. Without
@@ -105,11 +150,11 @@ export function SectionBands({ visit, width, height, view }: { visit: VisitGeome
                     </mask>
                   </defs>
                 )}
-                <text x={bx + 4} y={y + FONT + 2} fontSize={FONT} fontWeight={700} {...H1_TEXT} mask={overflows ? `url(#${fadeId})` : undefined}>
+                <text x={bx + 4} y={y + FONT + 2} fontSize={FONT} fontWeight={700} {...(ownMs > 0 && bandShare < PALE_BELOW ? H1_TEXT_DARK : H1_TEXT)} mask={overflows ? `url(#${fadeId})` : undefined}>
                   {name}
                 </text>
                 {time && (
-                  <text x={twoLines ? bx + 4 : bx + colW - 4} y={twoLines ? y + FONT * 2 + 3 : y + FONT + 2} fontSize={FONT} textAnchor={twoLines ? "start" : "end"} {...H1_TEXT}>
+                  <text x={twoLines ? bx + 4 : bx + colW - 4} y={twoLines ? y + FONT * 2 + 3 : y + FONT + 2} fontSize={FONT} textAnchor={twoLines ? "start" : "end"} {...(ownMs > 0 && bandShare < PALE_BELOW ? H1_TEXT_DARK : H1_TEXT)}>
                     {time}
                   </text>
                 )}
@@ -127,7 +172,7 @@ export function SectionBands({ visit, width, height, view }: { visit: VisitGeome
                 <g key={j}>
                   <rect x={bx + 3} y={top + 0.75} width={colW - 6} height={sh} rx={1.5} fill={x.ms > 0 ? heatColor(subShare) : "none"} stroke="#fff" strokeOpacity={x.ms > 0 ? 0.55 : 0.18} strokeWidth={0.6} strokeDasharray={x.ms > 0 ? undefined : "2 2"} />
                   {sh >= 10 && (
-                    <text x={bx + 7} y={top + 0.75 + 8.5} fontSize={8} {...TEXT} opacity={x.ms > 0 ? 1 : 0.5}>
+                    <text x={bx + 7} y={top + 0.75 + 8.5} fontSize={8} {...(x.ms > 0 && subShare < PALE_BELOW ? TEXT_DARK : TEXT)} opacity={x.ms > 0 ? 1 : 0.5}>
                       {clip((x.text ?? "") + (x.ms > 0 ? " · " + sectionDuration(x.ms) : ""), colW - 14, 8)}
                     </text>
                   )}
@@ -144,7 +189,7 @@ export function SectionBands({ visit, width, height, view }: { visit: VisitGeome
 /** The hover card's lines: every section that got time (with its smaller headings unless they are hidden). */
 export function SectionTooltipBody({ visit, withSubs = true }: { visit: Pick<VisitGeometry, "sections">; withSubs?: boolean }) {
   const list = (visit.sections ?? []).filter((s) => s.ms > 0).sort((a, b) => b.ms - a.ms).slice(0, 8);
-  if (!list.length) return <div style={{ opacity: 0.7 }}>no time recorded on any section</div>;
+  if (!list.length) return <div style={{ opacity: 0.7 }}>no time per section was recorded for this page</div>;
   return (
     <div style={{ marginTop: 2 }}>
       {list.map((s, i) => (

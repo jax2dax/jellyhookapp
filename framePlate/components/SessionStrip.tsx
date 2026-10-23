@@ -15,6 +15,7 @@
 
 import * as React from "react";
 import { Frame } from "./Frame";
+import { heatRangeOf } from "./SectionBands";
 import { scaleFrameWidths, frameWidthConfigFromTheme } from "../geometry/scaleFrameWidths";
 import { scalePlateHeights } from "../geometry/scalePlateHeight";
 import type { FramePlateTheme, PlateView, TimelineItem } from "../types";
@@ -60,6 +61,9 @@ export function SessionStrip({ timeline, theme, view, hoverDelayMs = 150, onHove
     setPrevTimeline(timeline);
     setSelectedId(null);
   }
+
+  // the heat map's scale: the least and most time of any section across every page of this visit
+  const heatRange = React.useMemo(() => heatRangeOf(timeline), [timeline]);
 
   const layout = React.useMemo(() => {
     try {
@@ -176,6 +180,7 @@ export function SessionStrip({ timeline, theme, view, hoverDelayMs = 150, onHove
               plateHeight={layout.plateHeightByIndex[i]}
               theme={layout.themeForFrames}
               view={view}
+              heatRange={heatRange}
               darken={activeHoverId === item.id}
               selected={selectedId === item.id}
               onHover={handleHover}

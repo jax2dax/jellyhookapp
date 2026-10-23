@@ -13,7 +13,7 @@ export default async function MarksPage() {
       <h1 className="flex items-center gap-2 text-lg font-semibold">
         Marks
         <InfoTip>
-          A mark puts a coloured badge on every lead that did what it describes. Add marks from the library: &quot;Add to marks&quot; gives you a copy to edit; &quot;Use mark&quot; connects it, so improvements to it reach you too (you only set its pages). Marks arrive off: turn them on and apply them on the Leads page.
+          A mark puts a coloured badge on every lead that did what it describes. Add marks from the library: &quot;Add to marks&quot; gives you your own copy, which you can change. Marks arrive off: turn them on and apply them on the Leads page.
         </InfoTip>
       </h1>
       <MarksLibrary state={state} />

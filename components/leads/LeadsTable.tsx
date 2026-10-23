@@ -58,7 +58,20 @@ export interface TableMarks {
   applied: string[];
 }
 
-export function LeadsTable({ leads, siteId, marks }: { leads: LeadRow[]; siteId: string; marks?: TableMarks }) {
+export function LeadsTable({
+  leads,
+  siteId,
+  marks,
+  selected,
+  onToggle,
+}: {
+  leads: LeadRow[];
+  siteId: string;
+  marks?: TableMarks;
+  /** selected leads (groups: Add to group, New group from selection). No checkboxes when onToggle is missing. */
+  selected?: Set<string>;
+  onToggle?: (ids: string[], on: boolean) => void;
+}) {
   const router = useRouter();
   const [url, setUrl] = useUrlState({ q: "", date: "all", from: "", to: "", qualify: "all" });
   const [text, setText] = useDebouncedUrlText(url.q, (q) => setUrl({ q }));
@@ -188,6 +201,20 @@ export function LeadsTable({ leads, siteId, marks }: { leads: LeadRow[]; siteId:
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur supports-backdrop-filter:bg-muted/60">
                 <TableRow className="hover:bg-transparent">
+                  {onToggle && (
+                    <TableHead className="h-9 w-0 pl-4 pr-0">
+                      <input
+                        type="checkbox"
+                        aria-label="Select every lead shown"
+                        className="size-3.5 cursor-pointer accent-(--primary) align-middle"
+                        checked={ordered.length > 0 && ordered.every((l) => selected?.has(l.id))}
+                        ref={(el) => {
+                          if (el) el.indeterminate = ordered.some((l) => selected?.has(l.id)) && !ordered.every((l) => selected?.has(l.id));
+                        }}
+                        onChange={(e) => onToggle(ordered.map((l) => l.id), e.target.checked)}
+                      />
+                    </TableHead>
+                  )}
                   <TableHead className="h-9 pl-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Lead</TableHead>
                   {marks && <TableHead className="h-9 w-0 whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Marks</TableHead>}
                   <TableHead className="h-9 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Sent from</TableHead>
@@ -215,6 +242,17 @@ export function LeadsTable({ leads, siteId, marks }: { leads: LeadRow[]; siteId:
                         }
                       }}
                     >
+                      {onToggle && (
+                        <TableCell className="w-0 py-2.5 pl-4 pr-0">
+                          <input
+                            type="checkbox"
+                            aria-label={"Select " + (lead.name || lead.email || "this lead")}
+                            className="size-3.5 cursor-pointer accent-(--primary) align-middle"
+                            checked={!!selected?.has(lead.id)}
+                            onChange={(e) => onToggle([lead.id], e.target.checked)}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="py-2.5 pl-4">
                         <div className="flex min-w-0 items-center gap-3">
                           <InitialsAvatar label={lead.name || lead.email} size="sm" className="size-8 shrink-0 text-[11px]" />

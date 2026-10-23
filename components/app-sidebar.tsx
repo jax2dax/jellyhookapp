@@ -5,12 +5,13 @@ import * as React from "react"
 import Image from "next/image"
 import {
   LayoutDashboard, Users, Flame, UserCheck,
-  Route, Globe, Settings, CreditCard,Network, FishingHook, PanelLeftClose, PanelLeftOpen, Bookmark } from "lucide-react"
+  Route, Globe, Settings, CreditCard,Network, FishingHook, PanelLeftClose, PanelLeftOpen, Bookmark, Bell } from "lucide-react"
 import { SiteSwitcher } from "@/components/siteSwitcher"
 
 import { NavMain } from "@/components/nav-main"
 import { SupportFeedbackButton } from "@/components/feedback/SupportFeedbackButton"
 import { NavUser } from "@/components/nav-user"
+import { UnreadBadge } from "@/components/notifications/UnreadBadge"
 import { useUser } from "@clerk/nextjs"
 import {
   Sidebar, SidebarContent, SidebarFooter,
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { title: "Marks",             url: "/platform/marks",         icon: Bookmark,        plan: "free"   },
   { title: "Conversion Paths",  url: "/platform/conversions",   icon: Route,         plan: "free"   },
   { title: "Hook",              url: "/platform/hook",          icon: FishingHook,     plan: "free"   },
+  { title: "Notifications",     url: "/platform/notifications", icon: Bell,            plan: "free"   },
   // { title: "Acquisition",       url: "/platform/acquisition",   icon: Globe,           plan: "free"   },
   { title: "Settings",          url: "/platform/settings",      icon: Settings,        plan: "free"  },
   // { title: "Subscription", url: "/platform/subscription", icon: CreditCard, plan: "free" }, // hidden for now
@@ -107,6 +109,7 @@ export function AppSidebar({ userPlan = "free", siteDomain, sites, currentSiteId
       title: locked ? `${item.title} 🔒` : item.title,
       url: locked ? "/platform/subscription" : item.url,
       icon: <Icon />,
+      badge: item.url === "/platform/notifications" ? <UnreadBadge /> : undefined,
       isActive: false,
     }
   })

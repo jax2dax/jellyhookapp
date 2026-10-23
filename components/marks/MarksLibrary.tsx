@@ -255,15 +255,8 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
                             >
                               {busy === c.key + "copy" ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />} Add to marks
                             </button>
-                            <button
-                              type="button"
-                              disabled={full || !!busy}
-                              onClick={() => take(c, "use")}
-                              title="Connect it: when this mark is improved, yours is too. You only set its pages."
-                              className="flex h-6 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap rounded-md border px-2 text-[11px] hover:bg-muted disabled:opacity-40"
-                            >
-                              {busy === c.key + "use" ? <Loader2 className="size-3 animate-spin" /> : <Plug className="size-3" />} Use mark
-                            </button>
+                            {/* "Use mark" (connecting to the publisher's mark) is switched off (founder, 2026-10-22): a connected
+                                mark is controlled by whoever made it. Only copies, which are yours to control. */}
                           </>
                         )}
                       </div>

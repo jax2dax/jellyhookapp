@@ -120,3 +120,10 @@ To revert a change, put the "before" text back.
   - After: first paragraph says what it is, who it is for and what you see per lead; a "What it is, and what it is not" section with a link to /demo; a "Where to go next" table routing 8 intents to pages; "Two words to know first" (lead vs visitor, Leads vs Conversions).
 - Meta description of /docs updated to match.
 - Checks: npx tsc --noEmit clean, npm run docs:check in sync.
+
+
+## 2026-10-22 founder-requested build: notifications and lead groups docs (not an agent edit)
+- New: app/docs/reference/notifications/page.tsx, app/docs/reference/groups/page.tsx (feature reference, docs-standard sections).
+- app/docs/docsNav.ts: added "Lead groups" and "Notifications" after "Lead profile page".
+- No landing page claims added. The features are not in the claims ledger yet; do not market them until they are.
+- Revert: delete the two folders and the two nav lines.

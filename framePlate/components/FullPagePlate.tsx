@@ -11,7 +11,7 @@
 
 import * as React from "react";
 import { Bulb } from "./Bulb";
-import { SectionBands, isSectionView, placedSections } from "./SectionBands";
+import { SectionBands, isSectionView, placedSections, type HeatRange } from "./SectionBands";
 import type { FramePlateTheme, PlateView, VisitGeometry } from "../types";
 
 interface FormMiniPlateGeometry {
@@ -102,6 +102,8 @@ function FormMiniPlate({ visit, width, height, theme }: { visit: VisitGeometry; 
 export interface FullPagePlateProps {
   /** "sections": draw the page's sections tinted by time instead of the seen bands (only for a visit that has them) */
   view?: PlateView;
+  /** the heat map's scale across the whole visit (see SectionBands) */
+  heatRange?: HeatRange;
   visit: VisitGeometry;
   width: number;
   height: number;
@@ -208,7 +210,10 @@ export function FullPagePlate(props: FullPagePlateProps) {
   // old single-point bulb is now only ever a fallback for a conversion
   // recorded before form_engagement position tracking existed at all.
   const hasFormSpan = formTopFrac != null && formBottomFrac != null;
-  const bySection = isSectionView(props.view) && placedSections(visit).length > 0;
+  // in a section view EVERY plate is drawn that way: a page with no section times is left plain (never the green seen
+  // bands among heat-map plates), with a short note
+  const sectionMode = isSectionView(props.view);
+  const bySection = sectionMode && placedSections(visit).length > 0;
 
   return (
     <g>
@@ -230,12 +235,12 @@ export function FullPagePlate(props: FullPagePlateProps) {
       />
 
       <g clipPath={`url(#fpp-clip-${clipId})`}>
-        {bySection && <SectionBands visit={visit} width={width} height={height} theme={theme} view={props.view} />}
-        {!bySection && geometry.seenOnceH > 0 && <rect x={0} y={geometry.seenOnceY} width={width} height={geometry.seenOnceH} fill={theme.seenOnce.color} />}
-        {!bySection && geometry.hasSeenTwice && geometry.seenTwiceH > 0 && <rect x={0} y={geometry.seenTwiceY} width={width} height={geometry.seenTwiceH} fill={theme.seenTwice.color} />}
+        {bySection && <SectionBands visit={visit} width={width} height={height} theme={theme} view={props.view} heatRange={props.heatRange} />}
+        {!sectionMode && geometry.seenOnceH > 0 && <rect x={0} y={geometry.seenOnceY} width={width} height={geometry.seenOnceH} fill={theme.seenOnce.color} />}
+        {!sectionMode && geometry.hasSeenTwice && geometry.seenTwiceH > 0 && <rect x={0} y={geometry.seenTwiceY} width={width} height={geometry.seenTwiceH} fill={theme.seenTwice.color} />}
 
         {/* header marks — a tiny horizontal zigzag standing in for a line of heading text, drawn ON the plate itself */}
-        {!bySection && headers?.map((h, i) => (
+        {!sectionMode && headers?.map((h, i) => (
           <polyline
             key={i}
             points={zigzagPoints(theme.header.widthPx, theme.header.heightPx / 2, theme.header.segments)}
@@ -253,9 +258,14 @@ export function FullPagePlate(props: FullPagePlateProps) {
 
         {/* form mini-plate — inset, narrower than the plate, so seen/seen-twice
             stay visible either side of it; see FormMiniPlate's doc comment. */}
-        {hasFormSpan && !bySection && <FormMiniPlate visit={visit} width={width} height={height} theme={theme} />}
+        {sectionMode && !bySection && (
+          <text x={width / 2} y={Math.min(height / 2, 26)} textAnchor="middle" fontSize={9} fill="currentColor" opacity={0.45} style={{ color: theme.header.color }}>
+            no section times
+          </text>
+        )}
+        {hasFormSpan && !sectionMode && <FormMiniPlate visit={visit} width={width} height={height} theme={theme} />}
         {/* by section the labels need the room: the form is a slim strip on the right edge instead of an inset box */}
-        {hasFormSpan && bySection && (
+        {hasFormSpan && sectionMode && (
           <rect x={width - 4} y={Math.min(formTopFrac, formBottomFrac) * height} width={4} height={Math.max(3, Math.abs(formBottomFrac - formTopFrac) * height)} fill={visit.formStatus === "submitted" ? theme.formMiniPlate.submittedColor : theme.formMiniPlate.color}>
             <title>the form</title>
           </rect>

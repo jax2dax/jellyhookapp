@@ -18,7 +18,8 @@
 import { NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { resolvePendingCountries } from "@/lib/resolvePendingCountries";
-import { evaluateLeads, leadsOfSession } from "@/lib/marks/evaluate";
+import { leadsOfSession } from "@/lib/marks/evaluate";
+import { checkNewLeads } from "@/lib/notifications/check";
 import { sweepIfDue } from "@/lib/tracking/sweep";
 import { hashIp, hashUa, countryNameFromCode } from "@/lib/tracking/ip";
 import { cleanHeadingTime } from "@/lib/tracking/headingTime";
@@ -275,7 +276,8 @@ export async function POST(req) {
         // The visit is over, so its pages' time and scroll are final: re-check the marks of the leads sent in it
         // (lib/marks/evaluate.ts). After the response; a visit with no lead costs one small read.
         const endedSession = sessionId;
-        after(async () => evaluateLeads(site.id, await leadsOfSession(site.id, endedSession)));
+        // Then the notification rules: a lead whose marks only became true now still notifies (once per rule and lead).
+        after(async () => checkNewLeads(site.id, await leadsOfSession(site.id, endedSession)));
         continue;
       }
 

@@ -331,6 +331,51 @@ export async function addFromLibrary(key: string, mode: "copy" | "use", vars: Re
   }
 }
 
+/**
+ * Copies a mark a teammate shared into the person's own marks (a copy, never a connection: later changes to the
+ * teammate's mark do not reach it). The copy is switched ON and checked against the leads at once, so it can be used
+ * in a notification rule straight away.
+ */
+export async function copySharedMark(id: string): Promise<SaveMarkResult> {
+  try {
+    const { userId, siteId } = await who();
+    const supabase = createSupabaseClient();
+    const src = await markRow(supabase, siteId, id); // only a mark the person can see comes back
+    if (!src) return { ok: false, error: "That mark is not there anymore." };
+    if (src.created_by === userId) return { ok: false, error: "This mark is already yours." };
+    if (src.locked || src.source === "connected") return { ok: false, error: "This mark cannot be copied." };
+    const limitError = await overLimit(supabase, siteId, userId, "copy");
+    if (limitError) return { ok: false, error: limitError };
+    const email = (await currentUser())?.primaryEmailAddress?.emailAddress ?? null;
+    const row: Row = {
+      site_id: siteId, kind: "lead", name: String(src.name).slice(0, 40), description: src.description ?? null, color: src.color, active: true,
+      visibility: "private", shared_with: [], rule: src.rule ?? null, spec: src.spec, reads: src.reads ?? null, template_key: src.template_key ?? null,
+      created_by: userId, created_by_email: email, source: "copy", updated_at: new Date().toISOString(),
+    };
+    let ins = await supabase.from("marks").insert(row).select(COLS_LIB).single();
+    if (ins.error && libMissing(ins.error.message)) {
+      delete row.source;
+      ins = await supabase.from("marks").insert(row).select(COLS).single();
+    }
+    if (ins.error) {
+      if (/mark_limit/.test(ins.error.message)) return { ok: false, error: `Your library is full (${TOTAL_LIMIT} marks). Remove one to add another.` };
+      throw new Error(ins.error.message);
+    }
+    const saved = ins.data as unknown as Row;
+    try {
+      saved.match_count = await evaluateMark(siteId, toRun(saved));
+      saved.evaluated_at = new Date().toISOString();
+    } catch (e) {
+      console.error("[marks] copy check failed", { site: siteId.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
+    }
+    return { ok: true, mark: toView(saved, userId) };
+  } catch (e) {
+    if (e instanceof RuleError) return { ok: false, error: e.message };
+    console.error("[marks] copy failed", e instanceof Error ? e.message : e);
+    return { ok: false, error: "The mark could not be copied. Try again." };
+  }
+}
+
 /** Values: known keys only. A page is cleaned to an address; a number must be a whole number in a sane range; an
  *  empty number is left out (the mark then uses its own default). */
 function cleanVarValues(defs: MarkVar[], values: Record<string, string>): Record<string, string> {

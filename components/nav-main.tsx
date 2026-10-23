@@ -56,6 +56,8 @@ export function NavMain({
     title: string
     url: string
     icon: React.ReactNode
+    /** something shown at the end of the row (the unread count on Notifications) */
+    badge?: React.ReactNode
     isActive?: boolean
     items?: {
       title: string
@@ -100,6 +102,7 @@ export function NavMain({
                   <Link href={item.url}>
                     {item.icon}
                     <span>{item.title}</span>
+                    {item.badge}
                   </Link>
                 </SidebarMenuButton>
                 {item.items?.length ? (

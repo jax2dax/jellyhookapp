@@ -17,10 +17,48 @@ import { Card, CardContent } from "@/components/ui/card";
 import { leadMarksFor, type LeadMark, type MarksState, type MarkView } from "@/lib/actions/marks.action";
 import { cacheKey, readCache, writeCache } from "@/lib/client/cache";
 import { LeadsTable, type LeadRow, type TableMarks } from "./LeadsTable";
+import { GroupDialog, GroupTabs, SelectionBar, useGroups } from "./LeadGroups";
+import type { GroupsState, GroupView } from "@/lib/actions/groups.action";
 
 type Cached = { stamp: string | null; rows: LeadMark[] };
 
-export function LeadsWithMarks({ leads, siteId, marks: initial, preloaded }: { leads: LeadRow[]; siteId: string; marks: MarksState; /** results already known (the demo): never fetched */ preloaded?: Record<string, LeadMark[]> }) {
+export function LeadsWithMarks({
+  leads,
+  siteId,
+  marks: initial,
+  groups: groupsState,
+  preloaded,
+}: {
+  leads: LeadRow[];
+  siteId: string;
+  marks: MarksState;
+  /** lead groups (lib/actions/groups.action.ts); absent or not ready: no tabs, no checkboxes */
+  groups?: GroupsState;
+  /** results already known (the demo): never fetched */ preloaded?: Record<string, LeadMark[]>;
+}) {
+  const groupsReady = !!groupsState && groupsState.ok && groupsState.ready;
+  const g = useGroups(groupsState && groupsState.ok ? groupsState.groups : []);
+  // the open group lives in the address (?group=), written without asking the server to re-render (like ?marks=)
+  const [openGroup, setOpenGroupState] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("group");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (id) setOpenGroupState(id);
+  }, []);
+  const setOpenGroup = useCallback((id: string | null) => {
+    setOpenGroupState(id);
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("group", id);
+    else url.searchParams.delete("group");
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
+  const [dialog, setDialog] = useState<{ group: GroupView | null; leadIds: string[] } | null>(null);
+  const activeGroup = g.groups.find((x) => x.id === openGroup) ?? null;
+  const shownLeads = useMemo(() => {
+    if (!activeGroup) return leads;
+    const inIt = new Set(activeGroup.leadIds);
+    return leads.filter((l) => inIt.has(l.id));
+  }, [leads, activeGroup]);
   const ready = initial.ok && initial.ready;
   const [marks, setMarks] = useState<MarkView[]>(initial.ok ? initial.marks : []);
   const [results, setResults] = useState<Record<string, LeadMark[]>>(preloaded ?? {});
@@ -105,11 +143,65 @@ export function LeadsWithMarks({ leads, siteId, marks: initial, preloaded }: { l
     <div className="flex items-start gap-4">
       <div className="min-w-0 flex-1 space-y-4">
         <h1 className="text-lg font-semibold text-foreground">Leads</h1>
+        {groupsReady && (
+          <GroupTabs
+            groups={g.groups}
+            total={leads.length}
+            active={activeGroup?.id ?? null}
+            onPick={(id) => {
+              setOpenGroup(id);
+              g.setSelected(new Set());
+            }}
+            onNew={() => setDialog({ group: null, leadIds: [] })}
+            onEdit={(grp) => setDialog({ group: grp, leadIds: [] })}
+          />
+        )}
+        {groupsReady && g.selected.size > 0 && (
+          <SelectionBar
+            count={g.selected.size}
+            groups={g.groups}
+            inGroup={activeGroup}
+            busy={g.busy}
+            onAdd={g.add}
+            onNewFromSelection={() => setDialog({ group: null, leadIds: [...g.selected] })}
+            onRemove={() => activeGroup && g.remove(activeGroup.id)}
+            onClear={() => g.setSelected(new Set())}
+          />
+        )}
+        {g.note && <p className={"text-xs " + (g.note.tone === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400")}>{g.note.text}</p>}
         <Card>
           <CardContent className="pt-4">
-            <LeadsTable leads={leads} siteId={siteId} marks={table} />
+            {activeGroup && shownLeads.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">
+                This group is empty. Select leads in <button type="button" className="text-primary hover:underline" onClick={() => setOpenGroup(null)}>All leads</button> and choose Add to group.
+              </div>
+            ) : (
+              <LeadsTable leads={shownLeads} siteId={siteId} marks={table} selected={groupsReady ? g.selected : undefined} onToggle={groupsReady ? g.toggle : undefined} />
+            )}
           </CardContent>
         </Card>
+        {dialog && (
+          <GroupDialog
+            group={dialog.group}
+            leadIds={dialog.leadIds}
+            onClose={() => setDialog(null)}
+            onCreated={(grp) => {
+              g.setGroups((gs) => [...gs, grp]);
+              g.setSelected(new Set());
+              g.setNote({ tone: "ok", text: grp.leadIds.length ? `${grp.name} created with ${grp.leadIds.length} lead${grp.leadIds.length === 1 ? "" : "s"}.` : `${grp.name} created.` });
+              setDialog(null);
+            }}
+            onUpdated={(id, patch) => {
+              g.setGroups((gs) => gs.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+              setDialog(null);
+            }}
+            onDeleted={(id) => {
+              g.setGroups((gs) => gs.filter((x) => x.id !== id));
+              if (openGroup === id) setOpenGroup(null);
+              setDialog(null);
+            }}
+          />
+        )}
       </div>
       <MarksPanel state={state} applied={visibleApplied} onApply={setApplied} onChange={onChange} />
     </div>

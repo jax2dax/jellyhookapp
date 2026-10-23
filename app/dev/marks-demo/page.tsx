@@ -2,6 +2,7 @@
 // DEMO with FAKE data: the leads page with marks (the real components: LeadsWithMarks, MarksPanel, MarkBuilder,
 // MarkBadge). Nothing here reads a database; saving, turning on/off and the AI need a signed-in site and fail here.
 import { Suspense } from "react";
+import type { GroupsState } from "@/lib/actions/groups.action";
 import { LeadsWithMarks } from "@/components/leads/LeadsWithMarks";
 import { compileRule, describeRule, validateRule, type MarkRule } from "@/jh-marks/rule";
 import type { MarksState, MarkView } from "@/lib/actions/marks.action";
@@ -52,12 +53,21 @@ const state: MarksState = {
   pages: ["/", "/pricing", "/demo", "/contact", "/about", "/blog/", "/case-studies"],
 };
 
+const groups: GroupsState = {
+  ok: true, ready: true, limit: 30,
+  groups: [
+    { id: "g1", name: "Deal done", color: "#22c55e", visibility: "team", mine: true, canEdit: true, createdByEmail: "you@example.com", leadIds: ["lead0", "lead4"] },
+    { id: "g2", name: "Call this week", color: "#3b82f6", visibility: "team", mine: false, canEdit: false, createdByEmail: "sara@example.com", leadIds: ["lead2", "lead8", "lead9"] },
+    { id: "g3", name: "My follow-ups", color: "#a855f7", visibility: "private", mine: true, canEdit: true, createdByEmail: "you@example.com", leadIds: [] },
+  ],
+};
+
 export default function MarksDemoPage() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="mb-1 text-xs font-medium uppercase tracking-wide text-amber-600">Demo, fake data</div>
       <Suspense>
-        <LeadsWithMarks leads={leads} siteId="demo" marks={state} preloaded={Object.fromEntries(marks.map((m) => [m.id, state.ok ? state.leadMarks.filter((r) => r.markId === m.id) : []]))} />
+        <LeadsWithMarks leads={leads} siteId="demo" marks={state} groups={groups} preloaded={Object.fromEntries(marks.map((m) => [m.id, state.ok ? state.leadMarks.filter((r) => r.markId === m.id) : []]))} />
       </Suspense>
     </div>
   );
