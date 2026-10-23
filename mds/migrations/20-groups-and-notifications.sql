@@ -216,12 +216,15 @@ drop policy if exists notifications_read on public.notifications;
 create policy notifications_read on public.notifications for update to authenticated
   using (user_id = (auth.jwt() ->> 'sub')) with check (user_id = (auth.jwt() ->> 'sub'));
 
--- the bell updates live: new rows reach the signed-in member through Realtime (still filtered by the policy above)
+-- The bell updates live through Realtime BROADCAST (the server sends an empty "new" ping to the person's channel after
+-- inserting their notifications; lib/notifications/check.ts), NOT through postgres_changes. postgres_changes makes
+-- Realtime decode the database's whole write log non-stop, which starved the small Supabase instance on 2026-10-23
+-- (mds/issues/prod-issues.md). So notifications must NOT be in the realtime publication:
 do $$ begin
-  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications') then
-    alter publication supabase_realtime add table public.notifications;
+  if exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications') then
+    alter publication supabase_realtime drop table public.notifications;
   end if;
-exception when undefined_object then null; -- no realtime publication (local Postgres): the bell polls instead
+exception when undefined_object then null; -- no realtime publication (local Postgres)
 end $$;
 
 -- ── optional: drain the lane every 5 seconds with Supabase Cron ─────────────────────────────────────────────────────

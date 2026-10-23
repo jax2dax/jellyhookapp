@@ -14,10 +14,26 @@ const INTEGRATIONS: { kind: "slack" | "webhook"; name: string; text: string }[] 
   { kind: "webhook", name: "Webhook", text: "Send a signed JSON request to any https endpoint." },
 ];
 
-export function Channels({ channels: initial, canManage }: { channels: ChannelView[]; canManage: boolean }) {
+const SLACK_RESULT: Record<string, { tone: "ok" | "error"; text: string }> = {
+  connected: { tone: "ok", text: "Slack connected. Pick it under Integrations in a rule." },
+  cancelled: { tone: "error", text: "Slack connection cancelled." },
+  expired: { tone: "error", text: "The Slack connection took too long or came from another browser. Try again." },
+  "not-allowed": { tone: "error", text: "Only an owner or admin of the site can connect Slack." },
+  "not-configured": { tone: "error", text: "Slack sign-in is not set up on this server yet. Use a webhook URL instead." },
+  "no-site": { tone: "error", text: "Create or select a site first." },
+  error: { tone: "error", text: "Slack did not complete the connection. Try again." },
+};
+
+export function Channels({ channels: initial, canManage, slackOAuth = false, slackResult = null }: { channels: ChannelView[]; canManage: boolean; slackOAuth?: boolean; slackResult?: string | null }) {
   const [channels, setChannels] = React.useState(initial);
   const [adding, setAdding] = React.useState<"slack" | "webhook" | null>(null);
   const [secret, setSecret] = React.useState<string | null>(null);
+  const result = slackResult ? SLACK_RESULT[slackResult] ?? null : null;
+  // Slack: through Slack's own install screen when the server has a Slack app, else paste a webhook URL
+  const connect = (kind: "slack" | "webhook") => {
+    if (kind === "slack" && slackOAuth) window.location.assign("/api/integrations/slack/start");
+    else setAdding(kind);
+  };
 
   const remove = async (c: ChannelView) => {
     if (!window.confirm(`Disconnect ${c.name}? Rules stop sending there.`)) return;
@@ -27,11 +43,19 @@ export function Channels({ channels: initial, canManage }: { channels: ChannelVi
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
+      {result && <p className={"rounded-md border px-3 py-2 text-sm " + (result.tone === "ok" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400")}>{result.text}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
         {INTEGRATIONS.map((it) => {
           const count = channels.filter((c) => c.kind === it.kind).length;
           return (
-            <div key={it.kind} className="flex items-start gap-3 rounded-xl border bg-card p-4">
+            <div
+              key={it.kind}
+              role={canManage ? "button" : undefined}
+              tabIndex={canManage ? 0 : undefined}
+              onClick={canManage && !adding ? () => connect(it.kind) : undefined}
+              onKeyDown={canManage ? (e) => e.key === "Enter" && !adding && connect(it.kind) : undefined}
+              className={"flex items-start gap-3 rounded-xl border bg-card p-4" + (canManage ? " cursor-pointer transition-colors hover:border-foreground/30" : "")}
+            >
               <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border bg-background">
                 <KindLogo kind={it.kind} className="size-6" />
               </span>
@@ -41,11 +65,21 @@ export function Channels({ channels: initial, canManage }: { channels: ChannelVi
                   {count > 0 && <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">{count} connected</span>}
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">{it.text}</p>
+                {canManage && it.kind === "slack" && slackOAuth && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAdding("slack");
+                    }}
+                    className="mt-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  >
+                    Use a webhook URL instead
+                  </button>
+                )}
               </div>
               {canManage && (
-                <button type="button" disabled={!!adding} onClick={() => setAdding(it.kind)} className="h-8 shrink-0 rounded-md border px-3 text-xs font-medium hover:bg-muted disabled:opacity-40">
-                  {count ? "Add" : "Connect"}
-                </button>
+                <span className="flex h-8 shrink-0 items-center rounded-md border px-3 text-xs font-medium">{count ? "Add" : "Connect"}</span>
               )}
             </div>
           );

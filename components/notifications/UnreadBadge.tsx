@@ -1,8 +1,11 @@
 "use client";
 // components/notifications/UnreadBadge.tsx
-// The unread count next to "Notifications" in the sidebar (the bell). Live: new notifications for this person arrive
-// through Supabase Realtime (the database lets each member see only their own rows), with a slow poll as a fallback
-// and a refresh whenever the inbox marks something read (the "jh:notifications-changed" event).
+// The unread count next to "Notifications" in the sidebar. Live: the server sends an empty "new" ping to this person's
+// Realtime Broadcast channel right after it stores their notifications (lib/notifications/check.ts, pingInboxes); the
+// tab then asks the server for the count. Broadcast costs no database work, unlike postgres_changes, which decodes the
+// whole write log and starved the small Supabase instance (mds/issues/prod-issues.md, 2026-10-23).
+// Backup: a poll once a minute while the tab is visible, a refresh when the tab comes back, and when the inbox marks
+// something read (the "jh:notifications-changed" event).
 import * as React from "react";
 import { useAuth } from "@clerk/nextjs";
 import { unreadCount } from "@/lib/actions/notifications.action";
@@ -20,18 +23,29 @@ export function UnreadBadge() {
 
   React.useEffect(() => {
     let live = true;
-    const refresh = () => unreadCount().then((c) => live && setN(c));
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      unreadCount()
+        .then((c) => live && setN(c))
+        .catch(() => {});
+    };
     refresh();
     const t = setInterval(refresh, 60_000);
     window.addEventListener(NOTIFICATIONS_CHANGED, refresh);
-    let channel: ReturnType<ReturnType<typeof createBrowserSupabaseClient>["channel"]> | null = null;
+    document.addEventListener("visibilitychange", refresh);
+
+    // the channel name matches inboxChannel() in lib/notifications/check.ts
+    let cleanup: (() => void) | null = null;
     if (userId) {
       try {
         const supabase = createBrowserSupabaseClient(() => tokenRef.current());
-        channel = supabase
-          .channel("jh-notifications-" + userId)
-          .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, () => refresh())
+        const channel = supabase
+          .channel("jh-inbox:" + userId)
+          .on("broadcast", { event: "new" }, () => refresh())
           .subscribe();
+        cleanup = () => {
+          supabase.removeChannel(channel);
+        };
       } catch {
         /* the poll still runs */
       }
@@ -40,7 +54,8 @@ export function UnreadBadge() {
       live = false;
       clearInterval(t);
       window.removeEventListener(NOTIFICATIONS_CHANGED, refresh);
-      channel?.unsubscribe();
+      document.removeEventListener("visibilitychange", refresh);
+      cleanup?.();
     };
   }, [userId]);
 

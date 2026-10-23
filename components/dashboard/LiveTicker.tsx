@@ -10,24 +10,15 @@
 // Polling is coordinated across browser tabs via lib/liveTickerCache.js —
 // see that file's header for why a shared localStorage cache exists at all.
 //
-// Polling alone means a brand-new visitor only ever appears on this tab's
-// NEXT scheduled check — up to pollMs away, not "the moment it happened".
-// A Supabase Realtime subscription below pushes new page_views rows the
-// instant Postgres inserts them, over the same websocket connection, so a
-// new visitor shows up essentially immediately instead of waiting out a
-// poll interval. Polling is kept running regardless, as the backstop: if
-// Realtime isn't enabled for this table yet (see the comment on the
-// subscription effect) or a websocket drops, the ticker just continues
-// working exactly as it already did, at the usual polling pace.
+// Polling only (2-15 s, faster when visitors arrive), and only while the tab
+// is visible. No Supabase Realtime: see the polling effect below.
 "use client";
 
 import * as React from "react";
-import { useAuth } from "@clerk/nextjs";
 import { Radio } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getRecentActivity } from "@/lib/actions/supabase.actions";
 import { getCachedActivity, setCachedActivity, liveTickerCacheKey } from "@/lib/liveTickerCache";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 interface ActivityRow {
   id: string;
@@ -41,15 +32,15 @@ const MAX_ROWS = 10;
 // pace; the actual network-request rate for a given site is separately
 // capped at MIN_NETWORK_GAP_MS regardless of how many tabs are open (see
 // lib/liveTickerCache.js).
-const MIN_POLL_MS = 500;
-const MAX_POLL_MS = 4000;
-const BASE_POLL_MS = 1500;
+const MIN_POLL_MS = 2000;
+const MAX_POLL_MS = 15000;
+const BASE_POLL_MS = 3000;
 // No two real getRecentActivity() calls for the same site happen closer
 // together than this, no matter how many tabs have this dashboard open —
 // a tab whose own timer fires before this gap has elapsed since the last
 // fetch (by ANY tab) skips the network call and just re-reads the shared
 // cache instead.
-const MIN_NETWORK_GAP_MS = 500;
+const MIN_NETWORK_GAP_MS = 2000;
 const NEW_ROW_ANIMATION_MS = 900;
 
 // A clock that's null during server render AND during hydration, then the
@@ -83,14 +74,6 @@ export function LiveTicker({ siteId, initialRows }: { siteId: string; initialRow
   const [justAdded, setJustAdded] = React.useState<Set<string>>(new Set());
   // Re-renders every second so each row's "Xs ago" keeps counting up between polls.
   const now = React.useSyncExternalStore(subscribeClock, readClock, readServerClock);
-
-  const { getToken } = useAuth();
-  // Read fresh inside the Realtime client's accessToken callback below,
-  // never a closed-over value from whichever render created the client.
-  const getTokenRef = React.useRef(getToken);
-  React.useEffect(() => {
-    getTokenRef.current = getToken;
-  }, [getToken]);
 
   const rowEls = React.useRef<Map<string, HTMLDivElement>>(new Map());
   const prevRects = React.useRef<Map<string, DOMRect>>(new Map());
@@ -131,69 +114,47 @@ export function LiveTicker({ siteId, initialRows }: { siteId: string; initialRow
     return () => window.removeEventListener("storage", handleStorage);
   }, [siteId, mergeIncoming]);
 
-  // Realtime: push new page_views the instant Postgres inserts them, instead
-  // of waiting for this tab's next poll. Requires the `page_views` table to
-  // be added to the `supabase_realtime` publication (see
-  // mds/database.md — not applied yet as of writing this). Until that's
-  // done, .subscribe() simply never calls back and the ticker runs on
-  // polling alone, exactly as before this was added — never a regression.
+  // Polling, only while this tab is visible (2026-10-23). A hidden tab used to keep calling the server every 0.5-4 s for
+  // hours, and every call is a server action (sign-in check + site lookup + query); coming back to that tab meant a
+  // pile of queued calls and expired sign-in tokens. Supabase Realtime was removed too: watching a table makes the
+  // database decode its whole write log non-stop, which a small Supabase instance cannot afford.
+  const pollRef = React.useRef(pollMs);
   React.useEffect(() => {
-    const supabase = createBrowserSupabaseClient(() => getTokenRef.current());
-    const channel = supabase
-      .channel(`live-ticker-${siteId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "page_views", filter: `site_id=eq.${siteId}` },
-        (payload) => {
-          const row = payload.new as Record<string, unknown>;
-          mergeIncoming([
-            {
-              id: String(row.id),
-              page_path: (row.page_path as string) ?? null,
-              visitor_id: (row.visitor_id as string) ?? null,
-              entered_at: (row.entered_at as string) ?? null,
-            },
-          ]);
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.error("[LiveTicker] realtime subscription failed, continuing on polling alone:", err ?? status);
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [siteId, mergeIncoming]);
-
+    pollRef.current = pollMs;
+  }, [pollMs]);
   React.useEffect(() => {
     let cancelled = false;
-    const timer = setTimeout(async () => {
-      // Another tab may have already fetched more recently than
-      // MIN_NETWORK_GAP_MS ago — reuse that instead of hitting the network
-      // again ourselves. Its result already reached us via the storage
-      // listener above when it was written, so this is just a fallback for
-      // whichever tab happens to be the very first to check.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const visible = () => document.visibilityState === "visible";
+    const tick = async () => {
+      timer = null;
+      if (cancelled || !visible()) return; // resumes on visibilitychange
       const cached = getCachedActivity(siteId);
       if (cached && Date.now() - cached.fetchedAt < MIN_NETWORK_GAP_MS) {
         mergeIncoming(cached.rows);
-        return;
+      } else {
+        try {
+          const fresh: ActivityRow[] = await getRecentActivity(siteId, 15);
+          if (cancelled) return;
+          setCachedActivity(siteId, fresh);
+          mergeIncoming(fresh);
+        } catch (err) {
+          console.error("[LiveTicker] refresh failed:", err);
+        }
       }
-      try {
-        const fresh: ActivityRow[] = await getRecentActivity(siteId, 15);
-        if (cancelled) return;
-        setCachedActivity(siteId, fresh);
-        mergeIncoming(fresh);
-      } catch (err) {
-        console.error("[LiveTicker] refresh failed:", err);
-      }
-    }, pollMs);
+      if (!cancelled && visible()) timer = setTimeout(tick, pollRef.current);
+    };
+    const onVisibility = () => {
+      if (visible() && timer === null) tick();
+    };
+    timer = setTimeout(tick, pollRef.current);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [siteId, pollMs, mergeIncoming]);
+  }, [siteId, mergeIncoming]);
 
   React.useEffect(() => {
     if (justAdded.size === 0) return;

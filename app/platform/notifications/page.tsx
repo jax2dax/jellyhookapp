@@ -7,6 +7,7 @@ import { Channels } from "@/components/notifications/Channels";
 import { navFor, resolveTab } from "@/components/nav/navRegistry";
 import { loadInbox, loadRules } from "@/lib/actions/notifications.action";
 import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
+import { slackOAuthConfigured } from "@/lib/notifications/slackOAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       ) : tab === "rules" ? (
         <Rules state={r.state} />
       ) : r.state.ready ? (
-        <Channels channels={r.state.channels} canManage={r.state.canManageChannels} />
+        <Channels channels={r.state.channels} canManage={r.state.canManageChannels} slackOAuth={slackOAuthConfigured()} slackResult={typeof sp.slack === "string" ? sp.slack : null} />
       ) : (
         <p className="text-sm text-muted-foreground">Notifications are not set up on this database yet (migration 20).</p>
       )}

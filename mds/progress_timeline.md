@@ -1798,3 +1798,21 @@ The tracker now counts how long each part of a page (by its h1/h2/h3) is in fron
 ## 2026-10-22 - Notifications and lead groups
 
 Rules: when a new lead has all of a rule's marks (your own marks, switched on; shared marks are copied first; connected marks are not allowed), the chosen people (all members by default) are told in Jellyhook, and optionally in Slack or a signed webhook. Checked once at form submission through a per-site queue in Postgres (`check_jobs`, a lease per site, `/api/jobs/drain` run by Supabase Cron). Once per visitor per rule per 24 h. Nothing personal leaves Jellyhook (mark names and a members-only link). Limits: 10 rules per person, 500 external messages per site per day. Rules belong to the site, not their maker. Groups: plain boxes of leads on the Leads page (tabs, select rows, Add to group / New group from selection), Teammates or Only me, 30 per site; a rule can also add its leads to a group. "Use mark" (connect) removed from the library. Docs: `/docs/reference/notifications`, `/docs/reference/groups`; dev docs `mds/build/notifications/`. Demo: `/dev/notifications-demo`. **Run 20-groups-and-notifications.sql, set CRON_SECRET, schedule the drain.**
+
+## 2026-10-23 - Speed incident, notifications fixes, issues log
+
+The dashboard became very slow and then failed to load; the Supabase project warned about its Disk IO budget. Cause: Supabase Realtime `postgres_changes` (turned on by migration 20 for `notifications`, and tried by LiveTicker for `page_views`) decodes the whole write log non-stop, plus a `jh_close_stale()` cron every minute, on the smallest compute. Data is only about 5 MB. Full evidence and fixes: `mds/issues/prod-issues.md`.
+- Realtime removed from `UnreadBadge.tsx` and `LiveTicker.tsx` (polling only).
+- LiveTicker polls only while the tab is visible, every 2-15 s (was 0.5-4 s forever, also in hidden tabs): the cause of the freeze when returning to a tab left open for hours.
+- `getUserSite` runs once per request (React `cache`) and only calls Clerk's API on the rare invite/legacy paths (it ran 3-6 times per navigation, each with a Clerk call).
+- A database error no longer shows "No sites yet" or switches to another site; `app/platform/error.tsx` shows "This page could not load ... Try again".
+- Notifications: the end-of-visit mark re-check now also runs the rules (`app/api/track/route.js`), so a mark that becomes true after the form is sent still notifies. Rule editor and Channels tab reworded and redesigned (Lead marks, Notify All/Custom, Subject + message, Slack logo cards, Add action).
+- Load testing: `scripts/bench/load-leads.mjs`; batch timings logged as `[notifications] batch leads= waited= marks= rules=`. The 24 h guard is OFF (`COOLDOWN_ON = false` in `lib/notifications/check.ts`): turn it back on before shipping.
+- CLAUDE.md now lists every .md file and what it contains.
+**Run in Supabase: `alter publication supabase_realtime drop table public.notifications;` (and any other listed table), change the `jh_close_stale` cron to every 5 minutes, `delete from cron.job_run_details;`.**
+
+## 2026-10-23 - Slack OAuth, live bell without database load, free-tier record
+
+- Slack "Connect" now opens Slack's own install screen (OAuth v2, `incoming-webhook` scope only): `app/api/integrations/slack/start` and `/callback`, `lib/notifications/slackOAuth.ts`. The connected channel is stored like a pasted URL, so sending is unchanged. Pasting a URL stays as "Use a webhook URL instead". Setup: `mds/build/notifications/slack-oauth.md`. **Needs SLACK_CLIENT_ID and SLACK_CLIENT_SECRET (a Slack app with an https redirect URL).**
+- The bell stays live, through Realtime Broadcast instead of postgres_changes: after storing notifications the server sends an empty "new" ping to `jh-inbox:<user id>`; the tab then asks for its count. No database work per write. Migration 20 now removes `notifications` from the realtime publication.
+- `mds/issues/free-tier-mode.md`: every service turned down for Supabase free compute, and what to turn back on after upgrading.

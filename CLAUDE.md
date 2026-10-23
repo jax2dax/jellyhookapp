@@ -43,3 +43,65 @@ A feature that changes what a user sees is not done until the docs are updated i
 ## Style
 No em dashes. No hype words ("unlock", "seamless", "powerful", "revolutionary"). Short sentences. Plain words:
 "leads", "form", "visit". Do not call the visit chart "session replay": it is a chart, not a video.
+
+## Every .md file and what it contains
+Keep this list current: add a line when you create a .md file, change it when a file's job changes.
+
+**Root**
+- `CLAUDE.md`: this handbook (rules for agents, where things are, this index).
+- `README.md`: the default Next.js readme (how to run the dev server).
+- `RESUME_INVENTORY.md`: inventory of the whole project (features, files, tech) for a resume/portfolio.
+- `SAAS_PRODUCT_AUDIT.md`: full product, feature and data-flow audit. A source of product facts.
+- `saas-overview.md`: product overview (what it does, pages, data). A source of product facts.
+- `business-validation.md`: long Q&A on whether the market cares and who would buy.
+
+**Agents and skills (`.claude/`)**
+- `agents/copywriter.md`, `docs-writer.md`, `growth-analyst.md`, `marketing-manager.md`, `site-auditor.md`: subagent definitions (role, tools, rules).
+- `skills/document-feature`, `landing-audit`, `weekly-plan`, `write-post` (`SKILL.md` each): repeatable task instructions.
+
+**Issues**
+- `mds/issues/prod-issues.md`: every production bug and incident, its evidence and its fix, plus the open list. Read before debugging slowness or errors.
+- `mds/issues/free-tier-mode.md`: what was turned down to fit Supabase free compute, and what to turn back on after upgrading.
+
+**Product and progress (`mds/`)**
+- `mds/progress_timeline.md`: dated log of everything built and what the founder must run. Update after every change.
+- `mds/product/what-jellyhook-is.md`: full description of the product and how it looks. `what-jellyhook-is-summary.md`: the 1,388-word summary.
+- `mds/features.md`: list of features.
+- `mds/database.md`: database schema (tables, columns, policies).
+- `mds/local_cache_schema.md`: what the app keeps in localStorage/sessionStorage.
+- `mds/todos.md`: the founder's raw to-do notes.
+- `mds/problems.md`, `mds/jh-question.md`: founder notes and open product questions (raw).
+- `mds/personal_problems.md`: founder notes on product assumptions (for example not every form is a lead).
+- `mds/cacls/specAlgs.md`: notes on section-time calculations. `mds/cacls/alghorithm-scoring.md`, `mds/alghorithms.md`, `mds/build/Header-Sectioning.md`: empty.
+
+**Developer references (`mds/documentation/`)**
+- `docs-standard.md`: rules and template for public docs pages. `doc_source_map.md`: which code each docs page depends on. `roadmap.md`: docs roadmap and the excluded features.
+- `attribution.md`: source/attribution names. `sensitive-fields.md`: fields never stored. `url-state.md`: what lives in the address bar.
+- `form-dashboard.md`, `hook-forms.md`: form dashboard and Hook-with-forms references.
+- `ingestion-flow-2026-10-07.md`, `tracker-spec-2026-10-07.md`, `sites-keys-roles-2026-10-07.md`, `usage-and-limits-2026-10-07.md`: ingestion, tracker, site keys/roles and usage limits specs.
+- `dashboard-2026-10-06.md`, `leads-conversions-calendar-2026-10-06.md`: change notes for those screens.
+
+**Reports (`mds/reports/`)**
+- `saas_validation.md`: market validation. `Traffic.md`: traffic and backend capacity. `form-compatibility-2026-10-07.md`: which forms are captured. `tracker-backend-audit-2026-10-07.md`: tracker and backend audit.
+
+**Feature build docs (`mds/build/`)**
+- `notifications/`: notification rules and lead groups. `overview.md` (summary and build status), `requirements.md` (founder's decisions R1-R37), `notifications.md`, `groups.md`, `architecture.md`, `data-flow.md`, `performance.md`, `tech-options.md` (queue choice and cost), `webhooks.md` (exact Slack/webhook formats), `personal-data.md`, `ui-ux.md`, `open-questions.md` (answered decisions, HubSpot note), `slack-oauth.md` (Connect Slack through Slack's screen: flow, setup, planned visit-chart image).
+- `marks/marks.md`: marks on leads, library, site statistics.
+- `heading-time/plan.md`: time per heading (tracker, storage, heat map).
+- `form-study/`: `plan.md`, `averages-and-versions.md` (form dashboard versions and reference), `tracker-changes.md`.
+- `ai-hook-translate/`: Ask Hook (question to Hook query). `README.md` index, `Architecture.md`, `data-flow.md`, `prompt-and-rules.md`, `models-and-cost.md`, `ledger-and-limits.md`, `eval-and-tests.md`, `security-and-privacy.md`, `setup-and-env.md`, `roadmap.md`.
+- `mcp/`: MCP server. `plan.md`, `architecture.md`, `build-log.md`, `resume.md`.
+
+**Subsystem docs**
+- `jh-hook/`: Hook (the query feature). `overview.md`, `plan.md`, `progress.md`, `architecture.md`, `data-flow.md`, `reference.md` (every field), `user-guide.md`, `ui-ux.md`, `naming.md`, `docs-brief.md`, `documentation.md` (index).
+- `output/`: results canvas. `overview.md`, `plan.md`, `rules.md`, `architecture.md`, `data-flow.md`, `docs-brief.md`.
+- `silhouette/`: the preview silhouette. `overview.md`, `plan.md`, `rules.md`, `architecture.md`, `data-flow.md`, `docs-brief.md`.
+- `main-chart/`: pages/sessions online chart. `overview.md`, `docs/architecture.md`, `docs/data-flow.md`, `docs/ui-ux.md`.
+- `framePlate/`: visit chart notes. `ui-ux.md` (highlighting visits), `control.md`, `data-flow.md`, `markers.md` (tracker bugs); `architecture.md`, `progress-plan.md` empty.
+- `report/`: `numbers.md` (numbers ledger), `interview-cheatsheet.md`.
+
+**Marketing (`marketing/`)**
+- `strategy.md` (the plan to follow), `claims-ledger.md` (allowed claims), `banned-claims.md`, `changes.md` (every landing/docs edit, before/after), `docs-audit.md`, `experiments.md`, `learnings.md`, `metrics.md`, `calendar/2026-W41.md` (week plan).
+- `landing/`: landing page research. `synthesis.md`, `agent-a-marketing.md`, `agent-b-design.md`, `draft-v1.md`, `final.md`, `page-v1-text.md`, `alternatives.md`, `pain-points.md`, `personas.md` (14 persona cards), `phase3-results.md`, `variants.md` (variant log).
+- `landing/persona-results/P01.md` to `P14.md`: each persona's reaction to page v1.
+- `landing/variants/V1-V4.md`, `R2A-R2C.md`, `R3A-R3C.md`: landing page variant texts. `variants/round1/`, `round2/`, `round3/` (`D.md`, `P01`, `P04`, `P06`, `P07`, `P10`, `P11`): persona and outsider reviews per round.

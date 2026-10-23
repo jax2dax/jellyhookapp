@@ -21,6 +21,8 @@ const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVI
 const BATCH = 50;
 const LEASE_SECONDS = 60;
 const COOLDOWN_MS = 24 * 3600_000;
+// TEMPORARY (load test, 2026-10-23): the once-per-24h-per-visitor guard is off. Set back to true before shipping.
+const COOLDOWN_ON = false;
 const DAILY_EXTERNAL_CAP = 500;
 const MAX_ATTEMPTS = 5;
 const RETRY_MS = [10_000, 60_000, 5 * 60_000, 30 * 60_000];
@@ -59,13 +61,19 @@ export async function runSiteLane(siteId: string, budgetMs: number): Promise<boo
   const deliveries: string[] = [];
   try {
     while (Date.now() - started < budgetMs) {
-      const { data: jobs, error } = await admin.from("check_jobs").select("lead_id, attempts").eq("site_id", siteId).lte("run_after", new Date().toISOString()).order("created_at").limit(BATCH);
+      const { data: jobs, error } = await admin.from("check_jobs").select("lead_id, attempts, created_at").eq("site_id", siteId).lte("run_after", new Date().toISOString()).order("created_at").limit(BATCH);
       if (error || !jobs?.length) break;
       const ids = jobs.map((j) => j.lead_id as string);
       try {
+        const t0 = Date.now();
+        const waited = Math.max(...jobs.map((j) => t0 - Date.parse(j.created_at as string)));
         await evaluateLeads(siteId, ids);
+        const t1 = Date.now();
         deliveries.push(...(await fireRules(siteId, ids)));
+        const t2 = Date.now();
         await admin.from("check_jobs").delete().in("lead_id", ids);
+        // timing, for finding what is slow: queue wait (oldest lead), marks, rules + notifications, cleanup
+        console.log(`[notifications] batch leads=${ids.length} waited=${waited}ms marks=${t1 - t0}ms rules=${t2 - t1}ms cleanup=${Date.now() - t2}ms`);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         log("check failed", { site: siteId.slice(0, 8), leads: ids.length, error: msg });
@@ -129,7 +137,7 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
   // the cooldown: which of these visitors fired which rule in the last 24 hours
   const visitors = [...new Set(leads.map((l) => l.visitorId).filter((v): v is string => !!v))];
   const recent = new Set<string>();
-  if (visitors.length) {
+  if (COOLDOWN_ON && visitors.length) {
     const { data } = await admin
       .from("notification_events")
       .select("rule_id, visitor_id")
@@ -168,6 +176,7 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
   if (inApp.length) {
     const { error } = await admin.from("notifications").insert(inApp);
     if (error) throw new Error("notifications: " + error.message);
+    await pingInboxes([...new Set(inApp.map((n) => n.user_id))]);
   }
 
   // outside Jellyhook: at most DAILY_EXTERNAL_CAP messages per site per day
@@ -260,4 +269,27 @@ export async function drain(maxSites = 4): Promise<{ sites: number; sent: number
   await Promise.all(sites.map((s) => runSiteLane(s, 20_000)));
   const sent = await sendDeliveries();
   return { sites: sites.length, sent };
+}
+
+/** The channel a person's bell listens on (components/notifications/UnreadBadge.tsx). */
+export function inboxChannel(userId: string): string {
+  return "jh-inbox:" + userId;
+}
+
+/**
+ * Tells each person's open tabs "you have something new" through Realtime Broadcast (one small REST call each, no
+ * database work). The ping carries nothing: the tab then asks the server for its unread count, which checks who is asking.
+ * Never fails the check: a missed ping only means the bell updates on its next poll (within a minute).
+ */
+async function pingInboxes(userIds: string[]): Promise<void> {
+  await Promise.allSettled(
+    userIds.map(async (u) => {
+      const ch = admin.channel(inboxChannel(u));
+      try {
+        await ch.httpSend("new", {}, { timeout: 3000 });
+      } finally {
+        admin.removeChannel(ch);
+      }
+    }),
+  );
 }
