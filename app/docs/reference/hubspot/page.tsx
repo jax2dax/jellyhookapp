@@ -29,15 +29,30 @@ export default function HubSpotReferencePage() {
         <OL>
           <li>In Jellyhook, open <B>Integrations</B>. Under CRM, click <B>Connect</B> on HubSpot. An owner or admin of the site does this.</li>
           <li>HubSpot asks you to pick an account and approve. Jellyhook asks only to read contacts.</li>
-          <li>Back in Integrations, HubSpot shows <B>Connected</B> with the account number.</li>
-          <li>
-            In HubSpot, open any contact, click <B>Customize</B> (record view), add the <B>Jellyhook</B> card from the card library (App cards) to the
-            middle column, and save. Every contact then shows it.
-          </li>
+          <li>Back in Integrations, HubSpot shows <B>Connected</B> with the account number. This also installs the Jellyhook app in that HubSpot account.</li>
+          <li>Add the card to your contact records. HubSpot never shows a new card by itself: see the next section.</li>
         </OL>
         <Callout title="What Jellyhook reads">
           Only which contact has a lead&apos;s email. Jellyhook never creates, changes or deletes anything in HubSpot. To disconnect, click{" "}
           <B>Disconnect</B> in Integrations; removing the Jellyhook app in HubSpot also ends the connection.
+        </Callout>
+      </Section>
+
+      <Section title="Add the card to your contacts">
+        <P>Do this once, in the HubSpot account you connected. Everyone in the account then sees the card.</P>
+        <OL>
+          <li>In HubSpot, go to <B>CRM → Contacts</B> and open any contact.</li>
+          <li>Click <B>Customize</B> at the top of the middle column, then <B>Default view</B>.</li>
+          <li>Choose the tab you want the card on (for example the Overview tab).</li>
+          <li>Hover where you want the card and click the <B>+</B> button.</li>
+          <li>In the right sidebar open the <B>Card library</B> tab, open the <B>Card types</B> list and choose <B>App</B>.</li>
+          <li>Click <B>Add card</B> under <B>Jellyhook</B>, close the sidebar, then click <B>Save and exit</B> (top right).</li>
+          <li>Reload the contact. The Jellyhook card is there.</li>
+        </OL>
+        <Callout title="If the card is not in the library">
+          The Jellyhook app is not installed in this HubSpot account. In Jellyhook, open Integrations and connect HubSpot again, and pick this account.
+          You can check in HubSpot under Settings → Integrations → Connected apps. Changing the default view needs permission to customize records
+          (usually an admin).
         </Callout>
       </Section>
 
@@ -81,6 +96,7 @@ export default function HubSpotReferencePage() {
 
       <Section title="When it is empty or looks wrong">
         <UL>
+          <li>You do not see the card at all: it was not added to the contact view (see Add the card to your contacts), or the app is not installed in this account.</li>
           <li>&quot;No Jellyhook visits for this email&quot;: nobody sent a form tracked by Jellyhook with that email, or it was sent on a site not connected to this HubSpot account.</li>
           <li>&quot;No email on this contact&quot;: Jellyhook matches by email.</li>
           <li>&quot;Reconnect Jellyhook&quot;: HubSpot stopped accepting the connection (for example, the app was removed in HubSpot). Connect again in Integrations.</li>
