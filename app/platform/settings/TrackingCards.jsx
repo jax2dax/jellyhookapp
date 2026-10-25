@@ -10,6 +10,15 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
+// What a page's "working" time means, per check: the last real event of that kind on that page, not the last event of
+// the site (that is "Last event received" above). A marked form's line moves only when a marked form sends a lead.
+const PROOF = {
+  conversion_form: "last lead from a marked form",
+  iframe_forms: "last embedded-form submission",
+  field_attr: "last field activity",
+  click_attr: "last click",
+};
+
 function ago(iso) {
   if (!iso) return "never";
   const ms = Date.now() - new Date(iso).getTime();
@@ -220,7 +229,7 @@ export function TrackingHealthCard({ status }) {
                             </div>
                           ))}
                         </div>
-                        <div className="text-muted-foreground">{p.state === "working" ? `last event ${ago(p.lastEventAt)}` : p.state === "waiting" ? "found, no event yet" : p.state === "misplaced" ? "misplaced" : p.state === "limited" ? "cannot be tracked" : "not found"}</div>
+                        <div className="text-muted-foreground">{p.state === "working" ? `${PROOF[c.key] ?? "last proof"} ${ago(p.lastEventAt)}` : p.state === "waiting" ? "found, no event yet" : p.state === "misplaced" ? "misplaced" : p.state === "limited" ? "cannot be tracked" : "not found"}</div>
                       </div>
                     ))}
                   </div>
