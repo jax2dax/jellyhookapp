@@ -60,7 +60,7 @@ export default function LeadSessionsDemoPage() {
           Session History <InfoTip>Every visit made from this browser. Pick a visit on the left; click a page in the chart.</InfoTip>
         </h2>
         <Suspense>
-          <LeadSessionExplorer siteId="demo" visitorId="v1" deviceType="desktop" initialSessionRows={sessions} initialPageViewRows={pageViews} initialSubmissionRows={submissions} initialStructureRows={structure} />
+          <LeadSessionExplorer siteId="demo" visitorId="v1" deviceType="desktop" initialSessionRows={sessions} initialPageViewRows={pageViews} initialSubmissionRows={submissions} initialStructureRows={structure} initialFormEngagementRows={[]} readOnly />
         </Suspense>
       </div>
     </div>

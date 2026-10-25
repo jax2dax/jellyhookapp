@@ -1,0 +1,109 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { DocHeader, Section, H3, P, UL, OL, B, Callout, DataTable } from "../../ui";
+
+export const metadata: Metadata = {
+  title: "HubSpot",
+  description: "Open hooked leads straight on their HubSpot contact, and see what each contact did on your site in a Jellyhook card inside HubSpot.",
+  alternates: { canonical: "/docs/reference/hubspot" },
+};
+
+export default function HubSpotReferencePage() {
+  return (
+    <div>
+      <DocHeader
+        eyebrow="Feature reference"
+        title="HubSpot"
+        intro="Your sales team works in HubSpot. With HubSpot connected, a hooked lead in Slack opens on its HubSpot contact record, and every contact shows a Jellyhook card: what that person did on your site before sending the form, and their visit chart."
+      />
+
+      <Section title="When you would use it">
+        <P>
+          A hook posts &quot;Hot lead&quot; in #sales. Your rep clicks <B>Open in HubSpot</B> and lands on the contact they will call. The Jellyhook card
+          on that contact says they came from your spring campaign ad, read pricing for two minutes and came back twice, and <B>Open visit chart</B>{" "}
+          shows the whole visit.
+        </P>
+      </Section>
+
+      <Section title="Connect HubSpot">
+        <OL>
+          <li>In Jellyhook, open <B>Integrations</B>. Under CRM, click <B>Connect</B> on HubSpot. An owner or admin of the site does this.</li>
+          <li>HubSpot asks you to pick an account and approve. Jellyhook asks only to read contacts.</li>
+          <li>Back in Integrations, HubSpot shows <B>Connected</B> with the account number.</li>
+          <li>
+            In HubSpot, open any contact, click <B>Customize</B> (record view), add the <B>Jellyhook</B> card from the card library (App cards) to the
+            middle column, and save. Every contact then shows it.
+          </li>
+        </OL>
+        <Callout title="What Jellyhook reads">
+          Only which contact has a lead&apos;s email. Jellyhook never creates, changes or deletes anything in HubSpot. To disconnect, click{" "}
+          <B>Disconnect</B> in Integrations; removing the Jellyhook app in HubSpot also ends the connection.
+        </Callout>
+      </Section>
+
+      <Section title="Open in HubSpot, from Slack">
+        <UL>
+          <li>
+            With HubSpot connected, a hook&apos;s Slack message has <B>Open in HubSpot</B> instead of Open the lead. Each hook can choose under Slack
+            message, Customize, <B>Open the lead in</B>: HubSpot, Jellyhook, or both buttons.
+          </li>
+          <li>
+            The contact is found when the button is clicked, by the email the lead sent in your form. A HubSpot form creates its contact a few seconds
+            after it is sent, so by the time someone clicks, the contact is there.
+          </li>
+          <li>
+            If HubSpot has no contact with that email, the lead has no email, or HubSpot does not answer within 4 seconds, the button opens the lead
+            in Jellyhook instead.
+          </li>
+          <li>Webhooks also receive the link, as <B>lead.hubspot_url</B>.</li>
+        </UL>
+      </Section>
+
+      <Section title="The Jellyhook card in HubSpot">
+        <P>For the contact&apos;s email, the card lists their Jellyhook leads (newest first, up to 5). For each:</P>
+        <DataTable
+          head={["Part", "What it shows"]}
+          rows={[
+            [<B key="a">Form sent</B>, "When, on which page, and on which of your sites"],
+            [<B key="b">Came from</B>, "The source, campaign and ad the lead is credited to (see Acquisition)"],
+            [<B key="c">Hooks and marks</B>, "The hooks that caught the lead, and its marks that are shared with your whole team. Marks kept private by their owner are never shown."],
+            [<B key="d">Summary</B>, "The visit with the form, in Short, Moderate (the default) or Long, as on the lead page in Jellyhook"],
+            [<B key="e">Open visit chart</B>, "The visit chart from the lead page, in a HubSpot window: every visit, hover a page, click it for its summary"],
+            [<B key="f">Open in Jellyhook</B>, "The lead page in Jellyhook (needs a Jellyhook account)"],
+          ]}
+        />
+        <H3>Who sees it</H3>
+        <P>
+          Anyone who can open the contact in your HubSpot account. Your sales team does not need a Jellyhook account. The card and the chart never
+          show the form&apos;s answers; the contact&apos;s own details are already in HubSpot.
+        </P>
+      </Section>
+
+      <Section title="When it is empty or looks wrong">
+        <UL>
+          <li>&quot;No Jellyhook visits for this email&quot;: nobody sent a form tracked by Jellyhook with that email, or it was sent on a site not connected to this HubSpot account.</li>
+          <li>&quot;No email on this contact&quot;: Jellyhook matches by email.</li>
+          <li>&quot;Reconnect Jellyhook&quot;: HubSpot stopped accepting the connection (for example, the app was removed in HubSpot). Connect again in Integrations.</li>
+          <li>&quot;This chart link has expired&quot;: a chart opened from the card stays readable for 30 minutes. Close it and open it again.</li>
+          <li>Open in HubSpot opened Jellyhook: no contact had that email when it was clicked. Click again once the contact exists.</li>
+        </UL>
+      </Section>
+
+      <Section title="Limits">
+        <UL>
+          <li>One HubSpot account per Jellyhook site. Several sites can connect to the same HubSpot account; the card then shows leads from each.</li>
+          <li>Contacts only, matched by email. No companies or deals yet.</li>
+          <li>Nothing is written to HubSpot: no notes on the timeline, no contact properties.</li>
+        </UL>
+      </Section>
+
+      <Section title="Related">
+        <P>
+          <Link href="/docs/reference/notifications" className="text-[var(--lime)] hover:underline">Hooks and notifications</Link>,{" "}
+          <Link href="/docs/reference/lead-profile" className="text-[var(--lime)] hover:underline">Lead profile page</Link>,{" "}
+          <Link href="/docs/reference/acquisition" className="text-[var(--lime)] hover:underline">Acquisition</Link>.
+        </P>
+      </Section>
+    </div>
+  );
+}

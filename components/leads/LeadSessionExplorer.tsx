@@ -131,6 +131,13 @@ interface LeadSessionExplorerProps {
   initialSubmissionRows: SubmissionRow[];
   /** demo pages only: the page headings, instead of fetching them (the fetch needs a signed-in site) */
   initialStructureRows?: PageStructureRow[];
+  /** the form rows, instead of fetching them (with readOnly) */
+  initialFormEngagementRows?: FormEngagementRow[];
+  /**
+   * Everything was given and nothing is fetched: no refresh, no live polling (the server actions need a signed-in
+   * Jellyhook member). The chart opened from HubSpot (app/embed/visit) uses it.
+   */
+  readOnly?: boolean;
 }
 
 export function LeadSessionExplorer({
@@ -141,6 +148,8 @@ export function LeadSessionExplorer({
   initialPageViewRows,
   initialSubmissionRows,
   initialStructureRows,
+  initialFormEngagementRows,
+  readOnly = false,
 }: LeadSessionExplorerProps) {
   const [rawRows, setRawRows] = React.useState<RawRows>({
     sessions: initialSessionRows || [],
@@ -158,7 +167,7 @@ export function LeadSessionExplorer({
   // Not seeded from a server prop or cache tier. Fetched once when the component mounts, then refreshed together with
   // the sessions (refreshSessions): while a session is live its form appears, gets its field stripes and changes
   // colour as the visitor works on it.
-  const [formEngagementRows, setFormEngagementRows] = React.useState<FormEngagementRow[]>([]);
+  const [formEngagementRows, setFormEngagementRows] = React.useState<FormEngagementRow[]>(initialFormEngagementRows ?? []);
   // The session being looked at lives in the URL (?session=<id>), only when chosen,
   // so a refresh or a shared link opens the same session (lib/urlState.ts).
   const [urlState, setUrlState] = useUrlState({ session: "" });
@@ -306,6 +315,7 @@ export function LeadSessionExplorer({
   // ── Form engagement: first load. Later refreshes ride along with refreshSessions (the live poll and the refresh
   // button) — see the state declaration above. ──
   React.useEffect(() => {
+    if (readOnly) return; // given with the rest
     let cancelled = false;
     getLeadFormEngagementRows(siteId, visitorId)
       .then((rows: FormEngagementRow[]) => {
@@ -315,9 +325,10 @@ export function LeadSessionExplorer({
     return () => {
       cancelled = true;
     };
-  }, [siteId, visitorId]);
+  }, [siteId, visitorId, readOnly]);
 
   const refreshSessions = React.useCallback(async () => {
+    if (readOnly) return;
     setRefreshing(true);
     try {
       // The form's rows are refreshed WITH the sessions. They used to be fetched once per visitor, so a form that came
@@ -342,15 +353,15 @@ export function LeadSessionExplorer({
     } finally {
       setRefreshing(false);
     }
-  }, [siteId, visitorId]);
+  }, [siteId, visitorId, readOnly]);
 
   // ── Bounded auto-refresh: only while the SELECTED session is itself still
   // live, and only while this component is on screen. Not a general poll. ──
   React.useEffect(() => {
-    if (selectedSession?.endedAt !== null) return; // selected session isn't live — no reason to poll
+    if (readOnly || selectedSession?.endedAt !== null) return; // read-only, or the selected session isn't live: no reason to poll
     const interval = setInterval(refreshSessions, SESSIONS_TTL_LIVE_MS);
     return () => clearInterval(interval);
-  }, [selectedSession?.endedAt, refreshSessions]);
+  }, [selectedSession?.endedAt, refreshSessions, readOnly]);
 
   if (sessionsRaw.length === 0) {
     return <div className="py-6 text-center text-sm text-muted-foreground">No sessions recorded yet.</div>;
@@ -402,9 +413,11 @@ export function LeadSessionExplorer({
                   </button>
                 </>
               )}
-              <button type="button" onClick={refreshSessions} disabled={refreshing} className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Refresh" title={lastFetchedAt ? "Refresh (checked " + formatRelativeTime(new Date(lastFetchedAt).toISOString()) + ")" : "Refresh"}>
+              {!readOnly && (
+                <button type="button" onClick={refreshSessions} disabled={refreshing} className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Refresh" title={lastFetchedAt ? "Refresh (checked " + formatRelativeTime(new Date(lastFetchedAt).toISOString()) + ")" : "Refresh"}>
                 <RefreshCw className={"size-3.5 " + (refreshing ? "animate-spin" : "")} />
               </button>
+              )}
               <button type="button" onClick={toggleList} className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={listOpen ? "Fold the visit list" : "Show the visit list"} title={listOpen ? "Fold the list: only the numbers stay" : "Show the visits"}>
                 {listOpen ? <PanelLeftClose className="size-3.5" /> : <PanelLeftOpen className="size-3.5" />}
               </button>

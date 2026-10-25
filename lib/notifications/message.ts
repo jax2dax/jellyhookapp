@@ -12,7 +12,8 @@ export interface DeliveryPayload {
   title: string;
   body: string;
   marks: { id: string; name: string }[];
-  lead: { id: string; url: string; submittedAt: string | null };
+  /** url: the lead in Jellyhook; hubspotUrl: "Open in HubSpot" (resolved at the click, app/go/hubspot) when the site has HubSpot */
+  lead: { id: string; url: string; submittedAt: string | null; hubspotUrl?: string | null };
   /** where the lead came from (credited visit) and, for an ad, its library entry. Never personal data. */
   source?: { line: string; ad: { platform: string; adId: string; title: string; thumbnailUrl: string | null; videoUrl: string | null } | null } | null;
   /** what the Slack message shows (the hook's options); every part when absent */
@@ -64,13 +65,17 @@ export interface MessageOptions {
   pages: string[];
   /** which visits the page summaries read: every visit of the lead up to the form, or only the visit with the form */
   pageScope: PageScope;
+  /** where the lead opens when the site has HubSpot connected: its HubSpot contact, Jellyhook, or a button for each */
+  leadLink: LeadLink;
 }
+
+export type LeadLink = "hubspot" | "jellyhook" | "both";
 
 /** The on/off parts (the hook editor's checkboxes). */
 export type MessageToggle = "source" | "adImage" | "watchButton" | "openButton" | "details";
 export const MAX_SUMMARY_PAGES = 3;
 
-export const DEFAULT_MESSAGE_OPTIONS: MessageOptions = { source: true, adImage: true, watchButton: true, openButton: true, details: true, summary: "moderate", pages: [], pageScope: "all" };
+export const DEFAULT_MESSAGE_OPTIONS: MessageOptions = { source: true, adImage: true, watchButton: true, openButton: true, details: true, summary: "moderate", pages: [], pageScope: "all", leadLink: "hubspot" };
 
 /** Cleans stored or submitted options: anything missing or invalid takes its default. */
 export function messageOptions(raw: unknown): MessageOptions {
@@ -81,7 +86,21 @@ export function messageOptions(raw: unknown): MessageOptions {
     ? [...new Set(o.pages.filter((x): x is string => typeof x === "string").map((x) => x.trim().slice(0, 200)).filter((x) => x.startsWith("/")))].slice(0, MAX_SUMMARY_PAGES)
     : [];
   const pageScope = o.pageScope === "converting" ? "converting" : "all";
-  return { source: pick("source"), adImage: pick("adImage"), watchButton: pick("watchButton"), openButton: pick("openButton"), details: pick("details"), summary, pages, pageScope };
+  const leadLink = o.leadLink === "jellyhook" || o.leadLink === "both" ? o.leadLink : "hubspot";
+  return { source: pick("source"), adImage: pick("adImage"), watchButton: pick("watchButton"), openButton: pick("openButton"), details: pick("details"), summary, pages, pageScope, leadLink };
+}
+
+/**
+ * The lead's buttons: "Open in HubSpot" when the site has HubSpot and the hook wants it, "Open the lead" (Jellyhook)
+ * otherwise, or both. The first one is the primary (green) button.
+ */
+function leadButtons(p: DeliveryPayload, link: LeadLink): Record<string, unknown>[] {
+  const hubspot = httpUrl(p.lead.hubspotUrl);
+  const out: Record<string, unknown>[] = [];
+  if (hubspot && link !== "jellyhook") out.push({ type: "button", text: { type: "plain_text", text: "Open in HubSpot" }, url: hubspot });
+  if (!hubspot || link !== "hubspot") out.push({ type: "button", text: { type: "plain_text", text: hubspot ? "Open in Jellyhook" : "Open the lead" }, url: p.lead.url });
+  if (out[0]) out[0].style = "primary";
+  return out;
 }
 
 /** Slack's mrkdwn treats <, > and & as control characters (links, @channel): text from a site or a link is escaped. */
@@ -120,7 +139,7 @@ export function slackMessage(p: DeliveryPayload) {
   if (p.pages?.length) blocks.push({ type: "section", text: { type: "mrkdwn", text: pagesText(p.pages) } });
   if (show.details) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Hook: ${p.rule.name}${p.site.domain ? " · " + p.site.domain : ""} · <!date^${when}^{date_short} {time}|${new Date(when * 1000).toISOString()}>` }] });
   const buttons: Record<string, unknown>[] = [];
-  if (show.openButton) buttons.push({ type: "button", text: { type: "plain_text", text: "Open the lead" }, url: p.lead.url, style: "primary" });
+  if (show.openButton) buttons.push(...leadButtons(p, show.leadLink));
   if (video) buttons.push({ type: "button", text: { type: "plain_text", text: "Watch the ad" }, url: video });
   if (buttons.length) blocks.push({ type: "actions", elements: buttons });
   return { text: p.title + ": " + p.body + (line ? " (came from " + slackEscape(line) + ")" : ""), blocks };
@@ -138,7 +157,8 @@ export function slackPlainMessage(p: DeliveryPayload) {
     { type: "section", text: { type: "mrkdwn", text: clip(p.body || " ", SECTION_MAX) } },
   ];
   if (line) blocks.push({ type: "section", text: { type: "mrkdwn", text: "*Came from:* " + line } });
-  if (httpUrl(p.lead.url)) blocks.push({ type: "actions", elements: [{ type: "button", text: { type: "plain_text", text: "Open the lead" }, url: p.lead.url, style: "primary" }] });
+  const buttons = leadButtons(p, messageOptions(p.options).leadLink).filter((b) => httpUrl(b.url as string));
+  if (buttons.length) blocks.push({ type: "actions", elements: buttons });
   return { text: p.title + ": " + p.body, blocks };
 }
 
@@ -151,7 +171,7 @@ export function webhookBody(p: DeliveryPayload) {
     rule: p.rule,
     message: { title: p.title, body: p.body },
     marks: p.marks,
-    lead: { id: p.lead.id, url: p.lead.url, submitted_at: p.lead.submittedAt },
+    lead: { id: p.lead.id, url: p.lead.url, submitted_at: p.lead.submittedAt, hubspot_url: p.lead.hubspotUrl ?? null },
     source: p.source
       ? { line: p.source.line, ad: p.source.ad ? { platform: p.source.ad.platform, ad_id: p.source.ad.adId, title: p.source.ad.title, thumbnail_url: p.source.ad.thumbnailUrl, video_url: p.source.ad.videoUrl } : null }
       : null,

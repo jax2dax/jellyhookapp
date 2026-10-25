@@ -1,0 +1,25 @@
+{
+  "uid": "jellyhook_app",
+  "type": "app",
+  "config": {
+    "name": "Jellyhook",
+    "description": "See what each lead did on your website before they filled in your form: the pages they read, the time on each, the headings they spent time on, where they came from and the marks and hooks that caught them. Adds a Jellyhook card to contact records with the visit summary and the visit chart. Jellyhook reads which contact has a lead's email and never writes to HubSpot.",
+    "distribution": "marketplace",
+    "auth": {
+      "type": "oauth",
+      "redirectUrls": ["https://jellyhook.com/api/integrations/hubspot/callback", "http://localhost:3000/api/integrations/hubspot/callback"],
+      "requiredScopes": ["oauth", "crm.objects.contacts.read"],
+      "optionalScopes": [],
+      "conditionallyRequiredScopes": []
+    },
+    "permittedUrls": {
+      "fetch": ["https://jellyhook.com/api/hubspot/card"],
+      "iframe": ["https://jellyhook.com/embed/visit"],
+      "img": []
+    },
+    "support": {
+      "documentationUrl": "https://jellyhook.com/docs/reference/hubspot",
+      "supportUrl": "https://jellyhook.com/docs/reference/hubspot"
+    }
+  }
+}

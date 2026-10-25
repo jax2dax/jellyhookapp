@@ -65,7 +65,7 @@ for (const bad of ["http://example.com/x", "https://localhost/x", "https://127.0
   const onlyWatch = slackMessage({ ...full, options: { openButton: false } }) as unknown as { blocks: { type: string; elements?: { text?: { text: string } }[] }[] };
   ok(onlyWatch.blocks[onlyWatch.blocks.length - 1].elements?.length === 1 && onlyWatch.blocks[onlyWatch.blocks.length - 1].elements?.[0].text?.text === "Watch the ad", "Open the lead hidden, Watch the ad kept");
   ok(!(slackMessage({ ...full, options: { source: false } }) as { text: string }).text.includes("came from"), "a hidden Came from is not in the fallback text either");
-  ok(JSON.stringify(messageOptions({ source: false, adImage: "no", junk: 1 })) === JSON.stringify({ source: false, adImage: true, watchButton: true, openButton: true, details: true, summary: "moderate", pages: [], pageScope: "all" }), "stored options are cleaned (non-booleans take the default)");
+  ok(JSON.stringify(messageOptions({ source: false, adImage: "no", junk: 1 })) === JSON.stringify({ source: false, adImage: true, watchButton: true, openButton: true, details: true, summary: "moderate", pages: [], pageScope: "all", leadLink: "hubspot" }), "stored options are cleaned (non-booleans take the default)");
   ok(webhookBody({ ...full, options: { source: false } }).source?.line === "Meta · Ads · Spring sale · Core Demo", "webhooks always get every field");
 }
 

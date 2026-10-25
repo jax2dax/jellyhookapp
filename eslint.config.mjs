@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // the HubSpot app (its own project, built and uploaded with HubSpot's CLI: mds/build/integrations/hubspot.md)
+    "hubspot/**",
   ]),
 ]);
 

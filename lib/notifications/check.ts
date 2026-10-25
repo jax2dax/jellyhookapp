@@ -17,6 +17,7 @@ import { openSecret } from "./secret";
 import { messageOptions, post, type DeliveryPayload } from "./send";
 import { leadSources } from "@/lib/acquisition/leadSource";
 import { summariesWithin } from "./summary";
+import { connectionOf, hubspotLeadLink } from "@/lib/integrations/hubspot";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -197,9 +198,12 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
   const externalLeads = (leadsRes.data ?? [])
     .filter((l) => externalIds.has(l.id as string))
     .map((l) => ({ id: l.id as string, visitor_id: (l.visitor_id as string) ?? null, session_id: (l.session_id as string) ?? null, submitted_at: l.submitted_at as string }));
-  const [sources, summaries] = await Promise.all([
+  // with HubSpot connected (and healthy), the lead's button opens its HubSpot contact: a signed Jellyhook link resolved
+  // at the click (app/go/hubspot), so nothing waits on HubSpot here
+  const [sources, summaries, hubspot] = await Promise.all([
     leadSources(siteId, externalLeads, (siteRes.data?.domain as string) ?? null).catch(() => new Map()),
     summariesWithin(SUMMARY_BUDGET_MS, siteId, externalLeads, external.map((f) => ({ key: f.ruleId + "|" + f.leadId, leadId: f.leadId, options: ruleOptions.get(f.ruleId) ?? messageOptions(null) }))),
+    connectionOf(siteId).catch(() => null),
   ]);
   const rows = [];
   for (const f of external) {
@@ -215,7 +219,7 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
         title: f.title,
         body: f.externalBody,
         marks: f.markIds.map((id, i) => ({ id, name: f.markNames[i] })),
-        lead: { id: f.leadId, url: `${APP_URL}/platform/leads/${f.leadId}`, submittedAt: submittedAt.get(f.leadId) ?? null },
+        lead: { id: f.leadId, url: `${APP_URL}/platform/leads/${f.leadId}`, submittedAt: submittedAt.get(f.leadId) ?? null, hubspotUrl: hubspot?.status === "ok" ? hubspotLeadLink(APP_URL, f.leadId) : null },
         source: sources.get(f.leadId) ? { line: sources.get(f.leadId)!.line, ad: sources.get(f.leadId)!.ad } : null,
         options: ruleOptions.get(f.ruleId) ?? null,
         summary: summaries.get(f.ruleId + "|" + f.leadId)?.summary ?? null,

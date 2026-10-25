@@ -15,6 +15,7 @@ import { isSafeWebhookUrl, isSlackUrl, messageOptions, post, type MessageOptions
 import { fillTemplate } from "@/lib/notifications/decide";
 import { summariesWithin } from "@/lib/notifications/summary";
 import { sampleSummary } from "@/lib/notifications/sampleVisit";
+import { connectionOf, hubspotLeadLink } from "@/lib/integrations/hubspot";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -159,6 +160,8 @@ export interface RulesState {
   limit: number;
   /** the most recent ad in the Ads library that has a thumbnail, to preview hook messages with; null when none */
   sampleAd: { title: string; thumbnailUrl: string; videoUrl: string | null; line: string } | null;
+  /** the site has a working HubSpot connection (migration 27): hooks can open the lead in HubSpot */
+  hubspotConnected: boolean;
 }
 
 export async function loadRules(): Promise<Result<{ state: RulesState }>> {
@@ -172,7 +175,7 @@ export async function loadRules(): Promise<Result<{ state: RulesState }>> {
       admin.from("notification_channels").select("id, kind, name, hint, status, last_error").eq("site_id", siteId).order("created_at"),
     ]);
     if (rulesRes.error && missing(rulesRes.error.message)) {
-      return { ok: true, state: { ready: false, me: userId, canManageChannels: false, rules: [], marks: [], members: [], groups: [], channels: [], limit: RULE_LIMIT, sampleAd: null } };
+      return { ok: true, state: { ready: false, me: userId, canManageChannels: false, rules: [], marks: [], members: [], groups: [], channels: [], limit: RULE_LIMIT, sampleAd: null, hubspotConnected: false } };
     }
     for (const r of [rulesRes, membersRes, groupsRes, channelsRes]) if (r.error) throw new Error(r.error.message);
     const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
@@ -209,6 +212,7 @@ export async function loadRules(): Promise<Result<{ state: RulesState }>> {
         groups: (groupsRes.data ?? []).filter((g) => g.visibility === "team" || g.created_by === userId).map((g) => ({ id: g.id as string, name: g.name as string, color: g.color as string })),
         channels: (channelsRes.data ?? []).map((c) => ({ id: c.id as string, kind: c.kind as "slack" | "webhook", name: c.name as string, hint: (c.hint as string) ?? null, status: c.status as "ok" | "failing", lastError: (c.last_error as string) ?? null })),
         sampleAd: await latestAd(siteId),
+        hubspotConnected: (await connectionOf(siteId).catch(() => null))?.status === "ok",
       },
     };
   } catch (e) {
@@ -329,7 +333,9 @@ export async function testHookMessage(input: { name: string; title: string; body
     // the visit and page summaries of the site's newest lead, made exactly as a real hook makes them; the example
     // visit when the site has no lead yet or it cannot be read in time
     const lead = newest.data ? { id: newest.data.id as string, visitor_id: (newest.data.visitor_id as string) ?? null, session_id: (newest.data.session_id as string) ?? null, submitted_at: newest.data.submitted_at as string } : null;
-    const real = lead ? (await summariesWithin(4000, siteId, [lead], [{ key: "test", leadId: lead.id, options }])).get("test") : undefined;
+    const [summed, hubspot] = await Promise.all([lead ? summariesWithin(4000, siteId, [lead], [{ key: "test", leadId: lead.id, options }]) : null, connectionOf(siteId).catch(() => null)]);
+    const real = summed?.get("test");
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://jellyhook.com").replace(/\/+$/, "");
     const names = (marks.data ?? []).map((m) => m.name as string);
     const now = new Date().toISOString();
     const name = (input.name ?? "").trim() || "New hook";
@@ -342,7 +348,8 @@ export async function testHookMessage(input: { name: string; title: string; body
       title: ((input.title ?? "").trim() || name).slice(0, 80),
       body: fillTemplate(input.body ?? "", "a new lead", names.length ? names : ["your marks"]),
       marks: (marks.data ?? []).map((m) => ({ id: m.id as string, name: m.name as string })),
-      lead: { id: "test", url: (process.env.NEXT_PUBLIC_APP_URL || "https://jellyhook.com").replace(/\/+$/, "") + "/platform/hooks", submittedAt: now },
+      // with HubSpot connected, "Open in HubSpot" opens the newest lead's contact, as a real message would
+      lead: { id: "test", url: appUrl + "/platform/hooks", submittedAt: now, hubspotUrl: lead && hubspot?.status === "ok" ? hubspotLeadLink(appUrl, lead.id) : null },
       source: ad ? { line: ad.line, ad: { platform: "", adId: "", title: ad.title, thumbnailUrl: ad.thumbnailUrl, videoUrl: ad.videoUrl } } : { line: "Meta · Ads · Spring sale · Example ad (add ads in Acquisition → Ads to see yours)", ad: null },
       options,
       summary: real?.summary ?? (options.summary === "off" ? null : sampleSummary(options.summary)),

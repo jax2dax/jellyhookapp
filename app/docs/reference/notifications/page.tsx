@@ -58,7 +58,7 @@ export default function NotificationsReferencePage() {
             [<B key="a">Where they came from</B>, <span key="a2">&quot;Came from: Meta · Ads · Spring sale · 2026 Core Demo Video&quot;: the source, campaign and ad the lead is credited to (see <Link href="/docs/reference/acquisition" className="text-[var(--lime)] hover:underline">Acquisition</Link>)</span>, "The lead's visits are known. A lead who only ever came directly reads \"Direct\""],
             [<B key="b">The ad&apos;s thumbnail</B>, "The ad's image, large", "The ad has a thumbnail in Acquisition → Ads"],
             [<B key="c">Watch the ad button</B>, "Opens the ad's video", "The ad has a video link in Acquisition → Ads"],
-            [<B key="d">Open the lead button</B>, "Opens the lead in Jellyhook", "Always"],
+            [<B key="d">Open the lead button</B>, <span key="d2">Opens the lead in Jellyhook, or its HubSpot contact when <Link href="/docs/reference/hubspot" className="text-[var(--lime)] hover:underline">HubSpot</Link> is connected (Open the lead in: HubSpot, Jellyhook or both)</span>, "Always"],
             [<B key="e">Hook, site and time</B>, "A small line under the message", "Always"],
             [<B key="f">Visit summary</B>, "What they did in the visit with the form, before sending it: Short, Moderate (the default) or Long, as on the lead page", "Set to anything but Off"],
             [<B key="g">Page summaries</B>, <span key="g2">Up to 3 pages you pick, one line each: &quot;/pricing: 3m 10s over 2 views in 2 visits; read up to 72% of the page ...&quot;, or &quot;Page not visited&quot;</span>, "At least one page is picked"],
@@ -104,7 +104,8 @@ export default function NotificationsReferencePage() {
 
       <Section title="The Integrations page">
         <P>
-          <B>Integrations</B> in the sidebar: where hooks can send outside Jellyhook: <B>Slack</B> (Connect opens Slack&apos;s own screen to pick a channel; a webhook URL can be pasted
+          <B>Integrations</B> in the sidebar: where hooks can send outside Jellyhook, and <B>HubSpot</B> under CRM (see{" "}
+          <Link href="/docs/reference/hubspot" className="text-[var(--lime)] hover:underline">HubSpot</Link>). Channels: <B>Slack</B> (Connect opens Slack&apos;s own screen to pick a channel; a webhook URL can be pasted
           instead) or <B>Webhook</B> (any https address, for example Zapier, Make or your CRM). A channel that keeps failing is marked
           &quot;Failing&quot; with the last error.
         </P>

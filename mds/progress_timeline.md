@@ -1872,3 +1872,12 @@ Acquisition has three tabs: Overview, **Ads** (every ad a click came from; the t
 - Safety: Slack 400 → resent once as a plain message; the came-from line and summaries are escaped for Slack mrkdwn (a campaign named `<!channel>` used to be able to ping a channel).
 - Tests: story 22, summary 19, send 52, page snapshot 19; real Chrome `scripts/tracker-e2e/snapshot.js` ALL PASS; forms 54, headings, formfields, sensitive, formsignals, formaway, formview all pass.
 - Plan and decisions: `mds/build/notifications/session-summary.md`. No migration. **Deploy** so the tracker sends the snapshot.
+
+## 2026-10-25 - HubSpot: Open in HubSpot from Slack, and the Jellyhook card on contacts
+
+- Integrations → CRM → HubSpot: Connect (OAuth, scopes `oauth crm.objects.contacts.read`, owner/admin), status, Disconnect. Tokens sealed in `hubspot_connections` (migration 27), refreshed 2 min before expiry; a refused refresh marks the connection failing.
+- Slack: with HubSpot connected, the lead button is **Open in HubSpot** (per hook: HubSpot / Jellyhook / both). The button is a signed Jellyhook link resolved at the click (`app/go/hubspot/[leadId]`): lead email → HubSpot contact → its record; anything else (no contact yet, no email, HubSpot slow over 4 s, bad link) opens the lead in Jellyhook. Nothing waits on HubSpot when the message is sent. Webhooks get `lead.hubspot_url`.
+- HubSpot app project in `hubspot/` (platform 2026.03, React app card; classic CRM cards end 2026-10-31): the **Jellyhook card** on contacts calls `app/api/hubspot/card` (HubSpot v3 signature checked; the email is read from HubSpot, never taken from the request): up to 5 leads with summary (Short/Moderate/Long), team marks only, hooks, came from, and **Open visit chart** = the lead page's chart read-only in a HubSpot modal (`app/embed/visit`, 30-minute token, framed only by *.hubspot.com).
+- `LeadSessionExplorer` has `readOnly` + `initialFormEngagementRows` (no fetching, no refresh). The fake-data demo uses it.
+- Tests: hubspot 34 (signatures, links, chart tokens, state, contact URLs, token refresh and retry, failing on refused refresh, Slack buttons), all suites pass. Local route checks: bad link → Jellyhook, unsigned card call → 401, expired chart → message + frame-ancestors header.
+- **Founder:** create the HubSpot app (`hubspot/`, `hs project upload`), set `HUBSPOT_CLIENT_ID` / `HUBSPOT_CLIENT_SECRET` in Vercel, run `mds/migrations/27-hubspot.sql`, deploy, connect. Steps: `mds/build/integrations/hubspot.md`.

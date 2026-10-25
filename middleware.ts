@@ -13,10 +13,13 @@ export default clerkMiddleware();
 // by Clerk's middleware at all — excluded explicitly, not just left out of
 // the matcher's broad catch-all, so adding a new "/(api|trpc)(.*)" style
 // pattern later can't silently re-include them.
+// (The same for the Jellyhook card's data, called by HubSpot's servers and authorized by HubSpot's signature,
+// lib/integrations/hubspot.ts. The visit chart in HubSpot's modal, /embed/visit, stays under Clerk: it renders the
+// root layout's ClerkProvider, and a frame without Jellyhook cookies is simply signed out.)
 export const config = {
   matcher: [
     // Skip Next.js internals, all static files (unless found in search params),
     // and the public tracker-facing API routes.
-    '/((?!_next|api/track$|api/track-form$|api/track-form-engagement$|api/track-structure$|api/site-config$|api/close-stale-sessions$|api/webhooks/clerk$|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/((?!_next|api/track$|api/track-form$|api/track-form-engagement$|api/track-structure$|api/site-config$|api/close-stale-sessions$|api/webhooks/clerk$|api/hubspot/card$|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
   ],
 };

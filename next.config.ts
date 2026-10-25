@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
         source: "/tracker.js",
         headers: [{ key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=86400" }],
       },
+      {
+        // The visit chart opened from the Jellyhook card in HubSpot (app/embed/visit): only HubSpot may frame it.
+        source: "/embed/:path*",
+        headers: [{ key: "Content-Security-Policy", value: "frame-ancestors https://*.hubspot.com" }],
+      },
     ];
   },
 };

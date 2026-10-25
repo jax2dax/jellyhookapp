@@ -418,7 +418,7 @@ const OPTION_ROWS: { key: MessageToggle; label: string; hint: string }[] = [
   { key: "source", label: "Where they came from", hint: "Came from: Meta · Ads · Spring sale · 2026 Core Demo Video" },
   { key: "adImage", label: "The ad's thumbnail", hint: "When the ad has one in Acquisition → Ads" },
   { key: "watchButton", label: "Watch the ad button", hint: "When the ad has a video link" },
-  { key: "openButton", label: "Open the lead button", hint: "A link to the lead in Jellyhook" },
+  { key: "openButton", label: "Open the lead button", hint: "A link to the lead, in Jellyhook or HubSpot" },
   { key: "details", label: "Hook, site and time", hint: "The small line under the message" },
 ];
 
@@ -443,7 +443,7 @@ function SlackMessageOptions({ d, state, set }: { d: Draft; state: RulesState; s
     title: d.title.trim() || d.name.trim() || "New hook",
     body: fillTemplate(d.body, "a new lead", markNames.length ? markNames : ["your marks"]),
     marks: [],
-    lead: { id: "", url: "https://jellyhook.com", submittedAt: new Date().toISOString() },
+    lead: { id: "", url: "https://jellyhook.com", submittedAt: new Date().toISOString(), hubspotUrl: state.hubspotConnected ? "https://app.hubspot.com" : null },
     source: ad ? { line: ad.line, ad: { platform: "", adId: "", title: ad.title, thumbnailUrl: ad.thumbnailUrl, videoUrl: ad.videoUrl ?? "https://example.com/video" } } : { line: "Meta · Ads · Spring sale · Example ad", ad: { platform: "", adId: "", title: "Example ad", thumbnailUrl: (typeof window === "undefined" ? "https://jellyhook.com" : window.location.origin) + "/jellyhook-nobg.png", videoUrl: "https://example.com/video" } },
     options: o,
     summary: o.summary === "off" ? null : sampleSummary(o.summary),
@@ -477,6 +477,17 @@ function SlackMessageOptions({ d, state, set }: { d: Draft; state: RulesState; s
                   </span>
                 </label>
               ))}
+              {state.hubspotConnected && o.openButton && (
+                <label className="block space-y-1 border-t pt-2 text-xs">
+                  <span className="block text-foreground">Open the lead in</span>
+                  <select className="h-7 w-full rounded-md border bg-background px-2 text-xs" value={o.leadLink} onChange={(e) => set({ messageOptions: { ...o, leadLink: e.target.value as MessageOptions["leadLink"] } })}>
+                    <option value="hubspot">HubSpot (its contact record)</option>
+                    <option value="jellyhook">Jellyhook</option>
+                    <option value="both">Both: a button for each</option>
+                  </select>
+                  <span className="block text-[11px] text-muted-foreground">With no HubSpot contact for the lead&apos;s email yet, it opens in Jellyhook.</span>
+                </label>
+              )}
               <SummaryOptions o={o} set={(patch) => set({ messageOptions: { ...o, ...patch } })} />
               <button type="button" disabled={testing} onClick={test} className="mt-1 inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs hover:bg-muted disabled:opacity-40">
                 {testing ? <Loader2 className="size-3 animate-spin" /> : <Send className="size-3" />} Send a test to Slack

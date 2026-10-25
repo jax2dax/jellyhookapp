@@ -21,7 +21,8 @@ const items: InboxItem[] = [
 ];
 const state: RulesState = {
   ready: true, me: "u1", canManageChannels: true,
-    sampleAd: null, limit: 10, marks,
+    sampleAd: null,
+    hubspotConnected: true, limit: 10, marks,
   members: [{ userId: "u1", email: "you@example.com" }, { userId: "u2", email: "sara@example.com" }, { userId: "u3", email: "ben@example.com" }],
   groups: [{ id: "g1", name: "Deal pipeline", color: "#22c55e" }],
   channels: [{ id: "c1", kind: "slack", name: "#sales", hint: "hooks.slack.com/…/9xQe", status: "ok", lastError: null }, { id: "c2", kind: "webhook", name: "HubSpot via Zapier", hint: "hooks.zapier.com/…/a1b2", status: "failing", lastError: "answered 410" }],
