@@ -36,7 +36,7 @@ export default function SupportedFormsPage() {
             <B>Forms inside an iframe</B> belong to another website, so your page cannot read them. Typeform, Calendly and Jotform announce submissions, so each one is counted as a lead <B>without name or email</B>. Other iframes (a Pardot iframe form, Zoho, Pipedrive, Google Forms) cannot be tracked at all.
           </li>
           <li>
-            Settings, Tracking, Attribute check shows which of your pages have a form that cannot be tracked.
+            Settings → Tracker → Attribute check shows which of your pages have a form that cannot be tracked.
           </li>
         </UL>
       </Section>
@@ -48,6 +48,7 @@ export default function SupportedFormsPage() {
             [<B key="a">Your own HTML or React form</B>, "A form on the page", "Name, email, phone, every field. Works even when the form submits with JavaScript instead of a page reload."],
             [<B key="b">HubSpot (script embed)</B>, "A form rendered into the page", "Name, email, phone, every field."],
             [<B key="b2">HubSpot (iframe embed)</B>, "An iframe that reports to the page", "Name, email and fields, when HubSpot reports the submission to your page."],
+            [<B key="b3">HubSpot (new forms)</B>, "The current embed code (hs-form-frame), on your site or on HubSpot pages", "Name, email, phone, every field. Fields of another object (a company's name) keep their own name."],
             [<B key="c">Salesforce Web-to-Lead</B>, "A plain HTML form that posts to Salesforce", "Name (first and last), email, phone, company, every field."],
             [<B key="d">Pardot / Account Engagement form handler</B>, "Your own HTML form that posts to Pardot", "Name, email, every field."],
             [<B key="e">Pardot / Account Engagement form (iframe)</B>, "An iframe from go.pardot.com or your own tracker domain", "Cannot be tracked. Use a form handler instead."],
@@ -76,6 +77,8 @@ export default function SupportedFormsPage() {
         <H3>HubSpot, Marketo and other script embeds</H3>
         <P>Wrap the embed in an element that carries the attribute.</P>
         <Code>{`<div data-conversion="true">\n  <script src="//js.hsforms.net/forms/embed/v2.js"></script>\n  <script>\n    hbspt.forms.create({ portalId: "...", formId: "..." });\n  </script>\n</div>`}</Code>
+        <P>HubSpot&apos;s current embed code (forms made in the new form editor) is wrapped the same way:</P>
+        <Code>{`<div data-conversion="true">\n  <script src="https://js-na2.hsforms.net/forms/embed/<portal id>.js" defer></script>\n  <div class="hs-form-frame" data-region="na2" data-form-id="..." data-portal-id="..."></div>\n</div>`}</Code>
         <H3>WordPress form plugins (Contact Form 7, Gravity Forms, WPForms)</H3>
         <P>
           Put the plugin&apos;s shortcode or block inside a Custom HTML block that adds the wrapper:
@@ -121,7 +124,7 @@ export default function SupportedFormsPage() {
 
       <Section title="Check it yourself">
         <P>
-          Open Settings, then Tracking, then Attribute check. <B>Conversion form</B> says whether a marked form was found and whether a real lead has come from it. <B>Forms inside an iframe</B> lists the pages that have a form the tracker can only count (Typeform, Calendly, Jotform) or cannot see at all, with the tool&apos;s name. See{" "}
+          Open Settings → Tracker and find Attribute check. <B>Conversion form</B> says whether a marked form was found and whether a real lead has come from it. <B>Forms inside an iframe</B> lists the pages that have a form the tracker can only count (Typeform, Calendly, Jotform) or cannot see at all, with the tool&apos;s name. See{" "}
           <Link href="/docs/concepts/tracking-attributes" className="text-[var(--lime)] hover:underline">
             Tracking attributes
           </Link>{" "}

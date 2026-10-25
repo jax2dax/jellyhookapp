@@ -2787,6 +2787,8 @@ function firePageViewStart() {
           wrapper.querySelector(".hs-form") ||
           wrapper.querySelector("[id^='hsForm_']") ||
           wrapper.querySelector("iframe[src*='hsforms']") ||
+          wrapper.querySelector(".hs-form-frame") ||
+          wrapper.classList.contains("hs-form-frame") ||
           wrapper.classList.contains("hbspt-form")
         ) {
           jhLog("[Tracker][HubSpot] ✅ Found data-conversion wrapper containing HubSpot embed:", wrapper);
@@ -2807,11 +2809,15 @@ function firePageViewStart() {
     function normaliseFields(raw) {
       if (!raw) return {};
 
-      // Array shape: [{name: "email", value: "..."}, ...]
+      // Array shape: [{name: "email", value: "..."}, ...]. New HubSpot forms (v4) name fields by object and
+      // property: the contact's ("0-1/email") become plain names; another object's ("0-2/name", the company) keep
+      // their full name, so a company name never reads as the person's. A multi-checkbox value is an array: "a, b".
       if (Array.isArray(raw)) {
         const out = {};
         for (const field of raw) {
-          if (field && field.name) out[field.name] = field.value || "";
+          if (!field || !field.name) continue;
+          const key = String(field.name).replace(/^0-1\//, "");
+          out[key] = Array.isArray(field.value) ? field.value.join(", ") : field.value || "";
         }
         return out;
       }
@@ -2952,6 +2958,45 @@ function firePageViewStart() {
     //
     // Attach listener IMMEDIATELY (before HubSpot loads) so we never miss it.
     // ─────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────
+    // NEW HUBSPOT FORMS (v4: the "hs-form-frame" embed, js*.hsforms.net/forms/embed/<portal>.js)
+    //
+    // These render inside HubSpot's own iframe and send no hsFormCallback message. The embed script
+    // announces a submission on this page instead ("hs-form-event:on-submission:success", detail
+    // { formId, instanceId }) and gives the values through HubSpotFormsV4.getFormFromEvent(event)
+    // .getFormFieldValues() (HubSpot's "Global form events"). The form's box (.hs-form-frame with
+    // data-form-id) stands for the form, so a data-conversion="true" wrapper around it works in
+    // specify-form mode. If the values cannot be read within 2 s, the submission is still sent.
+    // ─────────────────────────────────────────────────────────
+    window.addEventListener("hs-form-event:on-submission:success", function (event) {
+      try {
+        const detail = (event && event.detail) || {};
+        const formId = String(detail.formId || "unknown").replace(/[^A-Za-z0-9_-]/g, "");
+        const frame = document.querySelector('.hs-form-frame[data-form-id="' + formId + '"]') || document.querySelector(".hs-form-frame");
+        let sent = false;
+        const done = function (values) {
+          if (sent) return;
+          sent = true;
+          jhLog("[Tracker][HubSpot] v4 submission:", formId, values);
+          sendHubSpotCapture({ formId: String(detail.instanceId || formId), fields: normaliseFields(values), formEl: frame, eventName: "v4SubmissionSuccess" });
+        };
+        const api = window.HubSpotFormsV4;
+        const form = api && typeof api.getFormFromEvent === "function" ? api.getFormFromEvent(event) : null;
+        if (form && typeof form.getFormFieldValues === "function") {
+          setTimeout(function () {
+            done(null);
+          }, 2000);
+          Promise.resolve(form.getFormFieldValues()).then(done, function () {
+            done(null);
+          });
+        } else {
+          done(null);
+        }
+      } catch (err) {
+        jhLog("[Tracker][HubSpot] v4 error:", err);
+      }
+    });
+
     window.addEventListener("message", function (event) {
       try {
         const msg = event.data;
