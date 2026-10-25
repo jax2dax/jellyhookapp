@@ -143,8 +143,9 @@ export default function NetworkClient({ site, members, currentUserId, myInvites 
   }
 
   return (
-    <div className="flex max-w-5xl flex-col gap-6 lg:flex-row lg:items-start">
-      <div className="flex min-w-0 flex-1 flex-col gap-6">
+    // Team (2026-10-24, was "Network"): one column, inviting on top, the team listed under it
+    <div className="flex w-full max-w-3xl flex-col gap-6">
+      <div className="flex min-w-0 flex-col gap-6">
         {/* ── BANNER: your own pending invites to other sites ── */}
         {myInvites.length > 0 && (
           <a href="/platform/invite">
@@ -160,7 +161,7 @@ export default function NetworkClient({ site, members, currentUserId, myInvites 
 
         {/* ── TITLE ─────────────────────────────────────────── */}
         <div>
-          <div className="mb-1.5 text-lg font-semibold text-foreground">Network</div>
+          <div className="mb-1.5 text-lg font-semibold text-foreground">Team</div>
           <div className="text-sm text-muted-foreground">
             {owner.user_email && (
               <>
@@ -213,13 +214,8 @@ export default function NetworkClient({ site, members, currentUserId, myInvites 
         {!isOwner && <div className="text-xs text-muted-foreground">Only the site owner can invite or remove members.</div>}
       </div>
 
-      {/* ── SIDEBAR: members. Shown here for now — just who's on the team;
-          avatar on the left, name + email on the right/below, one row
-          each, instead of the old big owner-hero card + grid of
-          part-empty member cards. Declined invites, if any, get their own
-          small section below so they're visible without taking the same
-          width-heavy treatment the old grid gave them. ────────────────── */}
-      <aside className="flex w-full shrink-0 flex-col gap-4 lg:w-72">
+      {/* ── the team: one row each (avatar, name, email), under the invite; declined invites below ── */}
+      <section className="flex w-full flex-col gap-4">
         <Card>
           <CardContent>
             <SectionLabel count={1 + active.length}>Members</SectionLabel>
@@ -245,7 +241,7 @@ export default function NetworkClient({ site, members, currentUserId, myInvites 
             </CardContent>
           </Card>
         )}
-      </aside>
+      </section>
     </div>
   );
 }

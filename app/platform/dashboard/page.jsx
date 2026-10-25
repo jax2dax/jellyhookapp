@@ -71,6 +71,12 @@ export default async function OverviewPage() {
         />
       </div>
 
+      {/* ── Reach & Conversions: new visitors and unique conversions, merged by default (Separate and Split on the
+          switch). It lived on /platform/conversions; the two minis that used to sit here are gone. ── */}
+      <div className="mb-6">
+        <ReachConversionsSection siteId={site.id} defaultView="merged" />
+      </div>
+
       {/* ── Sales first: hooked leads, marks, latest leads (components/dashboard/SalesSection.tsx) ── */}
       <SalesSection leads={leads} />
 
@@ -85,11 +91,6 @@ export default async function OverviewPage() {
         <VisitsOverTimeChart siteId={site.id} />
       </div>
 
-      {/* ── Reach & Conversions: new visitors and unique conversions, merged by default (Separate and Split on the
-          switch). It lived on /platform/conversions; the two minis that used to sit here are gone. ── */}
-      <div className="mb-6">
-        <ReachConversionsSection siteId={site.id} defaultView="merged" />
-      </div>
 
       {/* Removed 2026-10-24 (founder): the Pages card (views per page) and the Lead footprints card. */}
 

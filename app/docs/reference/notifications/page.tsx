@@ -27,10 +27,10 @@ export default function NotificationsReferencePage() {
 
       <Section title="The Hooks page">
         <P>
-          <B>Hooks</B> in the sidebar. Three tabs:
+          <B>Hooks</B> in the sidebar, with a yellow circle showing how many leads your hooks caught that you have not looked at yet. Two tabs:
         </P>
         <H3>Hooked leads</H3>
-        <P>Every lead one of your hooks caught, newest first, with the hooks that caught it. Click one to open the lead.</P>
+        <P>Every lead one of your hooks caught, newest first, with the hooks that caught it. Click one to open the lead. Opening this tab clears the yellow circle.</P>
         <H3>Hooks</H3>
         <P>
           Every hook on the site, with its marks, who it tells and where. <B>Add hook</B> opens the editor. Each hook has a <B>Live</B> /{" "}
@@ -47,23 +47,24 @@ export default function NotificationsReferencePage() {
             [<B key="g">Add lead to group (optional)</B>, "Also puts every lead this hook catches into a group."],
           ]}
         />
-        <H3>Integrations</H3>
+      </Section>
+
+      <Section title="The Integrations page">
         <P>
-          Where hooks can send outside Jellyhook: <B>Slack</B> (Connect opens Slack&apos;s own screen to pick a channel; a webhook URL can be pasted
+          <B>Integrations</B> in the sidebar: where hooks can send outside Jellyhook: <B>Slack</B> (Connect opens Slack&apos;s own screen to pick a channel; a webhook URL can be pasted
           instead) or <B>Webhook</B> (any https address, for example Zapier, Make or your CRM). A channel that keeps failing is marked
           &quot;Failing&quot; with the last error.
         </P>
       </Section>
 
       <Section title="The Notifications page">
+        <P>A red dot (never a number) on <B>Notifications</B> in the sidebar while anything there is unread.</P>
         <UL>
           <li>
-            <B>From Jellyhook</B>: updates from us about the product. A red dot (no number) on <B>Notifications</B> in the sidebar while one is unread. In
-            the app only, never in Slack.
+            <B>From Jellyhook</B>: updates from us about the product. In the app only, never in Slack.
           </li>
           <li>
-            Your inbox: one entry for every lead a hook caught for you. A yellow circle with the number of entries you have not opened. Click one to
-            open the lead; <B>Mark all as read</B> clears the number.
+            Your inbox: one entry for every lead a hook caught for you. Click one to open the lead; <B>Mark all as read</B> marks them all.
           </li>
         </UL>
       </Section>

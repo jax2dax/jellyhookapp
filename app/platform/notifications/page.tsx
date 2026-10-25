@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function NotificationsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = (await searchParams) ?? {};
   if (sp.tab === "rules") redirect("/platform/hooks?tab=rules");
-  if (sp.tab === "channels") redirect("/platform/hooks?tab=integrations" + (typeof sp.slack === "string" ? "&slack=" + encodeURIComponent(sp.slack) : ""));
+  if (sp.tab === "channels") redirect("/platform/integrations" + (typeof sp.slack === "string" ? "?slack=" + encodeURIComponent(sp.slack) : ""));
   const user = await getAuthUser();
   await requireSite(user.id);
   const [r, updates] = await Promise.all([loadInbox(), loadAnnouncements()]);

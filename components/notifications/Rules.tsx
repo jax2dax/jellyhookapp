@@ -352,7 +352,7 @@ function RuleEditor({
               );
             })}
             {!state.channels.some((c) => c.kind === "slack") && (
-              <Link href="/platform/hooks?tab=integrations" className="relative flex h-[72px] w-[84px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-background hover:border-foreground/30" title="Connect Slack">
+              <Link href="/platform/integrations" className="relative flex h-[72px] w-[84px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-background hover:border-foreground/30" title="Connect Slack">
                 <SlackLogo className="size-6 opacity-60" />
                 <span className="text-[11px] text-muted-foreground">Connect</span>
               </Link>

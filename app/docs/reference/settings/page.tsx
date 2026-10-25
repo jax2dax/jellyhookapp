@@ -71,7 +71,7 @@ Events are recorded only from your domain and its subdomains. Add another websit
             The owner and admins can, from this page, invite a teammate by email and remove members. Only the owner can hand ownership to someone else.
             What each role can do is on the team page. The{" "}
             <Link href="/docs/reference/team" className="text-[var(--lime)] hover:underline">
-              Network page
+              Team page
             </Link>{" "}
             does the exact same thing with a different layout. Use whichever one you land on first; they share the
             same team list.

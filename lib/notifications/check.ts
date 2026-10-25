@@ -256,7 +256,7 @@ export async function sendDeliveries(ids?: string[]): Promise<number> {
     c.consecutive_failures = failures;
     await admin.from("notification_channels").update({ consecutive_failures: failures, last_error: res.error, ...(failures >= FAILING_AFTER ? { status: "failing" } : {}) }).eq("id", c.id);
     if (failures === FAILING_AFTER) {
-      await admin.from("notifications").insert({ site_id: c.site_id, user_id: c.created_by, title: "A channel is failing", body: `${c.name} has failed ${FAILING_AFTER} times in a row (${res.error}). Check it in Hooks, Integrations.` });
+      await admin.from("notifications").insert({ site_id: c.site_id, user_id: c.created_by, title: "A channel is failing", body: `${c.name} has failed ${FAILING_AFTER} times in a row (${res.error}). Check it in Integrations.` });
     }
   }
   return sent;

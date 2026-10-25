@@ -1844,3 +1844,4 @@ New marks open in a new builder: three starting buttons (Visit condition, Page c
 - **Marks page**: wider (to 1900 px), library cards fill the row (at least about 19rem each), each card opens on its own, the My marks panel widens on big screens.
 - The 24 h notification guard is back on.
 **Run `mds/migrations/23-announcements.sql` and set `JELLYHOOK_ADMIN_USER_IDS` (your Clerk user id) in Vercel.**
+- (same day, founder corrections) The yellow count of newly hooked leads is on **Hooks** (cleared by opening Hooked leads); **Notifications** shows only a red dot while anything is unread. **Integrations** is its own sidebar page (`/platform/integrations`; Slack sign-in returns there). **Network** is now **Team** (`/platform/team`: invite on top, the team under it; `/platform/network` redirects). Dashboard: Reach & Conversions moved to the top, above Hooked leads.

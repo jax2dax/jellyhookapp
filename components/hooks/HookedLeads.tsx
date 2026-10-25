@@ -7,10 +7,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FishingHook } from "lucide-react";
 import type { HookedLead } from "@/lib/actions/hooks.action";
+import { markRead } from "@/lib/actions/notifications.action";
+import { NOTIFICATIONS_CHANGED } from "@/components/notifications/UnreadBadge";
 import { formatRelativeTime } from "@/lib/leadFormat";
 
-export function HookedLeads({ leads, ready, compact = false }: { leads: HookedLead[]; ready: boolean; compact?: boolean }) {
+export function HookedLeads({ leads, ready, compact = false, markSeen = false }: { leads: HookedLead[]; ready: boolean; compact?: boolean; markSeen?: boolean }) {
   const router = useRouter();
+  // on the Hooks page, looking at the hooked leads clears the yellow count on the sidebar
+  React.useEffect(() => {
+    if (!markSeen) return;
+    markRead("all").then(() => window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED)));
+  }, [markSeen]);
   if (!ready) return <p className="text-sm text-muted-foreground">Hooks are not set up on this database yet (migration 20).</p>;
   if (!leads.length)
     return (

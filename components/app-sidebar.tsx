@@ -5,13 +5,13 @@ import * as React from "react"
 import Image from "next/image"
 import {
   LayoutDashboard, Users, Flame, UserCheck,
-  Route, Globe, Settings, CreditCard,Network, FishingHook, PanelLeftClose, PanelLeftOpen, Bookmark, Bell } from "lucide-react"
+  Route, Globe, Settings, CreditCard,Network, FishingHook, PanelLeftClose, PanelLeftOpen, Bookmark, Bell, Plug } from "lucide-react"
 import { SiteSwitcher } from "@/components/siteSwitcher"
 
 import { NavMain } from "@/components/nav-main"
 import { SupportFeedbackButton } from "@/components/feedback/SupportFeedbackButton"
 import { NavUser } from "@/components/nav-user"
-import { UnreadBadge } from "@/components/notifications/UnreadBadge"
+import { HooksBadge, NotificationsDot } from "@/components/notifications/UnreadBadge"
 import { useUser } from "@clerk/nextjs"
 import {
   Sidebar, SidebarContent, SidebarFooter,
@@ -39,10 +39,11 @@ const NAV_ITEMS = [
   // "Hook" (the query builder) is now called Query builder and hidden for now (founder 2026-10-24); /platform/hook still works
   { title: "Hooks",             url: "/platform/hooks",         icon: FishingHook,     plan: "free"   },
   { title: "Notifications",     url: "/platform/notifications", icon: Bell,            plan: "free"   },
+  { title: "Integrations",      url: "/platform/integrations",  icon: Plug,            plan: "free"   },
   // { title: "Acquisition",       url: "/platform/acquisition",   icon: Globe,           plan: "free"   },
   { title: "Settings",          url: "/platform/settings",      icon: Settings,        plan: "free"  },
   // { title: "Subscription", url: "/platform/subscription", icon: CreditCard, plan: "free" }, // hidden for now
-   { title: "Network",           url: "/platform/network",      icon: Network,         plan: "free"  },
+   { title: "Team",              url: "/platform/team",         icon: Users,           plan: "free"  },
 ]
 
 // jellyhookMark.png / jellyhookMarkLight.png are chroma-keyed, transparent
@@ -110,7 +111,7 @@ export function AppSidebar({ userPlan = "free", siteDomain, sites, currentSiteId
       title: locked ? `${item.title} 🔒` : item.title,
       url: locked ? "/platform/subscription" : item.url,
       icon: <Icon />,
-      badge: item.url === "/platform/notifications" ? <UnreadBadge /> : undefined,
+      badge: item.url === "/platform/hooks" ? <HooksBadge /> : item.url === "/platform/notifications" ? <NotificationsDot /> : undefined,
       isActive: false,
     }
   })

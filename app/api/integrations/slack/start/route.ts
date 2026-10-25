@@ -7,7 +7,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getUserSite } from "@/lib/actions/permission.actions";
 import { SLACK_STATE_COOKIE, authorizeUrl, makeState, slackOAuthConfigured, slackRedirectUri } from "@/lib/notifications/slackOAuth";
 
-const back = (req: NextRequest, result: string) => NextResponse.redirect(new URL("/platform/hooks?tab=integrations&slack=" + result, req.nextUrl.origin));
+const back = (req: NextRequest, result: string) => NextResponse.redirect(new URL("/platform/integrations?slack=" + result, req.nextUrl.origin));
 
 export async function GET(req: NextRequest) {
   if (!slackOAuthConfigured()) return back(req, "not-configured");

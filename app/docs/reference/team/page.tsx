@@ -13,7 +13,7 @@ export default function TeamReferencePage() {
       <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Feature reference</span>
       <h1 className="mt-3 ff-display text-3xl text-[#f4f2ea]">Team and invites</h1>
       <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-        A site can have more than one person with access to it. The Network page and the Team members section on{" "}
+        A site can have more than one person with access to it. The Team page (invite on top, the team listed under it) and the Team members section on{" "}
         <Link href="/docs/reference/settings" className="text-[var(--lime)] hover:underline">
           Site settings
         </Link>{" "}
