@@ -7,7 +7,8 @@
 //   - the menu: edit, re-check, delete (yours), or "edit in Hook" for a mark made there.
 // Every change is reported to the page (onChange) so it updates in place, without reloading. Design:
 // mds/build/marks/marks.md.
-import { ArrowLeft, Bookmark, ChevronDown, ExternalLink, Lock, Plug, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronDown, ExternalLink, FishingHook, Lock, Plug, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
+import { InfoTip } from "@/components/forms/InfoTip";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { emptyRule } from "@/jh-marks/rule";
@@ -120,6 +121,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
           <Bookmark className="size-4 text-muted-foreground" />
         )}
         <h2 className="text-sm font-semibold">{builder ? (builder.id ? "Edit mark" : "New mark") : "Marks"}</h2>
+        {!builder && <InfoTip>A mark is a set of conditions: what a lead did on your site and in your form. Every lead that meets them gets its badge.</InfoTip>}
         {!builder && (
           <>
             <span className="ml-auto text-[11px] text-muted-foreground" title={`${mine.filter((m) => m.source === "own").length} of ${s.limit} built by you, ${mine.length} of ${s.totalLimit} in all`}>
@@ -292,6 +294,15 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                           <button type="button" onClick={() => edit(m)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
                             Open in Hook <ExternalLink className="size-3" />
                           </button>
+                        )}
+{m.source === "connected" ? (
+                          <span className="flex w-full items-center gap-2 px-2 py-1.5 text-muted-foreground/60" title="A mark connected to the library cannot be used in a hook. Add a copy instead.">
+                            <FishingHook className="size-3" /> Create a hook
+                          </span>
+                        ) : (
+                          <Link href={"/platform/hooks?tab=rules&newHook=" + m.id} onClick={() => setMenu(null)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted" title="Catch every new lead with this mark and tell your team">
+                            <FishingHook className="size-3" /> Create a hook
+                          </Link>
                         )}
                         <button type="button" onClick={() => run(m.id, () => recheckMark(m.id), (r) => ({ text: `${m.name}: ${r.ok ? r.matchCount : 0} leads.`, change: { type: "patched", id: m.id, patch: r.ok ? { matchCount: r.matchCount, evaluatedAt: r.evaluatedAt } : {} } }))} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
                           <RefreshCw className="size-3" /> Re-check all leads

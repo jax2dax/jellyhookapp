@@ -36,7 +36,7 @@ export default async function HooksPage({ searchParams }: { searchParams: Promis
       {!r.ok ? (
         <p className="text-sm text-red-600">{r.error}</p>
       ) : (
-        <Rules state={r.state} />
+        <Rules state={r.state} startMark={typeof sp.newHook === "string" ? sp.newHook : null} />
       )}
     </div>
   );

@@ -14,9 +14,22 @@ import { copySharedMark } from "@/lib/actions/marks.action";
 type Draft = { id?: string; name: string; title: string; body: string; markIds: string[]; recipients: string[]; channelIds: string[]; addToGroupId: string | null };
 const empty = (): Draft => ({ name: "", title: "", body: "", markIds: [], recipients: [], channelIds: [], addToGroupId: null });
 
-export function Rules({ state: initial }: { state: RulesState }) {
+/**
+ * `startMark`: a mark id from a mark's "Create a hook" (?newHook=<id>): the editor opens with that mark in it and the
+ * mark's name as the hook's name. The address is cleaned so a refresh does not open it again.
+ */
+export function Rules({ state: initial, startMark = null }: { state: RulesState; startMark?: string | null }) {
   const [state, setState] = React.useState(initial);
-  const [draft, setDraft] = React.useState<Draft | null>(null);
+  const [draft, setDraft] = React.useState<Draft | null>(() => {
+    const m = startMark ? initial.marks.find((x) => x.id === startMark) : null;
+    return m ? { ...empty(), name: m.name, markIds: [m.id] } : null;
+  });
+  React.useEffect(() => {
+    if (!startMark) return;
+    const u = new URL(window.location.href);
+    u.searchParams.delete("newHook");
+    window.history.replaceState(null, "", u.pathname + u.search);
+  }, [startMark]);
   const [note, setNote] = React.useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
   const mine = state.rules.filter((r) => r.mine).length;

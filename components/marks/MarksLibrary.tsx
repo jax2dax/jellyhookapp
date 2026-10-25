@@ -8,7 +8,8 @@
 //          members shared). Editing opens the builder in the sidebar. Apply marks on the leads page.
 // A locked mark (publisher setting) hides its formula: lock icon, Edit dimmed. Limits: 5 built by you, 15 in all.
 // Design: mds/build/marks/marks.md, "Library".
-import { ArrowLeft, Check, ChevronDown, Info, Loader2, Lock, MoreHorizontal, Plug, Plus } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, FishingHook, Info, Loader2, Lock, MoreHorizontal, Plug, Plus } from "lucide-react";
+import { InfoTip } from "@/components/forms/InfoTip";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { describeSpec } from "@/jh-hook/describe";
@@ -145,6 +146,15 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
             <button type="button" onClick={() => { setMenu(null); setVarsOpen(m.id); }} className="w-full rounded px-2 py-1.5 text-left hover:bg-muted">
               Edit its values
             </button>
+          )}
+{m.source === "connected" ? (
+            <span className="flex w-full items-center gap-2 px-2 py-1.5 text-muted-foreground/60" title="A mark connected to the library cannot be used in a hook. Add a copy instead.">
+              <FishingHook className="size-3" /> Create a hook
+            </span>
+          ) : (
+            <Link href={"/platform/hooks?tab=rules&newHook=" + m.id} onClick={() => setMenu(null)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted" title="Catch every new lead with this mark and tell your team">
+              <FishingHook className="size-3" /> Create a hook
+            </Link>
           )}
           <button type="button" onClick={() => { setMenu(null); setConfirm(m.id); }} className="w-full rounded px-2 py-1.5 text-left text-red-600 hover:bg-muted dark:text-red-400">
             {m.source === "connected" ? "Disconnect" : "Delete"}
@@ -302,6 +312,7 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
           ) : (
             <>
               <h2 className="text-sm font-semibold">My marks</h2>
+              <InfoTip>A mark is a set of conditions: what a lead did on your site and in your form. Every lead that meets them gets its badge.</InfoTip>
               <span className="ml-auto text-[11px] text-muted-foreground" title={`${mine.filter((m) => m.source === "own").length} of ${s.limit} built by you`}>
                 {mine.length} of {s.totalLimit}
               </span>
