@@ -42,12 +42,15 @@ const VISIT_COLS = "visitor_id, session_id, started_at, ended_at, last_activity_
 /** A set of visitors' visits up to `until`, with the ad fields of migration 24 when the database has them. */
 async function visitRows(siteId: string, visitors: string[], until: string): Promise<Record<string, unknown>[]> {
   const read = (cols: string) => allRows((from, to) => admin.from("sessions").select(cols).eq("site_id", siteId).in("visitor_id", visitors).lte("started_at", until).order("started_at").order("session_id").range(from, to));
-  try {
-    return await read(VISIT_COLS + ", utm_content, utm_term, click_id, landing_path");
-  } catch (e) {
-    if (e instanceof Error && /utm_content|utm_term|click_id|landing_path/.test(e.message)) return read(VISIT_COLS); // before 24-acquisition.sql
-    throw e;
+  // newest columns first; an older database (before migrations 25, 24) is read with fewer
+  for (const extra of [", utm_content, utm_term, click_id, landing_path, ad_name, campaign_id", ", utm_content, utm_term, click_id, landing_path", ""]) {
+    try {
+      return await read(VISIT_COLS + extra);
+    } catch (e) {
+      if (!(e instanceof Error && /utm_content|utm_term|click_id|landing_path|ad_name|campaign_id/.test(e.message)) || !extra) throw e;
+    }
   }
+  return [];
 }
 
 /** Reads the leads to check: all of the site's, or the given ones. */

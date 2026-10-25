@@ -20,6 +20,7 @@ import { createClient } from "@supabase/supabase-js";
 import { resolvePendingCountries } from "@/lib/resolvePendingCountries";
 import { leadsOfSession } from "@/lib/marks/evaluate";
 import { checkNewLeads } from "@/lib/notifications/check";
+import { channelOf } from "@/lib/acquisition/channel";
 import { sweepIfDue } from "@/lib/tracking/sweep";
 import { hashIp, hashUa, countryNameFromCode } from "@/lib/tracking/ip";
 import { cleanHeadingTime } from "@/lib/tracking/headingTime";
@@ -241,13 +242,30 @@ export async function POST(req) {
             utm_term: cleanStr(event.utm_term, 200),
             click_id: CLICK_ID_KINDS.has(event.click_id) ? event.click_id : null,
             landing_path: cleanStr(event.page_path, 500),
+            // 25-ads.sql: the ad's name and the campaign's id, from the tracking templates
+            ad_name: cleanStr(event.ad_name, 200),
+            campaign_id: cleanStr(event.campaign_id, 200),
           };
           let { error } = await supabase.from("sessions").insert(row);
+          if (error && /ad_name|campaign_id/.test(error.message || "")) {
+            // before 25-ads.sql: without the ad name and campaign id
+            const older = { ...row };
+            for (const k of ["ad_name", "campaign_id"]) delete older[k];
+            ({ error } = await supabase.from("sessions").insert(older));
+          }
           if (error && /utm_content|utm_term|click_id|landing_path/.test(error.message || "")) {
             // before 24-acquisition.sql has run: store what the table has
             const older = { ...row };
-            for (const k of ["utm_content", "utm_term", "click_id", "landing_path"]) delete older[k];
+            for (const k of ["utm_content", "utm_term", "click_id", "landing_path", "ad_name", "campaign_id"]) delete older[k];
             ({ error } = await supabase.from("sessions").insert(older));
+          }
+          // a click from a named ad: list it in the site's Ads library (one row per ad, counted), after the response
+          if (!error && row.utm_content) {
+            const ch = channelOf(row, site.domain);
+            after(async () => {
+              const { error: adErr } = await supabase.rpc("jh_seen_ad", { p_site: site.id, p_platform: ch.platform, p_ad: row.utm_content, p_name: row.ad_name ?? null, p_campaign: row.utm_campaign, p_campaign_id: row.campaign_id ?? null });
+              if (adErr && !/jh_seen_ad|ads/.test(adErr.message || "")) console.error("[track] ad record error:", adErr.message);
+            });
           }
           // 23505: two windows started the same session at once. Harmless.
           if (error && error.code !== "23505") console.error("[track] session insert error:", error.message);

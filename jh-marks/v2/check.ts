@@ -264,7 +264,8 @@ function sessionCondHolds(c: SessionCond, s: JSession, j: Journey): boolean {
       if (c.platform && ch.platform.toLowerCase() !== c.platform.toLowerCase()) return false;
       if (c.paid === "paid" && !ch.paid) return false;
       if (c.paid === "free" && ch.paid) return false;
-      return has(ch.campaign, c.campaign) && has(ch.ad, c.ad);
+      // the ad: its id or its name (ad_name from the tracking templates)
+      return has(ch.campaign, c.campaign) && (has(ch.ad, c.ad) || has(ch.adName, c.ad));
     }
   }
 }

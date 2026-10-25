@@ -34,5 +34,24 @@ for (const bad of ["http://example.com/x", "https://localhost/x", "https://127.0
   ok(!isSafeWebhookUrl(bad), "refused: " + bad);
 }
 
+// ── where the lead came from: the ad's tag, thumbnail and "Watch the ad" (2026-10-24) ──
+{
+  const withAd: DeliveryPayload = { ...p, source: { line: "Meta · Ads · Spring sale · 2026 Core Demo Video", ad: { platform: "Meta", adId: "1202", title: "2026 Core Demo Video", thumbnailUrl: "https://x.supabase.co/storage/v1/object/public/ad-thumbnails/s1/abc.jpg", videoUrl: "https://www.facebook.com/ads/library/?id=1202" } } };
+  const m = slackMessage(withAd) as unknown as { text: string; blocks: { type: string; text?: { text: string }; image_url?: string; elements?: { text?: { text: string }; url?: string }[] }[] };
+  const types = m.blocks.map((b) => b.type).join(",");
+  ok(types === "header,section,section,image,context,actions", "blocks: title, message, came from, thumbnail, hook line, buttons (" + types + ")");
+  ok(m.blocks[2].text?.text === "*Came from:* Meta · Ads · Spring sale · 2026 Core Demo Video", "the 'Came from' line names the ad by its tag");
+  ok(m.blocks[3].image_url?.endsWith("/abc.jpg") === true, "the thumbnail is shown as an image");
+  const actions = m.blocks[5].elements ?? [];
+  ok(actions.length === 2 && actions[1].text?.text === "Watch the ad" && actions[1].url === "https://www.facebook.com/ads/library/?id=1202", "a Watch the ad button next to Open the lead");
+  ok(m.text.includes("(came from Meta · Ads"), "the fallback text says where they came from");
+  const noThumb = slackMessage({ ...withAd, source: { line: "Google · Search", ad: null } }) as unknown as { blocks: { type: string }[] };
+  ok(noThumb.blocks.map((b) => b.type).join(",") === "header,section,section,context,actions", "no ad: only the text line, no image");
+  const bad = slackMessage({ ...withAd, source: { line: "x", ad: { ...withAd.source!.ad!, thumbnailUrl: "javascript:alert(1)", videoUrl: "ftp://x" } } }) as unknown as { blocks: { type: string; elements?: unknown[] }[] };
+  ok(!bad.blocks.some((b) => b.type === "image") && (bad.blocks[bad.blocks.length - 1].elements ?? []).length === 1, "a link that is not http(s) is never sent");
+  const wb = webhookBody(withAd);
+  ok(wb.source?.ad?.title === "2026 Core Demo Video" && wb.source?.ad?.video_url?.startsWith("https://") === true, "the webhook carries the source and the ad too");
+}
+
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

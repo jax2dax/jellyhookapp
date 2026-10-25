@@ -98,6 +98,8 @@ export function buildJourney(lead: LeadRow, visitorSessions: Row[], pagesBySessi
       utm_term: (s.utm_term as string) ?? null,
       click_id: (s.click_id as string) ?? null,
       landing_path: (s.landing_path as string) ?? null,
+      ad_name: (s.ad_name as string) ?? null,
+      campaign_id: (s.campaign_id as string) ?? null,
     };
     sessions.push({ id: s.session_id as string, number: i + 1, startedAt: start, ms, referrer: src.referrer, utmSource: src.utm_source, src, pages });
   });

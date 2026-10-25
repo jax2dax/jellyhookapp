@@ -41,7 +41,9 @@ export async function loadAcquisition(days: number, model: CreditModel): Promise
 
     const cols = "visitor_id, session_id, started_at, referrer, utm_source, utm_medium, utm_campaign";
     let adFields = true;
-    let sess = await allRows<SessionRow>((a, b) => admin.from("sessions").select(cols + ", utm_content, utm_term, click_id, landing_path").eq("site_id", siteId).gte("started_at", readFrom).order("started_at").order("session_id").range(a, b));
+    const read = (c: string) => allRows<SessionRow>((a, b) => admin.from("sessions").select(c).eq("site_id", siteId).gte("started_at", readFrom).order("started_at").order("session_id").range(a, b));
+    let sess = await read(cols + ", utm_content, utm_term, click_id, landing_path, ad_name, campaign_id");
+    if (sess.error && /ad_name|campaign_id/.test(sess.error)) sess = await read(cols + ", utm_content, utm_term, click_id, landing_path"); // before 25-ads.sql
     if (sess.error && /utm_content|utm_term|click_id|landing_path/.test(sess.error)) {
       // before 24-acquisition.sql: no ad, keyword or click id yet
       adFields = false;

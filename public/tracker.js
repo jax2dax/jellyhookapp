@@ -375,7 +375,7 @@
     ["twclid", "x", "paid_social"],
   ];
   function getUtmParams() {
-    const none = { utm_source: null, utm_medium: null, utm_campaign: null, utm_content: null, utm_term: null, click_id: null };
+    const none = { utm_source: null, utm_medium: null, utm_campaign: null, utm_content: null, utm_term: null, click_id: null, ad_name: null, campaign_id: null };
     try {
       const params = new URLSearchParams(window.location.search);
       let source = params.get("utm_source");
@@ -395,6 +395,9 @@
         utm_content: params.get("utm_content") || null,
         utm_term: params.get("utm_term") || null,
         click_id: clickId,
+        // from the tracking templates on the Acquisition page: {{ad.name}} / __AD_NAME__, {{campaign.id}} / {campaignid}
+        ad_name: params.get("ad_name") || null,
+        campaign_id: params.get("campaign_id") || null,
       };
     } catch (err) {
       return none;

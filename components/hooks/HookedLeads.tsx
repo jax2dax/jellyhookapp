@@ -34,9 +34,15 @@ export function HookedLeads({ leads, ready, compact = false, markSeen = false }:
       {leads.map((l) => (
         <li key={l.leadId}>
           <button type="button" onClick={() => router.push(`/platform/leads/${l.leadId}`)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-400/15 text-amber-600 dark:text-amber-400">
-              <FishingHook className="size-4" />
-            </span>
+            {l.ad?.thumbnailUrl ? (
+              // the ad that brought them (Ads library), when it has a thumbnail
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={l.ad.thumbnailUrl} alt={l.ad.title} title={l.ad.title} className="h-9 w-16 shrink-0 rounded-md border object-cover" />
+            ) : (
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-400/15 text-amber-600 dark:text-amber-400">
+                <FishingHook className="size-4" />
+              </span>
+            )}
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-foreground">{l.name || l.email || "A lead without a name"}</span>
               <span className="block truncate text-xs text-muted-foreground">

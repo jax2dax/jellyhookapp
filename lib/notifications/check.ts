@@ -15,6 +15,7 @@ import { evaluateLeads } from "@/lib/marks/evaluate";
 import { decide, type LeadIn, type RuleIn } from "./decide";
 import { openSecret } from "./secret";
 import { post, type DeliveryPayload } from "./send";
+import { leadSources } from "@/lib/acquisition/leadSource";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -186,6 +187,13 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
   dayStart.setUTCHours(0, 0, 0, 0);
   const { count: today } = await admin.from("notification_deliveries").select("id", { count: "exact", head: true }).eq("site_id", siteId).gte("created_at", dayStart.toISOString());
   let room = Math.max(0, DAILY_EXTERNAL_CAP - (today ?? 0));
+  // where each lead came from (the ad, its tag, thumbnail and video from the Ads library), for the message
+  const externalIds = new Set(external.map((f) => f.leadId));
+  const sources = await leadSources(
+    siteId,
+    (leadsRes.data ?? []).filter((l) => externalIds.has(l.id as string)).map((l) => ({ id: l.id as string, visitor_id: (l.visitor_id as string) ?? null, submitted_at: l.submitted_at as string })),
+    (siteRes.data?.domain as string) ?? null,
+  ).catch(() => new Map());
   const rows = [];
   for (const f of external) {
     const ev = eventOf.get(f.ruleId + "|" + f.leadId)!;
@@ -201,6 +209,7 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
         body: f.externalBody,
         marks: f.markIds.map((id, i) => ({ id, name: f.markNames[i] })),
         lead: { id: f.leadId, url: `${APP_URL}/platform/leads/${f.leadId}`, submittedAt: submittedAt.get(f.leadId) ?? null },
+        source: sources.get(f.leadId) ? { line: sources.get(f.leadId)!.line, ad: sources.get(f.leadId)!.ad } : null,
       };
       rows.push({ site_id: siteId, event_id: ev.id, channel_id, payload });
     }

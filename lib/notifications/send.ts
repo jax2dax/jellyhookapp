@@ -14,7 +14,19 @@ export interface DeliveryPayload {
   body: string;
   marks: { id: string; name: string }[];
   lead: { id: string; url: string; submittedAt: string | null };
+  /** where the lead came from (credited visit) and, for an ad, its library entry. Never personal data. */
+  source?: { line: string; ad: { platform: string; adId: string; title: string; thumbnailUrl: string | null; videoUrl: string | null } | null } | null;
 }
+
+const httpUrl = (u: string | null | undefined): string | null => {
+  if (!u) return null;
+  try {
+    const x = new URL(u);
+    return x.protocol === "https:" || x.protocol === "http:" ? x.toString() : null;
+  } catch {
+    return null;
+  }
+};
 
 export type SendResult = { ok: true; status: number } | { ok: false; status: number | null; error: string };
 
@@ -46,15 +58,21 @@ export function isSafeWebhookUrl(url: string): boolean {
 
 export function slackMessage(p: DeliveryPayload) {
   const when = Math.floor(Date.parse(p.lead.submittedAt ?? p.createdAt) / 1000);
-  return {
-    text: p.title + ": " + p.body,
-    blocks: [
-      { type: "header", text: { type: "plain_text", text: p.title.slice(0, 150) } },
-      { type: "section", text: { type: "mrkdwn", text: p.body } },
-      { type: "context", elements: [{ type: "mrkdwn", text: `Rule: ${p.rule.name}${p.site.domain ? " · " + p.site.domain : ""} · <!date^${when}^{date_short} {time}|${new Date(when * 1000).toISOString()}>` }] },
-      { type: "actions", elements: [{ type: "button", text: { type: "plain_text", text: "Open the lead" }, url: p.lead.url }] },
-    ],
-  };
+  const ad = p.source?.ad ?? null;
+  const thumb = httpUrl(ad?.thumbnailUrl);
+  const video = httpUrl(ad?.videoUrl);
+  const blocks: Record<string, unknown>[] = [
+    { type: "header", text: { type: "plain_text", text: p.title.slice(0, 150) } },
+    { type: "section", text: { type: "mrkdwn", text: p.body } },
+  ];
+  // what is in the lead's head: the ad (tag, thumbnail) that brought them, so the closer can match it in 3 seconds
+  if (p.source?.line) blocks.push({ type: "section", text: { type: "mrkdwn", text: "*Came from:* " + p.source.line.slice(0, 280) } });
+  if (thumb) blocks.push({ type: "image", image_url: thumb, alt_text: (ad?.title ?? "The ad").slice(0, 200), title: { type: "plain_text", text: (ad?.title ?? "The ad").slice(0, 150) } });
+  blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Hook: ${p.rule.name}${p.site.domain ? " · " + p.site.domain : ""} · <!date^${when}^{date_short} {time}|${new Date(when * 1000).toISOString()}>` }] });
+  const buttons: Record<string, unknown>[] = [{ type: "button", text: { type: "plain_text", text: "Open the lead" }, url: p.lead.url, style: "primary" }];
+  if (video) buttons.push({ type: "button", text: { type: "plain_text", text: "Watch the ad" }, url: video });
+  blocks.push({ type: "actions", elements: buttons });
+  return { text: p.title + ": " + p.body + (p.source?.line ? " (came from " + p.source.line + ")" : ""), blocks };
 }
 
 export function webhookBody(p: DeliveryPayload) {
@@ -67,6 +85,9 @@ export function webhookBody(p: DeliveryPayload) {
     message: { title: p.title, body: p.body },
     marks: p.marks,
     lead: { id: p.lead.id, url: p.lead.url, submitted_at: p.lead.submittedAt },
+    source: p.source
+      ? { line: p.source.line, ad: p.source.ad ? { platform: p.source.ad.platform, ad_id: p.source.ad.adId, title: p.source.ad.title, thumbnail_url: p.source.ad.thumbnailUrl, video_url: p.source.ad.videoUrl } : null }
+      : null,
   };
 }
 

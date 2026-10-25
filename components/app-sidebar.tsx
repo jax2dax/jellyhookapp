@@ -5,7 +5,7 @@ import * as React from "react"
 import Image from "next/image"
 import {
   LayoutDashboard, Users, Flame, UserCheck,
-  Route, Globe, Settings, CreditCard,Network, FishingHook, PanelLeftClose, PanelLeftOpen, Bookmark, Bell, Plug } from "lucide-react"
+  Route, Globe, Settings, CreditCard, FishingHook, PanelLeftClose, PanelLeftOpen, Bookmark, Bell, Plug } from "lucide-react"
 import { SiteSwitcher } from "@/components/siteSwitcher"
 
 import { NavMain } from "@/components/nav-main"

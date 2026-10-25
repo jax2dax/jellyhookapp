@@ -35,7 +35,11 @@ export interface Counts {
 }
 
 export interface AdRow extends Counts {
+  /** the ad id (utm_content) or "(no ad named)" */
   name: string;
+  /** the ad's name from ad_name, when the links carried it */
+  adName: string | null;
+  platform: string;
   landing: string | null;
 }
 export interface CampaignRow extends Counts {
@@ -80,7 +84,7 @@ export function buildReport(input: { sessions: SessionRow[]; leads: LeadRow[]; h
   for (const list of byVisitor.values()) list.sort((a, b) => t(a.started_at) - t(b.started_at));
 
   // platform label -> campaign -> ad -> counts
-  const tree = new Map<string, { ch: Channel; c: Counts; campaigns: Map<string, { c: Counts; ads: Map<string, { c: Counts; landing: Map<string, number> }> }> }>();
+  const tree = new Map<string, { ch: Channel; c: Counts; campaigns: Map<string, { c: Counts; ads: Map<string, { c: Counts; landing: Map<string, number>; adName: string | null; platform: string }> }> }>();
   const add = (ch: Channel, field: keyof Counts) => {
     let p = tree.get(ch.label);
     if (!p) tree.set(ch.label, (p = { ch, c: { visitors: 0, leads: 0, hooked: 0 }, campaigns: new Map() }));
@@ -91,7 +95,8 @@ export function buildReport(input: { sessions: SessionRow[]; leads: LeadRow[]; h
     c.c[field]++;
     const aname = ch.ad ?? NO_AD;
     let a = c.ads.get(aname);
-    if (!a) c.ads.set(aname, (a = { c: { visitors: 0, leads: 0, hooked: 0 }, landing: new Map() }));
+    if (!a) c.ads.set(aname, (a = { c: { visitors: 0, leads: 0, hooked: 0 }, landing: new Map(), adName: null as string | null, platform: ch.platform }));
+    if (ch.adName) a.adName = ch.adName;
     a.c[field]++;
     if (ch.landing) a.landing.set(ch.landing, (a.landing.get(ch.landing) ?? 0) + 1);
   };
@@ -133,7 +138,7 @@ export function buildReport(input: { sessions: SessionRow[]; leads: LeadRow[]; h
         .map(([name, c]) => ({
           name,
           ...c.c,
-          ads: [...c.ads.entries()].map(([an, a]) => ({ name: an, ...a.c, landing: [...a.landing.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null })).sort(rank),
+          ads: [...c.ads.entries()].map(([an, a]) => ({ name: an, adName: a.adName, platform: a.platform, ...a.c, landing: [...a.landing.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null })).sort(rank),
         }))
         .sort(rank),
     }))
@@ -175,6 +180,6 @@ function radar(items: (Counts & { axis: string })[]): RadarPoint[] {
 }
 
 /** "Meta · Ads · Spring sale · video-1": the credited source of one lead, for sales (Hooked leads, the lead page). */
-export function sourceLine(ch: Channel): string {
-  return [ch.label, ch.campaign, ch.ad].filter(Boolean).join(" · ");
+export function sourceLine(ch: Channel, tag?: string | null): string {
+  return [ch.label, ch.campaign, tag || ch.adName || ch.ad].filter(Boolean).join(" · ");
 }

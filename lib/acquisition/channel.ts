@@ -20,6 +20,9 @@ export interface VisitSource {
   utm_term?: string | null;
   click_id?: string | null;
   landing_path?: string | null;
+  /** from the tracking templates: the ad's name ({{ad.name}}) and the campaign's id */
+  ad_name?: string | null;
+  campaign_id?: string | null;
 }
 
 export interface Channel {
@@ -29,7 +32,10 @@ export interface Channel {
   /** platform and kind, the row a person reads: "Google · Ads", "Google · Search", "Meta · Ads", "Meta · Social", "Referral · example.com", "Direct" */
   label: string;
   campaign: string | null;
+  /** the ad network's ad id (utm_content: {{ad.id}}, {creative}, __CID__), or whatever utm_content held */
   ad: string | null;
+  /** the ad's name when the link carried it (ad_name) */
+  adName: string | null;
   term: string | null;
   landing: string | null;
   direct: boolean;
@@ -84,11 +90,13 @@ function host(referrer: string | null): string | null {
 
 /** One visit's source. `siteHost`: the site's own domain, so a referrer from the site itself counts as Direct. */
 export function channelOf(v: VisitSource, siteHost?: string | null): Channel {
-  const campaign = clean(v.utm_campaign);
+  // Google has no macro for the campaign's name: a campaign known only by its id is shown as "Campaign <id>"
+  const campaign = clean(v.utm_campaign) ?? (clean(v.campaign_id) ? "Campaign " + clean(v.campaign_id) : null);
   const ad = clean(v.utm_content);
   const term = clean(v.utm_term);
   const landing = clean(v.landing_path);
-  const base = { campaign, ad, term, landing };
+  const adName = clean(v.ad_name);
+  const base = { campaign, ad, adName, term, landing };
   const medium = (v.utm_medium ?? "").trim().toLowerCase();
   const sourceRaw = (v.utm_source ?? "").trim();
 

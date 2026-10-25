@@ -21,6 +21,15 @@ export interface PageNav {
 }
 
 export const SECONDARY_NAV: Record<string, PageNav> = {
+  "/platform/acquisition": {
+    title: "Acquisition",
+    defaultId: "overview",
+    items: [
+      { id: "overview", label: "Overview" }, // platforms, campaigns, ads, radars
+      { id: "ads", label: "Ads" }, // the Ads library: tag, video, thumbnail per ad
+      { id: "setup", label: "Set up ad tracking" }, // the templates to paste into Meta / Google / TikTok
+    ],
+  },
   "/platform/hooks": {
     title: "Hooks",
     defaultId: "hooked",

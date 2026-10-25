@@ -86,7 +86,8 @@ function PlatformLine({ row }: { row: PlatformRow }) {
                   c.ads.map((a) => (
                     <div key={a.name} className="flex items-center gap-2 py-1.5 pl-16 pr-3 text-xs">
                       <span className="min-w-0 flex-1 truncate">
-                        <span className="text-foreground/85">{a.name}</span>
+                        <span className="text-foreground/85">{a.adName ?? a.name}</span>
+                        {a.adName && <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{a.name}</span>}
                         {a.landing && <span className="ml-2 text-muted-foreground">landed on {a.landing}</span>}
                       </span>
                       <Nums c={a} />
