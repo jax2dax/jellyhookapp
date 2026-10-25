@@ -225,12 +225,15 @@ const verdict = (name, ok, extra = "") => rows.push({ name, ok, extra });
         }
         await page.click(c.submit);
         await sleep(900);
-        const got = captured.filter((x) => x && x.page_path);
+        const got = captured.filter((x) => x && x.page_path && !x.skipped);
+        // a form that is not a lead sends only a "skipped" count: never its name, email, phone or answers
+        const skips = captured.filter((x) => x && x.skipped);
+        const cleanSkips = skips.length > 0 && skips.every((x) => !("email" in x) && !("name" in x) && !("phone" in x) && !("raw_data" in x));
         const cap = got[0];
         const expectCapture = mode === "global" || wrapped || c.id === "hubspot-embed" || c.selfMarked;
         const label = `${c.id}${mode === "labelled" ? (wrapped ? " [wrapper marked]" : " [not marked]") : ""}`;
         if (!expectCapture) {
-          verdict(label, got.length === 0, got.length === 0 ? "correctly ignored" : `captured ${got.length} but should be ignored`);
+          verdict(label, got.length === 0 && cleanSkips, got.length > 0 ? `captured ${got.length} but should be ignored` : cleanSkips ? "correctly ignored; counted as skipped without any answers" : `ignored, but the skipped count is missing or carries answers (${JSON.stringify(skips)})`);
         } else if (!cap) {
           verdict(label, false, "NOT CAPTURED");
         } else {
@@ -266,13 +269,16 @@ const verdict = (name, ok, extra = "") => rows.push({ name, ok, extra });
         const frame = page.frames().find((fr) => fr.url().startsWith(f.src.split("?")[0]));
         if (frame && f.message) { await frame.click("#go"); } else if (frame) { await frame.click("#go").catch(() => {}); }
         await sleep(3800); // health report settles after 3 s
-        const got = captured.filter((x) => x && x.page_path);
+        const got = captured.filter((x) => x && x.page_path && !x.skipped);
+        // a form that is not a lead sends only a "skipped" count: never its name, email, phone or answers
+        const skips = captured.filter((x) => x && x.skipped);
+        const cleanSkips = skips.length > 0 && skips.every((x) => !("email" in x) && !("name" in x) && !("phone" in x) && !("raw_data" in x));
         const label = `${f.id}${mode === "labelled" ? (wrapped ? " [wrapper marked]" : " [not marked]") : ""}`;
         const expectCapture = f.tracked === "anonymous" && (mode === "global" || wrapped);
         const rep = health.map((h) => h.report && h.report.iframe_forms).find(Boolean);
         const flagged = !!rep;
         if (f.tracked === "anonymous") {
-          verdict(label, expectCapture ? got.length === 1 : got.length === 0, expectCapture ? (got.length === 1 ? `anonymous conversion captured (source ${got[0].raw_data && got[0].raw_data._source}), iframe flagged in health: ${flagged}` : `captured ${got.length}`) : got.length === 0 ? "correctly ignored" : "captured but should be ignored");
+          verdict(label, expectCapture ? got.length === 1 : got.length === 0 && (f.tracked !== "anonymous" || cleanSkips), expectCapture ? (got.length === 1 ? `anonymous conversion captured (source ${got[0].raw_data && got[0].raw_data._source}), iframe flagged in health: ${flagged}` : `captured ${got.length}`) : got.length > 0 ? "captured but should be ignored" : f.tracked !== "anonymous" || cleanSkips ? "correctly ignored; counted as skipped without any answers" : "ignored, but the skipped count is missing");
         } else {
           verdict(label, got.length === 0 && flagged, `cannot be tracked (separate website inside an iframe); flagged in Settings health report: ${flagged}`);
         }

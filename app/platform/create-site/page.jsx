@@ -21,7 +21,9 @@ export default function CreateSitePage() {
   const domainParam = searchParams.get("domain");
 
   const [domain, setDomain] = useState("");
-  const [specifyForm, setSpecifyForm] = useState(true); // recommended: label the form
+  // Every new site counts every form as a lead by default; forms that are not leads are switched off in Settings,
+  // Lead forms (mds/build/forms/lead-forms.md, 2026-10-25). A resumed site keeps the setting it was created with.
+  const [specifyForm, setSpecifyForm] = useState(false);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -258,27 +260,8 @@ export default function CreateSitePage() {
             <p className="mt-1 text-xs text-muted-foreground">Without https:// or www</p>
           </div>
 
-          <div className="mb-6">
-            <div className="mb-2 text-xs text-muted-foreground">Which forms count as leads?</div>
-            <div role="radiogroup" className="flex flex-col gap-2">
-              <ChoiceCard
-                selected={specifyForm}
-                onSelect={() => setSpecifyForm(true)}
-                title="Only the form I label"
-                badge="Recommended"
-                description="Add one attribute to your contact or demo form. Newsletter and search boxes are never mistaken for leads."
-              />
-              <ChoiceCard
-                selected={!specifyForm}
-                onSelect={() => setSpecifyForm(false)}
-                title="Every form on my site"
-                description="Nothing to label. Any form with an email counts, newsletter boxes included."
-              />
-            </div>
-          </div>
-
           <div className="mb-6 rounded-lg border bg-muted/30 p-4">
-            <div className="mb-3 text-xs font-medium text-foreground">{specifyForm ? "Get done in 2 steps" : "Get done in 1 step"}</div>
+            <div className="mb-3 text-xs font-medium text-foreground">Get done in 1 step</div>
             <ol className="space-y-3 text-xs text-muted-foreground">
               <li className="flex gap-3">
                 <StepDot n={1} />
@@ -286,23 +269,10 @@ export default function CreateSitePage() {
                   Paste one line in the <code className="rounded bg-muted px-1 py-0.5">&lt;head&gt;</code> of your site.
                 </span>
               </li>
-              {specifyForm && (
-                <li className="flex gap-3">
-                  <StepDot n={2} />
-                  <span>Mark your form with one attribute:</span>
-                </li>
-              )}
             </ol>
-            {specifyForm && (
-              <div className="mt-3 rounded-md border bg-background/60 p-3 font-mono text-xs">
-                <span className="text-muted-foreground">&lt;form </span>
-                <span className="font-semibold text-emerald-400">data-conversion=&quot;true&quot;</span>
-                <span className="text-muted-foreground">&gt;</span>
-                <div className="pl-4 text-muted-foreground">...</div>
-                <span className="text-muted-foreground">&lt;/form&gt;</span>
-              </div>
-            )}
-            <p className="mt-3 text-[11px] text-muted-foreground">{specifyForm ? "Every field is tracked by default. That is it: we notice the first visit and open your dashboard." : "Every form is tracked. We notice the first visit and open your dashboard."}</p>
+            <p className="mt-3 text-[11px] text-muted-foreground">
+              Every form with an email counts as a lead. If one is not (a newsletter box, a job application), switch it off in Settings, Lead forms, after its first submission. We notice the first visit and open your dashboard.
+            </p>
           </div>
 
           {error && <p className="mb-3 text-xs text-destructive">{error}</p>}
@@ -313,29 +283,6 @@ export default function CreateSitePage() {
         </CardContent>
       </Card>
     </PageShell>
-  );
-}
-
-function ChoiceCard({ selected, onSelect, title, badge, description }) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onSelect}
-      className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors ${selected ? "border-primary bg-primary/5" : "hover:bg-muted/40"}`}
-    >
-      <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${selected ? "border-primary" : "border-muted-foreground/50"}`}>
-        {selected && <span className="h-2 w-2 rounded-full bg-primary" />}
-      </span>
-      <span className="flex flex-col gap-0.5">
-        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-          {title}
-          {badge && <Badge variant="outline" className="border-primary/40 text-primary">{badge}</Badge>}
-        </span>
-        <span className="text-xs leading-relaxed text-muted-foreground">{description}</span>
-      </span>
-    </button>
   );
 }
 

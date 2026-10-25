@@ -11,6 +11,7 @@ import { connectionsOfPortal, contactEmail, hubspotSignatureValid, makeChartToke
 import { summariesWithin, type SummaryLead } from "@/lib/notifications/summary";
 import { messageOptions } from "@/lib/notifications/message";
 import { leadSources } from "@/lib/acquisition/leadSource";
+import { formKeyLabel } from "@/lib/tracking/formKey";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://jellyhook.com").replace(/\/+$/, "");
@@ -22,6 +23,8 @@ export interface CardLead {
   site: string;
   submittedAt: string;
   page: string | null;
+  /** the form it was sent with ("#contact"), when known */
+  form: string | null;
   marks: string[];
   hooks: string[];
   cameFrom: string | null;
@@ -71,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     const siteIds = conns.map((c) => c.site_id);
     const [leadsRes, sitesRes] = await Promise.all([
-      admin.from("form_submissions").select("id, site_id, visitor_id, session_id, submitted_at, page_path").in("site_id", siteIds).ilike("email", literal(email)).order("submitted_at", { ascending: false }).limit(MAX_LEADS),
+      admin.from("form_submissions").select("*").in("site_id", siteIds).ilike("email", literal(email)).order("submitted_at", { ascending: false }).limit(MAX_LEADS),
       admin.from("sites").select("id, domain, name").in("id", siteIds),
     ]);
     if (leadsRes.error) throw new Error(leadsRes.error.message);
@@ -131,6 +134,7 @@ export async function POST(req: NextRequest) {
       site: siteName.get(l.site_id as string) ?? "your site",
       submittedAt: l.submitted_at as string,
       page: (l.page_path as string) ?? null,
+      form: typeof l.form_key === "string" && l.form_key ? formKeyLabel(l.form_key) : null,
       marks: marks.get(l.id as string) ?? [],
       hooks: hooks.get(l.id as string) ?? [],
       cameFrom: cameFrom.get(l.id as string) ?? null,

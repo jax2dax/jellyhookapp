@@ -91,6 +91,7 @@ Keep this list current: add a line when you create a .md file, change it when a 
 - `acquisition/plan.md`: where leads come from (platform, campaign, ad), credit model, radars, "came from an ad" in marks.
 - `marks/marks.md`: marks on leads, library, site statistics (v1, the chip builder). `marks/marks-v2-plan.md`: the new builder (visit blocks, page sequences, headings, form answers and activity): plan, founder decisions, build status.
 - `heading-time/plan.md`: time per heading (tracker, storage, heat map).
+- `forms/lead-forms.md`: which form submissions are leads (per-form switches, data-conversion as an override, form_key on every lead, skipped counts), the rule, the flow, tests, docs still to rewrite.
 - `form-study/`: `plan.md`, `averages-and-versions.md` (form dashboard versions and reference), `tracker-changes.md`.
 - `ai-hook-translate/`: Ask Hook (question to Hook query). `README.md` index, `Architecture.md`, `data-flow.md`, `prompt-and-rules.md`, `models-and-cost.md`, `ledger-and-limits.md`, `eval-and-tests.md`, `security-and-privacy.md`, `setup-and-env.md`, `roadmap.md`.
 - `mcp/`: MCP server. `plan.md`, `architecture.md`, `build-log.md`, `resume.md`.

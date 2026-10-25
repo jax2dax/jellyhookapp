@@ -14,6 +14,8 @@ export interface DeliveryPayload {
   marks: { id: string; name: string }[];
   /** url: the lead in Jellyhook; hubspotUrl: "Open in HubSpot" (resolved at the click, app/go/hubspot) when the site has HubSpot */
   lead: { id: string; url: string; submittedAt: string | null; hubspotUrl?: string | null };
+  /** which form the lead sent (form_key and its label, lib/tracking/formKey.js), when known (migration 28) */
+  form?: { key: string; label: string } | null;
   /** where the lead came from (credited visit) and, for an ad, its library entry. Never personal data. */
   source?: { line: string; ad: { platform: string; adId: string; title: string; thumbnailUrl: string | null; videoUrl: string | null } | null } | null;
   /** what the Slack message shows (the hook's options); every part when absent */
@@ -137,7 +139,7 @@ export function slackMessage(p: DeliveryPayload) {
   // what they did before sending the form, and the pages the hook asked about (computed when the hook fired)
   if (p.summary?.lines.length) blocks.push({ type: "section", text: { type: "mrkdwn", text: summaryText(p.summary) } });
   if (p.pages?.length) blocks.push({ type: "section", text: { type: "mrkdwn", text: pagesText(p.pages) } });
-  if (show.details) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Hook: ${p.rule.name}${p.site.domain ? " · " + p.site.domain : ""} · <!date^${when}^{date_short} {time}|${new Date(when * 1000).toISOString()}>` }] });
+  if (show.details) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Hook: ${p.rule.name}${p.form ? " · Form: " + slackEscape(p.form.label.slice(0, 80)) : ""}${p.site.domain ? " · " + p.site.domain : ""} · <!date^${when}^{date_short} {time}|${new Date(when * 1000).toISOString()}>` }] });
   const buttons: Record<string, unknown>[] = [];
   if (show.openButton) buttons.push(...leadButtons(p, show.leadLink));
   if (video) buttons.push({ type: "button", text: { type: "plain_text", text: "Watch the ad" }, url: video });
@@ -171,7 +173,7 @@ export function webhookBody(p: DeliveryPayload) {
     rule: p.rule,
     message: { title: p.title, body: p.body },
     marks: p.marks,
-    lead: { id: p.lead.id, url: p.lead.url, submitted_at: p.lead.submittedAt, hubspot_url: p.lead.hubspotUrl ?? null },
+    lead: { id: p.lead.id, url: p.lead.url, submitted_at: p.lead.submittedAt, hubspot_url: p.lead.hubspotUrl ?? null, form_key: p.form?.key ?? null, form: p.form?.label ?? null },
     source: p.source
       ? { line: p.source.line, ad: p.source.ad ? { platform: p.source.ad.platform, ad_id: p.source.ad.adId, title: p.source.ad.title, thumbnail_url: p.source.ad.thumbnailUrl, video_url: p.source.ad.videoUrl } : null }
       : null,

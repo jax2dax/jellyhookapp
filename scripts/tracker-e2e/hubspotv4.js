@@ -16,6 +16,7 @@ const KEY = "11111111-2222-3333-4444-555555555555";
 const FORM_ID = "29478cf5-7fa5-4065-b80d-c8347ee65073";
 let SPECIFY = false;
 const forms = [];
+const skipped = []; // "not a lead" pings: only that the form was sent, never its answers
 
 // stands in for js-na2.hsforms.net/forms/embed/<portal>.js: values come back after a short wait, like the real one
 const fakeEmbed = (mode) => `<script>
@@ -54,7 +55,7 @@ const server = http.createServer((req, res) => {
     let body = "";
     req.on("data", (d) => (body += d));
     req.on("end", () => {
-      try { if (u === "/api/track-form") forms.push(JSON.parse(body)); } catch (e) {}
+      try { if (u === "/api/track-form") { const j = JSON.parse(body); (j.skipped ? skipped : forms).push(j); } } catch (e) {}
       res.writeHead(200, { ...cors, "Content-Type": "application/json" });
       res.end('{"success":true}');
     });
@@ -69,6 +70,7 @@ const ok = (c, m) => { console.log(c ? "ok:" : "FAIL:", m); if (!c) fails++; };
 async function submit(browser, wrapped, mode, specify, waitMs = 1500) {
   SPECIFY = specify;
   forms.length = 0;
+  skipped.length = 0;
   const ctx = await browser.createBrowserContext();
   const p = await ctx.newPage();
   await p.goto(`http://localhost:4105/p/${wrapped ? "wrapped" : "bare"}/${mode}`, { waitUntil: "load" });
@@ -95,7 +97,9 @@ async function submit(browser, wrapped, mode, specify, waitMs = 1500) {
   ok(f && f.page_snapshot && f.page_snapshot.page_view_id, "with the page snapshot (summary and marks see the form page)");
 
   ok((await submit(browser, true, "ok", true)).length === 1, "specify-form mode: captured inside a data-conversion wrapper");
-  ok((await submit(browser, false, "ok", true)).length === 0, "specify-form mode: ignored without the wrapper");
+  skipped.length = 0;
+  ok((await submit(browser, false, "ok", true)).length === 0, "specify-form mode: not a lead without the wrapper");
+  ok(skipped.length === 1 && !("email" in skipped[0]) && !("raw_data" in skipped[0]) && skipped[0].form_key_hint && skipped[0].form_key_hint.vendor === "hubspot", "and only counted as skipped, keyed to the HubSpot form, without its answers");
 
   const hang = await submit(browser, false, "hang", false, 3000);
   ok(hang.length === 1 && hang[0].email === null, "values never arrive: the submission is still sent after 2 s (without email)");

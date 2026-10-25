@@ -13,7 +13,8 @@ import {
 import { can } from "@/lib/tracking/permissions";
 import { rotationStatus } from "@/lib/tracking/keys";
 import { McpCard } from "./McpCard";
-import { KeyRotationNotice, TrackingStatusCard, AllowedHostsCard, TrackingHealthCard, FormModeCard } from "./TrackingCards";
+import { KeyRotationNotice, TrackingStatusCard, AllowedHostsCard, TrackingHealthCard } from "./TrackingCards";
+import { FormSwitchesCard } from "./FormSwitchesCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -208,7 +209,7 @@ export default function SettingsClient({ site: initialSite, visitorCount = 0, ro
 
       <section className={cls("tracker")}>
         <SectionLabel>Lead tracking</SectionLabel>
-        <FormModeCard siteId={site.id} initial={site.specify_form === true} role={role} onChanged={setSite} />
+        <FormSwitchesCard siteId={site.id} onChanged={setSite} />
       </section>
 
       {/* OVERVIEW — one flexible card whose facts wrap and size to their own

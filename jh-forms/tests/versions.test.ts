@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- test fixtures are plain JSON rows */
-// jh-forms/tests/versions.test.ts - runs mds/migrations/17-form-versions.sql on PGlite (real Postgres) and checks the
+// jh-forms/tests/versions.test.ts - runs mds/migrations/16-form-versions.sql on PGlite (real Postgres) and checks the
 // version rule, late rows, the re-key when a form gets an id, and the backfill. Run: npm run test:forms
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -34,7 +34,7 @@ async function main() {
   await raw("/contact", A, T0 - 10 * 24 * H);
   await raw("/contact", null, T0 - 9 * 24 * H);
 
-  const sql = readFileSync(join(process.cwd(), "mds/migrations/17-form-versions.sql"), "utf8");
+  const sql = readFileSync(join(process.cwd(), "mds/migrations/16-form-versions.sql"), "utf8");
   await pg.exec(sql);
   await pg.exec(sql); // safe to run twice
   const keys = (await pg.query<{ form_key: string; v: string | null }>("select form_key, form_version_id::text v from form_engagement order by viewed_at")).rows;

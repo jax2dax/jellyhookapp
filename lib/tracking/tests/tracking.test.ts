@@ -192,7 +192,8 @@ ok(decideCreateSite({ now: T0 + 1000, hasPendingInvite: true, sites: [mk({ verif
   h = by([row("conversion_form", { forms: 1, marked: 0, wrong_element: 1 })]);
   ok(h.conversion_form.state === "misplaced" && /not a <form>/.test(h.conversion_form.pages[0].problems[0]), "health: data-conversion on a non-form is named as misplaced");
   h = by([row("conversion_form", { forms: 2, marked: 0 })], { specifyForm: true });
-  ok(h.conversion_form.state === "misplaced", "health: specify mode and no form marked is a problem");
+  // since 2026-10-25 which forms count is set per form in Settings (Lead forms), so unmarked forms are not a mistake
+  ok(h.conversion_form.state === "none" && h.conversion_form.pages[0].problems.length === 0, "health: unmarked forms are not a problem (the switches in Settings decide)");
   h = by([row("conversion_form", { forms: 2, marked: 0 })], { specifyForm: false });
   ok(h.conversion_form.state === "none", "health: no marking needed when every form is tracked");
   h = by([row("field_attr", { marked: 3, in_form: 1, outside_form: 2 })]);

@@ -81,7 +81,8 @@ function JellyhookCard({ context, actions }) {
           {i > 0 && <Divider />}
           <Text format={{ fontWeight: "bold" }}>
             Form sent {when(lead.submittedAt)}
-            {lead.page ? " on " + lead.page : ""} · {lead.site}
+            {lead.page ? " on " + lead.page : ""}
+            {lead.form ? " (" + lead.form + ")" : ""} · {lead.site}
           </Text>
           {lead.cameFrom && <Text variant="microcopy">Came from: {lead.cameFrom}</Text>}
           {(lead.hooks.length > 0 || lead.marks.length > 0) && (

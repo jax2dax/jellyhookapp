@@ -1,10 +1,11 @@
 // api/site-config/route.js
 // Lightweight public endpoint — returns only non-sensitive config the tracker needs.
 // No auth required — the api_key in the query string IS the credential.
-// Only returns specify_form boolean, nothing else.
+// Returns specify_form and the site's per-form lead switches (form_rules), nothing else.
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { MAX_RULES_IN_CONFIG } from "@/lib/tracking/formRules";
 
 // Service role — see app/api/track/route.js's header comment for why.
 const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -41,7 +42,7 @@ export async function GET(req) {
     if (!/^[A-Za-z0-9_-]{8,64}$/.test(apiKey)) return NextResponse.json({ specify_form: false }, { headers: corsHeaders() });
     const { data: sites, error } = await supabase
       .from("sites")
-      .select("specify_form, is_active")
+      .select("id, specify_form, is_active")
       .or(`api_key.eq.${apiKey},previous_api_key.eq.${apiKey}`)
       .limit(1);
     const site = sites?.[0];
@@ -51,8 +52,15 @@ export async function GET(req) {
       return NextResponse.json({ specify_form: false }, { headers: corsHeaders() });
     }
 
+    // The per-form switches (Settings, Lead forms; migration 28), so the tracker applies the same rule as the server
+    // (lib/tracking/formRules.js): a switched-off form sends only a "skipped" count, never its answers. Only explicit
+    // switches are sent; a form without one follows specify_form. Before migration 28 there are none.
+    const form_rules = {};
+    const { data: rules } = await supabase.from("site_forms").select("form_key, counts_as_lead").eq("site_id", site.id).not("counts_as_lead", "is", null).limit(MAX_RULES_IN_CONFIG);
+    for (const r of rules ?? []) form_rules[r.form_key] = r.counts_as_lead === true;
+
     return NextResponse.json(
-      { specify_form: site.specify_form ?? false },
+      { specify_form: site.specify_form ?? false, form_rules },
       { headers: corsHeaders() }
     );
 

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { addAllowedHost, removeAllowedHost, setFormMode } from "@/lib/actions/settings.actions";
+import { addAllowedHost, removeAllowedHost } from "@/lib/actions/settings.actions";
 import { renewClaim } from "@/lib/actions/site-management.actions";
 import { can } from "@/lib/tracking/permissions";
 import { Button } from "@/components/ui/button";
@@ -238,78 +238,6 @@ export function TrackingHealthCard({ status }) {
             )}
           </div>
         ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function ModeOption({ selected, disabled, onSelect, title, badge, text }) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      disabled={disabled}
-      onClick={onSelect}
-      className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors disabled:opacity-60 ${selected ? "border-primary bg-primary/5" : "hover:bg-muted/40"}`}
-    >
-      <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${selected ? "border-primary" : "border-muted-foreground/50"}`}>
-        {selected && <span className="h-2 w-2 rounded-full bg-primary" />}
-      </span>
-      <span className="flex flex-col gap-0.5">
-        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-          {title}
-          {badge && <Badge variant="outline" className="border-primary/40 text-primary">{badge}</Badge>}
-        </span>
-        <span className="text-xs leading-relaxed text-muted-foreground">{text}</span>
-      </span>
-    </button>
-  );
-}
-
-// Which forms count as leads. Changeable any time; applies within about a minute.
-export function FormModeCard({ siteId, initial, role, onChanged }) {
-  const [specify, setSpecify] = useState(initial);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-  const [saved, setSaved] = useState(false);
-  const canEdit = can(role, "site.change_form_mode");
-
-  async function choose(value) {
-    if (value === specify || !canEdit) return;
-    setBusy(true);
-    setError(null);
-    setSaved(false);
-    const res = await setFormMode(siteId, value);
-    if (res.success) {
-      setSpecify(value);
-      setSaved(true);
-      onChanged?.(res.data);
-    } else setError(res.error);
-    setBusy(false);
-  }
-
-  return (
-    <Card>
-      <CardContent className="space-y-3">
-        <div className="text-xs text-muted-foreground">Which forms count as leads?</div>
-        <div role="radiogroup" className="flex flex-col gap-2">
-          <ModeOption
-            selected={specify}
-            disabled={busy || !canEdit}
-            onSelect={() => choose(true)}
-            title="Only the form I label"
-            badge="Recommended"
-            text={'Add data-conversion="true" to your contact or demo form. Newsletter and search boxes are never counted as leads.'}
-          />
-          <ModeOption selected={!specify} disabled={busy || !canEdit} onSelect={() => choose(false)} title="Every form on my site" text="Nothing to label. Any form with an email counts, newsletter boxes included." />
-        </div>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          You can switch any time. It applies within about a minute, and leads already recorded are not changed. After switching to labelled forms, the Attribute check below shows whether your form is marked correctly.
-        </p>
-        {!canEdit && <p className="text-xs text-muted-foreground">Only the owner or an admin can change this.</p>}
-        {saved && <p className="text-xs text-primary">Saved.</p>}
-        {error && <p className="text-xs text-destructive">{error}</p>}
       </CardContent>
     </Card>
   );

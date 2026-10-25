@@ -13,6 +13,7 @@ import { LeadQualifyToggle } from "@/components/leads/LeadQualifyToggle";
 import { LeadStatsCard } from "@/components/leads/LeadStatsCard";
 import { ConversionEventsBadges } from "@/components/leads/ConversionEventsBadges";
 import { FormDetails } from "@/components/leads/FormDetails";
+import { formKeyLabel } from "@/lib/tracking/formKey";
 import { LocalDate } from "@/components/LocalDate";
 import { formatRelativeTime } from "@/lib/leadFormat";
 import { LeadFormsCard } from "@/components/forms/LeadFormsCard";
@@ -133,7 +134,7 @@ async function LeadProfileBody({ profile, raw, siteId }) {
 
         {primaryConversion?.fields && (primaryConversion.fields.scalars.length > 0 || primaryConversion.fields.complex.length > 0) && (
           <CardContent className="pt-0">
-            <FormDetails scalars={primaryConversion.fields.scalars} complex={primaryConversion.fields.complex} />
+            <FormDetails scalars={primaryConversion.fields.scalars} complex={primaryConversion.fields.complex} form={raw.focusSubmission?.form_key ? formKeyLabel(raw.focusSubmission.form_key) : null} />
           </CardContent>
         )}
       </Card>

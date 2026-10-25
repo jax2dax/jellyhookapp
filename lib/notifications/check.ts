@@ -18,6 +18,7 @@ import { messageOptions, post, type DeliveryPayload } from "./send";
 import { leadSources } from "@/lib/acquisition/leadSource";
 import { summariesWithin } from "./summary";
 import { connectionOf, hubspotLeadLink } from "@/lib/integrations/hubspot";
+import { formKeyLabel } from "@/lib/tracking/formKey";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -121,7 +122,7 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
   const allMarkIds = [...new Set(rules.flatMap((r) => r.markIds))];
 
   const [leadsRes, lmRes, marksRes, membersRes, siteRes] = await Promise.all([
-    admin.from("form_submissions").select("id, visitor_id, session_id, name, email, submitted_at").eq("site_id", siteId).in("id", leadIds),
+    admin.from("form_submissions").select("*").eq("site_id", siteId).in("id", leadIds),
     admin.from("lead_marks").select("lead_id, mark_id").eq("site_id", siteId).in("lead_id", leadIds),
     admin.from("marks").select("id, name, active").eq("site_id", siteId).in("id", allMarkIds),
     admin.from("site_members").select("user_id").eq("site_id", siteId).eq("status", "active"),
@@ -130,6 +131,8 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
   for (const r of [leadsRes, lmRes, marksRes, membersRes]) if (r.error) throw new Error(r.error.message);
   const leads: LeadIn[] = (leadsRes.data ?? []).map((l) => ({ id: l.id as string, visitorId: (l.visitor_id as string) ?? null, name: (l.name as string) ?? null, email: (l.email as string) ?? null }));
   const submittedAt = new Map((leadsRes.data ?? []).map((l) => [l.id as string, (l.submitted_at as string) ?? null]));
+  // the form each lead sent (form_key, migration 28; absent before it)
+  const formOf = new Map((leadsRes.data ?? []).filter((l) => typeof l.form_key === "string" && l.form_key).map((l) => [l.id as string, { key: l.form_key as string, label: formKeyLabel(l.form_key as string) }]));
   const leadMarks = new Map<string, Set<string>>();
   for (const r of lmRes.data ?? []) {
     const s = leadMarks.get(r.lead_id as string) ?? new Set<string>();
@@ -222,6 +225,7 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
         lead: { id: f.leadId, url: `${APP_URL}/platform/leads/${f.leadId}`, submittedAt: submittedAt.get(f.leadId) ?? null, hubspotUrl: hubspot?.status === "ok" ? hubspotLeadLink(APP_URL, f.leadId) : null },
         source: sources.get(f.leadId) ? { line: sources.get(f.leadId)!.line, ad: sources.get(f.leadId)!.ad } : null,
         options: ruleOptions.get(f.ruleId) ?? null,
+        form: formOf.get(f.leadId) ?? null,
         summary: summaries.get(f.ruleId + "|" + f.leadId)?.summary ?? null,
         pages: summaries.get(f.ruleId + "|" + f.leadId)?.pages ?? null,
       };

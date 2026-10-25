@@ -21,6 +21,28 @@ import { dropSensitive } from "@/lib/tracking/sensitive";
 import { checkNewLeads } from "@/lib/notifications/check";
 import { canonicalVisitorId } from "@/lib/tracking/identity";
 import { applyPageSnapshot } from "@/lib/tracking/pageSnapshot";
+import { formKeyOf } from "@/lib/tracking/formKey";
+import { countsAsLead, markOf } from "@/lib/tracking/formRules";
+
+/**
+ * The form's own switch in Settings, Lead forms (site_forms.counts_as_lead), or null when it has none or the table does
+ * not exist yet (before migration 28: the site's default then applies, as before).
+ */
+async function formRule(supabase, siteId, formKey) {
+  const { data, error } = await supabase.from("site_forms").select("counts_as_lead").eq("site_id", siteId).eq("form_key", formKey).maybeSingle();
+  if (error || !data) return null;
+  return data.counts_as_lead === true ? true : data.counts_as_lead === false ? false : null;
+}
+
+/** Counts one submission of a form, as a lead or skipped (no personal data). Never throws; before migration 28 a no-op. */
+async function formSeen(supabase, siteId, formKey, pagePath, skipped, mark) {
+  try {
+    const { error } = await supabase.rpc("jh_form_seen", { p_site: siteId, p_key: formKey, p_page: pagePath, p_skipped: skipped, p_mark: mark });
+    if (error && !/jh_form_seen|site_forms/.test(error.message || "")) console.error("[track-form] form count failed:", error.message);
+  } catch (e) {
+    console.error("[track-form] form count failed:", e instanceof Error ? e.message : String(e));
+  }
+}
 
 const MAX_RAW_FIELDS = 60;
 const MAX_RAW_VALUE = 2000;
@@ -74,11 +96,22 @@ export async function POST(req) {
       return ok();
     }
 
-    // specify_form = true: only forms marked data-conversion="true" are leads.
-    // Enforced here too, so a misbehaving tracker can't send the rest.
-    if (site.specify_form === true && payload.is_labelled_conversion !== true) {
+    // Is this form a lead? The same rule as the tracker (lib/tracking/formRules.js): data-conversion, then the form's
+    // switch in Settings, then the site's default (specify_form). Enforced here too, so an old or stale tracker cannot
+    // add a lead the site switched off. A form that is not a lead, or the tracker's "skipped" ping (which carries no
+    // answers), is only counted for Settings; nothing else is stored.
+    const pagePath = cleanStr(payload.page_path, 500) || "/";
+    const formIndex = Number.isInteger(payload.form_index) && payload.form_index >= -1 && payload.form_index < 1000 ? payload.form_index : 0;
+    const formKey = formKeyOf(payload.form_key_hint, pagePath, formIndex).slice(0, 300);
+    // old trackers (cached up to an hour) send only is_labelled_conversion: true means marked, false means unmarked
+    const mark = markOf(payload.conversion_mark !== undefined ? payload.conversion_mark : payload.is_labelled_conversion === true ? "true" : null);
+    const rule = mark === null ? await formRule(supabase, site.id, formKey) : null;
+    if (payload.skipped === true || !countsAsLead({ mark, rule, specifyForm: site.specify_form === true })) {
       bump(usage, "dropped");
-      after(() => flushUsage(supabase, site.id, usage, now));
+      after(async () => {
+        await formSeen(supabase, site.id, formKey, pagePath, true, mark);
+        await flushUsage(supabase, site.id, usage, now);
+      });
       return ok();
     }
 
@@ -100,8 +133,7 @@ export async function POST(req) {
     }
 
     bump(usage, "forms");
-    const pagePath = cleanStr(payload.page_path, 500);
-    const { data: inserted, error: insertError } = await supabase.from("form_submissions").insert({
+    const row = {
       site_id: site.id,
       visitor_id: visitorId,
       session_id: await canonicalVisitorId(supabase, site.id, cleanId(payload.session_id)), // an alias of a merged visit
@@ -113,7 +145,14 @@ export async function POST(req) {
       confidence: payload.confidence === "high" ? "high" : "low",
       raw_data: cleanRaw(payload.raw_data),
       submitted_at: new Date(now).toISOString(),
-    }).select("id").single();
+      form_key: formKey,
+    };
+    let { data: inserted, error: insertError } = await supabase.from("form_submissions").insert(row).select("id").single();
+    if (insertError && /form_key/.test(insertError.message || "")) {
+      // before 28-lead-forms.sql: the lead without its form
+      delete row.form_key;
+      ({ data: inserted, error: insertError } = await supabase.from("form_submissions").insert(row).select("id").single());
+    }
     if (insertError) {
       console.error("[track-form] insert error:", insertError.message);
       return NextResponse.json({ error: "Server error" }, { status: 500, headers: CORS });
@@ -124,7 +163,10 @@ export async function POST(req) {
     // A conversion announced by a form inside an iframe (Typeform, Calendly, Jotform) proves that path works.
     if (payload.raw_data && payload.raw_data._kind === "iframe_submission") await markHealthEvent(supabase, site.id, pagePath, "iframe_forms", now);
 
-    after(() => flushUsage(supabase, site.id, usage, now));
+    after(async () => {
+      await formSeen(supabase, site.id, formKey, pagePath, false, mark);
+      await flushUsage(supabase, site.id, usage, now);
+    });
     // the new lead's marks and notification rules, after the response (never slows the tracker), in its site's lane:
     // lib/notifications/check.ts. Before migration 20 it falls back to checking the marks only. The form page's
     // heading times and scroll so far are written first (lib/tracking/pageSnapshot.js), so the marks and the hook's

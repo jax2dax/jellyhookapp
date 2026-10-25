@@ -15,7 +15,8 @@ export interface FormField {
 
 const INLINE = 4;
 
-export function FormDetails({ scalars, complex }: { scalars: FormField[]; complex: FormField[] }) {
+/** `form`: which form it came from ("#contact", "HubSpot form …ee65073"; lib/tracking/formKey.js formKeyLabel), when known. */
+export function FormDetails({ scalars, complex, form }: { scalars: FormField[]; complex: FormField[]; form?: string | null }) {
   const [open, setOpen] = React.useState(false);
   if (scalars.length === 0 && complex.length === 0) return null;
   const first = scalars.slice(0, INLINE);
@@ -23,7 +24,10 @@ export function FormDetails({ scalars, complex }: { scalars: FormField[]; comple
   const hidden = rest.length + complex.length;
   return (
     <div className="space-y-2">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Submitted form details</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Submitted form details
+        {form && <span className="ml-1.5 font-mono normal-case tracking-normal text-foreground/80">· {form}</span>}
+      </p>
       <div className="flex flex-wrap gap-2">
         {first.map((f) => (
           <div key={f.key} className="max-w-full rounded-md border bg-muted/40 px-2.5 py-1 text-xs">

@@ -447,9 +447,82 @@
   const sessionEndListeners = [];
   // Callbacks run each time a page view OPENS (structure capture, health report).
   const pageOpenListeners = [];
-  // Shared by the three form sections (generic capture, HubSpot, iframe providers): the site's form
-  // mode from /api/site-config, and callbacks waiting for it to arrive.
-  const jhState = { configLoaded: false, specifyFormMode: false, waiters: [] };
+  // Shared by the three form sections (generic capture, HubSpot, iframe providers): the site's default for forms nobody
+  // has switched (specify_form) and its per-form switches (form_rules) from /api/site-config, and callbacks waiting for
+  // them to arrive.
+  const jhState = { configLoaded: false, specifyFormMode: false, formRules: {}, waiters: [] };
+
+  // ── WHICH FORMS ARE LEADS ──
+  // Exact copies of lib/tracking/formKey.js (formKeyOf) and lib/tracking/formRules.js (countsAsLead), kept equal by
+  // lib/tracking/tests/formRules.test.js. A form's key: "id:<id>", "name:<name>", "path:<page>#<position>", a new HubSpot
+  // form "hubspot:<form id>", another site's form in an iframe "embed:<provider>". Is it a lead: data-conversion="false"
+  // never, "true" always, else its switch in Settings (form_rules), else the site's default (off only for sites created
+  // with "Only forms I mark"). Design: mds/build/forms/lead-forms.md.
+  const JH_FORM_ALLOWED = /^[A-Za-z0-9_.:-]+$/;
+  const JH_HUBSPOT_ID = /^hsForm_[0-9a-f-]{8,}$/i;
+  const JH_VENDOR_ID = /^[0-9a-f-]{8,64}$/i;
+  const JH_PROVIDER = /^[a-z]{2,20}$/;
+  function jhLooksGenerated(v) {
+    if (JH_HUBSPOT_ID.test(v)) return false;
+    if (v.startsWith(":") || v.includes(":r")) return true;
+    if (/(?=[0-9a-f]*[0-9])(?=[0-9a-f]*[a-f])[0-9a-f]{8,}/i.test(v)) return true;
+    if (/[0-9]{9,}/.test(v)) return true;
+    return false;
+  }
+  function jhCleanAttr(v) {
+    if (typeof v !== "string") return null;
+    const s = v.trim();
+    if (!s || s.length > 100 || !JH_FORM_ALLOWED.test(s) || jhLooksGenerated(s)) return null;
+    return s;
+  }
+  function jhFormKeyOf(hint, pagePath, formIndex) {
+    if (hint && hint.vendor === "hubspot" && typeof hint.id === "string" && JH_VENDOR_ID.test(hint.id)) return "hubspot:" + hint.id.toLowerCase();
+    if (hint && typeof hint.vendor === "string" && hint.vendor !== "hubspot" && JH_PROVIDER.test(hint.vendor)) return "embed:" + hint.vendor;
+    const id = jhCleanAttr(hint && hint.id);
+    if (id) return "id:" + id;
+    const name = jhCleanAttr(hint && hint.name);
+    if (name) return "name:" + name;
+    return "path:" + pagePath + "#" + formIndex;
+  }
+  /** "true", "false" or null: the nearest data-conversion on the element or a box around it. */
+  function jhMarkOf(el) {
+    try {
+      const w = el && el.closest ? el.closest("[data-conversion]") : null;
+      const v = w ? w.getAttribute("data-conversion") : null;
+      return v === "true" ? "true" : v === "false" ? "false" : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  function jhCountsAsLead(key, mark) {
+    if (mark === "false") return false;
+    if (mark === "true") return true;
+    const rule = jhState.formRules[key];
+    if (rule === true || rule === false) return rule;
+    return !jhState.specifyFormMode;
+  }
+  /** The key hint of a real <form>, and its position among the page's forms (what the server needs to rebuild the key). */
+  function jhFormHint(form) {
+    return { hint: { id: form.getAttribute("id"), name: form.getAttribute("name") }, index: Array.from(document.forms).indexOf(form) };
+  }
+  // A submission of a form that is not a lead: only that it happened (its form and page), so Settings can show a form
+  // someone forgot to switch on. Never the name, email or answers. Once per form per 3 s (submit + fetch both fire).
+  const jhSkippedAt = {};
+  function jhSendSkipped(hint, formIndex, mark) {
+    try {
+      const k = JSON.stringify(hint) + "|" + formIndex;
+      if (jhSkippedAt[k] && Date.now() - jhSkippedAt[k] < 3000) return;
+      jhSkippedAt[k] = Date.now();
+      jhLog("[Tracker] form is not a lead (Settings, Lead forms / data-conversion): counted as skipped", hint);
+      _originalFetch(API_BASE + "/api/track-form", {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=UTF-8" },
+        body: JSON.stringify({ api_key: apiKey, visitor_id, session_id, page_path: window.location.pathname, skipped: true, form_key_hint: hint, form_index: formIndex, conversion_mark: mark }),
+        credentials: "omit",
+        keepalive: true,
+      }).catch(function () {});
+    } catch (e) {}
+  }
 
   // ── SENSITIVE VALUES (shared by the generic form capture and the HubSpot capture; see "SENSITIVE FIELDS" below) ──
   const SENSITIVE_RE = new RegExp(
@@ -1455,9 +1528,9 @@ function firePageViewStart() {
   //   All form submissions that arrive BEFORE config loads are queued
   //   in pendingForms and replayed once config is known.
   //
-  // specifyFormMode:
-  //   false → capture ALL forms that pass shouldSkip() (original behavior)
-  //   true  → ONLY capture forms with data-conversion="true" attribute
+  // specifyFormMode (sites.specify_form): the default for forms nobody has switched in Settings, Lead forms:
+  //   false → they are leads (every site created since 2026-10-25)
+  //   true  → they are not (sites created with "Only forms I mark"); data-conversion="true" or the switch turns one on
   // ─────────────────────────────────────────────────────────────────────
   let configLoaded = false;
   let specifyFormMode = false; // safe default until fetch resolves
@@ -1483,24 +1556,11 @@ function firePageViewStart() {
   // CORE GATE — called after config is known
   // Returns true if this form should be captured, false if it should be ignored
   // ─────────────────────────────────────────────────────────────────────
-  // data-conversion="true" on the form itself OR on any element around it. A form that a vendor's
-  // script renders (Marketo, HubSpot, Zoho, Pardot embeds) cannot be given an attribute, so the
-  // wrapper the owner controls carries it.
-  function isMarkedConversion(el) {
-    return !!(el && el.closest && el.closest('[data-conversion="true"]'));
-  }
 
+  // Is this form a lead (the rule above: data-conversion, its switch in Settings, the site's default)?
   function isConversionForm(form) {
-    if (!specifyFormMode) {
-      // Global mode: capture everything that passes shouldSkip
-      return true;
-    }
-    // Specify mode: ONLY forms with data-conversion="true"
-    const hasAttr = isMarkedConversion(form);
-    if (!hasAttr) {
-      jhLog("[Tracker] IGNORED — form missing data-conversion='true':", form);
-    }
-    return hasAttr;
+    const f = jhFormHint(form);
+    return jhCountsAsLead(jhFormKeyOf(f.hint, window.location.pathname, f.index), jhMarkOf(form));
   }
 
   // ─────────────────────────────────────────────────────────────────────
@@ -1513,15 +1573,20 @@ function firePageViewStart() {
         return;
       }
 
-      // Gate 1: conversion form check (respects specifyFormMode)
-      if (!isConversionForm(form)) return;
-
       // HubSpot's own form markup is captured by the HubSpot section below, once.
       if (form.classList.contains("hs-form") || (form.id && form.id.indexOf("hsForm_") === 0)) return;
 
-      // Gate 2: skip password forms, search forms, single-field non-email forms
+      // Gate 1: never a lead form (password, search, a single non-email field)
       if (shouldSkip(form)) {
         jhLog("[Tracker] Form skipped by shouldSkip:", form);
+        return;
+      }
+
+      // Gate 2: is this form a lead? If not, only a "skipped" count is sent, never its answers.
+      const formHint = jhFormHint(form);
+      const formMark = jhMarkOf(form);
+      if (!jhCountsAsLead(jhFormKeyOf(formHint.hint, window.location.pathname, formHint.index), formMark)) {
+        jhSendSkipped(formHint.hint, formHint.index, formMark);
         return;
       }
 
@@ -1554,7 +1619,10 @@ function firePageViewStart() {
         phone: phone || null,
         confidence: email ? "high" : "low",
         raw_data: raw,
-        is_labelled_conversion: isMarkedConversion(form),
+        is_labelled_conversion: formMark === "true",
+        conversion_mark: formMark,
+        form_key_hint: formHint.hint,
+        form_index: formHint.index,
         page_snapshot: jhPageSnapshot(),
       };
 
@@ -1607,6 +1675,7 @@ function firePageViewStart() {
       specifyFormMode = config.specify_form === true;
       configLoaded = true;
       jhState.specifyFormMode = specifyFormMode;
+      jhState.formRules = config.form_rules && typeof config.form_rules === "object" ? config.form_rules : {};
       jhState.configLoaded = true;
       jhState.waiters.splice(0).forEach(function (fn) {
         try {
@@ -1614,11 +1683,7 @@ function firePageViewStart() {
         } catch (e) {}
       });
 
-      if (specifyFormMode) {
-        jhLog("[Tracker] ✅ specify_form=TRUE — ONLY forms with data-conversion='true' will be captured");
-      } else {
-        jhLog("[Tracker] ✅ specify_form=FALSE — ALL forms will be captured (global mode)");
-      }
+      jhLog("[Tracker] ✅ forms: unswitched forms are " + (specifyFormMode ? "NOT leads (site created with 'Only forms I mark')" : "leads") + "; per-form switches:", jhState.formRules);
 
       // Replay any submissions that queued up before config loaded
       processPendingForms();
@@ -1691,8 +1756,8 @@ function firePageViewStart() {
       if (method !== "GET" && method !== "HEAD" && !isOwn) {
         const f = lastFormInteraction.form;
         if (f && f.isConnected && Date.now() - lastFormInteraction.at < FETCH_FORM_WINDOW_MS && !shouldSkip(f)) {
-          const blockedBySpecifyMode = configLoaded && specifyFormMode && !isMarkedConversion(f);
-          if (!blockedBySpecifyMode && extractEmail(f)) {
+          // whether it is a lead is decided in sendFormCapture (a form switched off sends only a "skipped" count)
+          if (extractEmail(f)) {
             jhLog("[Tracker] fetch submission matched the form the visitor just used");
             if (!configLoaded) pendingForms.push({ form: f });
             else sendFormCapture(f);
@@ -2708,9 +2773,9 @@ function firePageViewStart() {
 
     // -------------------------------------------------------
   // HUBSPOT FORM CAPTURE — fully independent
-  // Works with embedded HubSpot forms (non-iframe and postMessage iframe)
-  // Respects specify_form mode: if ON, only captures HubSpot forms
-  // whose nearest container has data-conversion="true"
+  // Works with embedded HubSpot forms (non-iframe, postMessage iframe, and the new hs-form-frame embed)
+  // Which ones are leads follows the same rule as every form (jhCountsAsLead: data-conversion, the
+  // form's switch in Settings, the site's default); key "hubspot:<form id>" or the <form>'s own id
   // If this entire block throws, nothing else in tracker is affected
   // -------------------------------------------------------
  (function () {
@@ -2736,68 +2801,28 @@ function firePageViewStart() {
     }
 
     // ─────────────────────────────────────────────────────────
-    // SPECIFY_FORM CHECK FOR HUBSPOT
+    // DATA-CONVERSION FOR HUBSPOT
     //
-    // HubSpot renders its own DOM so you can't put data-conversion
-    // on the <form> element directly. Instead, the business wraps
-    // their HubSpot embed div with data-conversion="true":
-    //
-    //   <div data-conversion="true">
-    //     <script charset="utf-8" type="text/javascript" src="//js.hsforms.net/forms/..."></script>
-    //   </div>
-    //
-    // For postMessage events (iframe HubSpot), we check if ANY
-    // element on the page with data-conversion="true" contains
-    // a HubSpot embed (hbspt or hs-form class). If yes = allowed.
-    // If the page has no such wrapper = blocked in specify mode.
-    //
-    // For direct DOM HubSpot forms (non-iframe), we walk up the
-    // DOM from the form element itself to find the wrapper.
+    // HubSpot draws its own form, so data-conversion goes on a box the site owns around the embed:
+    //   <div data-conversion="true"> <div class="hs-form-frame" ...></div> </div>      (new forms)
+    //   <div data-conversion="true"> <script src="//js.hsforms.net/forms/..."></script> </div>  (legacy)
+    // Optional: without it, the form's switch in Settings (Lead forms) decides, like any form.
     // ─────────────────────────────────────────────────────────
-    function isHubSpotConversionAllowed(formEl) {
-      // specifyFormMode is defined in the outer FORM CAPTURE IIFE scope
-      // and is accessible here because this IIFE is inside the same outer IIFE
-      if (!jhState.specifyFormMode) {
-        // Global mode — always allow
-        return true;
-      }
-
-      // Specify mode — need data-conversion="true" on a parent container
-      if (formEl) {
-        // Walk up the DOM from the actual form element
-        let el = formEl;
-        while (el && el !== document.body) {
-          if (el.getAttribute && el.getAttribute("data-conversion") === "true") {
-            jhLog("[Tracker][HubSpot] ✅ Found data-conversion='true' wrapper:", el);
-            return true;
-          }
-          el = el.parentElement;
-        }
-        jhLog("[Tracker][HubSpot] IGNORED — no data-conversion='true' parent found for form:", formEl);
-        return false;
-      }
-
-      // postMessage path — no form element reference available
-      // Check if the page has ANY HubSpot embed wrapped in data-conversion="true"
-      const conversionWrappers = document.querySelectorAll("[data-conversion='true']");
-      for (const wrapper of conversionWrappers) {
-        // HubSpot embed containers have class "hbspt-form" or children with "hs-form"
-        if (
-          wrapper.querySelector(".hbspt-form") ||
-          wrapper.querySelector(".hs-form") ||
-          wrapper.querySelector("[id^='hsForm_']") ||
-          wrapper.querySelector("iframe[src*='hsforms']") ||
-          wrapper.querySelector(".hs-form-frame") ||
-          wrapper.classList.contains("hs-form-frame") ||
-          wrapper.classList.contains("hbspt-form")
-        ) {
-          jhLog("[Tracker][HubSpot] ✅ Found data-conversion wrapper containing HubSpot embed:", wrapper);
-          return true;
+    /**
+     * The data-conversion value that applies to a HubSpot form: the nearest one around its element (the <form>, or the
+     * new embed's .hs-form-frame box); for the legacy iframe (postMessage, no element) a data-conversion box on the
+     * page that holds a HubSpot embed. "true", "false" or null.
+     */
+    function hubSpotMark(formEl) {
+      if (formEl) return jhMarkOf(formEl);
+      const boxes = document.querySelectorAll("[data-conversion]");
+      for (const w of boxes) {
+        if (w.querySelector(".hbspt-form, .hs-form, [id^='hsForm_'], iframe[src*='hsforms'], .hs-form-frame") || w.classList.contains("hbspt-form") || w.classList.contains("hs-form-frame")) {
+          const v = w.getAttribute("data-conversion");
+          return v === "true" ? "true" : v === "false" ? "false" : null;
         }
       }
-
-      jhLog("[Tracker][HubSpot] IGNORED — specify_form=true but no HubSpot form inside a data-conversion='true' wrapper");
-      return false;
+      return null;
     }
 
     // ─────────────────────────────────────────────────────────
@@ -2888,8 +2913,15 @@ function firePageViewStart() {
           return;
         }
 
-        // Specify form mode gate
-        if (!isHubSpotConversionAllowed(formEl || null)) return;
+        // Is this form a lead (data-conversion, its switch in Settings, the site's default)? If not: a "skipped" count only.
+        const keyHint = args.keyHint || { vendor: "hubspot", id: String(formId) };
+        const keyIndex = typeof args.formIndex === "number" ? args.formIndex : -1;
+        const mark = hubSpotMark(formEl || null);
+        if (!jhCountsAsLead(jhFormKeyOf(keyHint, window.location.pathname, keyIndex), mark)) {
+          markSent(formId);
+          jhSendSkipped(keyHint, keyIndex, mark);
+          return;
+        }
 
         const { email, name, phone } = extractContactFromFields(fields);
 
@@ -2920,7 +2952,10 @@ function firePageViewStart() {
             _form_id: formId,
             _event: eventName,
           },
-          is_labelled_conversion: true, // HubSpot forms that pass the gate are always conversions
+          is_labelled_conversion: mark === "true",
+          conversion_mark: mark,
+          form_key_hint: keyHint,
+          form_index: keyIndex,
           page_snapshot: jhPageSnapshot(),
         };
 
@@ -2978,7 +3013,7 @@ function firePageViewStart() {
           if (sent) return;
           sent = true;
           jhLog("[Tracker][HubSpot] v4 submission:", formId, values);
-          sendHubSpotCapture({ formId: String(detail.instanceId || formId), fields: normaliseFields(values), formEl: frame, eventName: "v4SubmissionSuccess" });
+          sendHubSpotCapture({ formId: String(detail.instanceId || formId), keyHint: { vendor: "hubspot", id: formId }, fields: normaliseFields(values), formEl: frame, eventName: "v4SubmissionSuccess" });
         };
         const api = window.HubSpotFormsV4;
         const form = api && typeof api.getFormFromEvent === "function" ? api.getFormFromEvent(event) : null;
@@ -3067,7 +3102,8 @@ function firePageViewStart() {
           }
 
           jhLog("[Tracker][HubSpot] Direct DOM form submit, fields:", rawFields);
-          sendHubSpotCapture({ formId, fields: rawFields, formEl: form, eventName: "directDOMSubmit" });
+          const domHint = jhFormHint(form);
+          sendHubSpotCapture({ formId, keyHint: domHint.hint, formIndex: domHint.index, fields: rawFields, formEl: form, eventName: "directDOMSubmit" });
         } catch (err) {
           jhLog("[Tracker][HubSpot] ❌ Direct DOM submit handler error:", err);
         }
@@ -3171,11 +3207,15 @@ function firePageViewStart() {
             if (f.contentWindow === e.source) frame = f;
           } catch (err) {}
         });
-        const marked = !!(frame && frame.closest && frame.closest('[data-conversion="true"]'));
+        const mark = frame ? jhMarkOf(frame) : null;
+        const keyHint = { vendor: provider.id };
         const responseId = e.data && typeof e.data.responseId === "string" ? e.data.responseId.slice(0, 64) : undefined;
 
         jhWhenConfigured(function () {
-          if (jhState.specifyFormMode && !marked) return;
+          if (!jhCountsAsLead(jhFormKeyOf(keyHint, window.location.pathname, -1), mark)) {
+            jhSendSkipped(keyHint, -1, mark);
+            return;
+          }
           const now = Date.now();
           if (recent[provider.id] && now - recent[provider.id] < 5000) return;
           recent[provider.id] = now;
@@ -3194,7 +3234,10 @@ function firePageViewStart() {
               phone: null,
               confidence: "low",
               raw_data: { _source: provider.id, _kind: "iframe_submission", _response_id: responseId },
-              is_labelled_conversion: marked,
+              is_labelled_conversion: mark === "true",
+              conversion_mark: mark,
+              form_key_hint: keyHint,
+              form_index: -1,
               page_snapshot: jhPageSnapshot(),
             }),
             credentials: "omit",
