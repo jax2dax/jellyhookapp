@@ -20,6 +20,7 @@ const ok = () => NextResponse.json({ success: true }, { headers: CORS });
 import { dropSensitive } from "@/lib/tracking/sensitive";
 import { checkNewLeads } from "@/lib/notifications/check";
 import { canonicalVisitorId } from "@/lib/tracking/identity";
+import { applyPageSnapshot } from "@/lib/tracking/pageSnapshot";
 
 const MAX_RAW_FIELDS = 60;
 const MAX_RAW_VALUE = 2000;
@@ -125,8 +126,14 @@ export async function POST(req) {
 
     after(() => flushUsage(supabase, site.id, usage, now));
     // the new lead's marks and notification rules, after the response (never slows the tracker), in its site's lane:
-    // lib/notifications/check.ts. Before migration 20 it falls back to checking the marks only.
-    if (inserted?.id) after(() => checkNewLeads(site.id, [inserted.id]));
+    // lib/notifications/check.ts. Before migration 20 it falls back to checking the marks only. The form page's
+    // heading times and scroll so far are written first (lib/tracking/pageSnapshot.js), so the marks and the hook's
+    // visit summary see that page; a snapshot that fails is skipped and the lead is checked all the same.
+    if (inserted?.id)
+      after(async () => {
+        if (payload.page_snapshot) await applyPageSnapshot(supabase, site.id, payload.page_snapshot, now);
+        await checkNewLeads(site.id, [inserted.id]);
+      });
     return ok();
   } catch (err) {
     console.error("[track-form] error:", err);

@@ -16,6 +16,7 @@ import { decide, type LeadIn, type RuleIn } from "./decide";
 import { openSecret } from "./secret";
 import { messageOptions, post, type DeliveryPayload } from "./send";
 import { leadSources } from "@/lib/acquisition/leadSource";
+import { summariesWithin } from "./summary";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -29,6 +30,8 @@ const MAX_ATTEMPTS = 5;
 const RETRY_MS = [10_000, 60_000, 5 * 60_000, 30 * 60_000];
 const DELIVERY_RETRY_MS = [30_000, 2 * 60_000, 10 * 60_000, 3600_000, 3 * 3600_000];
 const FAILING_AFTER = 10;
+// the visit and page summaries may hold the outside messages this long at most; past it they go without them
+const SUMMARY_BUDGET_MS = 2500;
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://jellyhook.com").replace(/\/+$/, "");
 
 const log = (msg: string, extra: Record<string, unknown> = {}) => console.error("[notifications] " + msg, extra);
@@ -117,7 +120,7 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
   const allMarkIds = [...new Set(rules.flatMap((r) => r.markIds))];
 
   const [leadsRes, lmRes, marksRes, membersRes, siteRes] = await Promise.all([
-    admin.from("form_submissions").select("id, visitor_id, name, email, submitted_at").eq("site_id", siteId).in("id", leadIds),
+    admin.from("form_submissions").select("id, visitor_id, session_id, name, email, submitted_at").eq("site_id", siteId).in("id", leadIds),
     admin.from("lead_marks").select("lead_id, mark_id").eq("site_id", siteId).in("lead_id", leadIds),
     admin.from("marks").select("id, name, active").eq("site_id", siteId).in("id", allMarkIds),
     admin.from("site_members").select("user_id").eq("site_id", siteId).eq("status", "active"),
@@ -187,13 +190,17 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
   dayStart.setUTCHours(0, 0, 0, 0);
   const { count: today } = await admin.from("notification_deliveries").select("id", { count: "exact", head: true }).eq("site_id", siteId).gte("created_at", dayStart.toISOString());
   let room = Math.max(0, DAILY_EXTERNAL_CAP - (today ?? 0));
-  // where each lead came from (the ad, its tag, thumbnail and video from the Ads library), for the message
+  // where each lead came from (the ad, its tag, thumbnail and video from the Ads library) and, when the hook asks, what
+  // they did before sending the form (lib/notifications/summary.ts): read together, in parallel. The summaries have a
+  // time budget and never fail the run; the in-app notifications above never wait for either.
   const externalIds = new Set(external.map((f) => f.leadId));
-  const sources = await leadSources(
-    siteId,
-    (leadsRes.data ?? []).filter((l) => externalIds.has(l.id as string)).map((l) => ({ id: l.id as string, visitor_id: (l.visitor_id as string) ?? null, submitted_at: l.submitted_at as string })),
-    (siteRes.data?.domain as string) ?? null,
-  ).catch(() => new Map());
+  const externalLeads = (leadsRes.data ?? [])
+    .filter((l) => externalIds.has(l.id as string))
+    .map((l) => ({ id: l.id as string, visitor_id: (l.visitor_id as string) ?? null, session_id: (l.session_id as string) ?? null, submitted_at: l.submitted_at as string }));
+  const [sources, summaries] = await Promise.all([
+    leadSources(siteId, externalLeads, (siteRes.data?.domain as string) ?? null).catch(() => new Map()),
+    summariesWithin(SUMMARY_BUDGET_MS, siteId, externalLeads, external.map((f) => ({ key: f.ruleId + "|" + f.leadId, leadId: f.leadId, options: ruleOptions.get(f.ruleId) ?? messageOptions(null) }))),
+  ]);
   const rows = [];
   for (const f of external) {
     const ev = eventOf.get(f.ruleId + "|" + f.leadId)!;
@@ -211,6 +218,8 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
         lead: { id: f.leadId, url: `${APP_URL}/platform/leads/${f.leadId}`, submittedAt: submittedAt.get(f.leadId) ?? null },
         source: sources.get(f.leadId) ? { line: sources.get(f.leadId)!.line, ad: sources.get(f.leadId)!.ad } : null,
         options: ruleOptions.get(f.ruleId) ?? null,
+        summary: summaries.get(f.ruleId + "|" + f.leadId)?.summary ?? null,
+        pages: summaries.get(f.ruleId + "|" + f.leadId)?.pages ?? null,
       };
       rows.push({ site_id: siteId, event_id: ev.id, channel_id, payload });
     }

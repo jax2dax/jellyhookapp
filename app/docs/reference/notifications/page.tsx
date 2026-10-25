@@ -60,16 +60,45 @@ export default function NotificationsReferencePage() {
             [<B key="c">Watch the ad button</B>, "Opens the ad's video", "The ad has a video link in Acquisition → Ads"],
             [<B key="d">Open the lead button</B>, "Opens the lead in Jellyhook", "Always"],
             [<B key="e">Hook, site and time</B>, "A small line under the message", "Always"],
+            [<B key="f">Visit summary</B>, "What they did in the visit with the form, before sending it: Short, Moderate (the default) or Long, as on the lead page", "Set to anything but Off"],
+            [<B key="g">Page summaries</B>, <span key="g2">Up to 3 pages you pick, one line each: &quot;/pricing: 3m 10s over 2 views in 2 visits; read up to 72% of the page ...&quot;, or &quot;Page not visited&quot;</span>, "At least one page is picked"],
           ]}
         />
         <UL>
-          <li>Everything is on for a new hook. The choice is saved with the hook and applies to every Slack channel it sends to.</li>
-          <li>The preview next to the options is drawn from the exact message Slack receives. It uses your newest ad that has a thumbnail, or an example ad when you have none.</li>
           <li>
-            <B>Send a test to Slack</B> sends the message, as the hook would send it now, to the Slack channels picked in it. It uses &quot;a new lead&quot;
-            and no real lead, and works before the hook is saved.
+            A new hook shows every part, with the Moderate visit summary and no page summaries. Hooks made before the summary existed send the Moderate
+            summary too. The choice is saved with the hook and applies to every Slack channel it sends to.
           </li>
-          <li>Webhooks always receive every field, whatever is chosen here.</li>
+          <li>
+            The preview next to the options is drawn from the exact message Slack receives. It uses your newest ad that has a thumbnail (or an example ad)
+            and an example visit.
+          </li>
+          <li>
+            <B>Send a test to Slack</B> sends the message, as the hook would send it now, to the Slack channels picked in it. The message says &quot;a new
+            lead&quot; and the summaries are made from your site&apos;s newest lead. It works before the hook is saved.
+          </li>
+          <li>Webhooks always receive every field that was made for the hook, whatever is shown in Slack.</li>
+        </UL>
+        <H3>Visit summary and page summaries</H3>
+        <UL>
+          <li>
+            Both are made once, when the hook catches the lead, and cover what they did <B>before sending the form</B>. The visit with the form is cut at
+            the form, so time spent on the site after sending it is not included.
+          </li>
+          <li>
+            The tracker sends the form page&apos;s heading times and scroll with the form, so that page is complete at that moment, before the visitor
+            leaves it. A site still running an older copy of the tracker (cached in a visitor&apos;s browser) shows the form page&apos;s time without its
+            headings.
+          </li>
+          <li>
+            Page summaries read <B>every visit of the lead</B> up to the form, or <B>only the visit with the form</B>, as chosen in the hook. A page they
+            did not open reads &quot;Page not visited&quot; (or &quot;Page not visited in this visit&quot;). /pricing and /pricing/ are the same page.
+          </li>
+          <li>
+            The message never waits long for them: if they cannot be made within 2.5 seconds, or the visit cannot be read, the message is sent without
+            them. If Slack refuses the full message (for example an ad image it cannot load), it is sent once more as a plain message: subject, message,
+            where they came from and Open the lead.
+          </li>
         </UL>
       </Section>
 
@@ -118,7 +147,8 @@ export default function NotificationsReferencePage() {
         <P>
           Slack and webhook messages carry the hook&apos;s subject, the message with &quot;a new lead&quot; in place of the name, the mark names, the site and
           a link to the lead, and, unless switched off for Slack, where the lead came from: the source, campaign and ad, with the ad&apos;s tag, thumbnail and
-          video link from Acquisition → Ads. The link only opens for people signed in to the site. The lead&apos;s name, email, form answers and the
+          video link from Acquisition → Ads. When the hook has them, they also carry the visit summary and page summaries: page addresses, heading
+          texts from your site and times. The link only opens for people signed in to the site. The lead&apos;s name, email, form answers and the
           conditions inside a mark are never sent.
         </P>
         <P>

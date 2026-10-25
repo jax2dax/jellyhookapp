@@ -1,6 +1,7 @@
 // app/dev/notifications-demo/page.tsx
 // DEMO with FAKE data: the Notifications page's three tabs (components/notifications), stacked. Buttons that save call
 // the real server and fail here (no signed-in site); this page is for looking.
+import { DEFAULT_MESSAGE_OPTIONS } from "@/lib/notifications/message";
 import { Inbox } from "@/components/notifications/Inbox";
 import { Rules } from "@/components/notifications/Rules";
 import { Channels } from "@/components/notifications/Channels";
@@ -25,9 +26,9 @@ const state: RulesState = {
   groups: [{ id: "g1", name: "Deal pipeline", color: "#22c55e" }],
   channels: [{ id: "c1", kind: "slack", name: "#sales", hint: "hooks.slack.com/…/9xQe", status: "ok", lastError: null }, { id: "c2", kind: "webhook", name: "HubSpot via Zapier", hint: "hooks.zapier.com/…/a1b2", status: "failing", lastError: "answered 410" }],
   rules: [
-    { id: "r1", name: "Hot Lead new", title: "Hot Lead new", body: "", markIds: ["m1", "m2"], recipients: [], channelIds: ["c1"], addToGroupId: "g1", active: true, mine: true, canEdit: true, createdByEmail: "you@example.com", firedThisWeek: 4, messageOptions: { source: true, adImage: true, watchButton: true, openButton: true, details: true } },
-    { id: "r2", name: "Pricing readers", title: "Pricing readers", body: "", markIds: ["m1"], recipients: ["u2"], channelIds: [], addToGroupId: null, active: true, mine: false, canEdit: false, createdByEmail: "sara@example.com", firedThisWeek: 11, messageOptions: { source: true, adImage: true, watchButton: true, openButton: true, details: true } },
-    { id: "r3", name: "High intent", title: "High intent", body: "", markIds: ["m3"], recipients: [], channelIds: [], addToGroupId: null, active: true, mine: true, canEdit: true, createdByEmail: "you@example.com", firedThisWeek: 0, messageOptions: { source: true, adImage: true, watchButton: true, openButton: true, details: true } },
+    { id: "r1", name: "Hot Lead new", title: "Hot Lead new", body: "", markIds: ["m1", "m2"], recipients: [], channelIds: ["c1"], addToGroupId: "g1", active: true, mine: true, canEdit: true, createdByEmail: "you@example.com", firedThisWeek: 4, messageOptions: { ...DEFAULT_MESSAGE_OPTIONS } },
+    { id: "r2", name: "Pricing readers", title: "Pricing readers", body: "", markIds: ["m1"], recipients: ["u2"], channelIds: [], addToGroupId: null, active: true, mine: false, canEdit: false, createdByEmail: "sara@example.com", firedThisWeek: 11, messageOptions: { ...DEFAULT_MESSAGE_OPTIONS } },
+    { id: "r3", name: "High intent", title: "High intent", body: "", markIds: ["m3"], recipients: [], channelIds: [], addToGroupId: null, active: true, mine: true, canEdit: true, createdByEmail: "you@example.com", firedThisWeek: 0, messageOptions: { ...DEFAULT_MESSAGE_OPTIONS } },
   ],
 };
 

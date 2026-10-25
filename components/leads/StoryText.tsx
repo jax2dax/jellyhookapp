@@ -7,6 +7,8 @@
 // Plain text elsewhere. Pure presentation: the story text itself is unchanged (copy and paste still reads naturally).
 import * as React from "react";
 import { splitStory } from "@/lib/leadSessions/storyParts";
+import type { StoryVersion } from "@/lib/leadSessions/story";
+import { InfoTip } from "@/components/InfoTip";
 
 export function StoryText({ text, className, children }: { text: string; className?: string; children?: React.ReactNode }) {
   return (
@@ -160,6 +162,60 @@ export function StorySentences({ sentences, lines, className }: { sentences: { t
             ))}
           {s.more !== undefined && "."}
           {!lines && i < sentences.length - 1 && " "}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ── the summary's version: Long, Moderate or Short (lib/leadSessions/story.ts sessionStoryVersion) ──
+
+const VERSION_KEY = "jh:story-version";
+const VERSION_EVENT = "jh:story-version";
+const VERSION_ROWS: { value: StoryVersion; label: string; tip: string }[] = [
+  { value: "long", label: "Long", tip: "Everything about this visit: its pages, what they read, the headings they spent time on, the time away and where they sent the form." },
+  { value: "moderate", label: "Moderate", tip: "The key points, one per line: the pages in order with their times, where most of the time went, the headings with the most and the least time, and how often they left and came back." },
+  { value: "short", label: "Short", tip: "Which visit this was and the pages in order, with the time on each and the time away." },
+];
+
+/** The chosen version, remembered in this browser (Long by default) and shared by every summary on the page. */
+export function useStoryVersion(): [StoryVersion, (v: StoryVersion) => void] {
+  const [version, setVersion] = React.useState<StoryVersion>("long");
+  React.useEffect(() => {
+    const read = () => {
+      try {
+        const v = window.localStorage.getItem(VERSION_KEY);
+        if (v === "long" || v === "moderate" || v === "short") setVersion(v);
+      } catch {
+        /* long */
+      }
+    };
+    read();
+    window.addEventListener(VERSION_EVENT, read);
+    return () => window.removeEventListener(VERSION_EVENT, read);
+  }, []);
+  const set = (v: StoryVersion) => {
+    try {
+      window.localStorage.setItem(VERSION_KEY, v);
+    } catch {
+      /* fine */
+    }
+    setVersion(v);
+    window.dispatchEvent(new Event(VERSION_EVENT));
+  };
+  return [version, set];
+}
+
+/** Long / Moderate / Short, each with an (i) saying what it keeps. */
+export function StoryVersionSwitch({ value, onChange }: { value: StoryVersion; onChange: (v: StoryVersion) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Summary length" className="flex h-7 shrink-0 items-center rounded-md border p-0.5">
+      {VERSION_ROWS.map((r) => (
+        <span key={r.value} className={"flex h-full items-center gap-1 rounded px-1.5 text-xs transition-colors " + (value === r.value ? "bg-primary/15 text-foreground" : "text-muted-foreground hover:text-foreground")}>
+          <button type="button" role="radio" aria-checked={value === r.value} onClick={() => onChange(r.value)} className="font-medium">
+            {r.label}
+          </button>
+          <InfoTip label={"About " + r.label}>{r.tip}</InfoTip>
         </span>
       ))}
     </div>

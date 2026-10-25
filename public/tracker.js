@@ -673,12 +673,13 @@ function getPageHeightPayload() {
       for (let i = found - 1; i >= 0 && list[found].y - list[i].y <= TIE_PX && list[i].l === list[found].l; i--) group.unshift(list[i]);
       return group;
     }
-    function add(key, h, ms) {
-      let e = acc.get(key);
+    function add(key, h, ms, into) {
+      const m = into || acc;
+      let e = m.get(key);
       if (!e) {
-        if (acc.size >= MAX_KEPT && key !== "~" && key !== "^") return null;
+        if (m.size >= MAX_KEPT && key !== "~" && key !== "^") return null;
         e = h ? [h.l, h.o, 0, 0] : [0, -1, 0, 0];
-        acc.set(key, e);
+        m.set(key, e);
       }
       e[2] += ms;
       return e;
@@ -712,22 +713,33 @@ function getPageHeightPayload() {
     function endStay() {
       const ms = stayMs;
       stayMs = 0;
+      credit(ms, acc);
+    }
+    function credit(ms, into) {
       if (activeKey === null || ms <= 0) return;
       if (!stayGroup.length) {
-        const e = add("^", null, ms);
+        const e = add("^", null, ms, into);
         if (e) e[3] += 1;
         return;
       }
       if (ms < MIN_STAY_MS) {
-        add("~", PASSING, ms);
+        add("~", PASSING, ms, into);
         return;
       }
       const share = ms / stayGroup.length;
       stayGroup.forEach(function (h) {
-        const e = add(h.k, h, share);
+        const e = add(h.k, h, share, into);
         if (e) e[3] += 1;
-        else add("~", PASSING, share); // more headings than MAX_KEPT: the time still counts, as passing through
+        else add("~", PASSING, share, into); // more headings than MAX_KEPT: the time still counts, as passing through
       });
+    }
+    function pack(m) {
+      const out = [];
+      m.forEach(function (e, k) {
+        const tenths = Math.round(e[2] / 100);
+        if (tenths > 0 || e[0] === topLevel) out.push([k, e[0], e[1], tenths, e[3]]);
+      });
+      return out.length ? { t: topLevel, h: out } : null;
     }
     function onScroll() {
       if (rafPending) return;
@@ -778,19 +790,50 @@ function getPageHeightPayload() {
           if (timer) clearInterval(timer);
           timer = null;
           window.removeEventListener("scroll", onScroll);
-          const out = [];
-          acc.forEach(function (e, k) {
-            const tenths = Math.round(e[2] / 100);
-            if (tenths > 0 || e[0] === topLevel) out.push([k, e[0], e[1], tenths, e[3]]);
-          });
+          const out = pack(acc);
           acc = null;
-          return out.length ? { t: topLevel, h: out } : null;
+          return out;
+        } catch (e) {
+          return null;
+        }
+      },
+      /** The count so far, as stop() would return it, without ending it (sent with a form: the page has not ended). */
+      peek: function () {
+        try {
+          if (!acc) return null;
+          const copy = new Map();
+          acc.forEach(function (e, k) {
+            copy.set(k, e.slice());
+          });
+          const open = pageViewOpen && activeKey !== null ? Math.min(Math.max(0, Date.now() - lastTick), 5000) : 0;
+          credit(stayMs + open, copy);
+          return pack(copy);
         } catch (e) {
           return null;
         }
       },
     };
   })();
+
+  // The current page so far, sent with a form submission: a hook fires the moment the form arrives, before this page
+  // has ended and sent its own heading times and scroll (page_view_end). The server writes it into the page view only
+  // while that page view is still open; page_view_end later replaces it with the final values. Never throws.
+  function jhPageSnapshot() {
+    try {
+      return {
+        page_view_id: page_view_id,
+        duration: Math.max(0, Date.now() - startTime),
+        heading_time: headingMeter.peek() || undefined,
+        scroll_depth: getScrollDepth(),
+        max_scroll_depth: maxScrollDepth,
+        max_scroll_reached_at: maxScrollReachedAt,
+        revisit_start_scroll: revisitStartDepth,
+        viewport_height: getViewportHeightPx(),
+      };
+    } catch (e) {
+      return undefined;
+    }
+  }
 
 function firePageViewStart() {
   const pageHeight = getPageHeightPayload();
@@ -1512,6 +1555,7 @@ function firePageViewStart() {
         confidence: email ? "high" : "low",
         raw_data: raw,
         is_labelled_conversion: isMarkedConversion(form),
+        page_snapshot: jhPageSnapshot(),
       };
 
       _originalFetch(FORM_API_URL, {
@@ -2871,6 +2915,7 @@ function firePageViewStart() {
             _event: eventName,
           },
           is_labelled_conversion: true, // HubSpot forms that pass the gate are always conversions
+          page_snapshot: jhPageSnapshot(),
         };
 
         _originalFetch(HS_FORM_API_URL, {
@@ -3105,6 +3150,7 @@ function firePageViewStart() {
               confidence: "low",
               raw_data: { _source: provider.id, _kind: "iframe_submission", _response_id: responseId },
               is_labelled_conversion: marked,
+              page_snapshot: jhPageSnapshot(),
             }),
             credentials: "omit",
             keepalive: true,

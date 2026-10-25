@@ -28,8 +28,8 @@
 import * as React from "react";
 import { RefreshCw, Radio, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, FileText, Layers } from "lucide-react";
 import { formatDate, formatRelativeTime } from "@/lib/leadFormat";
-import { journeyStory, sessionStorySentences, shortDuration } from "@/lib/leadSessions/story";
-import { StoryText, StorySentences, StoryFormatToggle, useStoryLines } from "./StoryText";
+import { journeyStory, sessionStoryVersion, shortDuration } from "@/lib/leadSessions/story";
+import { StoryText, StorySentences, StoryFormatToggle, StoryVersionSwitch, useStoryLines, useStoryVersion } from "./StoryText";
 import { FramePlateChart, resolveViewportHeightPx, type PlateView, type SessionRaw, type TimelineItem } from "@/framePlate";
 import { SessionSummaryDrawer } from "./SessionSummaryDrawer";
 import { ChartLegend } from "./ChartLegend";
@@ -186,6 +186,8 @@ export function LeadSessionExplorer({
   const [showSessionDetails, setShowSessionDetails] = React.useState(false);
   // the visit's story as one paragraph or one sentence per line (shared with the page story)
   const [storyLines, setStoryLines] = useStoryLines();
+  // Long, Moderate or Short (remembered per browser)
+  const [storyVersion, setStoryVersion] = useStoryVersion();
   // the visit list can be folded away to a thin strip of numbers (a per-browser convenience; starts open)
   const [listOpen, setListOpen] = React.useState(true);
   // what the plates show: the seen bands, or time per section (remembered per browser)
@@ -511,10 +513,20 @@ export function LeadSessionExplorer({
         )}
         {selectedSession && (
           <div className="min-w-0 rounded-md border bg-card/50">
-            <div className="px-3.5 pt-2 text-sm font-medium text-foreground">Session summary</div>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 pt-2">
+              <span className="text-sm font-medium text-foreground">Session summary</span>
+              <div className="flex items-center gap-1.5">
+                <StoryVersionSwitch value={storyVersion} onChange={setStoryVersion} />
+                <StoryFormatToggle lines={storyLines} onChange={setStoryLines} />
+              </div>
+            </div>
             <div className="flex items-start gap-3 px-3.5 pb-2.5 pt-1">
-              <StorySentences sentences={sessionStorySentences(selectedSession, selectedIndex + 1, fallbackVh)} lines={storyLines} className="min-w-0 flex-1 text-sm leading-[1.9] text-foreground" />
-              <StoryFormatToggle lines={storyLines} onChange={setStoryLines} />
+              <StorySentences
+                key={storyVersion}
+                sentences={sessionStoryVersion(selectedSession, selectedIndex + 1, storyVersion, fallbackVh)}
+                lines={storyLines || storyVersion === "moderate"}
+                className="min-w-0 flex-1 text-sm leading-[1.9] text-foreground"
+              />
               <button type="button" onClick={() => setShowSessionDetails((v) => !v)} className="shrink-0 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" aria-expanded={showSessionDetails}>
                 {showSessionDetails ? "Hide details" : "Session details"}
               </button>

@@ -20,15 +20,17 @@ function Mrkdwn({ text }: { text: string }) {
     const d = new Date(fallback);
     return Number.isNaN(d.getTime()) ? fallback : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   });
+  // Slack shows escaped text (&lt; &gt; &amp;) as the characters themselves
+  const unescape = (t: string) => t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
   return (
     <>
       {clean.split(/(\*[^*]+\*)/g).map((part, i) =>
         part.startsWith("*") && part.endsWith("*") && part.length > 2 ? (
           <strong key={i} className="font-semibold">
-            {part.slice(1, -1)}
+            {unescape(part.slice(1, -1))}
           </strong>
         ) : (
-          <React.Fragment key={i}>{part}</React.Fragment>
+          <React.Fragment key={i}>{unescape(part)}</React.Fragment>
         ),
       )}
     </>

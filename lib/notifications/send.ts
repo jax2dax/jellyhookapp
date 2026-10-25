@@ -5,7 +5,7 @@
 import { createHmac } from "node:crypto";
 
 export * from "./message";
-import { slackMessage, webhookBody, type DeliveryPayload, type SendResult } from "./message";
+import { slackMessage, slackPlainMessage, webhookBody, type DeliveryPayload, type SendResult } from "./message";
 
 const TIMEOUT_MS = 10_000;
 
@@ -49,7 +49,17 @@ export async function post(kind: "slack" | "webhook", url: string, p: DeliveryPa
   }
   try {
     const res = await fetch(url, { method: "POST", headers, body: raw, redirect: "manual", signal: AbortSignal.timeout(TIMEOUT_MS) });
-    return res.status >= 200 && res.status < 300 ? { ok: true, status: res.status } : { ok: false, status: res.status, error: "answered " + res.status };
+    if (res.status >= 200 && res.status < 300) return { ok: true, status: res.status };
+    // Slack refuses the whole message for one bad block (400 invalid_blocks: an image it cannot load...). The lead must
+    // still reach the channel: send it once more as the plain message (subject, message, came from, Open the lead).
+    if (kind === "slack" && res.status === 400) {
+      const plain = await fetch(url, { method: "POST", headers, body: JSON.stringify(slackPlainMessage(p)), redirect: "manual", signal: AbortSignal.timeout(TIMEOUT_MS) });
+      if (plain.status >= 200 && plain.status < 300) {
+        console.error("[notifications] Slack refused the full message, sent the plain one", { delivery: p.deliveryId.slice(0, 12) });
+        return { ok: true, status: plain.status };
+      }
+    }
+    return { ok: false, status: res.status, error: "answered " + res.status };
   } catch (e) {
     return { ok: false, status: null, error: e instanceof Error ? e.message.slice(0, 200) : "network error" };
   }

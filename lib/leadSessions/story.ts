@@ -3,7 +3,10 @@
 //   journeyStory  every visit together, at the top ("4 visits between Oct 7 and Oct 14 ... sent the form on the 4th")
 //   sessionStory  one visit, under its visit chart
 //   pageStory     one page of that visit, when its frame is clicked
-// Pure and computed in the browser from data already loaded: no AI, no extra query. Every number comes from
+//   sessionStoryVersion  one visit as Long (sessionStory), Moderate (key points) or Short (visit number and path):
+//                 the lead page's version switch and hook messages in Slack (lib/notifications/summary.ts)
+//   pageSummary   one page across the given visits, in one line (hook messages' page summaries)
+// Pure: computed in the browser from data already loaded, and on the server for hook messages from the same rows. No AI. Every number comes from
 // framePlate's own buildTimeline, so the words can never disagree with what the chart draws.
 import { buildTimeline } from "../../framePlate/geometry/buildTimeline";
 import type { SectionTime, SessionRaw, TimelineItem, VisitGeometry } from "../../framePlate/types";
@@ -170,9 +173,14 @@ export function pageStory(v: VisitGeometry, nextPath?: string | null): string {
 const DOMINANT_VISIT_MS = 10_000;
 const DOMINANT_VISIT_SHARE = 0.5;
 
-/** Headings across every page of a visit: how many got time, and where the most and the least went (main sections). */
-function headingsAcross(visits: Visit[]): StorySentence[] {
-  const byHeading = new Map<string, { text: string | null; page: string; ms: number; views: number }>();
+type HeadingTotal = { text: string | null; page: string; ms: number; views: number };
+
+/**
+ * Headings across every page of a visit: how many got time (main headings and smaller ones, 1 s or more), the main
+ * headings by total time (most first), and the one place that took half of the visit or more, if any.
+ */
+function headingFacts(visits: Visit[]): { seen: number; pages: number; list: HeadingTotal[]; dominant: { text: string | null; page: string; ms: number } | null } | null {
+  const byHeading = new Map<string, HeadingTotal>();
   let seen = 0;
   const counted = new Set<string>();
   for (const v of visits) {
@@ -193,11 +201,7 @@ function headingsAcross(visits: Visit[]): StorySentence[] {
     }
   }
   const list = [...byHeading.values()].sort((a, b) => b.ms - a.ms);
-  if (!list.length) return [];
-  const pages = new Set(list.map((x) => x.page)).size;
-  const where = (x: { text: string | null; page: string; ms: number; views: number }) =>
-    quote(x.text) + " on " + x.page + " (" + shortDuration(x.ms) + (x.views > 1 ? " over " + x.views + " views" : "") + ")";
-  const out: StorySentence[] = [];
+  if (!list.length) return null;
   // one heading with half of the whole visit or more (10:30:10:50 ...) is the headline
   const visitMs = visits.reduce((n, v) => n + v.durationMs, 0);
   const units = new Map<string, { text: string | null; page: string; ms: number }>();
@@ -208,12 +212,22 @@ function headingsAcross(visits: Visit[]): StorySentence[] {
     units.set(k, e);
   }
   const big = [...units.values()].sort((a, b) => b.ms - a.ms)[0];
-  if (visitMs > DOMINANT_VISIT_MS && big && big.ms >= DOMINANT_VISIT_SHARE * visitMs) {
-    out.push({ text: "Spent more than half of the whole visit looking at " + quote(big.text) + " on " + big.page + " (" + shortDuration(big.ms) + ")." });
-  }
-  out.push({ text: "Spent time on " + seen + (seen === 1 ? " heading" : " headings") + (pages > 1 ? " across " + pages + " pages" : "") + "." });
-  out.push({ text: "The most on " + where(list[0]) + "." });
-  if (list.length > 1) out.push({ text: "The least on " + where(list[list.length - 1]) + "." });
+  const dominant = visitMs > DOMINANT_VISIT_MS && big && big.ms >= DOMINANT_VISIT_SHARE * visitMs ? big : null;
+  return { seen, pages: new Set(list.map((x) => x.page)).size, list, dominant };
+}
+
+const headingWhere = (x: HeadingTotal) => quote(x.text) + " on " + x.page + " (" + shortDuration(x.ms) + (x.views > 1 ? " over " + x.views + " views" : "") + ")";
+const dominantSentence = (d: { text: string | null; page: string; ms: number }) => "Spent more than half of the whole visit looking at " + quote(d.text) + " on " + d.page + " (" + shortDuration(d.ms) + ").";
+
+/** Headings across every page of a visit: how many got time, and where the most and the least went (main sections). */
+function headingsAcross(visits: Visit[]): StorySentence[] {
+  const f = headingFacts(visits);
+  if (!f) return [];
+  const out: StorySentence[] = [];
+  if (f.dominant) out.push({ text: dominantSentence(f.dominant) });
+  out.push({ text: "Spent time on " + f.seen + (f.seen === 1 ? " heading" : " headings") + (f.pages > 1 ? " across " + f.pages + " pages" : "") + "." });
+  out.push({ text: "The most on " + headingWhere(f.list[0]) + "." });
+  if (f.list.length > 1) out.push({ text: "The least on " + headingWhere(f.list[f.list.length - 1]) + "." });
   return out;
 }
 
@@ -289,4 +303,107 @@ export function journeyStory(sessions: SessionRaw[], fallbackViewportHeightPx = 
     if (after > 0) parts.push("They came back " + times(after) + " since.");
   }
   return parts.join(" ");
+}
+
+// ── versions: Long (the story above), Moderate (key points), Short (visit number and path) ──
+
+export type StoryVersion = "long" | "moderate" | "short";
+export const STORY_VERSIONS: StoryVersion[] = ["long", "moderate", "short"];
+
+type Gap = Extract<TimelineItem, { kind: "gap" }>;
+/** More steps than this in a path: the first PATH_HEAD and the last PATH_TAIL are kept, the rest is counted. */
+const PATH_MAX = 10;
+const PATH_HEAD = 5;
+const PATH_TAIL = 4;
+
+/**
+ * The visit's pages in order with their times, and the time away between them:
+ *   "/ (20s) → /pricing (1m 4s) → away 15m → / (8s)"
+ * Consecutive views of one page with no time away between them (a tab hidden and shown again) are one step.
+ */
+export function pathSequence(items: TimelineItem[]): string {
+  const steps: { path: string; ms: number; away: boolean }[] = [];
+  for (const it of items) {
+    if (it.kind === "gap") {
+      steps.push({ path: "", ms: (it as Gap).durationMs ?? 0, away: true });
+      continue;
+    }
+    const v = it as Visit;
+    const prev = steps[steps.length - 1];
+    if (prev && !prev.away && prev.path === v.pagePath) prev.ms += v.durationMs;
+    else steps.push({ path: v.pagePath || "a page", ms: v.durationMs, away: false });
+  }
+  while (steps.length && steps[0].away) steps.shift();
+  while (steps.length && steps[steps.length - 1].away) steps.pop();
+  const word = (x: { path: string; ms: number; away: boolean }) => (x.away ? "away " + shortDuration(x.ms) : x.path + " (" + shortDuration(x.ms) + ")");
+  if (steps.length <= PATH_MAX) return steps.map(word).join(" → ");
+  const hidden = steps.length - PATH_HEAD - PATH_TAIL;
+  return [...steps.slice(0, PATH_HEAD).map(word), hidden + " more", ...steps.slice(-PATH_TAIL).map(word)].join(" → ");
+}
+
+/**
+ * One visit in the chosen version. Long is sessionStorySentences. Moderate is one line per key point:
+ *   Their 23rd visit: / (20s) → away 15m → / (1m 1s).
+ *   Most of the time on /pricing (1m 21s).                         (2 or more different pages)
+ *   Spent more than half of the whole visit looking at "X" on / (55s).
+ *   The most on "X" on / (55s over 2 views).                       (not when the line above names the same heading)
+ *   The least on "Y" on / (32s over 4 views).
+ *   Left the site and came back 3 times.
+ * Short is the first line only.
+ */
+export function sessionStoryVersion(session: SessionRaw, n: number, version: StoryVersion, fallbackViewportHeightPx = 0): StorySentence[] {
+  if (version === "long") return sessionStorySentences(session, n, fallbackViewportHeightPx);
+  const items = buildTimeline(session, undefined, undefined, fallbackViewportHeightPx).filter((i) => i.kind === "visit" || i.kind === "gap");
+  const visits = items.filter((i): i is Visit => i.kind === "visit");
+  if (!visits.length) return [{ text: "Opened the site but no page was recorded." }];
+  const out: StorySentence[] = [{ text: (n === 1 ? "Their first visit" : "Their " + ordinal(n) + " visit") + ": " + pathSequence(items) + "." }];
+  if (version === "short") return out;
+  const byPage = new Map<string, number>();
+  for (const v of visits) byPage.set(v.pagePath, (byPage.get(v.pagePath) ?? 0) + v.durationMs);
+  if (byPage.size > 1) {
+    const [page, ms] = [...byPage].sort((a, b) => b[1] - a[1])[0];
+    out.push({ text: "Most of the time on " + page + " (" + shortDuration(ms) + ")." });
+  }
+  const f = headingFacts(visits);
+  if (f) {
+    if (f.dominant) out.push({ text: dominantSentence(f.dominant) });
+    const most = f.list[0];
+    if (!(f.dominant && f.dominant.text === most.text && f.dominant.page === most.page)) out.push({ text: "The most on " + headingWhere(most) + "." });
+    if (f.list.length > 1) out.push({ text: "The least on " + headingWhere(f.list[f.list.length - 1]) + "." });
+  }
+  const awayCount = items.filter((i) => i.kind === "gap").length;
+  if (awayCount > 0) out.push({ text: "Left the site and came back " + times(awayCount) + "." });
+  return out;
+}
+
+/** "/pricing/" and "/pricing" are one page. */
+export const samePage = (a: string, b: string) => (a.replace(/\/+$/, "") || "/") === (b.replace(/\/+$/, "") || "/");
+
+/**
+ * One page across the given visits, in one line, or null when it was not opened in them:
+ *   '3m 10s over 4 views in 2 visits; saw up to 40% of the page, the top, down to "Pricing"; most on "Business" (1m 2s); sent the form here'
+ */
+export function pageSummary(path: string, sessions: SessionRaw[], fallbackViewportHeightPx = 0): string | null {
+  const views: Visit[] = [];
+  const inVisits = new Set<string>();
+  for (const s of sessions) {
+    for (const v of visitsOf(s, fallbackViewportHeightPx).visits) {
+      if (!samePage(v.pagePath, path)) continue;
+      views.push(v);
+      inVisits.add(s.id);
+    }
+  }
+  if (!views.length) return null;
+  const total = views.reduce((n, v) => n + v.durationMs, 0);
+  const parts: string[] = [shortDuration(total) + (views.length > 1 ? " over " + views.length + " views" : "") + (inVisits.size > 1 ? " in " + inVisits.size + " visits" : "")];
+  const widest = [...views].sort((a, b) => b.seenBottom - b.seenOnceTop - (a.seenBottom - a.seenOnceTop))[0];
+  // over several views, the furthest any of them reached: "read up to 72% of the page, the top, ..."
+  const where = whereRead(widest);
+  parts.push(views.length > 1 ? where.replace(/^read most of the page \((\d+%)\)/, "read up to $1 of the page").replace(/^saw (\d+%)/, "saw up to $1") : where);
+  const byHeading = new Map<string | null, number>();
+  for (const v of views) for (const s of v.sections ?? []) if (!s.isTop && s.ms >= 1000) byHeading.set(s.text, (byHeading.get(s.text) ?? 0) + s.ms);
+  const top = [...byHeading].sort((a, b) => b[1] - a[1])[0];
+  if (top) parts.push("most on " + quote(top[0]) + " (" + shortDuration(top[1]) + ")");
+  if (views.some((v) => v.outcome === "converted")) parts.push("sent the form here");
+  return parts.join("; ");
 }

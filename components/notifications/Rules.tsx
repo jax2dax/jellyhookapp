@@ -9,7 +9,9 @@ import Link from "next/link";
 import { Bell, Check, ChevronDown, Loader2, Pencil, Plus, Send, Trash2, X } from "lucide-react";
 import { IntegrationTile, JellyhookTile, KindLogo, SlackLogo } from "./Brand";
 import { deleteRule, saveRule, setRuleActive, testHookMessage, type RuleView, type RulesState } from "@/lib/actions/notifications.action";
-import { DEFAULT_MESSAGE_OPTIONS, slackMessage, type MessageOptions } from "@/lib/notifications/message";
+import { DEFAULT_MESSAGE_OPTIONS, MAX_SUMMARY_PAGES, slackMessage, type MessageOptions, type MessageToggle } from "@/lib/notifications/message";
+import { samplePages, sampleSummary } from "@/lib/notifications/sampleVisit";
+import { listSitePages } from "@/lib/actions/hook.action";
 import { fillTemplate } from "@/lib/notifications/decide";
 import { SlackPreview } from "./SlackPreview";
 import { copySharedMark } from "@/lib/actions/marks.action";
@@ -412,7 +414,7 @@ function RuleEditor({
   );
 }
 
-const OPTION_ROWS: { key: keyof MessageOptions; label: string; hint: string }[] = [
+const OPTION_ROWS: { key: MessageToggle; label: string; hint: string }[] = [
   { key: "source", label: "Where they came from", hint: "Came from: Meta · Ads · Spring sale · 2026 Core Demo Video" },
   { key: "adImage", label: "The ad's thumbnail", hint: "When the ad has one in Acquisition → Ads" },
   { key: "watchButton", label: "Watch the ad button", hint: "When the ad has a video link" },
@@ -444,6 +446,8 @@ function SlackMessageOptions({ d, state, set }: { d: Draft; state: RulesState; s
     lead: { id: "", url: "https://jellyhook.com", submittedAt: new Date().toISOString() },
     source: ad ? { line: ad.line, ad: { platform: "", adId: "", title: ad.title, thumbnailUrl: ad.thumbnailUrl, videoUrl: ad.videoUrl ?? "https://example.com/video" } } : { line: "Meta · Ads · Spring sale · Example ad", ad: { platform: "", adId: "", title: "Example ad", thumbnailUrl: (typeof window === "undefined" ? "https://jellyhook.com" : window.location.origin) + "/jellyhook-nobg.png", videoUrl: "https://example.com/video" } },
     options: o,
+    summary: o.summary === "off" ? null : sampleSummary(o.summary),
+    pages: o.pages.length ? samplePages(o.pages, o.pageScope) : null,
   }) as unknown as { blocks: Parameters<typeof SlackPreview>[0]["blocks"] };
   const test = async () => {
     setTesting(true);
@@ -473,15 +477,110 @@ function SlackMessageOptions({ d, state, set }: { d: Draft; state: RulesState; s
                   </span>
                 </label>
               ))}
+              <SummaryOptions o={o} set={(patch) => set({ messageOptions: { ...o, ...patch } })} />
               <button type="button" disabled={testing} onClick={test} className="mt-1 inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs hover:bg-muted disabled:opacity-40">
                 {testing ? <Loader2 className="size-3 animate-spin" /> : <Send className="size-3" />} Send a test to Slack
               </button>
               {note && <p className={"text-[11px] " + (note.tone === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400")}>{note.text}</p>}
               {!ad && <p className="text-[11px] text-muted-foreground">The preview uses an example ad. Add your ads in Acquisition → Ads to see yours.</p>}
+              {(o.summary !== "off" || o.pages.length > 0) && <p className="text-[11px] text-muted-foreground">The preview summarizes an example visit. The test uses your newest lead.</p>}
             </div>
             <SlackPreview blocks={preview.blocks} />
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+const SUMMARY_CHOICES: { value: MessageOptions["summary"]; label: string }[] = [
+  { value: "off", label: "Off" },
+  { value: "short", label: "Short: the visit and its pages" },
+  { value: "moderate", label: "Moderate: the key points" },
+  { value: "long", label: "Long: everything" },
+];
+
+/**
+ * The visit summary's version and up to MAX_SUMMARY_PAGES page summaries, with which visits those read. The site's
+ * pages are listed (lib/actions/hook.action.ts listSitePages) only when the page box is first used.
+ */
+function SummaryOptions({ o, set }: { o: MessageOptions; set: (patch: Partial<MessageOptions>) => void }) {
+  const [pages, setPages] = React.useState<string[] | null>(null);
+  const [path, setPath] = React.useState("");
+  const listId = React.useId();
+  const loadPages = () => {
+    if (pages !== null) return;
+    setPages([]);
+    listSitePages()
+      .then((r) => setPages(r.map((x) => x.path)))
+      .catch(() => setPages([]));
+  };
+  const clean = path.trim();
+  const canAdd = clean.startsWith("/") && o.pages.length < MAX_SUMMARY_PAGES && !o.pages.includes(clean);
+  const add = () => {
+    if (!canAdd) return;
+    set({ pages: [...o.pages, clean.slice(0, 200)] });
+    setPath("");
+  };
+  const field = "h-7 w-full rounded-md border bg-background px-2 text-xs";
+  return (
+    <div className="space-y-2 border-t pt-2">
+      <label className="block space-y-1 text-xs">
+        <span className="block text-foreground">Visit summary</span>
+        <select className={field} value={o.summary} onChange={(e) => set({ summary: e.target.value as MessageOptions["summary"] })}>
+          {SUMMARY_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <span className="block text-[11px] text-muted-foreground">What they did in the visit with the form, before sending it.</span>
+      </label>
+      <div className="space-y-1 text-xs">
+        <span className="block text-foreground">
+          Page summaries <span className="text-muted-foreground">(up to {MAX_SUMMARY_PAGES})</span>
+        </span>
+        {o.pages.map((p) => (
+          <div key={p} className="flex items-center gap-1 rounded-md border px-2 py-1">
+            <code className="min-w-0 flex-1 truncate font-mono text-[11px]">{p}</code>
+            <button type="button" aria-label={"Remove " + p} onClick={() => set({ pages: o.pages.filter((x) => x !== p) })} className="text-muted-foreground hover:text-foreground">
+              <X className="size-3" />
+            </button>
+          </div>
+        ))}
+        {o.pages.length < MAX_SUMMARY_PAGES && (
+          <div className="flex gap-1">
+            <input
+              className={field}
+              list={listId}
+              placeholder="/pricing"
+              value={path}
+              onFocus={loadPages}
+              onChange={(e) => setPath(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  add();
+                }
+              }}
+            />
+            <button type="button" disabled={!canAdd} onClick={add} className="h-7 shrink-0 rounded-md border px-2 text-xs hover:bg-muted disabled:opacity-40">
+              Add
+            </button>
+            <datalist id={listId}>
+              {(pages ?? []).map((p) => (
+                <option key={p} value={p} />
+              ))}
+            </datalist>
+          </div>
+        )}
+        {o.pages.length > 0 && (
+          <select className={field} value={o.pageScope} onChange={(e) => set({ pageScope: e.target.value as MessageOptions["pageScope"] })} aria-label="Which visits the page summaries read">
+            <option value="all">Read every visit of the lead</option>
+            <option value="converting">Read only the visit with the form</option>
+          </select>
+        )}
+        <span className="block text-[11px] text-muted-foreground">A page they did not open reads &quot;Page not visited&quot;.</span>
       </div>
     </div>
   );

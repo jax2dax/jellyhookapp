@@ -13,6 +13,8 @@ import { isHookError } from "@/jh-hook/errors";
 import { maskUrl, openSecret, sealSecret } from "@/lib/notifications/secret";
 import { isSafeWebhookUrl, isSlackUrl, messageOptions, post, type MessageOptions } from "@/lib/notifications/send";
 import { fillTemplate } from "@/lib/notifications/decide";
+import { summariesWithin } from "@/lib/notifications/summary";
+import { sampleSummary } from "@/lib/notifications/sampleVisit";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -316,12 +318,18 @@ export async function testHookMessage(input: { name: string; title: string; body
     const { siteId } = await who();
     const ids = (input.channelIds ?? []).slice(0, 10);
     if (!ids.length) return { ok: false, error: "Pick a Slack channel under Notification method first." };
-    const [chans, marks, site, ad] = await Promise.all([
+    const options = messageOptions(input.messageOptions);
+    const [chans, marks, site, ad, newest] = await Promise.all([
       admin.from("notification_channels").select("id, kind, name, secret, signing_secret").eq("site_id", siteId).in("id", ids),
       admin.from("marks").select("id, name").eq("site_id", siteId).in("id", (input.markIds ?? []).slice(0, 10)),
       admin.from("sites").select("domain").eq("id", siteId).maybeSingle(),
       latestAd(siteId),
+      admin.from("form_submissions").select("id, visitor_id, session_id, submitted_at").eq("site_id", siteId).order("submitted_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
+    // the visit and page summaries of the site's newest lead, made exactly as a real hook makes them; the example
+    // visit when the site has no lead yet or it cannot be read in time
+    const lead = newest.data ? { id: newest.data.id as string, visitor_id: (newest.data.visitor_id as string) ?? null, session_id: (newest.data.session_id as string) ?? null, submitted_at: newest.data.submitted_at as string } : null;
+    const real = lead ? (await summariesWithin(4000, siteId, [lead], [{ key: "test", leadId: lead.id, options }])).get("test") : undefined;
     const names = (marks.data ?? []).map((m) => m.name as string);
     const now = new Date().toISOString();
     const name = (input.name ?? "").trim() || "New hook";
@@ -336,7 +344,9 @@ export async function testHookMessage(input: { name: string; title: string; body
       marks: (marks.data ?? []).map((m) => ({ id: m.id as string, name: m.name as string })),
       lead: { id: "test", url: (process.env.NEXT_PUBLIC_APP_URL || "https://jellyhook.com").replace(/\/+$/, "") + "/platform/hooks", submittedAt: now },
       source: ad ? { line: ad.line, ad: { platform: "", adId: "", title: ad.title, thumbnailUrl: ad.thumbnailUrl, videoUrl: ad.videoUrl } } : { line: "Meta · Ads · Spring sale · Example ad (add ads in Acquisition → Ads to see yours)", ad: null },
-      options: messageOptions(input.messageOptions),
+      options,
+      summary: real?.summary ?? (options.summary === "off" ? null : sampleSummary(options.summary)),
+      pages: real?.pages ?? null,
     };
     let sent = 0;
     const failed: string[] = [];

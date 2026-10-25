@@ -126,6 +126,17 @@ export default function LeadProfileReferencePage() {
             times. A heading the page no longer has is named &quot;a heading no longer on the page&quot;.
           </p>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            <strong>Summary length.</strong> Next to the three-stripe button, the Session summary has three versions; each
+            (i) says what it keeps. <strong>Long</strong> is the full paragraph described above. <strong>Moderate</strong> keeps
+            the key points, one per line: the visit and its pages in order with their times, for example Their 23rd
+            visit: / (20s) → /pricing (1m 4s) → away 15m → / (8s); the page with the most time (when they opened more than
+            one); the heading with half of the visit or more; the headings with the most and the least time; and how often
+            they left and came back. Visits are numbered from the visitor&apos;s first visit ever. Two views of one page in a
+            row with no time away between them are one step, and a path of more than 10 steps keeps the first 5 and the
+            last 4. <strong>Short</strong> is the first line only. The choice is remembered in this browser. Hooks can send
+            the same summary to Slack (see Hooks and notifications).
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             The <strong>Seen / By section</strong> switch above the chart changes what each page shows. Seen is the
             usual view: how much of the page they scrolled past. By section turns each page into a heat map of its sections,
             from one main heading to the next: the deeper the green, the longer it was on screen (a smaller heading is never deeper than its section), with the heading and
