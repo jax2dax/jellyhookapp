@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
 import { ReferrerDonutChart } from "@/components/charts/ReferrerDonutChart";
-import { LeadOriginRadarChart } from "@/components/charts/LeadOriginRadarChart";
 import { ConvertedLeadsExplorer } from "@/components/leads/ConvertedLeadsExplorer";
 
 export default async function ConversionsPage() {
@@ -22,10 +21,9 @@ export default async function ConversionsPage() {
           </Suspense>
         </div>
 
-        {/* the radar always; the Referrers ring only appears with more sources than the radar has spokes (it hides itself), and the radar then takes the full width */}
-        <div className="mb-6 flex flex-wrap gap-4 [&>*]:w-auto [&>*]:min-w-[min(100%,26rem)] [&>*]:flex-1">
+        {/* the Leads Origin radar moved to the Acquisition page (2026-10-24); the Referrers ring hides itself when there is little to show */}
+        <div className="mb-6">
           <ReferrerDonutChart siteId={site.id} />
-          <LeadOriginRadarChart siteId={site.id} />
         </div>
 
 

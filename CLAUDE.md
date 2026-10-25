@@ -86,6 +86,7 @@ Keep this list current: add a line when you create a .md file, change it when a 
 
 **Feature build docs (`mds/build/`)**
 - `notifications/`: notification rules and lead groups. `overview.md` (summary and build status), `requirements.md` (founder's decisions R1-R37), `notifications.md`, `groups.md`, `architecture.md`, `data-flow.md`, `performance.md`, `tech-options.md` (queue choice and cost), `webhooks.md` (exact Slack/webhook formats), `personal-data.md`, `ui-ux.md`, `open-questions.md` (answered decisions, HubSpot note), `slack-oauth.md` (Connect Slack through Slack's screen: flow, setup, planned visit-chart image).
+- `acquisition/plan.md`: where leads come from (platform, campaign, ad), credit model, radars, "came from an ad" in marks.
 - `marks/marks.md`: marks on leads, library, site statistics (v1, the chip builder). `marks/marks-v2-plan.md`: the new builder (visit blocks, page sequences, headings, form answers and activity): plan, founder decisions, build status.
 - `heading-time/plan.md`: time per heading (tracker, storage, heat map).
 - `form-study/`: `plan.md`, `averages-and-versions.md` (form dashboard versions and reference), `tracker-changes.md`.

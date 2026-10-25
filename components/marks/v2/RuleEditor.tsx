@@ -13,6 +13,7 @@ import { loadPageHeadings, type PageHeading } from "@/lib/actions/pageHeadings.a
 import { FieldNamingHelp } from "@/components/forms/FieldNamingHelp";
 
 const MAX_DEPTH = 3;
+const PLATFORMS = ["Any platform", "Google", "Meta", "LinkedIn", "Microsoft", "TikTok", "X", "YouTube", "Reddit", "Email", "AI assistants", "Referral", "Direct"];
 
 // ── small pieces ─────────────────────────────────────────────────────────────
 
@@ -265,6 +266,28 @@ function SessionCondRow({ c, onChange, pages }: { c: SessionCond; onChange: (c: 
         </>
       );
       break;
+    case "channel":
+      body = (
+        <>
+          <span>Came from</span>
+          <select value={c.platform} onChange={(e) => onChange({ ...c, platform: e.target.value })} className="h-7 rounded-md border bg-background px-1 text-xs" aria-label="Platform">
+            {PLATFORMS.map((p) => (
+              <option key={p} value={p === "Any platform" ? "" : p}>
+                {p}
+              </option>
+            ))}
+          </select>
+          <select value={c.paid} onChange={(e) => onChange({ ...c, paid: e.target.value as "any" | "paid" | "free" })} className="h-7 rounded-md border bg-background px-1 text-xs" aria-label="Paid or free">
+            <option value="paid">an ad (paid)</option>
+            <option value="free">free (search, social, link)</option>
+            <option value="any">paid or free</option>
+          </select>
+          <input value={c.campaign ?? ""} onChange={(e) => onChange({ ...c, campaign: e.target.value })} placeholder="campaign contains" className="h-7 w-32 rounded-md border bg-background px-1.5 text-xs" aria-label="Campaign contains" />
+          <input value={c.ad ?? ""} onChange={(e) => onChange({ ...c, ad: e.target.value })} placeholder="ad contains" className="h-7 w-28 rounded-md border bg-background px-1.5 text-xs" aria-label="Ad contains" />
+          <Hint text="Read from the link that brought them: the ad network's click id, utm_source / utm_medium, utm_campaign and utm_content (the ad). Pick the visit above: their first visit, any visit, or the one they sent the form in." />
+        </>
+      );
+      break;
     case "device":
       body = (
         <>
@@ -469,7 +492,8 @@ function BlockCard({ block, depth, pages, onChange }: { block: Block; depth: num
             { label: "Visit length", onClick: () => addSession({ id: newId("s"), kind: "duration", n: { op: ">=", a: 60 } }) },
             { label: "Pages seen", onClick: () => addSession({ id: newId("s"), kind: "pages", n: { op: ">=", a: 3 } }) },
             { label: "A heading, across the visit", hint: "Read on any page of the visit, or not", onClick: () => addSession({ id: newId("s"), kind: "heading", heading: noHeading(), state: "seen" }) },
-            { label: "Came from", hint: "google, linkedin, a campaign", onClick: () => addSession({ id: newId("s"), kind: "source", value: "" }) },
+            { label: "Came from an ad or platform", hint: "Meta ad, Google search, a campaign, a specific ad", onClick: () => addSession({ id: newId("s"), kind: "channel", platform: "Meta", paid: "paid" }) },
+            { label: "Came from (any text)", hint: "matched in the referrer or utm source", advanced: true, onClick: () => addSession({ id: newId("s"), kind: "source", value: "" }) },
             { label: "Device", onClick: () => addSession({ id: newId("s"), kind: "device", value: "mobile" }) },
             { label: "Share of the visit's reading on a heading", advanced: true, onClick: () => addSession({ id: newId("s"), kind: "headingShare", heading: noHeading(), n: { op: ">=", a: 30 } }) },
           ]}

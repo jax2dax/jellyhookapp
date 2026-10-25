@@ -125,6 +125,27 @@ ok(is(acrossVisit, reading), "a heading across the whole visit");
 ok(is(rule({ blocks: [{ id: "b", which: { kind: "any" }, session: [{ id: "s", kind: "source", value: "google" }], pages: null, then: [] }] as never }), lead([visit(1, [page("/", 5)], { referrer: "https://www.google.com/" })])), "came from google");
 ok(!is(rule({ blocks: [{ id: "b", which: { kind: "any" }, session: [{ id: "s", kind: "device", value: "mobile" }], pages: null, then: [] }] as never }), three), "device mobile: no (desktop)");
 
+// ── came from an ad (lib/acquisition/channel.ts) ──
+// visit 1 from a Meta ad (Spring sale, video-1), visit 2 direct: converted
+const adJourney = lead([
+  visit(1, [page("/offer", 20)], { src: { referrer: null, utm_source: "facebook", utm_medium: "cpc", utm_campaign: "Spring sale", utm_content: "video-1", landing_path: "/offer" } }),
+  visit(2, [page("/contact", 30)], { src: { referrer: null, utm_source: null, utm_medium: null, utm_campaign: null } }),
+]);
+const cameFrom = (which: object, cond: object) => rule({ blocks: [{ id: "b", which, session: [{ id: "c", kind: "channel", ...cond }], pages: null, then: [] }] as never });
+ok(is(cameFrom({ kind: "first" }, { platform: "Meta", paid: "paid" }), adJourney), "first visit came from a Meta ad");
+ok(is(cameFrom({ kind: "any" }, { platform: "Meta", paid: "paid", campaign: "spring", ad: "video" }), adJourney), "any visit: campaign 'spring' and ad 'video' (any case, contains)");
+ok(!is(cameFrom({ kind: "converting" }, { platform: "Meta", paid: "paid" }), adJourney), "the converting visit was direct: not a Meta ad (the ad does not take the credit for a direct visit)");
+ok(is(cameFrom({ kind: "converting" }, { platform: "Direct", paid: "any" }), adJourney), "the converting visit was Direct");
+ok(!is(cameFrom({ kind: "any" }, { platform: "Meta", paid: "free" }), adJourney), "Meta but free (social): no, it was an ad");
+ok(!is(cameFrom({ kind: "any" }, { platform: "Google", paid: "paid" }), adJourney), "no Google ad in the journey");
+let chErr = "";
+try {
+  validateRuleV2({ v: 2, blocks: [{ which: { kind: "any" }, session: [{ kind: "channel", platform: "", paid: "any" }] }] });
+} catch (e) {
+  chErr = e instanceof RuleV2Error ? e.message : "";
+}
+ok(chErr.startsWith("Say where they came from"), "an empty 'came from' is refused");
+
 // ── validation and description ──
 let threw = "";
 try {

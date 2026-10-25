@@ -37,6 +37,19 @@ async function allRows(page: (from: number, to: number) => PromiseLike<{ data: u
   }
 }
 
+const VISIT_COLS = "visitor_id, session_id, started_at, ended_at, last_activity_at, referrer, utm_source, utm_medium, utm_campaign";
+
+/** A set of visitors' visits up to `until`, with the ad fields of migration 24 when the database has them. */
+async function visitRows(siteId: string, visitors: string[], until: string): Promise<Record<string, unknown>[]> {
+  const read = (cols: string) => allRows((from, to) => admin.from("sessions").select(cols).eq("site_id", siteId).in("visitor_id", visitors).lte("started_at", until).order("started_at").order("session_id").range(from, to));
+  try {
+    return await read(VISIT_COLS + ", utm_content, utm_term, click_id, landing_path");
+  } catch (e) {
+    if (e instanceof Error && /utm_content|utm_term|click_id|landing_path/.test(e.message)) return read(VISIT_COLS); // before 24-acquisition.sql
+    throw e;
+  }
+}
+
 /** Reads the leads to check: all of the site's, or the given ones. */
 async function readLeads(siteId: string, onlyLeads?: string[]): Promise<LeadRow[]> {
   const cols = "id, visitor_id, session_id, submitted_at, raw_data";
@@ -68,7 +81,7 @@ async function journeys(siteId: string, leads: LeadRow[], want: { visits: boolea
     // nothing after the latest sending in this group can count: read only up to it
     const until = new Date(Math.max(...leads.map((l) => t(l.submitted_at)))).toISOString();
     const [ss, pv, vs] = await Promise.all([
-      allRows((from, to) => admin.from("sessions").select("visitor_id, session_id, started_at, ended_at, last_activity_at, referrer, utm_source").eq("site_id", siteId).in("visitor_id", visitors).lte("started_at", until).order("started_at").order("session_id").range(from, to)),
+      visitRows(siteId, visitors, until),
       allRows((from, to) => admin.from("page_views").select("visitor_id, session_id, page_path, entered_at, left_at, page_height, viewport_height, entry_scroll_depth, max_scroll_depth, revisit_start_scroll_depth, heading_time").eq("site_id", siteId).in("visitor_id", visitors).lte("entered_at", until).order("entered_at").order("page_view_id").range(from, to)),
       allRows((from, to) => admin.from("visitors").select("visitor_id, device_type").eq("site_id", siteId).in("visitor_id", visitors).range(from, to)),
     ]);

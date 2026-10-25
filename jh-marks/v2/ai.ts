@@ -115,7 +115,8 @@ SESSION (about the visit as a whole), one of:
  {"kind":"pages","n":NUM}  pages seen in the visit
  {"kind":"heading","heading":H,"state":"seen"|"notSeen","n"?:NUM}  a heading read anywhere in the visit (n = seconds)
  {"kind":"headingShare","heading":H,"n":NUM}  % of the visit's reading time on that heading
- {"kind":"source","value":"google"}  came from (referrer or utm source, lower case)
+ {"kind":"channel","platform":"Google"|"Meta"|"LinkedIn"|"Microsoft"|"TikTok"|"X"|"YouTube"|"Reddit"|"Email"|"AI assistants"|"Referral"|"Direct"|"","paid":"paid"|"free"|"any","campaign"?:"words in utm_campaign","ad"?:"words in utm_content"}  came from an ad or platform. "a Facebook / Instagram ad" = Meta paid; "Google search" = Google free; "a Google ad" = Google paid. Put it in the block of the visit it is about: first found us = {"kind":"first"}, came at some point = {"kind":"any"}, the visit they converted in = {"kind":"converting"}.
+ {"kind":"source","value":"google"}  came from (any text in the referrer or utm source); prefer "channel"
  {"kind":"device","value":"desktop"|"mobile"}
 PAGES = {"order":"any"|"sequence","steps":[STEP...]}   "sequence" = in this order in the same visit
 STEP = {"path":"/pricing","match":"exact"|"startsWith","link":"next"|"later","conds":[PAGECOND...]}

@@ -359,24 +359,45 @@
   }
 
   // UTM params are only on the URL of the landing page a campaign link pointed
-  // at, so they are read at session_start. gclid/fbclid are the ad networks'
-  // own click ids, used as a fallback source when utm_source is absent.
+  // at, so they are read at session_start. The ad networks' own click ids say a
+  // visit came from a paid click (and from which network) even without UTMs:
+  // only WHICH kind was present is sent (click_id: "google", "meta"...), never
+  // the id itself. utm_content / utm_term usually name the ad or creative and the
+  // keyword (2026-10-24, the Acquisition page: "this lead came from this ad").
+  const CLICK_IDS = [
+    ["gclid", "google", "cpc"],
+    ["gbraid", "google", "cpc"],
+    ["wbraid", "google", "cpc"],
+    ["fbclid", "meta", "paid_social"],
+    ["msclkid", "microsoft", "cpc"],
+    ["ttclid", "tiktok", "paid_social"],
+    ["li_fat_id", "linkedin", "paid_social"],
+    ["twclid", "x", "paid_social"],
+  ];
   function getUtmParams() {
+    const none = { utm_source: null, utm_medium: null, utm_campaign: null, utm_content: null, utm_term: null, click_id: null };
     try {
       const params = new URLSearchParams(window.location.search);
       let source = params.get("utm_source");
       let medium = params.get("utm_medium");
-      const campaign = params.get("utm_campaign");
-      if (!source && params.get("gclid")) {
-        source = "google";
-        medium = medium || "cpc";
-      } else if (!source && params.get("fbclid")) {
-        source = "facebook";
-        medium = medium || "paid_social";
+      let clickId = null;
+      for (const [param, network, defaultMedium] of CLICK_IDS) {
+        if (!params.get(param)) continue;
+        clickId = network;
+        if (!source) source = network === "meta" ? "facebook" : network;
+        medium = medium || defaultMedium;
+        break;
       }
-      return { utm_source: source || null, utm_medium: medium || null, utm_campaign: campaign || null };
+      return {
+        utm_source: source || null,
+        utm_medium: medium || null,
+        utm_campaign: params.get("utm_campaign") || null,
+        utm_content: params.get("utm_content") || null,
+        utm_term: params.get("utm_term") || null,
+        click_id: clickId,
+      };
     } catch (err) {
-      return { utm_source: null, utm_medium: null, utm_campaign: null };
+      return none;
     }
   }
 

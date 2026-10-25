@@ -36,6 +36,7 @@ const NAV_ITEMS = [
   { title: "Leads",             url: "/platform/leads",         icon: UserCheck,       plan: "free"   },
   { title: "Marks",             url: "/platform/marks",         icon: Bookmark,        plan: "free"   },
   { title: "Conversion Paths",  url: "/platform/conversions",   icon: Route,         plan: "free"   },
+  { title: "Acquisition",       url: "/platform/acquisition",   icon: Globe,           plan: "free"   },
   // "Hook" (the query builder) is now called Query builder and hidden for now (founder 2026-10-24); /platform/hook still works
   { title: "Hooks",             url: "/platform/hooks",         icon: FishingHook,     plan: "free"   },
   { title: "Notifications",     url: "/platform/notifications", icon: Bell,            plan: "free"   },

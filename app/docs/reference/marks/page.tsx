@@ -33,7 +33,7 @@ export default function MarksReferencePage() {
         <DataTable
           head={["Button", "What it adds"]}
           rows={[
-            [<B key="a">Visit condition</B>, "A visit card: which visit, and conditions on the visit as a whole (length, pages seen, a heading read anywhere in it, where they came from, device)."],
+            [<B key="a">Visit condition</B>, "A visit card: which visit, and conditions on the visit as a whole (length, pages seen, a heading read anywhere in it, device, and where it came from: a platform, an ad or free, a campaign, a specific ad)."],
             [<B key="b">Page condition</B>, "A page in the visit they sent the form in, with conditions on that page (time on it, share of it seen, a heading read on it, times viewed)."],
             [<B key="c">Form condition</B>, "What they answered (budget, service...) or how they filled the form (fill time, hesitation on a field, a field left empty, leaving the form while filling)."],
           ]}

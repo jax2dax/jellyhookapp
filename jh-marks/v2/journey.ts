@@ -89,7 +89,17 @@ export function buildJourney(lead: LeadRow, visitorSessions: Row[], pagesBySessi
       });
     const end = num(s.ended_at) ?? num(s.last_activity_at);
     const ms = sending ? Math.max(0, Math.min(end ?? sentAt, sentAt) - start) : end !== null ? Math.max(0, end - start) : null;
-    sessions.push({ id: s.session_id as string, number: i + 1, startedAt: start, ms, referrer: (s.referrer as string) ?? null, utmSource: (s.utm_source as string) ?? null, pages });
+    const src = {
+      referrer: (s.referrer as string) ?? null,
+      utm_source: (s.utm_source as string) ?? null,
+      utm_medium: (s.utm_medium as string) ?? null,
+      utm_campaign: (s.utm_campaign as string) ?? null,
+      utm_content: (s.utm_content as string) ?? null,
+      utm_term: (s.utm_term as string) ?? null,
+      click_id: (s.click_id as string) ?? null,
+      landing_path: (s.landing_path as string) ?? null,
+    };
+    sessions.push({ id: s.session_id as string, number: i + 1, startedAt: start, ms, referrer: src.referrer, utmSource: src.utm_source, src, pages });
   });
 
   let form: JForm | null = null;

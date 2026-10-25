@@ -41,6 +41,12 @@ export function HookedLeads({ leads, ready, compact = false, markSeen = false }:
               <span className="block truncate text-sm font-medium text-foreground">{l.name || l.email || "A lead without a name"}</span>
               <span className="block truncate text-xs text-muted-foreground">
                 {l.name && l.email ? l.email + " · " : ""}sent on {l.page ?? "a page"}
+                {l.source && (
+                  <>
+                    {" · came from "}
+                    <span className="text-foreground/80">{l.source}</span>
+                  </>
+                )}
               </span>
               {!compact && (
                 <span className="mt-1.5 flex flex-wrap gap-1.5">

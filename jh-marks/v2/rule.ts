@@ -45,6 +45,9 @@ export type SessionCond =
   | { id: string; kind: "heading"; heading: HeadingRef; state: "seen" | "notSeen"; n?: NumCond } // across the visit, seconds
   | { id: string; kind: "headingShare"; heading: HeadingRef; n: NumCond } // % of the visit's heading time
   | { id: string; kind: "source"; value: string } // came from: referrer or utm source contains
+  // came from an ad or platform (lib/acquisition/channel.ts): platform ("" = any), paid / free / either, and the
+  // campaign and ad (utm_campaign, utm_content) containing these words
+  | { id: string; kind: "channel"; platform: string; paid: "any" | "paid" | "free"; campaign?: string; ad?: string }
   | { id: string; kind: "device"; value: "desktop" | "mobile" };
 
 export type PageCond =
@@ -173,6 +176,14 @@ function sessionCond(x: unknown): SessionCond {
     }
     case "device":
       return { id: i, kind: "device", value: c.value === "mobile" ? "mobile" : "desktop" };
+    case "channel": {
+      const platform = str(c.platform, 60);
+      const paid = c.paid === "paid" || c.paid === "free" ? c.paid : "any";
+      const campaign = str(c.campaign, 120);
+      const ad = str(c.ad, 120);
+      if (!platform && paid === "any" && !campaign && !ad) throw new RuleV2Error("Say where they came from: a platform, paid or free, a campaign or an ad.");
+      return { id: i, kind: "channel", platform, paid, ...(campaign ? { campaign } : {}), ...(ad ? { ad } : {}) };
+    }
   }
   throw new RuleV2Error("Unknown visit condition.");
 }
@@ -379,6 +390,10 @@ function describeSession(c: SessionCond): string {
       return `came from ${c.value}`;
     case "device":
       return `on ${c.value}`;
+    case "channel": {
+      const what = [c.platform || "any platform", c.paid === "paid" ? "ad" : c.paid === "free" ? "(free)" : ""].filter(Boolean).join(" ");
+      return `came from ${what}` + (c.campaign ? `, campaign "${c.campaign}"` : "") + (c.ad ? `, ad "${c.ad}"` : "");
+    }
   }
 }
 

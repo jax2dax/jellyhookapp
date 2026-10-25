@@ -41,6 +41,7 @@ const BOT_PATTERNS = /bot|crawl|spider|slurp|mediapartners|googlebot|bingbot|yan
 const isBot = (ua) => !ua || BOT_PATTERNS.test(ua);
 
 const EVENT_TYPES = new Set(["session_start", "session_end", "page_view_start", "page_view_end", "heartbeat", "click", "health"]);
+const CLICK_ID_KINDS = new Set(["google", "meta", "microsoft", "tiktok", "linkedin", "x"]);
 const MAX_DURATION_MS = 24 * 3600_000;
 const MAX_CLICK_NAME = 80;
 
@@ -223,7 +224,7 @@ export async function POST(req) {
             await supabase.from("sessions").update({ last_activity_at: nowIso, ended_at: null }).eq("id", existing.id);
           }
         } else {
-          const { error } = await supabase.from("sessions").insert({
+          const row = {
             session_id: sessionId,
             visitor_id: visitorId,
             site_id: site.id,
@@ -235,7 +236,19 @@ export async function POST(req) {
             utm_source: cleanStr(event.utm_source, 200),
             utm_medium: cleanStr(event.utm_medium, 200),
             utm_campaign: cleanStr(event.utm_campaign, 200),
-          });
+            // 24-acquisition.sql: the ad / creative, the keyword, which ad network's click id was present, where they landed
+            utm_content: cleanStr(event.utm_content, 200),
+            utm_term: cleanStr(event.utm_term, 200),
+            click_id: CLICK_ID_KINDS.has(event.click_id) ? event.click_id : null,
+            landing_path: cleanStr(event.page_path, 500),
+          };
+          let { error } = await supabase.from("sessions").insert(row);
+          if (error && /utm_content|utm_term|click_id|landing_path/.test(error.message || "")) {
+            // before 24-acquisition.sql has run: store what the table has
+            const older = { ...row };
+            for (const k of ["utm_content", "utm_term", "click_id", "landing_path"]) delete older[k];
+            ({ error } = await supabase.from("sessions").insert(older));
+          }
           // 23505: two windows started the same session at once. Harmless.
           if (error && error.code !== "23505") console.error("[track] session insert error:", error.message);
         }

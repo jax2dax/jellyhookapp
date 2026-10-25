@@ -9,6 +9,7 @@
 // "then" blocks: tried against every later visit, with backtracking (if the first matching visit leaves no later visit
 // for the rest of the chain, the next matching visit is tried).
 import { answerRange, matchChoice, matchNumber, pickedValues, rawKeyOf } from "../../lib/forms/answers";
+import { channelOf, type VisitSource } from "../../lib/acquisition/channel";
 import { fmtSec, type AnswerCond, type Block, type FormCond, type MarkRuleV2, type NumCond, type PageCond, type PageGroup, type PageStep, type RootWhich, type SessionCond, type ThenWhich } from "./rule";
 
 // ── the journey (one lead, up to sending) ────────────────────────────────────
@@ -35,6 +36,8 @@ export interface JSession {
   ms: number | null;
   referrer: string | null;
   utmSource: string | null;
+  /** everything the landing link said (utm_*, click id, landing page), for "came from this ad" */
+  src?: VisitSource;
   pages: JPage[];
 }
 
@@ -255,6 +258,14 @@ function sessionCondHolds(c: SessionCond, s: JSession, j: Journey): boolean {
     }
     case "device":
       return (j.device ?? "").toLowerCase() === c.value;
+    case "channel": {
+      const ch = channelOf(s.src ?? { referrer: s.referrer, utm_source: s.utmSource, utm_medium: null, utm_campaign: null });
+      const has = (v: string | null, want?: string) => !want || (v ?? "").toLowerCase().includes(want.toLowerCase());
+      if (c.platform && ch.platform.toLowerCase() !== c.platform.toLowerCase()) return false;
+      if (c.paid === "paid" && !ch.paid) return false;
+      if (c.paid === "free" && ch.paid) return false;
+      return has(ch.campaign, c.campaign) && has(ch.ad, c.ad);
+    }
   }
 }
 

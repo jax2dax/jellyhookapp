@@ -1845,3 +1845,8 @@ New marks open in a new builder: three starting buttons (Visit condition, Page c
 - The 24 h notification guard is back on.
 **Run `mds/migrations/23-announcements.sql` and set `JELLYHOOK_ADMIN_USER_IDS` (your Clerk user id) in Vercel.**
 - (same day, founder corrections) The yellow count of newly hooked leads is on **Hooks** (cleared by opening Hooked leads); **Notifications** shows only a red dot while anything is unread. **Integrations** is its own sidebar page (`/platform/integrations`; Slack sign-in returns there). **Network** is now **Team** (`/platform/team`: invite on top, the team under it; `/platform/network` redirects). Dashboard: Reach & Conversions moved to the top, above Hooked leads.
+
+## 2026-10-24 - Acquisition: platforms, campaigns, ads
+
+New Acquisition page (sidebar): leads by platform (paid and free split: "Google · Ads", "Google · Search"), then campaign, then ad, credited to the last non-direct visit by default (first touch on a switch); totals, visitors / leads / rate / hooked per row; two radars (by platform, by campaign) of normal traffic vs converted vs hooked. The tracker now records utm_content, utm_term and which ad network's click id was present (never the id); visits store them with the landing page (migration 24). Hooked leads show where they came from ("Meta · Ads · Spring sale · video-1"). Marks: new visit condition "Came from an ad or platform". The Leads Origin radar left the Conversions page. Plan and decisions: `mds/build/acquisition/plan.md`. Tests: channel 23, report 11, marks checker 53.
+**Run `mds/migrations/24-acquisition.sql`.** Note: CLAUDE.md still lists /platform/acquisition as excluded from marketing and public docs.
