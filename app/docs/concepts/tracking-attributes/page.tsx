@@ -19,7 +19,7 @@ const STATES: [string, string][] = [
   ["Working", "A real event came from it: a real lead from the marked form, real field timings from a marked field, a real click on a marked element. This is the only state that proves it works."],
   ["Found, waiting for activity", "The tracker saw the attribute on a page, but nobody has used it yet. Submit your own form or click your own button once to prove it."],
   ["Misplaced", "The attribute is on the wrong kind of element, or has the wrong value. The check names the page and what is wrong."],
-  ["Not found", "The tracker has not seen the attribute on any page it has loaded."],
+  ["Not in use", "The tracker has not seen the attribute on any page it has loaded. The attributes are optional, so this is not a problem."],
 ];
 
 export default function TrackingAttributesPage() {

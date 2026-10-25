@@ -2,7 +2,7 @@
 // The registry behind the secondary navigation in the platform's top bar. One entry per sidebar page that wants
 // tabs. Pure data + two helpers, shared by the top bar (components/nav/SecondaryNav.tsx) and by the page itself,
 // which reads `?tab=` on the server and shows only that tab's cards. To add tabs to another page: add an entry here
-// and make the page honour `?tab=` (see app/platform/settings/page.jsx). A page with no entry shows no tabs.
+// and make the page honour `?tab=` (see app/platform/hooks/page.tsx). A page with no entry shows no tabs.
 //
 //   id      the value in the address (?tab=<id>); the default tab has no parameter at all
 //   flag    optional: the tab only shows when this flag is on (flags come from the server layout, for example MCP_ENABLED)
@@ -38,16 +38,8 @@ export const SECONDARY_NAV: Record<string, PageNav> = {
       { id: "rules", label: "Hooks" }, // the hooks: which marks, who is told, where; on / off
     ],
   },
-  "/platform/settings": {
-    title: "Settings",
-    defaultId: "tracker",
-    items: [
-      { id: "tracker", label: "Tracker" }, // script, key, hosts, health, how forms are counted
-      { id: "site", label: "Site" }, // name, domain, overview, leaving the site
-      { id: "fields", label: "Form fields" }, // names of the site's form fields, for marks on answers
-      { id: "ai", label: "MCP", flag: "mcp" }, // AI access tokens, last
-    ],
-  },
+  // Settings is not here: since 2026-10-25 it has its own grouped sidebar (lib/settings/sections.js,
+  // app/platform/settings/SettingsNav.jsx), so it has no top bar.
 };
 
 /** The registry entry for a path (exact match, or a sub-page of a registered page). */

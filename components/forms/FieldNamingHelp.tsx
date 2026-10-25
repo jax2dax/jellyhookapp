@@ -35,7 +35,7 @@ export function FieldNamingHelp({ asked, known, onClose }: { asked: string; know
           <Link href="/docs/reference/form-fields" target="_blank" className="flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted">
             Read how
           </Link>
-          <Link href={"/platform/settings?tab=fields" + (unnamed[0] ? "&field=" + encodeURIComponent(unnamed[0].key) : "")} className="flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground">
+          <Link href={"/platform/settings?section=fields" + (unnamed[0] ? "&field=" + encodeURIComponent(unnamed[0].key) : "")} className="flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground">
             Name your form fields
           </Link>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 // app/platform/settings/FormSwitchesCard.jsx
-// Settings, Lead tracking: which forms count as leads (mds/build/forms/lead-forms.md). Every form Jellyhook has seen a
+// Settings, Lead forms: which forms count as leads (mds/build/forms/lead-forms.md). Every form Jellyhook has seen a
 // submission from is listed (site_forms, migration 28) with its leads, its skipped submissions and a switch. A form
 // marked in code (data-conversion) shows that and its switch is locked, because the mark wins. The site's default
 // (sites.specify_form) is the small setting at the top: what a form nobody has switched yet does. The rule:
@@ -37,12 +37,14 @@ function Segment({ value, onChange, disabled, options }) {
   );
 }
 
-export function FormSwitchesCard({ siteId, onChanged }) {
-  const [state, setState] = useState(null);
+/** `initialState` (demo pages only): the list as listLeadForms returns it, instead of loading it (that needs a signed-in site). */
+export function FormSwitchesCard({ siteId, onChanged, initialState = null }) {
+  const [state, setState] = useState(initialState);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (initialState) return;
     let cancelled = false;
     listLeadForms(siteId).then((r) => {
       if (!cancelled) setState(r);
@@ -50,7 +52,7 @@ export function FormSwitchesCard({ siteId, onChanged }) {
     return () => {
       cancelled = true;
     };
-  }, [siteId]);
+  }, [siteId, initialState]);
 
   const reload = async () => setState(await listLeadForms(siteId));
 
@@ -81,8 +83,7 @@ export function FormSwitchesCard({ siteId, onChanged }) {
     <Card>
       <CardContent className="space-y-4">
         <div>
-          <div className="text-sm font-medium text-foreground">Which forms count as leads</div>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          <p className="text-xs leading-relaxed text-muted-foreground">
             Each form appears here after its first submission. Switch off the ones that are not leads, such as a newsletter or job application. A form that is not a lead is only counted (its submissions are skipped); its names, emails and answers are never kept. Login, search and password forms are never leads. Changes apply within a minute; leads already recorded stay.
           </p>
         </div>

@@ -208,7 +208,7 @@ ok(decideCreateSite({ now: T0 + 1000, hasPendingInvite: true, sites: [mk({ verif
   ok(h.iframe_forms.state === "waiting", "health: an iframe form that announces submissions is waiting for its first one");
   h = by([row("iframe_forms", { count: 1, event_tracked: 1, untracked: 0, providers: ["Typeform"] }, "2026-10-07T10:00:00Z")]);
   ok(h.iframe_forms.state === "working", "health: a real iframe submission proves it works");
-  ok(by([]).click_attr.state === "none" && /Not found/.test(by([]).click_attr.summary), "health: nothing reported = not found");
+  ok(by([]).click_attr.state === "none" && /Not used/.test(by([]).click_attr.summary), "health: nothing reported = not in use");
 }
 
 // cost model

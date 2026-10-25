@@ -50,7 +50,7 @@ function StateBadge({ state }) {
   if (state === "waiting") return <Badge variant="outline">Found, waiting for activity</Badge>;
   if (state === "misplaced") return <Badge variant="destructive">Misplaced</Badge>;
   if (state === "limited") return <Badge variant="outline">Cannot be tracked</Badge>;
-  return <Badge variant="secondary">Not found</Badge>;
+  return <Badge variant="secondary">Not in use</Badge>;
 }
 
 // Is the tracker installed on the right site, and is data arriving?
@@ -136,7 +136,7 @@ export function AllowedHostsCard({ siteId, domain, status, role }) {
     <Card>
       <CardContent className="space-y-3">
         <div>
-          <div className="text-xs text-muted-foreground">Allowed hosts</div>
+          <div className="text-sm font-medium text-foreground">Allowed hosts</div>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             Events are only recorded from <strong className="text-foreground">{domain}</strong> and its subdomains. Add another website here only if it really is part of this site (for example a separate checkout domain). Everything from an allowed host is recorded into this site&apos;s real analytics, so do not add test or local copies.
           </p>
@@ -194,9 +194,8 @@ export function TrackingHealthCard({ status }) {
     <Card>
       <CardContent className="space-y-3">
         <div>
-          <div className="text-xs text-muted-foreground">Attribute check</div>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            The tracker reports what it finds on each page. <strong className="text-foreground">Working</strong> means a real event came from it, not just that the attribute exists.
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            These attributes are optional. The tracker reports what it finds on each page. <strong className="text-foreground">Working</strong> means a real event came from it, not just that the attribute exists.
           </p>
         </div>
 
@@ -229,7 +228,7 @@ export function TrackingHealthCard({ status }) {
                             </div>
                           ))}
                         </div>
-                        <div className="text-muted-foreground">{p.state === "working" ? `${PROOF[c.key] ?? "last proof"} ${ago(p.lastEventAt)}` : p.state === "waiting" ? "found, no event yet" : p.state === "misplaced" ? "misplaced" : p.state === "limited" ? "cannot be tracked" : "not found"}</div>
+                        <div className="text-muted-foreground">{p.state === "working" ? `${PROOF[c.key] ?? "last proof"} ${ago(p.lastEventAt)}` : p.state === "waiting" ? "found, no event yet" : p.state === "misplaced" ? "misplaced" : p.state === "limited" ? "cannot be tracked" : "not in use"}</div>
                       </div>
                     ))}
                   </div>

@@ -1,8 +1,10 @@
 // app/platform/settings/SettingsClients.jsx
+// The body of ONE Settings section (chosen by the page from the sidebar, lib/settings/sections.js). Each section is a
+// single column of cards; nothing is hidden and nothing sits in a grid. Sections here: general, installation, connection,
+// attributes, forms, ai. (Form fields is a server tab in page.jsx.) The page title, group and description are the page's.
 "use client";
 
 import { useState } from "react";
-import { Users } from "lucide-react";
 import {
   updateSiteDomain,
   updateSiteName,
@@ -20,30 +22,24 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
-function SectionLabel({ children }) {
-  return <div className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">{children}</div>;
+/** A card whose rows are separated by lines: label and value on the left, the action on the right. */
+function RowCard({ children }) {
+  return <Card className="gap-0 divide-y py-0">{children}</Card>;
 }
 
-// One value in the "Overview" flex row — sizes to its own content instead of
-// a fixed grid track, and wraps onto a new line on narrow screens rather
-// than the whole row getting squeezed. This is what replaces the old
-// "one small fat Card per fact" layout (Site ID / Plan / Event Limit /
-// Created each in their own full-width Card, stacked all the way down).
-function Fact({ label, value, mono = false }) {
+function Row({ label, hint, children, action }) {
   return (
-    <div className="min-w-[140px] flex-1 basis-40">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={`mt-0.5 text-sm break-all text-foreground ${mono ? "font-mono" : ""}`}>{value}</div>
+    <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 px-6 py-4">
+      <div className="min-w-0 flex-1 basis-56">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="mt-1 text-sm break-all text-foreground">{children}</div>
+        {hint && <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{hint}</div>}
+      </div>
+      {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
     </div>
   );
 }
 
-// ─── StatusBadge ─────────────────────────────────────────
-function StatusBadge({ active }) {
-  return <Badge variant={active ? "default" : "destructive"}>{active ? "Active" : "Inactive"}</Badge>;
-}
-
-// ─── CopyButton ───────────────────────────────────────────
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -61,7 +57,7 @@ function CopyButton({ text }) {
   );
 }
 
-// ─── EditableRow ──────────────────────────────────────────
+// One editable value (site name, domain): shows the value with an Edit button, becomes an input with Save and Cancel.
 function EditableRow({ label, value, onSave, placeholder = "", readOnly = false, note = null }) {
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState(value);
@@ -81,12 +77,12 @@ function EditableRow({ label, value, onSave, placeholder = "", readOnly = false,
     else setError(result.error);
   }
 
-  return (
-    <Card>
-      <CardContent className={editing ? "space-y-2.5" : ""}>
-        <div className="flex items-center justify-between">
-          <div className="text-xs text-muted-foreground">{label}</div>
-          {!editing && !readOnly && (
+  if (!editing) {
+    return (
+      <Row
+        label={label}
+        action={
+          !readOnly && (
             <Button
               size="xs"
               variant="outline"
@@ -98,52 +94,52 @@ function EditableRow({ label, value, onSave, placeholder = "", readOnly = false,
             >
               Edit
             </Button>
-          )}
-        </div>
-        {!editing ? (
-          <div className="mt-1 text-sm break-all text-foreground">{value}</div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={placeholder}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSave();
-                if (e.key === "Escape") setEditing(false);
-              }}
-              autoFocus
-            />
-            {note && <div className="text-xs leading-relaxed text-muted-foreground">{note}</div>}
-            {error && <div className="text-xs text-destructive">Error: {error}</div>}
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleSave} disabled={saving}>
-                {saving ? "Saving..." : "Save"}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setEditing(false);
-                  setError(null);
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          )
+        }
+      >
+        {value || <span className="text-muted-foreground">{placeholder}</span>}
+      </Row>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 px-6 py-4">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <Input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder={placeholder}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSave();
+          if (e.key === "Escape") setEditing(false);
+        }}
+        autoFocus
+      />
+      {note && <div className="text-xs leading-relaxed text-muted-foreground">{note}</div>}
+      {error && <div className="text-xs text-destructive">Error: {error}</div>}
+      <div className="flex gap-2">
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          {saving ? "Saving..." : "Save"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setEditing(false);
+            setError(null);
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }
 
-export default function SettingsClient({ site: initialSite, visitorCount = 0, role = null, ingestion = null, mcpEnabled = false, tab = "tracker" }) {
-  // which tab a block belongs to; blocks of other tabs are hidden, not unmounted
-  const cls = (t) => (tab === t ? undefined : "hidden");
+/** `demoForms` (demo pages only): the Lead forms list as given, instead of loading it. */
+export default function SettingsClient({ site: initialSite, visitorCount = 0, role = null, ingestion = null, section = "general", demoForms = null }) {
   const [site, setSite] = useState(initialSite);
   const [rotation, setRotation] = useState(ingestion?.rotation || null);
-  const leaveError = null; // errors show in the confirm dialog
   const [confirm, setConfirm] = useState(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmError, setConfirmError] = useState(null);
@@ -190,149 +186,129 @@ export default function SettingsClient({ site: initialSite, visitorCount = 0, ro
   const trackerScript = `<script defer src="${trackerBase}/tracker.js" data-key="${site.api_key}"></script>`;
 
   return (
-    <div className="flex w-full max-w-6xl flex-col gap-6">
-      {/* SITE NAME + DOMAIN — the two actually-editable fields, side by side rather than one below the other */}
-      <section className={cls("site")}>
-        <SectionLabel>Site information</SectionLabel>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <EditableRow label="Site Name" value={site.name ?? ""} placeholder="My Site" onSave={handleUpdateName} readOnly={!can(role, "site.rename")} />
-          <EditableRow
-            label="Domain"
-            value={site.domain ?? ""}
-            placeholder="yourdomain.com"
-            onSave={handleUpdateDomain}
-            readOnly={!can(role, "site.change_domain")}
-            note="The tracker must report from this domain. After a change the site has to be verified again, and events from the old domain stop being recorded until then."
-          />
-        </div>
-      </section>
-
-      <section className={cls("tracker")}>
-        <SectionLabel>Lead tracking</SectionLabel>
-        <FormSwitchesCard siteId={site.id} onChanged={setSite} />
-      </section>
-
-      {/* OVERVIEW — one flexible card whose facts wrap and size to their own
-          content (flex-wrap, no fixed grid track), instead of five separate
-          fat single-line Cards stacked all the way down the page. */}
-      <section className={cls("site")}>
-        <SectionLabel>Overview</SectionLabel>
-        <Card>
-          <CardContent className="flex flex-wrap gap-6">
-            <Fact label="Site ID" value={site.id} mono />
-            <Fact label="Created" value={new Date(site.created_at).toLocaleDateString()} />
-            <Fact
-              label="Teams involved"
-              value={
-                <span className="inline-flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                  {visitorCount.toLocaleString()}
-                </span>
-              }
+    <div className="flex flex-col gap-4">
+      {/* GENERAL: the site, its status, and (for everyone but the owner) leaving it */}
+      {section === "general" && (
+        <>
+          <RowCard>
+            <EditableRow label="Site name" value={site.name ?? ""} placeholder="My Site" onSave={handleUpdateName} readOnly={!can(role, "site.rename")} />
+            <EditableRow
+              label="Domain"
+              value={site.domain ?? ""}
+              placeholder="yourdomain.com"
+              onSave={handleUpdateDomain}
+              readOnly={!can(role, "site.change_domain")}
+              note="The tracker must report from this domain. After a change the site has to be verified again, and events from the old domain stop being recorded until then."
             />
-            <div className="min-w-[140px] flex-1 basis-40">
-              <div className="text-xs text-muted-foreground">Status</div>
-              <div className="mt-1 flex items-center gap-2">
-                <StatusBadge active={site.is_active} />
-                {can(role, "site.toggle_tracking") && (
+          </RowCard>
+
+          <RowCard>
+            <Row
+              label="Status"
+              hint={site.is_active ? "Recording visits and forms." : "Paused: nothing is recorded until you resume."}
+              action={
+                can(role, "site.toggle_tracking") && (
                   <Button size="xs" variant={site.is_active ? "destructive" : "default"} onClick={handleToggleActive}>
                     {site.is_active ? "Pause" : "Resume"}
                   </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
+                )
+              }
+            >
+              <Badge variant={site.is_active ? "default" : "destructive"}>{site.is_active ? "Active" : "Inactive"}</Badge>
+            </Row>
+            <Row label="Visitors recorded">{visitorCount.toLocaleString()}</Row>
+            <Row label="Created">{new Date(site.created_at).toLocaleDateString()}</Row>
+            <Row label="Site ID">
+              <span className="font-mono text-xs">{site.id}</span>
+            </Row>
+          </RowCard>
 
-      {/* TRACKING — is the script on the right site, is data arriving, are the attributes placed correctly */}
-      {ingestion && (
-        <section className={cls("tracker")}>
-          <SectionLabel>Tracking</SectionLabel>
-          <div className="flex flex-col gap-4">
-            <TrackingStatusCard siteId={site.id} status={ingestion} role={role} />
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <AllowedHostsCard siteId={site.id} domain={site.domain} status={ingestion} role={role} />
-              <TrackingHealthCard status={ingestion} />
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* AI ACCESS (MCP): behind MCP_ENABLED=1 until the whole feature is built and tested */}
-      {mcpEnabled && (
-        <section className={cls("ai")}>
-          <SectionLabel>AI access</SectionLabel>
-          <McpCard siteId={site.id} role={role} />
-        </section>
-      )}
-
-
-      {/* API KEY + TRACKER SCRIPT — side by side on wide screens instead of
-          each hogging a full row underneath the other. */}
-      <section className={"grid grid-cols-1 gap-4 xl:grid-cols-2 " + (tab === "tracker" ? "" : "hidden")}>
-        <Card>
-          <CardContent>
-            <div className="mb-2 flex items-center justify-between">
-              <div className="text-xs text-muted-foreground">API key</div>
-              <div className="flex gap-1.5">
-                <CopyButton text={site.api_key} />
-                {can(role, "site.regenerate_key") && (
-                  <Button
-                    size="xs"
-                    variant="destructive"
-                    onClick={() => {
-                      setConfirm("regenerate");
-                      setConfirmError(null);
-                    }}
-                  >
-                    Regenerate
+          {role && role !== "owner" && (
+            <RowCard>
+              <Row
+                label="Your access"
+                hint="You lose access to its data. The owner can invite you again."
+                action={
+                  <Button size="sm" variant="destructive" onClick={() => setConfirm("leave")}>
+                    Leave site
                   </Button>
-                )}
-              </div>
-            </div>
-            <div className="font-mono text-sm break-all tracking-wide text-foreground">{site.api_key}</div>
-            <div className="mt-2 text-xs text-muted-foreground">Regenerating gives you a new key. The current one keeps working for 72 hours so your live site does not lose data while you update it.</div>
-            <KeyRotationNotice rotation={rotation} />
-          </CardContent>
-        </Card>
+                }
+              >
+                Leave this site
+              </Row>
+            </RowCard>
+          )}
+        </>
+      )}
 
-        <Card>
-          <CardContent>
-            <div className="mb-2 flex items-center justify-between">
-              <div className="text-xs text-muted-foreground">Paste into your site&apos;s &lt;head&gt;</div>
-              <CopyButton text={trackerScript} />
-            </div>
-            <div className="font-mono text-xs leading-relaxed break-all text-primary">{trackerScript}</div>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* LEAVE — anyone but the owner */}
-      {role && role !== "owner" && (
-        <section className={cls("site")}>
-          <SectionLabel>Your access</SectionLabel>
+      {/* INSTALLATION: the script and the key */}
+      {section === "installation" && (
+        <>
           <Card>
-            <CardContent className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="mb-1 text-sm text-foreground">Leave this site</div>
-                <div className="text-xs text-muted-foreground">You lose access to its data. The owner can invite you again.</div>
-                {leaveError && <div className="mt-1 text-xs text-destructive">{leaveError}</div>}
+            <CardContent>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="text-sm font-medium text-foreground">Tracker script</div>
+                <CopyButton text={trackerScript} />
               </div>
-              <Button size="sm" variant="destructive" onClick={() => setConfirm("leave")}>
-                Leave site
-              </Button>
+              <div className="mb-2 text-xs text-muted-foreground">Paste it once in the &lt;head&gt; of every page you want tracked.</div>
+              <div className="rounded-md border bg-muted/30 p-3 font-mono text-xs leading-relaxed break-all text-primary">{trackerScript}</div>
             </CardContent>
           </Card>
-        </section>
+
+          <Card>
+            <CardContent>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="text-sm font-medium text-foreground">API key</div>
+                <div className="flex gap-1.5">
+                  <CopyButton text={site.api_key} />
+                  {can(role, "site.regenerate_key") && (
+                    <Button
+                      size="xs"
+                      variant="destructive"
+                      onClick={() => {
+                        setConfirm("regenerate");
+                        setConfirmError(null);
+                      }}
+                    >
+                      Regenerate
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="font-mono text-sm break-all tracking-wide text-foreground">{site.api_key}</div>
+              <div className="mt-2 text-xs leading-relaxed text-muted-foreground">Regenerating gives you a new key. The current one keeps working for 72 hours so your live site does not lose data while you update it.</div>
+              <KeyRotationNotice rotation={rotation} />
+            </CardContent>
+          </Card>
+        </>
       )}
+
+      {/* CONNECTION: is data arriving, and which websites may send it */}
+      {section === "connection" &&
+        (ingestion ? (
+          <>
+            <TrackingStatusCard siteId={site.id} status={ingestion} role={role} />
+            <AllowedHostsCard siteId={site.id} domain={site.domain} status={ingestion} role={role} />
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">The connection status could not be loaded. Reload the page.</p>
+        ))}
+
+      {/* ATTRIBUTE CHECK: found on the page versus proven by a real event */}
+      {section === "attributes" && (ingestion ? <TrackingHealthCard status={ingestion} /> : <p className="text-sm text-muted-foreground">The attribute check could not be loaded. Reload the page.</p>)}
+
+      {/* LEAD FORMS: which submissions count as leads */}
+      {section === "forms" && <FormSwitchesCard siteId={site.id} onChanged={setSite} initialState={demoForms} />}
+
+      {/* AI ACCESS (MCP): behind MCP_ENABLED=1 until the whole feature is built and tested (the page hides the section) */}
+      {section === "ai" && <McpCard siteId={site.id} role={role} />}
 
       {/* CONFIRMATION MODAL */}
       {confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
           <Card className="w-full max-w-sm">
             <CardContent>
-              <div className="mb-3 text-sm font-medium text-foreground">{confirm === "regenerate" ? "Regenerate API Key?" : "Leave this site?"}</div>
+              <div className="mb-3 text-sm font-medium text-foreground">{confirm === "regenerate" ? "Regenerate API key?" : "Leave this site?"}</div>
               <div className="mb-5 text-sm leading-relaxed text-muted-foreground">
                 {confirm === "regenerate"
                   ? "A new key is created. The current key keeps working for 72 hours, or until your site sends data with the new key, so there is no gap in tracking. Paste the new script on your site within that time."
