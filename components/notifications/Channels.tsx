@@ -17,7 +17,11 @@ const INTEGRATIONS: { kind: "slack" | "webhook"; name: string; text: string }[] 
 const SLACK_RESULT: Record<string, { tone: "ok" | "error"; text: string }> = {
   connected: { tone: "ok", text: "Slack connected. Pick it under Integrations in a rule." },
   cancelled: { tone: "error", text: "Slack connection cancelled." },
-  expired: { tone: "error", text: "The Slack connection took too long or came from another browser. Try again." },
+  expired: { tone: "error", text: "The Slack connection was started more than an hour ago. Press Connect again." },
+  "other-user": { tone: "error", text: "You came back from Slack signed in as a different Jellyhook user than the one who started. Sign in as that user and press Connect again." },
+  "other-browser": { tone: "error", text: "The Slack connection was started in another browser or window. Press Connect again in this one." },
+  missing: { tone: "error", text: "Slack sent you back without the connection details. Press Connect again." },
+  tampered: { tone: "error", text: "The connection details from Slack could not be verified. Press Connect again." },
   "not-allowed": { tone: "error", text: "Only an owner or admin of the site can connect Slack." },
   "not-configured": { tone: "error", text: "Slack sign-in is not set up on this server yet. Use a webhook URL instead." },
   "no-site": { tone: "error", text: "Create or select a site first." },

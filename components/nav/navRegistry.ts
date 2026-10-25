@@ -36,6 +36,7 @@ export const SECONDARY_NAV: Record<string, PageNav> = {
     items: [
       { id: "tracker", label: "Tracker" }, // script, key, hosts, health, how forms are counted
       { id: "site", label: "Site" }, // name, domain, overview, leaving the site
+      { id: "fields", label: "Form fields" }, // names of the site's form fields, for marks on answers
       { id: "ai", label: "MCP", flag: "mcp" }, // AI access tokens, last
     ],
   },

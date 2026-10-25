@@ -3,7 +3,7 @@
 // Run: npm run test:tracking
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { keyOfText, cleanHeadingTime, readHeadingTime, sectionsOf, layoutSections } from "../headingTime.js";
+import { keyOfText, cleanHeadingTime, readHeadingTime, sectionsOf, layoutSections, headingTimeExtras } from "../headingTime.js";
 import { sectionTimeStory, sectionSentences, pageStorySentences } from "../../leadSessions/story";
 import { splitStory } from "../../leadSessions/storyParts";
 
@@ -96,6 +96,23 @@ ok(!noDom.some((t) => t.startsWith("Spent most of their time")), "not for a page
 
 ok(sectionTimeStory([]) === "" && sectionTimeStory(null) === "", "no data: no sentence");
 ok(splitStory(story).some((p) => p.kind === "heading" && p.text === '"Pricing"'), "headings are highlighted in the story");
+
+// ── "~" passing through (trackers from 2026-10-24): kept, never a heading, counted so the page adds up ──
+{
+  const k1 = keyOfText("Hero");
+  const clean = cleanHeadingTime({ t: 1, h: [[k1, 1, 0, 40, 1], ["~", 0, -2, 15, 0], ["^", 0, -1, 5, 1]] }, 6000);
+  ok(!!clean && clean.h.some((e) => e[0] === "~" && e[2] === -2 && e[3] === 15), "passing through is accepted and stored");
+  const read = readHeadingTime(clean, [{ header_text: "Hero", header_tag: "h1", header_index: 0, position_y: 0, page_height: 1000 }]);
+  ok(!!read && !read.items.some((it) => it.key === "~"), "passing through is not listed as a heading");
+  const rows = [{ header_text: "Hero", header_tag: "h1", header_index: 0, position_y: 100, page_height: 1000 }];
+  const ex = headingTimeExtras(clean, rows);
+  ok(!!ex && ex.passingMs === 1500 && ex.unplacedMs === 0, "extras: passing 1.5 s, nothing unplaced");
+  const unknown = cleanHeadingTime({ t: 1, h: [[k1, 1, 0, 40, 1], [keyOfText("Transmission Successful"), 1, 5, 30, 1]] }, 7000);
+  ok(headingTimeExtras(unknown, rows)?.unplacedMs === 3000, "time on a heading missing from the stored headings is reported, not dropped");
+  const placed = layoutSections(clean, rows);
+  const total = (placed?.sections ?? []).reduce((n, x) => n + x.ms, 0) + (placed?.passingMs ?? 0) + (placed?.unplacedMs ?? 0);
+  ok(total === 6000, "sections + passing + unplaced = everything the tracker sent (" + total + " ms)");
+}
 
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

@@ -10,7 +10,7 @@
 // Design: mds/build/marks/marks.md, "Library".
 import { ArrowLeft, Check, ChevronDown, Info, Loader2, Lock, MoreHorizontal, Plug, Plus } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { describeSpec } from "@/jh-hook/describe";
 import { CATALOG, CATEGORIES, type CatalogMark } from "@/jh-marks/catalog";
 import { describeRule } from "@/jh-marks/rule";
@@ -50,6 +50,20 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
   const [marks, setMarks] = useState<MarkView[]>(initial.ok ? initial.marks : []);
   const [builder, setBuilder] = useState<BuilderInitial | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
+  // the "..." menu closes on a click anywhere outside it, and on Escape
+  useEffect(() => {
+    if (!menu) return;
+    const outside = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement | null)?.closest("[data-mark-menu]")) setMenu(null);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setMenu(null);
+    document.addEventListener("mousedown", outside);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", outside);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [menu]);
   const [varsOpen, setVarsOpen] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -101,13 +115,13 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
         </span>
         {busy === m.id ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : <Toggle on={m.active} disabled={!m.mine} onChange={() => toggle(m)} />}
         {m.mine && (
-          <button type="button" onClick={() => setMenu(menu === m.id ? null : m.id)} className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="More">
+          <button type="button" onClick={() => setMenu(menu === m.id ? null : m.id)} className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="More" data-mark-menu>
             <MoreHorizontal className="size-4" />
           </button>
         )}
       </div>
       {menu === m.id && (
-        <div className="absolute right-1 top-9 z-20 w-44 rounded-md border bg-popover p-1 text-xs shadow-md">
+        <div data-mark-menu className="absolute right-1 top-9 z-20 w-44 rounded-md border bg-popover p-1 text-xs shadow-md">
           {m.locked || m.source === "connected" ? (
             <span className="flex items-center gap-2 px-2 py-1.5 text-muted-foreground/60" title={m.locked ? "The publisher hid this formula" : "Connected: its formula is the publisher's; edit its values"}>
               {m.locked ? <Lock className="size-3" /> : <Plug className="size-3" />} Edit

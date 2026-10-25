@@ -150,19 +150,28 @@ export function SelectedFrameDetails({ item, isLastVisit, nextPath, onClose }: S
             </div>
             {sections.length > 0 ? (
               <ol className="space-y-1">
-                {sections.filter((s) => !s.isTop).map((s, i) => (
-                  <React.Fragment key={i}>
-                    <HeadingRow name={s.isTop ? "Top of page" : (s.text ?? "a heading no longer on the page")} ms={s.ms} pageMs={visit.durationMs} main muted={s.isTop} />
-                    {s.subs.map((x, j) => (
-                      <HeadingRow key={j} name={x.text ?? "a heading no longer on the page"} ms={x.ms} pageMs={visit.durationMs} main={false} />
-                    ))}
-                  </React.Fragment>
-                ))}
+                {/* every part of the page time once: a section's row is its OWN time (its sub-headings have their rows),
+                    plus the top of the page, passing through and headings not found, so the column adds up to the page time */}
+                {sections.map((s, i) => {
+                  const subsMs = s.subs.reduce((n, x) => n + x.ms, 0);
+                  if (s.isTop && s.ms <= 0) return null;
+                  return (
+                    <React.Fragment key={i}>
+                      <HeadingRow name={s.isTop ? "Above the first heading" : (s.text ?? "a heading no longer on the page")} ms={Math.max(0, s.ms - subsMs)} pageMs={visit.durationMs} main muted={s.isTop} />
+                      {s.subs.map((x, j) => (
+                        <HeadingRow key={j} name={x.text ?? "a heading no longer on the page"} ms={x.ms} pageMs={visit.durationMs} main={false} />
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
+                {(visit.sectionExtras?.passingMs ?? 0) > 0 && <HeadingRow name="Passing through (stays under 1s)" ms={visit.sectionExtras!.passingMs} pageMs={visit.durationMs} main muted />}
+                {(visit.sectionExtras?.unplacedMs ?? 0) > 0 && <HeadingRow name="Headings not found on the page now" ms={visit.sectionExtras!.unplacedMs} pageMs={visit.durationMs} main muted />}
               </ol>
             ) : headers.length === 0 ? (
               <div className="text-sm text-muted-foreground">No headers recorded for this page.</div>
             ) : (
               <ol className="space-y-1">
+                <li className="pb-1 text-xs text-muted-foreground">No time per heading was recorded for this page view. Seen is from scrolling only.</li>
                 {headers.map((h, i) => {
                   const seen = h.y >= visit.seenOnceTop && h.y <= visit.seenBottom;
                   return (

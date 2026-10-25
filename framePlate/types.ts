@@ -68,6 +68,8 @@ export interface PageVisitRaw {
   headers?: { text: string; y: number }[];
   /** time per section of the page (page_views.heading_time), null/undefined when not recorded */
   sections?: SectionTime[] | null;
+  /** the rest of the page time (lib/tracking/headingTime.js headingTimeExtras): passing through (stays under 1 s) and time on headings not found in the page's stored headings */
+  sectionExtras?: { passingMs: number; unplacedMs: number } | null;
   /**
    * true when this exact page_view has no left_at yet — the visitor is
    * still looking at THIS page right now. Distinct from SessionRaw.endedAt:
@@ -178,6 +180,8 @@ export interface VisitGeometry {
   outcome: FrameOutcome;
   headers?: { text: string; y: number }[];
   sections?: SectionTime[] | null;
+  /** the rest of the page time (lib/tracking/headingTime.js headingTimeExtras): passing through (stays under 1 s) and time on headings not found in the page's stored headings */
+  sectionExtras?: { passingMs: number; unplacedMs: number } | null;
   /** page-fraction (0-1) span of the actual form, converted from PageVisitRaw.formTopY/formBottomY — null when not measured, see there */
   formTopFrac?: number | null;
   formBottomFrac?: number | null;

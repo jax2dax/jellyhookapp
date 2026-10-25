@@ -8,7 +8,9 @@ import "server-only";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const SLACK_STATE_COOKIE = "jh_slack_oauth";
-const STATE_MAX_AGE_MS = 10 * 60_000;
+// Long enough to read Slack's screen, pick a channel, even ask a colleague. The state is signed and bound to the
+// signed-in person, so a longer window does not weaken it.
+export const STATE_MAX_AGE_MS = 60 * 60_000;
 
 export function slackOAuthConfigured(): boolean {
   return !!(process.env.SLACK_CLIENT_ID && process.env.SLACK_CLIENT_SECRET);
@@ -36,20 +38,31 @@ export function makeState(siteId: string, userId: string): { state: string; nonc
   return { state: body + "." + sign(body), nonce };
 }
 
-export function readState(state: string | null, nonce: string | undefined, userId: string): StatePayload | null {
-  if (!state || !nonce) return null;
+export type StateCheck = { ok: true; state: StatePayload } | { ok: false; reason: "missing" | "tampered" | "expired" | "other-user" | "other-browser" };
+
+/**
+ * Checks the state Slack sent back. Binding: the HMAC signature (only this server can make one), the signed-in person
+ * (an attacker's state carries the attacker's user id, so it cannot connect a channel to someone else's site) and the
+ * age. The browser cookie is an extra check: when present it must match; when the browser dropped it (privacy settings,
+ * a different subdomain) the signed, person-bound state is still enough.
+ */
+export function readState(state: string | null, nonce: string | undefined, userId: string): StateCheck {
+  if (!state) return { ok: false, reason: "missing" };
   const [body, sig] = state.split(".");
-  if (!body || !sig) return null;
+  if (!body || !sig) return { ok: false, reason: "tampered" };
   const expected = Buffer.from(sign(body));
   const given = Buffer.from(sig);
-  if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
+  if (expected.length !== given.length || !timingSafeEqual(expected, given)) return { ok: false, reason: "tampered" };
+  let p: StatePayload;
   try {
-    const p = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as StatePayload;
-    if (p.u !== userId || p.n !== nonce || Date.now() - p.t > STATE_MAX_AGE_MS) return null;
-    return p;
+    p = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as StatePayload;
   } catch {
-    return null;
+    return { ok: false, reason: "tampered" };
   }
+  if (p.u !== userId) return { ok: false, reason: "other-user" };
+  if (Date.now() - p.t > STATE_MAX_AGE_MS) return { ok: false, reason: "expired" };
+  if (nonce && p.n !== nonce) return { ok: false, reason: "other-browser" };
+  return { ok: true, state: p };
 }
 
 export function authorizeUrl(state: string, redirectUri: string): string {

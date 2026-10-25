@@ -9,7 +9,8 @@
 // Every mark is kept up to date, on or off, so turning a mark on or off never re-checks anything: "on" only decides
 // whether its badges show. marks.evaluated_at changes exactly when a mark's results change; the browser keeps each
 // mark's results under that stamp and only asks again when it moves (components/leads/LeadsWithMarks.tsx).
-// Whether a lead has a mark: the mark's Hook query (jh-marks/rule.ts compileRule), on the read-only Hook role.
+// Whether a lead has a mark: v2 marks (jh-marks/v2) by ./journey.ts from the lead's own rows; v1 and Hook marks by the
+// mark's Hook query (jh-marks/rule.ts compileRule), on the read-only Hook role.
 // Why: jh-marks/reason.ts from the lead's own rows. Design: mds/build/marks/marks.md.
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
@@ -20,6 +21,8 @@ import { compileRule, type MarkRule } from "@/jh-marks/rule";
 import { catalogMark, type StatsInput } from "@/jh-marks/catalog";
 import { getSiteStats } from "@/lib/stats/siteStats";
 import { pgHookDb } from "@/lib/hook/pgDb";
+import { isRuleV2, type MarkRuleV2 } from "@/jh-marks/v2/rule";
+import { matchV2 } from "./journey";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -30,7 +33,8 @@ const REASON_CAP = 1000;
 
 export interface MarkToRun {
   id: string;
-  rule: MarkRule | null;
+  /** v1 (chips) or v2 (visit blocks, answers, form: jh-marks/v2, checked by ./journey.ts, not Hook) */
+  rule: MarkRule | MarkRuleV2 | null;
   /** null for a connected mark: the published mark is used (catalog.ts) */
   spec: HookSpec | null;
   reads?: string | null;
@@ -56,8 +60,9 @@ export async function resolveMark(siteId: string, m: MarkToRun): Promise<{ spec:
     const made = c.make({ vars: m.var_values ?? {}, stats: await statsInput(siteId) });
     return "rule" in made ? { rule: made.rule, spec: compileRule(made.rule) } : { rule: null, spec: made.spec };
   }
-  if (m.spec) return { spec: m.spec, rule: m.rule };
-  if (m.rule) return { spec: compileRule(m.rule), rule: m.rule };
+  const v1 = isRuleV2(m.rule) ? null : m.rule;
+  if (m.spec) return { spec: m.spec, rule: v1 };
+  if (v1) return { spec: compileRule(v1), rule: v1 };
   throw new Error("mark has no conditions: " + m.id);
 }
 
@@ -121,10 +126,19 @@ async function reasonsFor(siteId: string, rule: MarkRule | null, leadIds: string
 }
 
 /** Re-checks one mark against every lead of the site and replaces its stored results. Returns how many leads have it. */
-export async function evaluateMark(siteId: string, mark: MarkToRun): Promise<number> {
+/** The leads that have a mark, with their reasons: v2 marks by their own checker, the others by Hook. */
+async function marked(siteId: string, mark: MarkToRun, onlyLeads?: string[]): Promise<{ ids: string[]; reasons: Map<string, string[]> }> {
+  if (isRuleV2(mark.rule) && mark.source !== "connected") {
+    const hits = await matchV2(siteId, mark.rule, onlyLeads);
+    return { ids: [...hits.keys()], reasons: hits };
+  }
   const { spec, rule } = await resolveMark(siteId, mark);
-  const ids = await matchingLeads(siteId, spec);
-  const reasons = await reasonsFor(siteId, rule, ids);
+  const ids = await matchingLeads(siteId, spec, onlyLeads);
+  return { ids, reasons: await reasonsFor(siteId, rule, ids) };
+}
+
+export async function evaluateMark(siteId: string, mark: MarkToRun): Promise<number> {
+  const { ids, reasons } = await marked(siteId, mark);
   const { error: delErr } = await admin.from("lead_marks").delete().eq("mark_id", mark.id);
   if (delErr) throw new Error("lead_marks delete: " + delErr.message);
   for (const c of chunks(ids, 500)) {
@@ -147,9 +161,7 @@ export async function evaluateLeads(siteId: string, leadIds: string[]): Promise<
     if (error || !marks?.length) return; // no marks (or the table is not there yet): nothing to do
     for (const m of marks as MarkToRun[]) {
       try {
-        const { spec, rule } = await resolveMark(siteId, m);
-        const ids = await matchingLeads(siteId, spec, leadIds);
-        const reasons = await reasonsFor(siteId, rule, ids);
+        const { ids, reasons } = await marked(siteId, m, leadIds);
         const { data: gone } = await admin.from("lead_marks").delete().eq("mark_id", m.id).in("lead_id", leadIds).select("lead_id");
         const removed = !!gone?.length;
         if (ids.length) await admin.from("lead_marks").insert(ids.map((lead_id) => ({ mark_id: m.id, lead_id, site_id: siteId, reason: { parts: reasons.get(lead_id) ?? [] } })));

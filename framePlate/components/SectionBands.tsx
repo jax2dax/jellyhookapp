@@ -19,7 +19,8 @@ import type { FramePlateTheme, PlateView, SectionTime, VisitGeometry } from "../
 /** "<1s", "45s", "3m 20s", "12m", "1h 5m" */
 export function sectionDuration(ms: number): string {
   if (ms <= 0) return "0s";
-  if (ms < 1000) return "<1s";
+  // under 10 s: tenths, so the parts visibly add up to the page time (0.4s + 2.6s = 3s, not "<1s" + "3s")
+  if (ms < 9950) return (Math.round(ms / 100) / 10).toFixed(1).replace(/\.0$/, "") + "s";
   const s = Math.round(ms / 1000);
   if (s < 60) return s + "s";
   const m = Math.floor(s / 60);
@@ -126,7 +127,10 @@ export function SectionBands({ visit, width, height, view, heatRange }: { visit:
         const ownMs = subs.length ? Math.max(0, s.ms - subsMs) : s.ms;
         const bandShare = s.ms > 0 ? share * (ownMs / s.ms) : 0;
         const name = s.isTop ? "Top of page" : (s.text ?? "");
-        const time = s.ms > 0 ? sectionDuration(s.ms) : "";
+        // with the sub-headings drawn, each number on the plate is one separate part of the page time: the section shows
+        // its own part (its heading before the first sub-heading), the sub-headings theirs, so they add up
+        const shownMs = subs.length ? ownMs : s.ms;
+        const time = shownMs > 0 ? sectionDuration(shownMs) : "";
         const twoLines = h >= 24 || !time;
         const timeW = time.length * FONT * 0.6 + 6;
         // the heading stays on one line, never wider than its band: a long one fades out at the right edge
@@ -135,7 +139,12 @@ export function SectionBands({ visit, width, height, view, heatRange }: { visit:
         const fadeId = "fade-" + uid + "-" + i;
         return (
           <g key={i}>
-            <rect x={bx} y={y + 0.5} width={colW} height={Math.max(0, h - 1)} rx={2} fill={ownMs > 0 ? heatColor(bandShare) : s.ms > 0 && subs.length ? heatColor(0) : "none"} stroke="#fff" strokeOpacity={s.ms > 0 ? 0.3 : 0.16} strokeWidth={0.6} strokeDasharray={s.ms > 0 ? undefined : "2 2"} />
+            {/* the section's outline; only its OWN stretch (heading to first sub-heading) is coloured, by its own time.
+                A heading or sub-heading with no time stays the plate's colour: only what was on screen gets heat. */}
+            <rect x={bx} y={y + 0.5} width={colW} height={Math.max(0, h - 1)} rx={2} fill="none" stroke="#fff" strokeOpacity={s.ms > 0 ? 0.3 : 0.16} strokeWidth={0.6} strokeDasharray={s.ms > 0 ? undefined : "2 2"} />
+            {ownMs > 0 && (
+              <rect x={bx} y={y + 0.5} width={colW} height={Math.max(0, (subs.length ? Math.min(h, (subs[0].y0 as number) * height - y) : h) - 1)} rx={2} fill={heatColor(bandShare)} />
+            )}
             {h >= 10 && (
               <g opacity={s.ms > 0 ? 1 : 0.5}>
                 {overflows && (

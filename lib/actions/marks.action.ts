@@ -16,6 +16,7 @@ import { providerFor, ProviderError } from "@/jh-ai/providers";
 import { translateMark, type MarkAiResult } from "@/jh-marks/ai";
 import { catalogMark, catalogVersion, type MarkVar } from "@/jh-marks/catalog";
 import { cleanPath, compileRule, describeRule, MARK_LIMIT, RuleError, validateRule, type MarkRule } from "@/jh-marks/rule";
+import { describeRuleV2, isRuleV2, RuleV2Error, validateRuleV2, type MarkRuleV2 } from "@/jh-marks/v2/rule";
 import { checkQuota, recordRequest } from "@/lib/ai/ledger";
 import { listSitePages } from "@/lib/actions/hook.action";
 import { siteOrThrow } from "@/lib/hook/site";
@@ -35,8 +36,9 @@ export interface MarkView {
   active: boolean;
   visibility: Visibility;
   sharedWith: string[];
-  /** null = made in Hook: edit it there (or a locked published mark) */
-  rule: MarkRule | null;
+  /** v1 (the old chip builder) or v2 (visit blocks, answers, form; jh-marks/v2). null = made in Hook: edit it there (or a locked published mark) */
+  rule: MarkRule | MarkRuleV2 | null;
+  /** the Hook query of a v1 or Hook mark; null for a v2 mark (checked by lib/marks/journey.ts) */
   spec: HookSpec | null;
   reads: string | null;
   templateKey: string | null;
@@ -97,8 +99,8 @@ const toView = (r: Row, me: string): MarkView => ({
   active: !!r.active,
   visibility: (r.visibility as Visibility) ?? "private",
   sharedWith: (r.shared_with as string[]) ?? [],
-  rule: (r.rule as MarkRule) ?? null,
-  spec: r.spec as HookSpec,
+  rule: (r.rule as MarkRule | MarkRuleV2) ?? null,
+  spec: (r.spec as HookSpec) ?? null,
   reads: (r.reads as string) ?? null,
   templateKey: (r.template_key as string) ?? null,
   mine: r.created_by === me,
@@ -124,7 +126,7 @@ async function markRow(supabase: ReturnType<typeof createSupabaseClient>, siteId
   return (first.data as unknown as Row) ?? null;
 }
 
-const toRun = (r: Row): MarkToRun => ({ id: r.id as string, rule: (r.rule as MarkRule) ?? null, spec: (r.spec as HookSpec) ?? null, reads: (r.reads as string) ?? null, source: (r.source as MarkToRun["source"]) ?? "own", source_key: (r.source_key as string) ?? null, var_values: (r.var_values as Record<string, string>) ?? {} });
+const toRun = (r: Row): MarkToRun => ({ id: r.id as string, rule: (r.rule as MarkRule | MarkRuleV2) ?? null, spec: (r.spec as HookSpec) ?? null, reads: (r.reads as string) ?? null, source: (r.source as MarkToRun["source"]) ?? "own", source_key: (r.source_key as string) ?? null, var_values: (r.var_values as Record<string, string>) ?? {} });
 
 async function who(): Promise<{ userId: string; siteId: string }> {
   const { userId } = await auth();
@@ -216,10 +218,15 @@ export async function saveMark(input: SaveMarkInput): Promise<SaveMarkResult> {
     const sharedWith = visibility === "members" ? (input.sharedWith ?? []).filter((u) => members.some((m) => m.userId === u) && u !== userId).slice(0, 50) : [];
     if (visibility === "members" && !sharedWith.length) return { ok: false, error: "Choose who to share it with, or share it with the whole team." };
 
-    let rule: MarkRule | null = null;
-    let spec: HookSpec;
+    let rule: MarkRule | MarkRuleV2 | null = null;
+    let spec: HookSpec | null;
     let reads: string;
-    if (input.rule) {
+    if (isRuleV2(input.rule)) {
+      // the new builder: checked by its own checker, no Hook query (migration 22 lets spec be empty)
+      rule = validateRuleV2(input.rule);
+      spec = null;
+      reads = describeRuleV2(rule).join(" ");
+    } else if (input.rule) {
       rule = validateRule(input.rule);
       spec = compileRule(rule);
       reads = describeRule(rule);
@@ -264,7 +271,8 @@ export async function saveMark(input: SaveMarkInput): Promise<SaveMarkResult> {
     }
     return { ok: true, mark: toView(saved!, userId), warning };
   } catch (e) {
-    if (e instanceof RuleError) return { ok: false, error: e.message };
+    if (e instanceof RuleError || e instanceof RuleV2Error) return { ok: false, error: e.message };
+    if (e instanceof Error && /spec/.test(e.message) && /null/.test(e.message)) return { ok: false, error: "The new marks are not set up on this database yet (migration 22)." };
     console.error("[marks] save failed", e instanceof Error ? e.message : e);
     return { ok: false, error: "The mark could not be saved. Try again." };
   }

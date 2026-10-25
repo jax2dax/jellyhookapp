@@ -100,6 +100,22 @@ interface RawRows {
 // "By section": wider plates so each section's heading and time can be written on it (framePlate/components/SectionBands.tsx)
 const SECTION_PLATE_THEME = { plate: { width: 160 }, frame: { minWidth: 186, typicalWidth: 196, maxWidth: 320 } };
 
+// Plate size (the dropdown at the top right of the chart, 2026-10-24):
+//   small   the Seen plates (the default theme)
+//   medium  the "By section" plates (SECTION_PLATE_THEME)
+//   large   medium 1.3x wider and 1.8x longer
+// Until the person picks one, Seen shows small and By section shows medium, as before.
+type PlateSize = "small" | "medium" | "large";
+const LARGE_PLATE_THEME = {
+  plate: { width: 208, minHeight: 63, maxHeight: 540, pxToVisualRatio: 0.162 },
+  frame: { height: 612, minWidth: 242, typicalWidth: 255, maxWidth: 416 },
+};
+const PLATE_SIZE_THEME: Record<PlateSize, typeof SECTION_PLATE_THEME | typeof LARGE_PLATE_THEME | undefined> = {
+  small: undefined,
+  medium: SECTION_PLATE_THEME,
+  large: LARGE_PLATE_THEME,
+};
+
 // A visitor with a long history otherwise renders one ever-growing table —
 // this caps a page at 10 rows and pages back in time from there. sessionsRaw
 // is ascending (oldest first, per buildSessionsRaw), so "page 1" is a slice
@@ -174,6 +190,8 @@ export function LeadSessionExplorer({
   const [listOpen, setListOpen] = React.useState(true);
   // what the plates show: the seen bands, or time per section (remembered per browser)
   const [plateView, setPlateView] = React.useState<PlateView>("seen");
+  const [sizeChoice, setSizeChoice] = React.useState<PlateSize | null>(null);
+  const plateSize: PlateSize = sizeChoice ?? (plateView === "seen" ? "small" : "medium");
   React.useEffect(() => {
     try {
       // localStorage is the external system read once here
@@ -438,12 +456,27 @@ export function LeadSessionExplorer({
             <div key={blink} className="w-full min-w-0 overflow-hidden rounded-md border bg-card/50 p-3" style={blink > 0 ? { animation: "jh-chart-blink 520ms ease-in-out" } : undefined}>
               <div className="mb-1 flex items-center justify-between gap-2">
                 <ChartLegend />
-                <PlateViewSwitch value={plateView} onChange={choosePlateView} hasSections={selectedSession.visits.some((v) => (v.sections?.length ?? 0) > 0)} />
+                <div className="flex items-center gap-3">
+                  <PlateViewSwitch value={plateView} onChange={choosePlateView} hasSections={selectedSession.visits.some((v) => (v.sections?.length ?? 0) > 0)} />
+                  <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    Size
+                    <select
+                      value={plateSize}
+                      onChange={(e) => setSizeChoice(e.target.value as PlateSize)}
+                      className="h-6 rounded-md border bg-background px-1.5 text-[11px] text-foreground"
+                      aria-label="Plate size"
+                    >
+                      <option value="small">Small</option>
+                      <option value="medium">Medium</option>
+                      <option value="large">Large</option>
+                    </select>
+                  </label>
+                </div>
               </div>
               <FramePlateChart
                 session={selectedSession}
                 view={plateView}
-                theme={plateView !== "seen" ? SECTION_PLATE_THEME : undefined}
+                theme={PLATE_SIZE_THEME[plateSize]}
                 deviceType={deviceType}
                 onSelectItem={(item, meta) => setSelectedFrame(item ? { item, isLastVisit: meta.isLastVisit } : null)}
                 className="w-full min-w-0"

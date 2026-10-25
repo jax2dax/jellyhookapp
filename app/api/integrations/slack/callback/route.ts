@@ -24,9 +24,14 @@ export async function GET(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.redirect(new URL("/sign-in", req.nextUrl.origin));
 
-  const state = readState(q.get("state"), req.cookies.get(SLACK_STATE_COOKIE)?.value, userId);
+  const check = readState(q.get("state"), req.cookies.get(SLACK_STATE_COOKIE)?.value, userId);
   const code = q.get("code");
-  if (!state || !code) return back(req, "expired");
+  if (!check.ok) {
+    console.error("[slack-oauth] state rejected:", check.reason);
+    return back(req, check.reason);
+  }
+  if (!code) return back(req, "missing");
+  const state = check.state;
 
   // still allowed on that site?
   const { data: member } = await admin.from("site_members").select("role").eq("site_id", state.s).eq("user_id", userId).eq("status", "active").maybeSingle();

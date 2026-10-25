@@ -81,10 +81,11 @@ const keyOf = (t) => { t = t.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 
   ok(!ht.h.some((x) => x[0] === keyOf("Hidden heading")), "the hidden heading gets nothing");
   ok(!ht.h.some((x) => x[0] === "^") || ht.h.find((x) => x[0] === "^")[3] <= 3, "almost nothing on the top of the page (Hero is in view from the start)");
   const total = ht.h.reduce((n, x) => n + x[3], 0) / 10;
-  ok(Math.abs(total - end.duration / 1000) < 1.5, "the times add up to the page time (" + total + " s vs " + (end.duration / 1000).toFixed(1) + " s)");
+  // every millisecond lands in one entry (headings, "^" above them, "~" passing through): only tenths rounding remains
+  ok(Math.abs(total - end.duration / 1000) <= 0.1 * ht.h.length + 0.05, "the times add up to the page time exactly (" + total + " s vs " + (end.duration / 1000).toFixed(1) + " s)");
   ok(!ht.h.some((x) => x[0] === keyOf("Why us")) || sec("Why us") < 1.5, "a sub-heading only scrolled past gets little or nothing");
 
-  // ── two headings side by side (same row): both are in front of the visitor, both get the time ──
+  // ── two headings side by side (same row): both are in front of the visitor, they SHARE the time (sum stays exact) ──
   const C = await ctx.newPage();
   await C.setViewport({ width: 1200, height: 800 });
   await C.goto("http://localhost:4103/cols", { waitUntil: "load" });
@@ -95,7 +96,30 @@ const keyOf = (t) => { t = t.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 
   const colEnd = events.filter((e) => e.path === "/api/track" && Array.isArray(e.body)).flatMap((e) => e.body).filter((e) => e.type === "page_view_end" && e.heading_time && e.heading_time.h.some((x) => x[0] === keyOf("Left column"))).pop();
   const colSec = (t) => { const e = colEnd && colEnd.heading_time.h.find((x) => x[0] === keyOf(t)); return e ? e[3] / 10 : 0; };
   console.log("two columns:", JSON.stringify(colEnd && colEnd.heading_time));
-  ok(colSec("Left column") >= 2.5 && colSec("Right column") >= 2.5, "side-by-side headings both get the time (" + colSec("Left column") + " s and " + colSec("Right column") + " s)");
+  ok(colSec("Left column") >= 1.2 && Math.abs(colSec("Left column") - colSec("Right column")) <= 0.1, "side-by-side headings share the time equally (" + colSec("Left column") + " s and " + colSec("Right column") + " s)");
+  const colTotal = colEnd ? colEnd.heading_time.h.reduce((n, x) => n + x[3], 0) / 10 : 0;
+  ok(colEnd && Math.abs(colTotal - colEnd.duration / 1000) <= 0.25, "and together they add up to the page time (" + colTotal + " s vs " + (colEnd ? (colEnd.duration / 1000).toFixed(1) : "?") + " s)");
+
+  // ── flicking: 12 quick scrolls of ~0.2 s between two headings go to "~" (passing through), not to the headings ──
+  const F = await ctx.newPage();
+  await F.setViewport({ width: 1200, height: 800 });
+  await F.goto("http://localhost:4103/page", { waitUntil: "load" });
+  await sleep(1500);
+  for (let i = 0; i < 12; i++) {
+    await F.evaluate((y) => window.scrollTo(0, y), i % 2 ? 1300 : 2300);
+    await sleep(200);
+  }
+  await F.evaluate(() => window.scrollTo(0, 2300));
+  await sleep(300);
+  const G = await ctx.newPage();
+  await G.bringToFront();
+  await sleep(1500);
+  const flickEnd = events.filter((e) => e.path === "/api/track" && Array.isArray(e.body)).flatMap((e) => e.body).filter((e) => e.type === "page_view_end" && e.heading_time).pop();
+  console.log("flicking:", JSON.stringify(flickEnd && flickEnd.heading_time));
+  const passing = flickEnd ? (flickEnd.heading_time.h.find((x) => x[0] === "~") || [0, 0, 0, 0])[3] / 10 : 0;
+  ok(passing >= 1.5, "quick back-and-forth goes to passing through (" + passing + " s)");
+  const flickTotal = flickEnd ? flickEnd.heading_time.h.reduce((n, x) => n + x[3], 0) / 10 : 0;
+  ok(flickEnd && Math.abs(flickTotal - flickEnd.duration / 1000) <= 0.1 * flickEnd.heading_time.h.length + 0.05, "and the page still adds up (" + flickTotal + " s vs " + (flickEnd ? (flickEnd.duration / 1000).toFixed(1) : "?") + " s)");
 
   // ── cost: the same 60 scroll steps with the meter on and off ──
   const cost = async (src) => {

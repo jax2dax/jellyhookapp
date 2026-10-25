@@ -1,12 +1,11 @@
 import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
-import { getRecentActivity, getLeads } from "@/lib/actions/supabase.actions";
+import { getLeads } from "@/lib/actions/supabase.actions";
 import { getSitePagesOverview } from "@/lib/actions/pagesOverview.action";
 import { VisitsOverTimeChart } from "@/components/charts/visitsOverTime";
 import { PageViewsBar } from "@/components/charts/pageViewsBar";
 import { ReachConversionsSection } from "@/components/charts/ReachConversionsSection";
 import { FramePlatePreviewCard } from "@/components/dashboard/FramePlatePreviewCard";
 import { ActiveNowTile } from "@/components/dashboard/ActiveNowTile";
-import { LiveTicker } from "@/components/dashboard/LiveTicker";
 import { WindowStatTile } from "@/components/dashboard/WindowStatTile";
 import { HookShortcutCard } from "@/components/dashboard/HookShortcutCard";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +21,7 @@ export default async function OverviewPage() {
 
   // The top tiles load their own numbers per time window (WindowStatTile);
   // only the data the rest of the page renders on the server is read here.
-  const [recentActivity, leads, pages] = await Promise.all([getRecentActivity(site.id), getLeads(site.id), getSitePagesOverview(site.id)]);
+  const [leads, pages] = await Promise.all([getLeads(site.id), getSitePagesOverview(site.id)]);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -149,8 +148,7 @@ export default async function OverviewPage() {
       {/* ── FramePlate preview: shortcut ad for the full lead-session chart ── */}
       <FramePlatePreviewCard siteId={site.id} leads={leads.map((l) => ({ visitor_id: l.visitor_id, name: l.name, email: l.email }))} />
 
-      {/* ── Live ticker ─────────────────────────────────────────────── */}
-      <LiveTicker siteId={site.id} initialRows={recentActivity} />
+      {/* The live ticker was removed 2026-10-24 (founder): it re-listed old page views and polled the server. */}
 
       <p className="mt-6 text-xs text-muted-foreground">Site created <LocalDate value={site.created_at} /></p>
     </div>

@@ -8,7 +8,7 @@
 // Every change is reported to the page (onChange) so it updates in place, without reloading. Design:
 // mds/build/marks/marks.md.
 import { ArrowLeft, Bookmark, ChevronDown, ExternalLink, Lock, Plug, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { emptyRule } from "@/jh-marks/rule";
 import { MarkVarsEditor } from "./MarkVarsEditor";
@@ -44,6 +44,20 @@ function Toggle({ on, disabled, onChange, label }: { on: boolean; disabled?: boo
 export function MarksPanel({ state, applied, onApply, onChange }: { state: MarksState; applied: string[]; onApply: (ids: string[]) => void; onChange: (c: MarkChange) => void }) {
   const [builder, setBuilder] = useState<BuilderInitial | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
+  // the "..." menu closes on a click anywhere outside it, and on Escape
+  useEffect(() => {
+    if (!menu) return;
+    const outside = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement | null)?.closest("[data-mark-menu]")) setMenu(null);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setMenu(null);
+    document.addEventListener("mousedown", outside);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", outside);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [menu]);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [varsOpen, setVarsOpen] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -216,6 +230,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                         }}
                         className="-mr-1 flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-label="More"
+                        data-mark-menu
                       >
                         <MoreHorizontal className="size-4" />
                       </button>
@@ -257,7 +272,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                       </div>
                     )}
                     {menu === m.id && (
-                      <div className="absolute right-1 top-10 z-20 w-48 rounded-md border bg-popover p-1 text-xs shadow-md">
+                      <div data-mark-menu className="absolute right-1 top-10 z-20 w-48 rounded-md border bg-popover p-1 text-xs shadow-md">
                         {m.mine && m.locked && (
                           <span className="flex w-full items-center gap-2 px-2 py-1.5 text-muted-foreground/60" title="The publisher hid this formula">
                             <Lock className="size-3" /> Edit

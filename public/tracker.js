@@ -568,6 +568,10 @@ function getPageHeightPayload() {
   // the screen (at the very bottom of the page: the last one on screen, so short last sections still get their time).
   // Time is added to the active heading while this page view is open (open already means visible, focused, not idle),
   // and every time a heading becomes active its count goes up by one. Sent with page_view_end, so it costs no request.
+  // Every millisecond goes somewhere, so the parts add up to the page time exactly (2026-10-24):
+  //   - a stay on a heading counts only when it lasts at least MIN_STAY_MS; a shorter one (scrolling past, flicking back
+  //     and forth) goes to "~" ("passing through"), so 30 flicks of 0.2 s never look like 6 s of reading;
+  //   - headings side by side share the time of their stay (2 columns for 4 s: 2 s each), so the sum stays exact.
   // Cheap: positions are measured only when the page changes size, a scroll does a binary search on a cached list.
   // Each heading is named by a short hash of its text (+ "#2" for a repeated text), so the server can match it to the
   // page's stored headings without the text being sent again. "^" is the part above the first heading.
@@ -576,14 +580,17 @@ function getPageHeightPayload() {
     const MAX_SCAN = 80;
     const MAX_KEPT = 40;
     const TIE_PX = 24; // headings this close (vertically) and of one level share a row
+    const MIN_STAY_MS = 1000; // shorter stays are "passing through" ("~"), not time on that heading
+    const PASSING = { l: 0, o: -2 };
     let list = []; // [{ k, l, o, y }] sorted by y
     let topLevel = 1;
     let scannedHeight = 0;
     let scannedAt = 0;
     let acc = null; // key -> [level, order, ms, entries]
     let activeKey = null; // the signature of what is active now (keys joined), to notice a change
-    let activeKeys = []; // the keys that get the time
     let lastTick = 0;
+    let stayMs = 0; // the current stay so far, credited when it ends (to its headings, or to "~" when too short)
+    let stayGroup = []; // the headings of the current stay (empty: above the first heading)
     let timer = null;
     let rafPending = false;
 
@@ -645,7 +652,7 @@ function getPageHeightPayload() {
     function add(key, h, ms) {
       let e = acc.get(key);
       if (!e) {
-        if (acc.size >= MAX_KEPT) return null;
+        if (acc.size >= MAX_KEPT && key !== "~" && key !== "^") return null;
         e = h ? [h.l, h.o, 0, 0] : [0, -1, 0, 0];
         acc.set(key, e);
       }
@@ -657,7 +664,7 @@ function getPageHeightPayload() {
       const now = Date.now();
       const dt = Math.min(Math.max(0, now - lastTick), 5000); // a throttled timer must not pour minutes into one heading
       lastTick = now;
-      if (activeKey !== null && dt > 0) activeKeys.forEach(function (k) { add(k, null, dt); });
+      if (activeKey !== null && dt > 0) stayMs += dt;
       // the page grew or shrank (images, lazy content, a single-page app route rendering): measure again
       const ph = getPageHeightPx();
       if (Math.abs(ph - scannedHeight) > 50 || (!list.length && now - scannedAt > 3000)) scan();
@@ -665,23 +672,38 @@ function getPageHeightPayload() {
       const keys = group.length ? group.map(function (g) { return g.k; }) : ["^"];
       const sig = keys.join("|");
       if (sig !== activeKey) {
+        endStay();
         activeKey = sig;
-        activeKeys = keys;
+        stayGroup = group;
         group.forEach(function (h) {
           // a sub-heading's section heading is always kept (even with no time of its own), so its time can be grouped
           if (h.l > topLevel) {
             for (let i = h.o - 1; i >= 0; i--) if (list[i].l === topLevel) { add(list[i].k, list[i], 0); break; }
           }
         });
-        if (!group.length) {
-          const e = add("^", null, 0);
-          if (e) e[3] += 1;
-        }
-        group.forEach(function (h) {
-          const e = add(h.k, h, 0);
-          if (e) e[3] += 1;
-        });
       }
+    }
+    // The stay that just ended goes to its headings (shared equally between side-by-side ones) and counts as one visit
+    // to each, or, when shorter than MIN_STAY_MS, to "~". Above the first heading ("^") always gets its time.
+    function endStay() {
+      const ms = stayMs;
+      stayMs = 0;
+      if (activeKey === null || ms <= 0) return;
+      if (!stayGroup.length) {
+        const e = add("^", null, ms);
+        if (e) e[3] += 1;
+        return;
+      }
+      if (ms < MIN_STAY_MS) {
+        add("~", PASSING, ms);
+        return;
+      }
+      const share = ms / stayGroup.length;
+      stayGroup.forEach(function (h) {
+        const e = add(h.k, h, share);
+        if (e) e[3] += 1;
+        else add("~", PASSING, share); // more headings than MAX_KEPT: the time still counts, as passing through
+      });
     }
     function onScroll() {
       if (rafPending) return;
@@ -696,7 +718,8 @@ function getPageHeightPayload() {
         try {
           acc = new Map();
           activeKey = null;
-          activeKeys = [];
+          stayMs = 0;
+          stayGroup = [];
           lastTick = Date.now();
           scan();
           tick();
@@ -725,13 +748,9 @@ function getPageHeightPayload() {
           pageViewOpen = true; // closePageView already flipped it: count the last stretch
           tick();
           pageViewOpen = wasOpen;
-          // closed for idle: what the timer added after the visitor really stopped is taken back
-          if (endAtMs && lastTick > endAtMs && activeKey !== null) {
-            activeKeys.forEach(function (k) {
-              const e = acc.get(k);
-              if (e) e[2] = Math.max(0, e[2] - (lastTick - endAtMs));
-            });
-          }
+          // closed for idle: what the timer added after the visitor really stopped is taken back (from the open stay)
+          if (endAtMs && lastTick > endAtMs) stayMs = Math.max(0, stayMs - (lastTick - endAtMs));
+          endStay();
           if (timer) clearInterval(timer);
           timer = null;
           window.removeEventListener("scroll", onScroll);
@@ -1340,6 +1359,16 @@ function firePageViewStart() {
       if (normalize(key).includes("password") || normalize(key).includes("passwd")) continue;
       if (val) raw[key] = val;
     }
+    // Radio buttons and checkboxes (2026-10-24; before, a budget picked with radio buttons was lost): the checked
+    // radio's value, and the checked boxes of one name joined with ", " ("yes" for a box without a value).
+    form.querySelectorAll("input[type='radio'], input[type='checkbox']").forEach(function (input) {
+      if (!input.checked || !fieldAllowed(form, input)) return;
+      const key = input.name || input.id;
+      if (!key || normalize(key).includes("password")) return;
+      const val = input.value && input.value !== "on" ? input.value : "yes";
+      if (input.type === "radio") raw[key] = val;
+      else raw[key] = raw[key] ? raw[key] + ", " + val : val;
+    });
     return raw;
   }
 
@@ -1669,8 +1698,64 @@ function firePageViewStart() {
     return fieldValueOf(el).trim() !== "";
   }
 
-  // The form's fields as the visitor sees them: key, type, required. Sent once with "viewed" so the page can show
-  // fields nobody touched. Never a value. Respects data-track-field marking (fieldAllowed).
+  // The visible name of a field: its <label>, aria-label / aria-labelledby, a radio group's <legend>, the placeholder,
+  // or the short text just before it. "" when the page gives it no name (the owner can name it in Settings).
+  function fieldLabel(el) {
+    const clean = function (t) {
+      return String(t || "").replace(/\s+/g, " ").replace(/[*:]+\s*$/, "").trim().slice(0, 120);
+    };
+    try {
+      if (el.type === "radio" || el.type === "checkbox") {
+        const fs = el.closest("fieldset");
+        const legend = fs && fs.querySelector("legend");
+        if (legend && clean(legend.textContent)) return clean(legend.textContent);
+        const group = el.closest("[role='radiogroup'], [role='group']");
+        if (group && group.getAttribute("aria-label")) return clean(group.getAttribute("aria-label"));
+        if (el.type === "checkbox" && el.labels && el.labels[0]) return clean(el.labels[0].textContent);
+      }
+      if (el.labels && el.labels[0] && clean(el.labels[0].textContent)) return clean(el.labels[0].textContent);
+      if (el.getAttribute("aria-label")) return clean(el.getAttribute("aria-label"));
+      const by = el.getAttribute("aria-labelledby");
+      if (by) {
+        const t = by.split(/\s+/).map(function (id) {
+          const n = document.getElementById(id);
+          return n ? n.textContent : "";
+        }).join(" ");
+        if (clean(t)) return clean(t);
+      }
+      if (el.placeholder) return clean(el.placeholder);
+      const prev = el.previousElementSibling;
+      if (prev && !/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(prev.tagName) && clean(prev.textContent).length <= 60) return clean(prev.textContent);
+    } catch (e) {}
+    return "";
+  }
+
+  // The choices of a dropdown or of a radio/checkbox group: value and visible text, at most 50. Never what was picked.
+  function fieldOptions(form, el, t) {
+    const out = [];
+    const short = function (x) {
+      return String(x || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    };
+    try {
+      if (t === "select") {
+        Array.prototype.forEach.call(el.options || [], function (o) {
+          // an option with an empty value is the "Pick one" placeholder, not a choice
+          if (out.length < 50 && o.value !== "" && !o.disabled) out.push({ v: short(o.value), l: short(o.textContent) });
+        });
+      } else if ((t === "radio" || t === "checkbox") && el.name) {
+        form.querySelectorAll("input[type='" + t + "']").forEach(function (o) {
+          if (o.name !== el.name || out.length >= 50) return;
+          const lab = o.labels && o.labels[0] ? o.labels[0].textContent : o.value;
+          out.push({ v: short(o.value && o.value !== "on" ? o.value : "yes"), l: short(lab) });
+        });
+      }
+    } catch (e) {}
+    return out;
+  }
+
+  // The form's fields as the visitor sees them: key, type, required, and (2026-10-24) the visible label, the choices
+  // of a dropdown / radio / checkbox group and the limits of a number or slider. Sent once with "viewed" so the page
+  // can show fields nobody touched and marks can filter on answers by name. Never a value. Respects data-track-field.
   function formFieldList(form) {
     const out = [];
     const seen = new Set();
@@ -1682,7 +1767,17 @@ function firePageViewStart() {
       const k = fieldTimingsKey(c.type, c.key);
       if (seen.has(k)) return;
       seen.add(k);
-      out.push({ key: k, type: t, required: !!el.required });
+      const f = { key: k, type: t, required: !!el.required };
+      const label = fieldLabel(el);
+      if (label) f.label = label;
+      const options = fieldOptions(form, el, t);
+      if (options.length) f.options = options;
+      if (t === "number" || t === "range") {
+        if (el.min !== "" && isFinite(Number(el.min))) f.min = Number(el.min);
+        if (el.max !== "" && isFinite(Number(el.max))) f.max = Number(el.max);
+        if (el.step !== "" && el.step !== "any" && isFinite(Number(el.step))) f.step = Number(el.step);
+      }
+      out.push(f);
     });
     return out.slice(0, 60);
   }

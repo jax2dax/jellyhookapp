@@ -18,10 +18,28 @@ export const metadata = {
 
 export default async function PlatformLayout({ children }) {
   const user = await getAuthUser();
-  const site = await getUserSite(user.id);
-  const userPlan = await getPlanLabel();
-  const allSites = await getAllUserSites(user.id);
-  const profile = await getMyProfile();
+  let site, userPlan, allSites, profile;
+  try {
+    site = await getUserSite(user.id);
+    userPlan = await getPlanLabel();
+    allSites = await getAllUserSites(user.id);
+    profile = await getMyProfile();
+  } catch (e) {
+    // The database did not answer (or a lookup failed). An error thrown in a layout cannot be caught by
+    // app/platform/error.tsx, so show a plain message here instead of the bare "Application error" page.
+    console.error("[platform layout] could not load the shell:", e instanceof Error ? e.message : String(e));
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <div className="w-full max-w-md rounded-xl border bg-card p-6 text-center shadow-sm">
+          <h1 className="text-base font-semibold text-foreground">Jellyhook could not load</h1>
+          <p className="mt-2 text-sm text-muted-foreground">The database did not respond. Your data is safe. Reload the page in a moment.</p>
+          <a href="" className="mt-4 inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
+            Reload
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>

@@ -19,6 +19,6 @@ export async function GET(req: NextRequest) {
 
   const { state, nonce } = makeState(site.id, userId);
   const res = NextResponse.redirect(authorizeUrl(state, slackRedirectUri(req.nextUrl.origin)));
-  res.cookies.set(SLACK_STATE_COOKIE, nonce, { httpOnly: true, secure: req.nextUrl.protocol === "https:", sameSite: "lax", path: "/api/integrations/slack", maxAge: 600 });
+  res.cookies.set(SLACK_STATE_COOKIE, nonce, { httpOnly: true, secure: req.nextUrl.protocol === "https:", sameSite: "lax", path: "/api/integrations/slack", maxAge: 3600 });
   return res;
 }

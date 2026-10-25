@@ -16,6 +16,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import { compileRule, describeRule, fmtSeconds, MARK_COLORS, newId, RuleError, validateRule, type LeadChip, type MarkRule, type PageCard, type PageRow, type Scope } from "@/jh-marks/rule";
 import { markFromAi, saveMark, type MarkView, type TeamMember, type Visibility } from "@/lib/actions/marks.action";
 import { encodeSpecParam } from "@/lib/hook/specParam";
+import { isRuleV2, type MarkRuleV2 } from "@/jh-marks/v2/rule";
+import { MarkBuilderV2 } from "./v2/MarkBuilderV2";
 
 export interface BuilderInitial {
   id?: string;
@@ -25,7 +27,8 @@ export interface BuilderInitial {
   active: boolean;
   visibility: Visibility;
   sharedWith: string[];
-  rule: MarkRule;
+  /** v1 (old chip keys) or v2 (the new builder) */
+  rule: MarkRule | MarkRuleV2;
   templateKey?: string | null;
 }
 
@@ -106,7 +109,21 @@ function Key({ children, onClick, disabled, hint, accent }: { children: ReactNod
   );
 }
 
-export function MarkBuilder({ initial, pages, team, me, onSaved, onCancel }: { initial: BuilderInitial; pages: string[]; team: TeamMember[]; me: string; onSaved: (m: MarkView, warning?: string) => void; onCancel: () => void }) {
+type BuilderProps = { initial: BuilderInitial; pages: string[]; team: TeamMember[]; me: string; onSaved: (m: MarkView, warning?: string) => void; onCancel: () => void };
+
+/**
+ * New marks, and marks made with the new builder, open in the new builder (./v2/MarkBuilderV2.tsx: visits, pages,
+ * headings, answers, form). Marks made with the old chip keys (and copies from the library) keep their old builder:
+ * converting them automatically would change what they match (an old "any order" row could span several visits; a
+ * new visit block is one visit).
+ */
+export function MarkBuilder(props: BuilderProps) {
+  const r = props.initial.rule;
+  const old = !isRuleV2(r) && (r.rows.length > 0 || r.lead.length > 0);
+  return old ? <MarkBuilderV1 {...props} initial={{ ...props.initial, rule: r as MarkRule }} /> : <MarkBuilderV2 {...props} />;
+}
+
+function MarkBuilderV1({ initial, pages, team, me, onSaved, onCancel }: BuilderProps & { initial: BuilderInitial & { rule: MarkRule } }) {
   const [rule, setRule] = useState<MarkRule>(initial.rule);
   const [face, setFace] = useState<"ai" | "manual">(() => (initial.rule.rows.length || initial.rule.lead.length ? "manual" : "ai"));
   const [sel, setSel] = useState<Sel>(null);
@@ -392,7 +409,7 @@ export function MarkBuilder({ initial, pages, team, me, onSaved, onCancel }: { i
                 <Sparkles className="size-4 text-primary" />
                 <h3 className="text-sm font-semibold">Enter with AI</h3>
               </div>
-              <p className="text-xs text-muted-foreground">Describe the leads you want marked, in your own words. The conditions are built for you, and you can check and change them.</p>
+              <p className="text-xs text-muted-foreground">Describe the leads you want marked, in your own words.</p>
               <div className="jh-ai-glow rounded-xl p-[1.5px]">
                 <textarea
                   value={ai}

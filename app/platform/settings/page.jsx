@@ -9,6 +9,8 @@ import { getMySiteRole, getIngestionStatus } from "@/lib/actions/settings.action
 import { getVisitorCount } from "@/lib/actions/supabase.actions";
 import SettingsClient from "./SettingsClients";
 import { navFor, resolveTab } from "@/components/nav/navRegistry";
+import { FormFieldsSettings } from "@/components/forms/FormFieldsSettings";
+import { loadFormFields } from "@/lib/actions/formFields.action";
 
 export default async function SettingsPage({ searchParams }) {
   const sp = (await searchParams) ?? {};
@@ -46,6 +48,8 @@ export default async function SettingsPage({ searchParams }) {
               Create a site →
             </a>
           </div>
+        ) : tab === "fields" ? (
+          <FieldsTab focusKey={typeof sp.field === "string" ? sp.field : null} />
         ) : (
           <SettingsClient
             site={site}
@@ -59,4 +63,10 @@ export default async function SettingsPage({ searchParams }) {
       </div>
     </>
   );
+}
+// Settings → Form fields (components/forms/FormFieldsSettings.tsx)
+async function FieldsTab({ focusKey }) {
+  const r = await loadFormFields();
+  if (!r.ok) return <p className="text-sm text-red-600">{r.error}</p>;
+  return <FormFieldsSettings fields={r.fields} namesReady={r.namesReady} focusKey={focusKey} />;
 }
