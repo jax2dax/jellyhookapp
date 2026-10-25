@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+# every node_modules, also the HubSpot card folder (hubspot/src/app/cards, made by hs project install-deps)
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -66,3 +68,6 @@ business-validation.mdjh-ai/eval/last-run.json
 /mds/report/interview-cheatsheet.md
 # private interview notes
 /report/interview-cheatsheet.md
+
+# HubSpot config file
+hubspot.config.yml
