@@ -11,7 +11,9 @@
 //     to re-render.
 //   - After an edit, delete or on/off, the panel tells this component what changed; the list is updated in place.
 // The cache holds lead ids and short reasons (page paths, counts), never names or emails (lib/client/cache.ts rules).
+// Inside a sandbox (the home page demo, components/sandbox) nothing is cached and the address is never written.
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAction, useSandbox } from "@/components/sandbox/sandbox";
 import { MarksPanel, type MarkChange } from "@/components/marks/MarksPanel";
 import { Card, CardContent } from "@/components/ui/card";
 import { leadMarksFor, type LeadMark, type MarksState, type MarkView } from "@/lib/actions/marks.action";
@@ -36,22 +38,29 @@ export function LeadsWithMarks({
   groups?: GroupsState;
   /** results already known (the demo): never fetched */ preloaded?: Record<string, LeadMark[]>;
 }) {
+  const sandbox = !!useSandbox();
+  const fetchLeadMarks = useAction("leadMarksFor", leadMarksFor);
   const groupsReady = !!groupsState && groupsState.ok && groupsState.ready;
   const g = useGroups(groupsState && groupsState.ok ? groupsState.groups : []);
   // the open group lives in the address (?group=), written without asking the server to re-render (like ?marks=)
   const [openGroup, setOpenGroupState] = useState<string | null>(null);
   useEffect(() => {
+    if (sandbox) return;
     const id = new URLSearchParams(window.location.search).get("group");
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (id) setOpenGroupState(id);
-  }, []);
-  const setOpenGroup = useCallback((id: string | null) => {
-    setOpenGroupState(id);
-    const url = new URL(window.location.href);
-    if (id) url.searchParams.set("group", id);
-    else url.searchParams.delete("group");
-    window.history.replaceState(window.history.state, "", url);
-  }, []);
+  }, [sandbox]);
+  const setOpenGroup = useCallback(
+    (id: string | null) => {
+      setOpenGroupState(id);
+      if (sandbox) return;
+      const url = new URL(window.location.href);
+      if (id) url.searchParams.set("group", id);
+      else url.searchParams.delete("group");
+      window.history.replaceState(window.history.state, "", url);
+    },
+    [sandbox],
+  );
   const [dialog, setDialog] = useState<{ group: GroupView | null; leadIds: string[] } | null>(null);
   const activeGroup = g.groups.find((x) => x.id === openGroup) ?? null;
   const shownLeads = useMemo(() => {
@@ -65,10 +74,11 @@ export function LeadsWithMarks({
   const [applied, setAppliedState] = useState<string[]>([]);
   useEffect(() => {
     // the address is read after the first render, so the server's HTML and the browser's first render agree
+    if (sandbox) return;
     const ids = (new URLSearchParams(window.location.search).get("marks") ?? "").split(",").filter(Boolean);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (ids.length) setAppliedState(ids);
-  }, []);
+  }, [sandbox]);
 
   const key = useCallback((id: string) => cacheKey(siteId, "markLeads", { mark: id }), [siteId]);
 
@@ -81,7 +91,7 @@ export function LeadsWithMarks({
     const stale: string[] = [];
     for (const m of marks) {
       if (preloaded?.[m.id]) continue;
-      const c = readCache<Cached>(key(m.id));
+      const c = sandbox ? null : readCache<Cached>(key(m.id));
       if (c && c.value.stamp === m.evaluatedAt) fromCache[m.id] = c.value.rows;
       else stale.push(m.id);
     }
@@ -89,11 +99,11 @@ export function LeadsWithMarks({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setResults((r) => ({ ...r, ...fromCache }));
     if (stale.length) {
-      leadMarksFor(stale).then((res) => {
+      fetchLeadMarks(stale).then((res) => {
         if (!live || !res.ok) return;
         const byMark: Record<string, LeadMark[]> = Object.fromEntries(stale.map((id) => [id, []]));
         for (const row of res.rows) byMark[row.markId]?.push(row);
-        for (const id of stale) writeCache<Cached>(key(id), { stamp: marks.find((m) => m.id === id)?.evaluatedAt ?? null, rows: byMark[id] });
+        if (!sandbox) for (const id of stale) writeCache<Cached>(key(id), { stamp: marks.find((m) => m.id === id)?.evaluatedAt ?? null, rows: byMark[id] });
         setResults((r) => ({ ...r, ...byMark }));
       });
     }
@@ -105,13 +115,17 @@ export function LeadsWithMarks({
   }, [stamps, ready, key]);
 
   const visibleApplied = useMemo(() => applied.filter((id) => marks.some((m) => m.id === id && m.active)), [applied, marks]);
-  const setApplied = useCallback((ids: string[]) => {
-    setAppliedState(ids);
-    const url = new URL(window.location.href);
-    if (ids.length) url.searchParams.set("marks", ids.join(","));
-    else url.searchParams.delete("marks");
-    window.history.replaceState(window.history.state, "", url);
-  }, []);
+  const setApplied = useCallback(
+    (ids: string[]) => {
+      setAppliedState(ids);
+      if (sandbox) return;
+      const url = new URL(window.location.href);
+      if (ids.length) url.searchParams.set("marks", ids.join(","));
+      else url.searchParams.delete("marks");
+      window.history.replaceState(window.history.state, "", url);
+    },
+    [sandbox],
+  );
 
   const onChange = useCallback(
     (c: MarkChange) => {
@@ -142,7 +156,7 @@ export function LeadsWithMarks({
   return (
     <div className="flex items-start gap-4">
       <div className="min-w-0 flex-1 space-y-4">
-        <h1 className="text-lg font-semibold text-foreground">Leads</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Leads</h1>
         {groupsReady && (
           <GroupTabs
             groups={g.groups}

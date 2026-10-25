@@ -11,6 +11,7 @@ import { newId, type AnswerCond, type Block, type FormCond, type HeadingRef, typ
 import type { CatalogField } from "@/lib/forms/catalog";
 import { loadPageHeadings, type PageHeading } from "@/lib/actions/pageHeadings.action";
 import { FieldNamingHelp } from "@/components/forms/FieldNamingHelp";
+import { useAction } from "@/components/sandbox/sandbox";
 
 const MAX_DEPTH = 3;
 const PLATFORMS = ["Any platform", "Google", "Meta", "LinkedIn", "Microsoft", "TikTok", "X", "YouTube", "Reddit", "Email", "AI assistants", "Referral", "Direct"];
@@ -66,10 +67,11 @@ function Remove({ onClick, label }: { onClick: () => void; label: string }) {
   );
 }
 
-type MenuItem = { label: string; hint?: string; onClick: () => void; advanced?: boolean; disabled?: boolean };
+/** tour: a stable name for guided tours (components/tour), kept when the label changes */
+type MenuItem = { label: string; hint?: string; onClick: () => void; advanced?: boolean; disabled?: boolean; tour?: string };
 
 /** A "+ something" button that opens a short list; advanced items sit below a line. */
-function AddMenu({ label, items, small }: { label: string; items: MenuItem[]; small?: boolean }) {
+function AddMenu({ label, items, small, tour }: { label: string; items: MenuItem[]; small?: boolean; tour?: string }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLSpanElement>(null);
   React.useEffect(() => {
@@ -84,6 +86,7 @@ function AddMenu({ label, items, small }: { label: string; items: MenuItem[]; sm
     <button
       key={i.label}
       type="button"
+      data-tour={i.tour}
       disabled={i.disabled}
       onClick={() => {
         setOpen(false);
@@ -97,7 +100,7 @@ function AddMenu({ label, items, small }: { label: string; items: MenuItem[]; sm
   );
   return (
     <span ref={ref} className="relative inline-block">
-      <button type="button" onClick={() => setOpen((o) => !o)} className={"inline-flex items-center gap-1 rounded-md border border-dashed text-muted-foreground hover:border-foreground/40 hover:text-foreground " + (small ? "h-6 px-1.5 text-[11px]" : "h-7 px-2 text-xs")}>
+      <button type="button" data-tour={tour} onClick={() => setOpen((o) => !o)} className={"inline-flex items-center gap-1 rounded-md border border-dashed text-muted-foreground hover:border-foreground/40 hover:text-foreground " + (small ? "h-6 px-1.5 text-[11px]" : "h-7 px-2 text-xs")}>
         <Plus className="size-3" /> {label} <ChevronDown className="size-3" />
       </button>
       {open && (
@@ -116,14 +119,15 @@ function HeadingPicker({ page, value, onChange }: { page: string; value: Heading
   const [list, setList] = React.useState<PageHeading[] | null>(null);
   const [q, setQ] = React.useState("");
   const [open, setOpen] = React.useState(!value);
+  const fetchHeadings = useAction("loadPageHeadings", loadPageHeadings);
   React.useEffect(() => {
     let live = true;
     if (!page.startsWith("/") || page.length < 1) return;
-    loadPageHeadings(page).then((r) => live && setList(r.ok ? r.headings : []));
+    fetchHeadings(page).then((r) => live && setList(r.ok ? r.headings : []));
     return () => {
       live = false;
     };
-  }, [page]);
+  }, [page, fetchHeadings]);
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = (list ?? [])
     .map((h) => ({ h, score: words.length ? words.filter((w) => h.text.toLowerCase().includes(w)).length / words.length : 1 }))
@@ -390,7 +394,7 @@ function StepCard({ step, index, group, onChange }: { step: PageStep; index: num
     <div className="space-y-1.5 rounded-md border bg-card p-2">
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
         <span className="text-muted-foreground">{seq ? `${index + 1}.` : "Saw"}</span>
-        <input list="jh-mark-pages" value={step.path} onChange={(e) => set({ path: e.target.value })} placeholder="/pricing" className="h-7 w-36 rounded-md border bg-background px-1.5 text-xs font-medium" aria-label="Page" />
+        <input list="jh-mark-pages" value={step.path} onChange={(e) => set({ path: e.target.value })} placeholder="/pricing" className="h-7 w-36 rounded-md border bg-background px-1.5 text-xs font-medium" aria-label="Page" data-tour="page-path" />
         <select value={step.match} onChange={(e) => set({ match: e.target.value as "exact" | "startsWith" })} className="h-7 rounded-md border bg-background px-1 text-[11px]" aria-label="Exact page or every page under it" title="Exactly this page, or every page whose address starts with it">
           <option value="exact">this page</option>
           <option value="startsWith">or any page under it</option>
@@ -412,9 +416,10 @@ function StepCard({ step, index, group, onChange }: { step: PageStep; index: num
       <div className="pl-4">
         <AddMenu
           small
+          tour="page-cond-add"
           label="Condition on this page"
           items={[
-            { label: "Time on the page", onClick: () => add({ id: newId("p"), kind: "time", n: { op: ">=", a: 30 } }) },
+            { label: "Time on the page", tour: "cond-time", onClick: () => add({ id: newId("p"), kind: "time", n: { op: ">=", a: 30 } }) },
             { label: "Share of the page seen", onClick: () => add({ id: newId("p"), kind: "seen", n: { op: ">=", a: 50 } }) },
             { label: "A heading on this page", hint: "Read it (and for how long), or not", onClick: () => add({ id: newId("p"), kind: "heading", heading: noHeading(), state: "seen" }) },
             { label: "Times viewed in the visit", disabled: seq, hint: seq ? "Not inside a sequence" : undefined, onClick: () => add({ id: newId("p"), kind: "views", n: { op: ">=", a: 2 } }) },
@@ -744,20 +749,23 @@ export function RuleEditor({ rule, onChange, pages, fields }: { rule: MarkRuleV2
       </datalist>
 
       {empty ? (
-        <div className="grid gap-2 sm:grid-cols-3">
-          {[
-            { label: "Visit condition", hint: "Length, pages, headings, where they came from. Chain visits with 'then'.", onClick: addVisit },
-            { label: "Page condition", hint: "Pages in the visit they sent the form in: time, headings, order.", onClick: addPage },
-          ].map((b) => (
-            <button key={b.label} type="button" onClick={b.onClick} className="flex flex-col items-start gap-1 rounded-lg border bg-background p-3 text-left hover:border-primary/50 hover:bg-primary/5">
-              <span className="text-sm font-medium text-foreground">{b.label}</span>
-              <span className="text-[11px] text-muted-foreground">{b.hint}</span>
-            </button>
-          ))}
-          <div className="flex flex-col items-start gap-1 rounded-lg border bg-background p-3">
-            <span className="text-sm font-medium text-foreground">Form condition</span>
-            <span className="mb-1 text-[11px] text-muted-foreground">Their answers (budget...) and how they filled the form.</span>
-            <AddMenu small label="Form" items={formItems} />
+        // one column in the narrow marks panel, three side by side where there is room (a container query, not the screen)
+        <div className="@container">
+          <div className="grid gap-2 @xl:grid-cols-3">
+            {[
+              { label: "Visit condition", tour: "start-visit", hint: "Length, pages, headings, where they came from. Chain visits with 'then'.", onClick: addVisit },
+              { label: "Page condition", tour: "start-page", hint: "Pages in the visit they sent the form in: time, headings, order.", onClick: addPage },
+            ].map((b) => (
+              <button key={b.label} type="button" data-tour={b.tour} onClick={b.onClick} className="flex flex-col items-start gap-1 rounded-lg border bg-background p-3 text-left hover:border-primary/50 hover:bg-primary/5">
+                <span className="text-sm font-medium text-foreground">{b.label}</span>
+                <span className="text-[11px] text-muted-foreground">{b.hint}</span>
+              </button>
+            ))}
+            <div className="flex flex-col items-start gap-1 rounded-lg border bg-background p-3">
+              <span className="text-sm font-medium text-foreground">Form condition</span>
+              <span className="mb-1 text-[11px] text-muted-foreground">Their answers (budget...) and how they filled the form.</span>
+              <AddMenu small label="Form" items={formItems} />
+            </div>
           </div>
         </div>
       ) : (

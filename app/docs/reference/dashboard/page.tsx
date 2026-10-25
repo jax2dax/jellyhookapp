@@ -1,162 +1,148 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { DocHeader, Section, H3, P, UL, B, DataTable } from "../../ui";
 
 export const metadata: Metadata = {
   title: "Dashboard overview",
-  description: "What each card on the main dashboard shows, and how each number is counted.",
+  description: "What the dashboard shows, top to bottom: tracking status, five key numbers, who to call first, and the traffic charts. How each number is counted.",
   alternates: { canonical: "/docs/reference/dashboard" },
 };
 
 export default function DashboardReferencePage() {
   return (
     <div>
-      <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Feature reference</span>
-      <h1 className="mt-3 ff-display text-3xl text-[#f4f2ea]">Dashboard overview</h1>
-      <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-        The screen you land on. Meant to be scanned in a few seconds, not read closely.
-      </p>
+      <DocHeader
+        eyebrow="Analytics"
+        title="Dashboard overview"
+        intro="What happened on the site, and which leads need you first? The dashboard is the screen you land on: five key numbers, the leads your hooks caught, your marks, the newest leads, then the traffic charts."
+      />
 
-      <div className="mt-12 space-y-10">
-        <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">The stats row</h2>
-          <ul className="space-y-2 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            <li>
-              Active now: the round badge with the green dot. It is the number of visitors on the site at this
-              exact moment, and it updates on its own every second while the tab stays open. Hover it for the
-              description.
-            </li>
-            <li>Page Views: pages opened in the chosen window.</li>
-            <li>Sessions: visits that started in the chosen window.</li>
-            <li>Leads: forms submitted in the chosen window, including repeat submissions from the same person.</li>
-            <li>
-              Conversion Rate: different people who submitted a form, divided by different people who visited,
-              in the chosen window. Each person counts once on each side.
-            </li>
-          </ul>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Each of these four tiles has its own small window menu: 24h, 7d or 30d (the last 24 hours, 7 days or
-            30 days, up to now) or All time (no arrow, since there is nothing before it). Next to the number, an arrow shows the change from the window just before:
-            the previous 24 hours, 7 days or 30 days. Green and up means more, red and down means fewer. Hover
-            the arrow for the full sentence, for example &quot;50% fewer form submissions than the previous 24
-            hours&quot;. The conversion rate changes in percentage points (&quot;1.2 pts&quot;), because a
-            percentage of a percentage is misleading. Each tile remembers its window in your browser. The (i)
-            next to each title explains how that number is counted.
-          </p>
-        </div>
+      <Section title="When you would use it">
+        <P>
+          You open Jellyhook in the morning. The Leads tile says 5 in the last 24 hours, up from 3. Under it, Hooked leads shows two of them were caught by your
+          Big budget hook, so you open those first. Further down, the traffic charts tell you whether the extra leads came with extra visitors.
+        </P>
+      </Section>
 
-        <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Sessions online / Pages online</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            One live chart; its title is a dropdown to switch what it counts. <strong>Sessions online</strong> (the default) counts visits that are open: it
-            goes up when a visit starts and down when the visitor was last seen, so someone who leaves the site and
-            comes back within the same visit stays counted. Its line is a little thicker, and its height fits the
-            highest and lowest values on screen, gliding smoothly as you zoom or move, like a trading chart.
-            <strong> Pages online</strong> is described below.
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Pages online: a live chart of how many visitors were actively on a page at the same time, drawn over a chosen
-            interval (from 5 seconds up to 1 day per point). It moves on its own while you watch it: the right edge
-            is always now, and it keeps counting forward every second.
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            &quot;Online&quot; means a page is actually open, not just that a visit hasn&apos;t formally ended. If
-            someone leaves the site, the chart bumps down right away rather than assuming they are still there; if
-            they come back, it bumps back up. A visitor who leaves for a few minutes and returns will show as a
-            dip and a recovery, not an unbroken stretch at the top.
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Three ways to draw the same data: Smooth (a curved line through each point, the default), Steps (the
-            value held flat until the next point, showing exact values with nothing rounded off visually), and
-            Trend (a point only where the number actually changed, averaged across the gap, so a long quiet
-            stretch reads as a gentle slope instead of a flat line). Switching between them does not reload
-            anything.
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Drag to move back through history, further than it shows by default. Pinch on a trackpad, or use the
-            plus and minus buttons, to zoom. A plain scroll never touches the chart, so the page underneath still
-            scrolls normally with your mouse wheel.
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Two optional markers, each behind its own checkbox and off by default: Conversions (a mark on the line
-            for every form submission) and Team joined (a mark for every teammate who joined this site). Both are
-            drawn on top of the chart and never change the line itself.
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            One honest limitation: the last 30 minutes are drawn in a different color because a visitor whose tab
-            crashed, rather than closing normally, can still be counted online for up to that long before the
-            system notices and marks them gone. It always corrects itself once that happens; the chart is just
-            telling you that specific stretch is not final yet.
-          </p>
-        </div>
+      <Section title="What you see, top to bottom">
+        <H3>The header</H3>
+        <P>
+          The site&apos;s name and domain, and a <B>Tracking active</B> or <B>Tracking paused</B> pill. <B>Open leads</B> goes to the Leads page.
+        </P>
 
-        <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Visits over time</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            A different chart from Sessions online and Pages online above: this one is a bar chart of how many sessions started in
-            each period, not how many were open at once. Windows: the last 24 hours (one bar per hour), 7 days or
-            a month (one bar per day), 3 months (one bar per week), or all time.
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Unique visitors: tick it to count each person once per bar, however many sessions they started in that
-            period. For example, someone who starts 3 sessions between 2:00 and 3:00 and 2 more between 3:00 and
-            4:00 adds 1 to the 2:00 bar and 1 to the 3:00 bar, not 5.
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Split by: Referrer, Device or Country turns each bar into a stacked bar, one coloured part per group.
-            Hover a bar to see every colour, its group, its count and its share of the bar. The legend under the chart lists the
-            groups with their totals. The 7 biggest groups in the window get their own colour and the rest share
-            &quot;Other&quot;. A group keeps the same colour in every bar, and when Unique visitors is switched on
-            or off. With both on, a person counts once per bar under the group of their first session in it, so
-            the parts always add up to the bar. Referrers use the same names as the referrer chart: the campaign
-            source when a link was tagged, otherwise the site they came from, or Direct.
-          </p>
-        </div>
+        <H3>The key numbers</H3>
+        <DataTable
+          head={["Tile", "What it counts"]}
+          rows={[
+            [<B key="a">Active now</B>, "Visitors on the site at this moment. It updates every second while the tab is open, from the same live data as the Sessions online chart, so the two always agree."],
+            [<B key="b">Leads</B>, "Forms submitted in the chosen window. Every submission counts, including repeat submissions from the same person."],
+            [<B key="c">Conversion rate</B>, "Different people who submitted a form, divided by different people who visited, in the chosen window. Each person counts once on each side. The tile shows the two counts under the rate, for example 5 of 119 visitors."],
+            [<B key="d">Sessions</B>, "Visits that started in the chosen window. One visit can include many pages."],
+            [<B key="e">Page views</B>, "Pages opened in the chosen window."],
+          ]}
+        />
+        <P>
+          Each tile except Active now has its own window menu: <B>24 hours</B>, <B>7 days</B>, <B>30 days</B> (up to now) or <B>All time</B>. Each tile remembers its
+          window in your browser. Next to the number, a pill shows the change from the window just before (the previous 24 hours, 7 days or 30 days): green and up
+          for more, red and down for fewer. Hover it for the full sentence, for example &quot;50% fewer form submissions than the previous 24 hours&quot;. The
+          conversion rate changes in percentage points (&quot;1.2 pts&quot;), because a percentage of a percentage misleads. All time has no pill: there is nothing
+          before it. The (i) beside each title says how that number is counted.
+        </P>
 
-        <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Pages</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Every page that has recorded views, ranked by view count, with unique visitors, average time on page,
-            and average scroll depth for each one. Capped to a fixed height with its own scroll, so a site with
-            many pages does not stretch the whole dashboard.
-          </p>
-        </div>
+        <H3>Hooked leads</H3>
+        <P>
+          The six newest leads your hooks caught, with the hook that caught each one and how long ago. Click one to open the lead. <B>All hooked</B> opens Hooks →
+          Hooked leads. See <Link href="/docs/reference/notifications" className="underline underline-offset-4 hover:text-[#f4f2ea]">Hooks and notifications</Link>.
+        </P>
 
-        <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Reach and Conversions</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            New visitors and unique conversions on one timeline, with a date range picker. The three buttons above it
-            switch the layout: Merged (the default, one chart with both lines), Split (two charts side by side) and
-            Separate (two full-width charts). The choice is kept in the page address. A period with nothing in it still
-            draws the chart, as a flat line at 0 with a short note under it. (This chart used to live on the
-            Conversions page.)
-          </p>
-        </div>
+        <H3>Your marks</H3>
+        <P>
+          Each mark that is on, most leads first: its number of leads and its share of all the site&apos;s leads, drawn as a bar in the mark&apos;s colour. Click a
+          mark to open the Leads page with that mark applied. See <Link href="/docs/reference/marks" className="underline underline-offset-4 hover:text-[#f4f2ea]">Marks</Link>.
+        </P>
 
-        <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Hook shortcut</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            The green card beside Visits over time opens Hook, where you can ask precise questions about your
-            visitors, sessions, leads and forms. (It replaced the old Site Health card.)
-          </p>
-        </div>
+        <H3>Latest leads</H3>
+        <P>The eight newest form submissions: name and email, the page the form was sent from, the badges of their marks, and how long ago. Click a row to open the lead.</P>
 
-        <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Lead footprints</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Two small visit charts, each labeled with one specific lead&apos;s name or email. The leads
-            shown are whichever two have submitted the most forms on this site, since someone who has shown up
-            repeatedly is the most useful example to preview. A link below takes you to the full leads list.
-          </p>
-        </div>
+        <H3>Traffic</H3>
+        <P>Three charts about visitors rather than leads, described below: Reach and conversions, Sessions online / Pages online, and Visits over time.</P>
+      </Section>
 
-        <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Live Ticker</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            The most recent page views, newest at the top, updating on its own while the tab stays open. A new
-            visitor is pushed in as soon as it happens; the ticker also checks for anything new every couple of
-            seconds as a backup, so it keeps working even if the instant push is unavailable for a moment.
-          </p>
-        </div>
-      </div>
+      <Section title="Reach and conversions">
+        <P>
+          New visitors and unique conversions on one timeline, with a date range picker. The three buttons above it switch the layout: <B>Merged</B> (the default, one
+          chart with both lines), <B>Split</B> (two charts side by side) and <B>Separate</B> (two full-width charts). The choice is kept in the page address. A period
+          with nothing in it still draws the chart, as a flat line at 0 with a short note under it.
+        </P>
+      </Section>
+
+      <Section title="Sessions online and Pages online">
+        <P>
+          One live chart; its title is a menu that switches what it counts. <B>Sessions online</B> (the default) counts visits that are open: it goes up when a visit
+          starts and down when the visitor was last seen, so someone who leaves and comes back within the same visit stays counted. <B>Pages online</B> counts
+          visitors with a page actually open: when someone leaves, the line dips at once; when they come back, it rises again.
+        </P>
+        <P>
+          The right edge is always now, and the chart moves forward every second while you watch. Each point covers an interval from 5 seconds to 1 day. Three ways
+          to draw the same data: <B>Smooth</B> (the default), <B>Steps</B> (each value held flat until the next point) and <B>Trend</B> (a point only where the number
+          changed). Drag to move back in time; pinch on a trackpad, or use the plus and minus buttons, to zoom. A plain scroll never moves the chart. Two optional
+          markers, off by default: <B>Conversions</B> (every form submission) and <B>Team joined</B> (every teammate who joined the site).
+        </P>
+        <P>
+          The last 30 minutes are drawn in a different colour. A visitor whose tab crashed, instead of closing normally, can still count as online for up to 30
+          minutes before the system marks them gone, so that stretch is not final yet.
+        </P>
+      </Section>
+
+      <Section title="Visits over time">
+        <P>
+          A bar chart of how many sessions started in each period (not how many were open at once). Windows: the last 24 hours (one bar per hour), 7 days or a month
+          (one bar per day), 3 months (one bar per week), or all time.
+        </P>
+        <UL>
+          <li>
+            <B>Unique visitors</B> counts each person once per bar, however many sessions they started in it. Someone who starts 3 sessions between 2:00 and 3:00 and
+            2 more between 3:00 and 4:00 adds 1 to each of the two bars, not 5.
+          </li>
+          <li>
+            <B>Split by</B> Referrer, Device or Country stacks each bar by group. The 7 biggest groups get their own colour and the rest share &quot;Other&quot;. A group
+            keeps its colour in every bar. With Unique visitors on, a person counts once per bar under the group of their first session in it, so the parts always add
+            up to the bar. Referrers use the campaign source when a link was tagged, otherwise the site they came from, or Direct.
+          </li>
+        </UL>
+      </Section>
+
+      <Section title="When it is empty or looks wrong">
+        <UL>
+          <li>Every tile shows 0 and the charts are flat: the tracker has not recorded a visit yet. Check Settings → Tracker.</li>
+          <li>A tile says <B>Could not load</B>: the database did not answer in time. The tile tries again by itself a few seconds later.</li>
+          <li>Hooked leads says &quot;No hooked leads yet&quot;: no hook has caught a lead. Make a hook on the Hooks page.</li>
+          <li>Your marks says &quot;No marks are on&quot;: make a mark on the Leads page, or switch one on in its Marks panel.</li>
+          <li>Leads and Conversion rate move differently: Leads counts every submission; the rate counts people once.</li>
+        </UL>
+      </Section>
+
+      <Section title="Limits">
+        <UL>
+          <li>Tiles compare with the window just before, not with the same day last week or last year.</li>
+          <li>Active now and the live chart can count a crashed tab as online for up to 30 minutes.</li>
+          <li>The dashboard shows one site. Switch sites in the sidebar.</li>
+        </UL>
+      </Section>
+
+      <Section title="Related">
+        <UL>
+          <li>
+            <Link href="/docs/concepts/visitors-sessions" className="underline underline-offset-4 hover:text-[#f4f2ea]">Visitors, sessions, and page views</Link>: what each word means.
+          </li>
+          <li>
+            <Link href="/docs/concepts/leads-qualification" className="underline underline-offset-4 hover:text-[#f4f2ea]">Leads and qualification</Link>: why Leads and conversions differ.
+          </li>
+          <li>
+            <Link href="/docs/troubleshooting" className="underline underline-offset-4 hover:text-[#f4f2ea]">Troubleshooting</Link>: empty or wrong numbers.
+          </li>
+        </UL>
+      </Section>
     </div>
   );
 }

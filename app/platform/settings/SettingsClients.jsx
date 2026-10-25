@@ -56,7 +56,7 @@ function CopyButton({ text }) {
         setTimeout(() => setCopied(false), 2000);
       }}
     >
-      {copied ? "Copied!" : "Copy"}
+      {copied ? "Copied" : "Copy"}
     </Button>
   );
 }
@@ -274,7 +274,7 @@ export default function SettingsClient({ site: initialSite, visitorCount = 0, ro
         <Card>
           <CardContent>
             <div className="mb-2 flex items-center justify-between">
-              <div className="text-xs text-muted-foreground">API Key</div>
+              <div className="text-xs text-muted-foreground">API key</div>
               <div className="flex gap-1.5">
                 <CopyButton text={site.api_key} />
                 {can(role, "site.regenerate_key") && (

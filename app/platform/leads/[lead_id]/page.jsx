@@ -86,7 +86,7 @@ async function LeadProfileBody({ profile, raw, siteId }) {
             <InitialsAvatar label={identity.name || identity.email} size="lg" className="h-14 w-14 text-lg" />
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg font-semibold text-foreground">{identity.name || "Unnamed visitor"}</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">{identity.name || "Unnamed visitor"}</h1>
                 {visitorType && (
                   <Badge variant="outline">
                     {visitorType === "first-time" ? "First-time convert" : `Returning · converted after ${visitsBeforeConversion} visit${visitsBeforeConversion === 1 ? "" : "s"}`}
@@ -154,7 +154,7 @@ async function LeadProfileBody({ profile, raw, siteId }) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            Session History
+            Session history
             <InfoTip>Every visit made from this browser, including visits where they left without sending a form. Pick a visit on the left to see it; click a page in the chart to see what they did there.</InfoTip>
           </CardTitle>
         </CardHeader>
@@ -184,7 +184,7 @@ async function LeadProfileBody({ profile, raw, siteId }) {
       {/* ── Path to conversion, at the very bottom ───────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Path to Conversion</CardTitle>
+          <CardTitle className="text-base">Path to conversion</CardTitle>
           <CardDescription>
             {hasConverted
               ? `Every page viewed before ${identity.name || "this lead"} converted, in order. Bar length is time spent on that page.`

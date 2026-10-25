@@ -44,7 +44,7 @@ export default function FormFieldsReferencePage() {
         </Callout>
       </Section>
 
-      <Section title="What you see in Settings, Form fields">
+      <Section title="What you see in Settings → Form fields">
         <UL>
           <li>Every field of your forms, the ones that need a name first.</li>
           <li>For each: the name used by marks, what the page calls it (or &quot;no visible name&quot;), its key, its kind, its choices, and how many of your recent leads answered it.</li>

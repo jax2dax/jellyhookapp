@@ -16,7 +16,7 @@ export default async function FormEngagementPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
       <header>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground">
+        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground">
           Form engagement
           <InfoTip>
             Your lead form as it is now: how many see it, start it and submit it, how long the typical successful submission takes field by field, and where people stop. Pick a comparison to see what changed against an older version, all time, or chosen dates. Only times are recorded, never what was typed.

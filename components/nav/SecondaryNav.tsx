@@ -4,13 +4,11 @@
 // changes ?tab=; the page re-renders on the server with that tab's cards. Renders nothing for a page with no entry.
 "use client";
 
-import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { AppLink as Link, useAppLocation } from "@/components/sandbox/sandbox";
 import { navFor, resolveTab, visibleItems } from "./navRegistry";
 
 export function SecondaryNav({ flags }: { flags: Record<string, boolean> }) {
-  const pathname = usePathname();
-  const params = useSearchParams();
+  const { pathname, params } = useAppLocation();
   const nav = navFor(pathname);
   if (!nav) return null;
 

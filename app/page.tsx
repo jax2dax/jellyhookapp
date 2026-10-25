@@ -7,6 +7,7 @@ import { MarketingPage } from "@/components/marketing/MarketingPage";
 import { primaryBtn, ghostBtn, avatarAppearance } from "@/components/marketing/MarketingTheme";
 import { RandomIconBadge } from "@/components/RandomIconBadge";
 import { HALLOWEEN_ICONS } from "@/components/marketing/halloweenIcons";
+import { LeadsShowcase } from "@/components/showcase/LeadsShowcase";
 
 export const metadata: Metadata = {
   title: "See what each lead did before they contacted you",
@@ -252,6 +253,28 @@ const LandingPage = () => {
           ))}
         </div>
       </div>
+
+      {/* ================= TRY IT: the interactive demo (components/showcase). Claims-ledger rows 23, 24, 25. ================= */}
+      <section id="try-it" className="relative border-b border-[#1b1b18]">
+        <div className="mx-auto max-w-[1400px] px-5 py-20 lg:px-10 lg:py-28">
+          <div className="mb-12 grid grid-cols-1 gap-8 lg:grid-cols-12">
+            <div className="lg:col-span-4">
+              <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[var(--lime)]">01 / Try it</span>
+            </div>
+            <div className="lg:col-span-8">
+              <h2 className="ff-display text-[clamp(2rem,4.2vw,3.5rem)] leading-[1.02] tracking-[-0.02em] text-[#f4f2ea]">
+                Mark the leads who read your pricing. <em className="italic text-[var(--lime)]">Hear about the next one.</em>
+              </h2>
+              <p className="mt-5 max-w-2xl ff-body text-[15px] leading-[1.75] text-[#8b8980]">
+                A mark is a set of conditions about what a lead did before sending your form: the pages they read, the time on
+                each, their answers. Every lead that matches gets a badge. A hook watches new leads and tells your team, in
+                Jellyhook and in Slack, when one has your marks. Try both below on the real screens, with sample data.
+              </p>
+            </div>
+          </div>
+          <LeadsShowcase />
+        </div>
+      </section>
 
       {/* ================= FEATURES ================= */}
       <section id="features" className="border-b border-[#1b1b18]">

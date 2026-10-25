@@ -4,7 +4,7 @@
 // AI: "budget > 30" on a site whose budget field is called field_3). It says which fields exist and sends them to
 // Settings → Form fields to name the right one, or to the docs page that explains why.
 import * as React from "react";
-import Link from "next/link";
+import { AppLink as Link } from "@/components/sandbox/sandbox";
 import { X } from "lucide-react";
 
 export function FieldNamingHelp({ asked, known, onClose }: { asked: string; known: { key: string; name: string; unnamed?: boolean }[]; onClose: () => void }) {

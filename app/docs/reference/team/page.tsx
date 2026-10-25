@@ -71,7 +71,7 @@ export default function TeamReferencePage() {
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Removing someone</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             The owner and admins can remove a member, never themselves, and never the owner. To step down as owner, transfer ownership first. Members and admins can
-            also leave on their own from Settings, Your access. The owner cannot leave until ownership is transferred.
+            also leave on their own from Settings → Site → Your access. The owner cannot leave until ownership is transferred.
           </p>
         </div>
 

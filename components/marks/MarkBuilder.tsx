@@ -18,6 +18,7 @@ import { markFromAi, saveMark, type MarkView, type TeamMember, type Visibility }
 import { encodeSpecParam } from "@/lib/hook/specParam";
 import { isRuleV2, type MarkRuleV2 } from "@/jh-marks/v2/rule";
 import { MarkBuilderV2 } from "./v2/MarkBuilderV2";
+import { useAction } from "@/components/sandbox/sandbox";
 
 export interface BuilderInitial {
   id?: string;
@@ -125,6 +126,8 @@ export function MarkBuilder(props: BuilderProps) {
 
 function MarkBuilderV1({ initial, pages, team, me, onSaved, onCancel }: BuilderProps & { initial: BuilderInitial & { rule: MarkRule } }) {
   const [rule, setRule] = useState<MarkRule>(initial.rule);
+  const aiAction = useAction("markFromAi", markFromAi);
+  const saveAction = useAction("saveMark", saveMark);
   const [face, setFace] = useState<"ai" | "manual">(() => (initial.rule.rows.length || initial.rule.lead.length ? "manual" : "ai"));
   const [sel, setSel] = useState<Sel>(null);
   const [edit, setEdit] = useState<Edit>(null);
@@ -209,7 +212,7 @@ function MarkBuilderV1({ initial, pages, team, me, onSaved, onCancel }: BuilderP
     if (!ai.trim() || aiBusy) return;
     setAiBusy(true);
     setAiNote(null);
-    const res = await markFromAi(ai);
+    const res = await aiAction(ai);
     setAiBusy(false);
     if (!res.ok) return setAiNote({ tone: "error", text: res.error });
     const r = res.result;
@@ -231,7 +234,7 @@ function MarkBuilderV1({ initial, pages, team, me, onSaved, onCancel }: BuilderP
     if (!name.trim()) return setError("Give the mark a name.");
     setSaving(true);
     setError(null);
-    const res = await saveMark({ id: initial.id ?? null, name, description, color, active, visibility, sharedWith, rule, templateKey: initial.templateKey ?? null });
+    const res = await saveAction({ id: initial.id ?? null, name, description, color, active, visibility, sharedWith, rule, templateKey: initial.templateKey ?? null });
     setSaving(false);
     if (!res.ok) return setError(res.error);
     onSaved(res.mark, res.warning);

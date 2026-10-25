@@ -1,6 +1,6 @@
-/* @import url('https://fonts.googleapis.com/css2?family=Merienda:wght@300..900&family=Nabla&family=Saira:ital,wght@0,100..900;1,100..900&family=Varela+Round&display=swap'); */
-/* @import url('https://fonts.googleapis.com/css2?family=Audiowide&family=Covered+By+Your+Grace&family=Finlandica+Headline:ital,wght@0,100..900;1,100..900&family=Manrope:wght@200..800&family=Rock+Salt&display=swap'); */
-@import url('https://fonts.googleapis.com/css2?family=Amaranth:ital,wght@0,400;0,700;1,400;1,700&family=Audiowide&family=Covered+By+Your+Grace&family=Finlandica+Headline:ital,wght@0,100..900;1,100..900&family=Manrope:wght@200..800&family=Rock+Salt&display=swap');
+/* 2026-10-25: removed the Google Fonts @import (Amaranth, Audiowide, Covered By Your Grace, Finlandica, Manrope, Rock
+   Salt). Nothing used them, and an @import blocks the first paint of every page. The platform uses Geist (app/layout.tsx,
+   --font-sans below); the public pages use components/marketing/fonts.ts. */
 @import "tailwindcss";
 
 /* @import "tw-animate-css";
@@ -11,20 +11,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* --font-sans: var(--font-sans); */
-  
-  
-  /* If you also want to bring in Merienda or Nabla from your embed code: */
-  --font-display: "Merienda", cursive;
-  --font-accent: "Nabla", system-ui;
-  /**/
-   /* ── Tailwind v4 Mappings for your 5 New Fonts ── */
-  --font-manrope: "Manrope", sans-serif;
-  --font-rock-salt: "Rock Salt", cursive;
-  --font-covered-grace: "Covered By Your Grace", cursive;
-  --font-audiowide: "Audiowide", sans-serif;
-  --font-finlandica: "Finlandica Headline", sans-serif;
-  /* ────────────────────────────────────────────── */
+  /* Geist, loaded by next/font in app/layout.tsx (its variable lives on <body>, hence the fallback for <html>) */
+  --font-sans: var(--font-geist-sans, ui-sans-serif), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -68,31 +56,31 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Light theme (2026-10-17): muted/secondary/accent were LIGHTER than the card (97% vs 94%), so every muted box
-   vanished on a card; borders were nearly invisible; the popover was pure white. Now: card 94%, muted 90%, border 85%,
-   popover 96.5%. */
+/* Light theme (2026-10-25): a near-white page, white cards with a hairline border, muted boxes a step darker than
+   the card (so they still show on it), and a deeper green: the bright dark-mode green gave white text a 2:1 contrast
+   on buttons and was hard to read as link text. This green with white text is about 4.6:1. (2026-10-17 history: muted
+   used to be lighter than the card and vanished on it; keep muted darker than the card.) */
 :root {
-  --background: oklch(86.844% 0.00218 14.701);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(94.007% 0.00011 271.152);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(0.965 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  /* --primary: oklch(27.15% 0.06189 150.649);     */
-  --primary: oklch(73.831% 0.22895 145.058); 
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.91 0 0);
+  --background: oklch(0.984 0 0);
+  --foreground: oklch(0.16 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.16 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.16 0 0);
+  --primary: oklch(0.555 0.155 148);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.955 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.90 0 0);
-  --muted-foreground: oklch(0.48 0 0);
-  --accent: oklch(0.90 0 0);
+  --muted: oklch(0.955 0 0);
+  --muted-foreground: oklch(0.49 0 0);
+  --accent: oklch(0.95 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --warning: oklch(0.75 0.15 85);
   --warning-foreground: oklch(0.145 0 0);
   --severity-high: oklch(0.68 0.19 45);
-  --border: oklch(0.85 0 0);
-  --input: oklch(0.85 0 0);
+  --border: oklch(0.912 0 0);
+  --input: oklch(0.885 0 0);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -100,13 +88,13 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(0.955 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar: oklch(0.962 0 0);
+  --sidebar-foreground: oklch(0.2 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.90 0 0);
+  --sidebar-accent: oklch(0.925 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.85 0 0);
+  --sidebar-border: oklch(0.9 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 
   /* ── FramePlate (framePlate/) — kept as its own token set, not aliased to
@@ -173,7 +161,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background font-sans text-foreground;
   }
   html {
     @apply font-sans;
@@ -225,34 +213,19 @@
   transition: transform 420ms 40ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* the blob grows once and stays still (it used to wobble forever, which pulled the eye from the page) */
 .jh-goo-blob--on::before {
   transform: scaleX(1);
-  animation: jh-goo-wobble 3.6s ease-in-out infinite alternate;
 }
 
 .jh-goo-blob--on::after {
   transform: scale(1);
 }
 
-@keyframes jh-goo-wobble {
-  0% {
-    border-radius: 14% 60% 55% 10% / 20% 55% 50% 15%;
-  }
-  50% {
-    border-radius: 10% 50% 65% 14% / 15% 45% 60% 20%;
-  }
-  100% {
-    border-radius: 16% 65% 48% 8% / 22% 60% 45% 12%;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .jh-goo-blob::before,
   .jh-goo-blob::after {
     transition: none;
-  }
-  .jh-goo-blob--on::before {
-    animation: none;
   }
 }
 
@@ -551,5 +524,84 @@ html::-webkit-scrollbar-thumb:hover {
   }
   100% {
     opacity: 1;
+  }
+}
+
+/* guided tours (components/tour/Tour.tsx): the ring that pulses around what to click, and each step's card arriving */
+@keyframes jh-tour-ping {
+  0% {
+    box-shadow: 0 0 0 0 rgba(197, 255, 61, 0.55);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 12px rgba(197, 255, 61, 0);
+  }
+}
+.jh-tour-ping {
+  animation: jh-tour-ping 1.6s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+@keyframes jh-tour-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.jh-tour-card-in {
+  animation: jh-tour-card-in 260ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jh-tour-ping,
+  .jh-tour-card-in {
+    animation: none;
+  }
+}
+
+/* platform pages (app/platform/template.tsx): each page fades in once when it arrives */
+@keyframes jh-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.jh-page-in {
+  animation: jh-fade-in 180ms ease-out both;
+}
+
+/* loading outlines (app/platform/loading.tsx and tiles): a soft light passing over a muted block */
+@keyframes jh-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+.jh-skeleton {
+  background-color: var(--muted);
+  background-image: linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--foreground) 6%, transparent) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: jh-shimmer 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jh-page-in,
+  .jh-skeleton {
+    animation: none;
+  }
+}
+
+/* list rows arriving one after another (set animation-delay per row): components/dashboard/SalesSectionView.tsx */
+.jh-row-in {
+  animation: jh-row-in 280ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jh-row-in {
+    animation: none;
   }
 }

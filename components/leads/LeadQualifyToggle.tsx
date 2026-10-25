@@ -7,6 +7,7 @@
 import * as React from "react";
 import { Check, X } from "lucide-react";
 import { setLeadQualified } from "@/lib/actions/leadQualify.action";
+import { useAction } from "@/components/sandbox/sandbox";
 
 export function LeadQualifyToggle({
   siteId,
@@ -19,6 +20,7 @@ export function LeadQualifyToggle({
   initialQualified: boolean | null;
   compact?: boolean;
 }) {
+  const save = useAction("setLeadQualified", setLeadQualified);
   const [qualified, setQualified] = React.useState<boolean | null>(initialQualified);
   const [saving, setSaving] = React.useState(false);
 
@@ -28,7 +30,7 @@ export function LeadQualifyToggle({
     setQualified(nextValue);
     setSaving(true);
     try {
-      await setLeadQualified(siteId, leadId, nextValue);
+      await save(siteId, leadId, nextValue);
     } catch (err) {
       console.error("[LeadQualifyToggle] save failed:", err);
       setQualified(prev); // revert on failure

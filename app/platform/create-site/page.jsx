@@ -6,6 +6,7 @@ import { createSite, cancelVerification, getMyPendingClaim } from "@/lib/actions
 import { useSearchParams } from "next/navigation";
 import { getSiteVerificationStatus, renewClaim } from "@/lib/actions/site-management.actions";
 import { addAllowedHost } from "@/lib/actions/settings.actions";
+import { AlertTriangle, ArrowRight, CheckCircle2, Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,14 +123,14 @@ export default function CreateSitePage() {
       <PageShell>
         <Card className="w-full max-w-lg">
           <CardContent>
-            <div className="mb-3 text-2xl text-warning">⚠</div>
-            <h2 className="mb-3 text-xl font-bold text-foreground">Site Limit Reached</h2>
+            <div className="mb-3 flex size-9 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400"><AlertTriangle className="size-4" /></div>
+            <h2 className="mb-2 text-lg font-semibold tracking-tight text-foreground">Site limit reached</h2>
             <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
               During early access an account can have up to <strong>{result.siteCap ?? 5} sites</strong>. Need more? Tell us through Support in the sidebar.
             </p>
             <div className="flex gap-2.5">
               <Button asChild>
-                <a href="/platform">Back to Dashboard</a>
+                <a href="/platform">Back to the dashboard</a>
               </Button>
             </div>
           </CardContent>
@@ -144,8 +145,8 @@ export default function CreateSitePage() {
       <PageShell>
         <Card className="w-full max-w-lg">
           <CardContent>
-            <div className="mb-3 text-2xl text-warning">⚠</div>
-            <h2 className="mb-3 text-xl font-bold text-foreground">Domain Already Registered</h2>
+            <div className="mb-3 flex size-9 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400"><AlertTriangle className="size-4" /></div>
+            <h2 className="mb-2 text-lg font-semibold tracking-tight text-foreground">This domain is already registered</h2>
             <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
               <strong>{result.site.domain}</strong> is already registered. Your email doesn&apos;t match this domain. Ask the site owner to invite you from their Settings page.
             </p>
@@ -171,14 +172,14 @@ export default function CreateSitePage() {
       <PageShell>
         <Card className="w-full max-w-lg">
           <CardContent>
-            <div className="mb-3 text-2xl text-primary">✅</div>
-            <h2 className="mb-3 text-xl font-bold text-foreground">Joined Existing Site</h2>
+            <div className="mb-3 flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary"><CheckCircle2 className="size-4" /></div>
+            <h2 className="mb-2 text-lg font-semibold tracking-tight text-foreground">You joined an existing site</h2>
             <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
               Your email matched <strong>{result.site.domain}</strong>, so you&apos;ve been added automatically. The tracker is already installed.
             </p>
             <ScriptBlock script={script} />
             <Button asChild>
-              <a href="/platform">Go to Dashboard →</a>
+              <a href="/platform">Go to the dashboard <ArrowRight className="size-4" /></a>
             </Button>
           </CardContent>
         </Card>
@@ -193,14 +194,14 @@ export default function CreateSitePage() {
       <PageShell>
         <Card className="w-full max-w-lg">
           <CardContent>
-            <div className="mb-3 text-2xl text-muted-foreground">ℹ</div>
-            <h2 className="mb-3 text-xl font-bold text-foreground">You Already Have Access</h2>
+            <div className="mb-3 flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground"><Info className="size-4" /></div>
+            <h2 className="mb-2 text-lg font-semibold tracking-tight text-foreground">You already have access</h2>
             <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
               You already have access to <strong>{result.site.domain}</strong>.
             </p>
             {script && <ScriptBlock script={script} />}
             <Button asChild>
-              <a href="/platform">Go to Dashboard →</a>
+              <a href="/platform">Go to the dashboard <ArrowRight className="size-4" /></a>
             </Button>
           </CardContent>
         </Card>
@@ -251,7 +252,7 @@ export default function CreateSitePage() {
     <PageShell>
       <Card className="w-full max-w-lg">
         <CardContent>
-          <h1 className="text-xl font-bold text-foreground">Add your site</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">Add your site</h1>
           <p className="mt-1 mb-6 text-sm text-muted-foreground">Two small steps and you are tracking. No SDK, nothing to configure.</p>
 
           <div className="mb-6">

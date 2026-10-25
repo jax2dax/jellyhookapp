@@ -13,6 +13,10 @@ export interface DocsNavSection {
   items: DocsNavItem[];
 }
 
+// Grouped by what the reader is doing (2026-10-25): set up; work with leads; get told about them; read the
+// site's numbers; understand how it measures; manage the workspace. The query builder (Hook) comes after the daily
+// features: the app hides it from the sidebar for now (components/nav/sidebarItems.ts), but /platform/hook works.
+// URLs never change when a page moves between sections.
 export const DOCS_NAV: DocsNavSection[] = [
   {
     title: "Getting started",
@@ -23,21 +27,60 @@ export const DOCS_NAV: DocsNavSection[] = [
     ],
   },
   {
+    title: "Leads",
+    items: [
+      { slug: "reference/leads", title: "Leads page" },
+      { slug: "reference/lead-profile", title: "Lead profile page" },
+      { slug: "reference/marks", title: "Marks" },
+      { slug: "reference/groups", title: "Lead groups" },
+      { slug: "reference/form-fields", title: "Form fields" },
+    ],
+  },
+  {
+    title: "Hooks and integrations",
+    items: [
+      { slug: "reference/notifications", title: "Hooks and notifications" },
+      { slug: "reference/hubspot", title: "HubSpot" },
+    ],
+  },
+  {
+    title: "Analytics",
+    items: [
+      { slug: "reference/dashboard", title: "Dashboard overview" },
+      { slug: "reference/conversions", title: "Conversions page" },
+      { slug: "reference/acquisition", title: "Acquisition" },
+      { slug: "guides/ad-tracking", title: "Set up ad tracking" },
+    ],
+  },
+  {
     title: "Core concepts",
     items: [
       { slug: "concepts/visitors-sessions", title: "Visitors, sessions, and page views" },
       { slug: "concepts/leads-qualification", title: "Leads and qualification" },
-      { slug: "concepts/form-engagement", title: "Form engagement" },
-      { slug: "concepts/tracking-attributes", title: "Tracking attributes" },
-      { slug: "concepts/sensitive-fields", title: "Sensitive fields" },
-      { slug: "concepts/supported-forms", title: "Supported forms" },
-      { slug: "concepts/privacy-consent", title: "Privacy and consent" },
       { slug: "concepts/session-replay", title: "Visit chart" },
+      { slug: "concepts/form-engagement", title: "Form engagement" },
       { slug: "concepts/referrers-attribution", title: "Referrers and attribution" },
+      { slug: "concepts/supported-forms", title: "Supported forms" },
+      { slug: "concepts/tracking-attributes", title: "Tracking attributes" },
     ],
   },
   {
-    title: "Hook",
+    title: "Privacy and data",
+    items: [
+      { slug: "concepts/privacy-consent", title: "Privacy and consent" },
+      { slug: "concepts/sensitive-fields", title: "Sensitive fields" },
+    ],
+  },
+  {
+    title: "Workspace",
+    items: [
+      { slug: "reference/settings", title: "Site settings" },
+      { slug: "reference/team", title: "Team and invites" },
+      { slug: "reference/billing", title: "Billing and plans" },
+    ],
+  },
+  {
+    title: "Query builder (Hook)",
     items: [
       { slug: "hook", title: "What is Hook" },
       { slug: "hook/building", title: "Build a question" },
@@ -47,41 +90,14 @@ export const DOCS_NAV: DocsNavSection[] = [
       { slug: "hook/ask", title: "Enter Hook with AI" },
       { slug: "hook/examples", title: "Worked examples" },
       { slug: "hook/mcp", title: "Connect an AI app" },
-      { slug: "hook/field-reference", title: "Field reference" },
-      { slug: "hook/how-it-works", title: "How Hook works" },
-      { slug: "hook/glossary", title: "Glossary" },
-    ],
-  },
-  {
-    title: "Preview and results",
-    items: [
       { slug: "preview", title: "The preview" },
       { slug: "preview/how-it-works", title: "How the preview works" },
       { slug: "results", title: "The results" },
       { slug: "results/how-it-works", title: "How the results work" },
+      { slug: "hook/field-reference", title: "Field reference" },
+      { slug: "hook/how-it-works", title: "How Hook works" },
+      { slug: "hook/glossary", title: "Glossary" },
     ],
-  },
-  {
-    title: "Feature reference",
-    items: [
-      { slug: "reference/dashboard", title: "Dashboard overview" },
-      { slug: "reference/leads", title: "Leads page" },
-      { slug: "reference/lead-profile", title: "Lead profile page" },
-      { slug: "reference/groups", title: "Lead groups" },
-      { slug: "reference/notifications", title: "Hooks and notifications" },
-      { slug: "reference/marks", title: "Marks" },
-      { slug: "reference/form-fields", title: "Form fields" },
-      { slug: "reference/acquisition", title: "Acquisition" },
-      { slug: "reference/hubspot", title: "HubSpot" },
-      { slug: "reference/conversions", title: "Conversions page" },
-      { slug: "reference/settings", title: "Site settings" },
-      { slug: "reference/team", title: "Team and invites" },
-      { slug: "reference/billing", title: "Billing and plans" },
-    ],
-  },
-  {
-    title: "Guides",
-    items: [{ slug: "guides/ad-tracking", title: "Set up ad tracking" }],
   },
   {
     title: "Troubleshooting",

@@ -27,6 +27,7 @@ export function IntegrationTile({
   muted,
   onClick,
   title,
+  tour,
 }: {
   kind: "slack" | "webhook";
   label: string;
@@ -34,10 +35,13 @@ export function IntegrationTile({
   muted?: boolean;
   onClick?: () => void;
   title?: string;
+  /** a stable name for guided tours (components/tour) */
+  tour?: string;
 }) {
   return (
     <button
       type="button"
+      data-tour={tour}
       onClick={onClick}
       title={title ?? label}
       aria-pressed={selected}

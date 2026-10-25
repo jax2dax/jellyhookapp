@@ -57,7 +57,7 @@ export default function LeadSessionsDemoPage() {
       <div className="text-xs font-medium uppercase tracking-wide text-amber-600">Demo, fake data</div>
       <div className="rounded-xl border bg-card p-5">
         <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
-          Session History <InfoTip>Every visit made from this browser. Pick a visit on the left; click a page in the chart.</InfoTip>
+          Session history <InfoTip>Every visit made from this browser. Pick a visit on the left; click a page in the chart.</InfoTip>
         </h2>
         <Suspense>
           <LeadSessionExplorer siteId="demo" visitorId="v1" deviceType="desktop" initialSessionRows={sessions} initialPageViewRows={pageViews} initialSubmissionRows={submissions} initialStructureRows={structure} initialFormEngagementRows={[]} readOnly />

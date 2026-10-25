@@ -380,7 +380,7 @@ export function LeadSessionExplorer({
     <div className="space-y-3">
       {/* every visit, in plain words */}
       <div className="rounded-md border bg-muted/40 px-3.5 pb-2.5 pt-2">
-        <div className="text-sm font-medium text-foreground">Whole Journey Summary</div>
+        <div className="text-sm font-medium text-foreground">Whole journey summary</div>
         <StoryText text={journeyStory(sessionsRaw, fallbackVh)} className="pt-1 text-sm leading-[1.9] text-foreground" />
       </div>
 

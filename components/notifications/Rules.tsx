@@ -5,7 +5,7 @@
 // integrations (Slack, webhooks; in-app always) and an optional group to add the lead to. Rules belong to the site:
 // they keep running when their creator leaves; their creator or an owner/admin changes them.
 import * as React from "react";
-import Link from "next/link";
+import { AppLink as Link, useAction, useSandbox } from "@/components/sandbox/sandbox";
 import { Bell, Check, ChevronDown, Loader2, Pencil, Plus, Send, Trash2, X } from "lucide-react";
 import { IntegrationTile, JellyhookTile, KindLogo, SlackLogo } from "./Brand";
 import { deleteRule, saveRule, setRuleActive, testHookMessage, type RuleView, type RulesState } from "@/lib/actions/notifications.action";
@@ -23,27 +23,40 @@ const empty = (): Draft => ({ name: "", title: "", body: "", markIds: [], recipi
  * `startMark`: a mark id from a mark's "Create a hook" (?newHook=<id>): the editor opens with that mark in it and the
  * mark's name as the hook's name. The address is cleaned so a refresh does not open it again.
  */
-export function Rules({ state: initial, startMark = null }: { state: RulesState; startMark?: string | null }) {
+export function Rules({
+  state: initial,
+  startMark = null,
+  newHookOptions,
+}: {
+  state: RulesState;
+  startMark?: string | null;
+  /** what a new hook's Slack message starts with, over the defaults (the home page demo leaves out the ad parts) */
+  newHookOptions?: Partial<MessageOptions>;
+}) {
+  const fresh = (): Draft => ({ ...empty(), messageOptions: { ...DEFAULT_MESSAGE_OPTIONS, ...newHookOptions } });
   const [state, setState] = React.useState(initial);
   const [draft, setDraft] = React.useState<Draft | null>(() => {
     const m = startMark ? initial.marks.find((x) => x.id === startMark) : null;
-    return m ? { ...empty(), name: m.name, markIds: [m.id] } : null;
+    return m ? { ...fresh(), name: m.name, markIds: [m.id] } : null;
   });
+  const sandbox = !!useSandbox();
   React.useEffect(() => {
-    if (!startMark) return;
+    if (!startMark || sandbox) return;
     const u = new URL(window.location.href);
     u.searchParams.delete("newHook");
     window.history.replaceState(null, "", u.pathname + u.search);
-  }, [startMark]);
+  }, [startMark, sandbox]);
   const [note, setNote] = React.useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
+  const actActive = useAction("setRuleActive", setRuleActive);
+  const actDelete = useAction("deleteRule", deleteRule);
   const mine = state.rules.filter((r) => r.mine).length;
 
   if (!state.ready) return <p className="text-sm text-muted-foreground">Notifications are not set up on this database yet (migration 20).</p>;
 
   const toggle = async (r: RuleView) => {
     setBusy(r.id);
-    const res = await setRuleActive(r.id, !r.active);
+    const res = await actActive(r.id, !r.active);
     setBusy(null);
     if (!res.ok) return setNote({ tone: "error", text: res.error });
     setState((s) => ({ ...s, rules: s.rules.map((x) => (x.id === r.id ? { ...x, active: !r.active } : x)) }));
@@ -51,7 +64,7 @@ export function Rules({ state: initial, startMark = null }: { state: RulesState;
   const remove = async (r: RuleView) => {
     if (!window.confirm(`Delete the hook "${r.name}"? Leads it already caught and notifications already sent stay.`)) return;
     setBusy(r.id);
-    const res = await deleteRule(r.id);
+    const res = await actDelete(r.id);
     setBusy(null);
     if (!res.ok) return setNote({ tone: "error", text: res.error });
     setState((s) => ({ ...s, rules: s.rules.filter((x) => x.id !== r.id) }));
@@ -67,7 +80,8 @@ export function Rules({ state: initial, startMark = null }: { state: RulesState;
         <button
           type="button"
           disabled={mine >= state.limit || !!draft}
-          onClick={() => setDraft(empty())}
+          onClick={() => setDraft(fresh())}
+          data-tour="hooks-add"
           title={mine >= state.limit ? `Limit of ${state.limit} hooks reached` : "Add hook"}
           className="flex h-8 shrink-0 items-center gap-1 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-40"
         >
@@ -104,7 +118,7 @@ export function Rules({ state: initial, startMark = null }: { state: RulesState;
       ) : (
         <ul className="space-y-2">
           {state.rules.map((r) => (
-            <li key={r.id} className={"rounded-lg border bg-card p-3 " + (r.active ? "" : "opacity-60")}>
+            <li key={r.id} data-tour="hook-row" className={"rounded-lg border bg-card p-3 " + (r.active ? "" : "opacity-60")}>
               <div className="flex items-start gap-3">
                 {/* a hook's own on/off: a "Live / Paused" pill, so it never looks like a mark's switch */}
                 <button
@@ -191,6 +205,8 @@ function RuleEditor({
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [copying, setCopying] = React.useState<string | null>(null);
+  const actSave = useAction("saveRule", saveRule);
+  const actCopy = useAction("copySharedMark", copySharedMark);
   const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }));
   const markOf = (id: string) => state.marks.find((m) => m.id === id);
     const usable = state.marks.filter((m) => m.mine && m.source !== "connected");
@@ -200,14 +216,14 @@ function RuleEditor({
     setBusy(true);
     setError(null);
     const name = d.name.trim() || "New hook";
-    const r = await saveRule({ ...d, name, title: d.title.trim() || name });
+    const r = await actSave({ ...d, name, title: d.title.trim() || name });
     setBusy(false);
     if (!r.ok) return setError(r.error);
     onSaved(r.id, { ...d, name, title: d.title.trim() || name });
   };
   const copy = async (id: string) => {
     setCopying(id);
-    const r = await copySharedMark(id);
+    const r = await actCopy(id);
     setCopying(null);
     if (!r.ok) return setError(r.error);
     onCopied({ id: r.mark.id, name: r.mark.name, color: r.mark.color, active: r.mark.active, mine: true, source: "copy" });
@@ -218,7 +234,7 @@ function RuleEditor({
   const custom = d.recipients.length > 0;
   const seg = (on: boolean) => "h-7 px-3 text-xs transition-colors " + (on ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground");
   return (
-    <div className="rounded-xl border bg-card shadow-sm" style={{ animation: "jh-card-in 220ms ease-out both" }}>
+    <div className="rounded-xl border bg-card shadow-sm" data-tour="hook-editor" style={{ animation: "jh-card-in 220ms ease-out both" }}>
       <div className="flex items-center gap-2 border-b px-4 py-2.5">
         <input
           value={d.name}
@@ -337,6 +353,7 @@ function RuleEditor({
               onChange={(e) => set({ title: e.target.value })}
               placeholder="Subject"
               aria-label="Subject"
+              data-tour="hook-subject"
               className="h-9 w-full border-b bg-transparent px-3 text-sm font-medium focus:outline-none"
             />
             <textarea
@@ -360,6 +377,7 @@ function RuleEditor({
               return (
                 <IntegrationTile
                   key={c.id}
+                  tour={"channel-" + c.kind}
                   kind={c.kind}
                   label={c.name}
                   selected={on}
@@ -406,7 +424,7 @@ function RuleEditor({
         <button type="button" onClick={onCancel} className="h-8 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted">
           Cancel
         </button>
-        <button type="button" disabled={busy || !d.markIds.length} onClick={save} className="flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-40">
+        <button type="button" data-tour="hook-save" disabled={busy || !d.markIds.length} onClick={save} className="flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-40">
           {busy && <Loader2 className="size-3.5 animate-spin" />} {d.id ? "Save changes" : "Create hook"}
         </button>
       </div>
@@ -431,6 +449,7 @@ function SlackMessageOptions({ d, state, set }: { d: Draft; state: RulesState; s
   const [open, setOpen] = React.useState(false);
   const [testing, setTesting] = React.useState(false);
   const [note, setNote] = React.useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const actTest = useAction("testHookMessage", testHookMessage);
   const o = d.messageOptions;
   const markNames = d.markIds.map((id) => state.marks.find((m) => m.id === id)?.name ?? "a mark");
   const ad = state.sampleAd;
@@ -452,7 +471,7 @@ function SlackMessageOptions({ d, state, set }: { d: Draft; state: RulesState; s
   const test = async () => {
     setTesting(true);
     setNote(null);
-    const r = await testHookMessage({ name: d.name, title: d.title, body: d.body, markIds: d.markIds, channelIds: d.channelIds, messageOptions: o });
+    const r = await actTest({ name: d.name, title: d.title, body: d.body, markIds: d.markIds, channelIds: d.channelIds, messageOptions: o });
     setTesting(false);
     if (!r.ok) return setNote({ tone: "error", text: r.error });
     setNote(r.failed.length ? { tone: "error", text: "Not delivered: " + r.failed.join("; ") } : { tone: "ok", text: `Sent to ${r.sent} Slack channel${r.sent === 1 ? "" : "s"}. Check Slack.` });
@@ -461,7 +480,7 @@ function SlackMessageOptions({ d, state, set }: { d: Draft; state: RulesState; s
     <div className="flex gap-3">
       <span className="w-24 shrink-0 pt-1.5 text-xs font-medium text-muted-foreground">Slack message</span>
       <div className="min-w-0 flex-1 space-y-2">
-        <button type="button" onClick={() => setOpen((x) => !x)} className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs hover:bg-muted" aria-expanded={open}>
+        <button type="button" data-tour="slack-customize" onClick={() => setOpen((x) => !x)} className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs hover:bg-muted" aria-expanded={open}>
           Customize <ChevronDown className={"size-3 transition-transform " + (open ? "rotate-180" : "")} />
         </button>
         {open && (
@@ -496,7 +515,9 @@ function SlackMessageOptions({ d, state, set }: { d: Draft; state: RulesState; s
               {!ad && <p className="text-[11px] text-muted-foreground">The preview uses an example ad. Add your ads in Acquisition → Ads to see yours.</p>}
               {(o.summary !== "off" || o.pages.length > 0) && <p className="text-[11px] text-muted-foreground">The preview summarizes an example visit. The test uses your newest lead.</p>}
             </div>
-            <SlackPreview blocks={preview.blocks} />
+            <div className="min-w-0" data-tour="slack-preview">
+              <SlackPreview blocks={preview.blocks} />
+            </div>
           </div>
         )}
       </div>
@@ -519,10 +540,11 @@ function SummaryOptions({ o, set }: { o: MessageOptions; set: (patch: Partial<Me
   const [pages, setPages] = React.useState<string[] | null>(null);
   const [path, setPath] = React.useState("");
   const listId = React.useId();
+  const actPages = useAction("listSitePages", listSitePages);
   const loadPages = () => {
     if (pages !== null) return;
     setPages([]);
-    listSitePages()
+    actPages()
       .then((r) => setPages(r.map((x) => x.path)))
       .catch(() => setPages([]));
   };

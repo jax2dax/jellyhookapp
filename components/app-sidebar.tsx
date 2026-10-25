@@ -3,9 +3,8 @@
 
 import * as React from "react"
 import Image from "next/image"
-import {
-  LayoutDashboard, Users, Flame, UserCheck,
-  Route, Globe, Settings, CreditCard, FishingHook, PanelLeftClose, PanelLeftOpen, Bookmark, Bell, Plug } from "lucide-react"
+import { Lock, PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { SIDEBAR_ITEMS } from "@/components/nav/sidebarItems"
 import { SiteSwitcher } from "@/components/siteSwitcher"
 
 import { NavMain } from "@/components/nav-main"
@@ -21,31 +20,8 @@ import {
 // Plan tier map — controls which nav items are locked
 const TIER: Record<string, number> = { free: 0, pro: 1, elite: 2 }
 
-interface NavItem {
-  title: string
-  url: string
-  icon: React.ComponentType<any>
-  plan: string
-}
-// Nav items — href, label, icon, minimum plan required
-// locked items still show but route to /platform/subscription
-const NAV_ITEMS = [
-  { title: "Overview",          url: "/platform/dashboard",     icon: LayoutDashboard, plan: "free"  },
-  // { title: "Visitor Journeys",  url: "/platform/visitors",      icon: Users,           plan: "free"   },
-  // { title: "Intent Signals",    url: "/platform/intent",        icon: Flame,           plan: "free" },
-  { title: "Leads",             url: "/platform/leads",         icon: UserCheck,       plan: "free"   },
-  { title: "Marks",             url: "/platform/marks",         icon: Bookmark,        plan: "free"   },
-  { title: "Conversion Paths",  url: "/platform/conversions",   icon: Route,         plan: "free"   },
-  { title: "Acquisition",       url: "/platform/acquisition",   icon: Globe,           plan: "free"   },
-  // "Hook" (the query builder) is now called Query builder and hidden for now (founder 2026-10-24); /platform/hook still works
-  { title: "Hooks",             url: "/platform/hooks",         icon: FishingHook,     plan: "free"   },
-  { title: "Notifications",     url: "/platform/notifications", icon: Bell,            plan: "free"   },
-  { title: "Integrations",      url: "/platform/integrations",  icon: Plug,            plan: "free"   },
-  // { title: "Acquisition",       url: "/platform/acquisition",   icon: Globe,           plan: "free"   },
-  { title: "Settings",          url: "/platform/settings",      icon: Settings,        plan: "free"  },
-  // { title: "Subscription", url: "/platform/subscription", icon: CreditCard, plan: "free" }, // hidden for now
-   { title: "Team",              url: "/platform/team",         icon: Users,           plan: "free"  },
-]
+// The pages, in order, live in components/nav/sidebarItems.ts (shared with the home page demo).
+const NAV_ITEMS = SIDEBAR_ITEMS
 
 // jellyhookMark.png / jellyhookMarkLight.png are chroma-keyed, transparent
 // versions of public/darkMainLogo.png / public/mainLogo.png (those two have
@@ -109,10 +85,10 @@ export function AppSidebar({ userPlan = "free", siteDomain, sites, currentSiteId
     const locked = (TIER[userPlan] ?? 0) < (TIER[item.plan] ?? 0)
     const Icon = item.icon
     return {
-      title: locked ? `${item.title} 🔒` : item.title,
+      title: item.title,
       url: locked ? "/platform/subscription" : item.url,
       icon: <Icon />,
-      badge: item.url === "/platform/hooks" ? <HooksBadge /> : item.url === "/platform/notifications" ? <NotificationsDot /> : undefined,
+      badge: locked ? <Lock className="ml-auto size-3.5 opacity-60" aria-label="Locked" /> : item.url === "/platform/hooks" ? <HooksBadge /> : item.url === "/platform/notifications" ? <NotificationsDot /> : undefined,
       isActive: false,
     }
   })

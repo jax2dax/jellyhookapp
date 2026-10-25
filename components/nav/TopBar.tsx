@@ -4,12 +4,12 @@
 // expands or collapses it (components/app-sidebar.tsx), and Ctrl+B still works.
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useAppLocation } from "@/components/sandbox/sandbox";
 import { SecondaryNav } from "./SecondaryNav";
 import { navFor } from "./navRegistry";
 
 export function TopBar({ flags }: { flags: Record<string, boolean> }) {
-  const pathname = usePathname();
+  const { pathname } = useAppLocation();
 
   // pages without tabs get no bar: they start at the very top (the sidebar opens and closes by clicking its empty space)
   if (!navFor(pathname)) return null

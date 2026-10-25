@@ -127,3 +127,19 @@ To revert a change, put the "before" text back.
 - app/docs/docsNav.ts: added "Lead groups" and "Notifications" after "Lead profile page".
 - No landing page claims added. The features are not in the claims ledger yet; do not market them until they are.
 - Revert: delete the two folders and the two nav lines.
+
+## 2026-10-25 founder-requested build: interactive demo on the home page (not an agent edit)
+- app/page.tsx: new section `#try-it` ("01 / Try it") between the ticker and Features. Ledger 23, 24, 25.
+  - Before: none (the hero was followed by the ticker, then "02 / Capabilities").
+  - After: heading `Mark the leads who read your pricing. Hear about the next one.`; text `A mark is a set of conditions about what a lead did before sending your form: the pages they read, the time on each, their answers. Every lead that matches gets a badge. A hook watches new leads and tells your team, in Jellyhook and in Slack, when one has your marks. Try both below on the real screens, with sample data.`; then the demo (components/showcase/LeadsShowcase.tsx): the real Leads and Hooks screens on a made-up site, a start card ("Start the guided tour" / "Explore on my own"), a 22-step guided tour, "Restart the tour" and "Try it on your site" (/sign-up) under the frame. Phones see "The interactive demo needs a wider screen" with a link to /demo.
+- The demo says "Sample data" in its browser bar, its sidebar and under the frame. The AI face of the mark builder answers that it is not part of the demo; the tour never mentions it. New hooks in the demo start without the ad parts of the Slack message (Acquisition is not in the ledger).
+- marketing/claims-ledger.md: rows 23 (marks), 24 (hooks), 25 (the demo).
+- Checks: npx tsc --noEmit clean; eslint clean on the new files; a scripted Chrome run walks all 22 steps at 1440 px and 1024 px wide, and calls no server action.
+- Revert: remove the `#try-it` section and the LeadsShowcase import from app/page.tsx.
+
+## 2026-10-25 founder-requested docs review (not an agent edit)
+- app/docs/docsNav.ts: sidebar regrouped by job, URLs unchanged: Getting started; Leads (Leads page, Lead profile, Marks, Lead groups, Form fields); Hooks and integrations; Analytics (Dashboard, Conversions, Acquisition, Set up ad tracking); Core concepts; Privacy and data; Workspace (Settings, Team, Billing); Query builder (Hook), now after the daily features since the app hides it; Troubleshooting. All 42 pages listed once.
+- app/docs/reference/dashboard/page.tsx: rewritten to the docs standard for the renovated dashboard. Removed sections for cards deleted on 2026-10-24 (Pages, Hook shortcut, Lead footprints, Live Ticker). Added the header, the five tiles as they are now, Hooked leads, Your marks, Latest leads, empty states, limits, related.
+- app/docs/page.tsx: "Where to go next" adds Marks and Hooks; points to the home page's interactive demo; "Words to know first".
+- Labels synced with the screens: "Session history", "Path to conversion", "Whole journey summary", "Conversion rate"; story highlighting described as it is now; Settings paths say "Settings → Tracker → ..." (the tab is Tracker). "The most powerful part of Hook" → "The deepest part of Hook".
+- Checks: npm run docs:check in sync; tsc clean.

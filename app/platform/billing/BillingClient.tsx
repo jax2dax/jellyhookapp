@@ -1,6 +1,7 @@
 // app/platform/billing/BillingClient.tsx
 'use client'
 import { useState } from 'react'
+import { AlertTriangle, Check, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -126,7 +127,7 @@ export default function BillingClient({ subscription, history, profile }: Props)
               </div>
               {subscription?.current_period_end && (
                 <div className="text-sm text-muted-foreground">
-                  {subscription.cancel_at_period_end ? `⚠ Cancels on ${formatDate(subscription.current_period_end)}` : `Renews ${formatDate(subscription.current_period_end)}`}
+                  {subscription.cancel_at_period_end ? <span className="inline-flex items-center gap-1"><AlertTriangle className="size-3.5" /> Cancels on {formatDate(subscription.current_period_end)}</span> : `Renews ${formatDate(subscription.current_period_end)}`}
                 </div>
               )}
               {subscription?.current_period_start && (
@@ -152,7 +153,7 @@ export default function BillingClient({ subscription, history, profile }: Props)
               { label: 'Intent Signals', on: isElite },
             ].map((f) => (
               <div key={f.label} className="flex items-center gap-1.5">
-                <span className={`text-sm ${f.on ? 'text-primary' : 'text-muted-foreground'}`}>{f.on ? '✓' : '✗'}</span>
+                <span className={`text-sm ${f.on ? 'text-primary' : 'text-muted-foreground'}`}>{f.on ? <Check className="size-4" aria-label="Included" /> : <X className="size-4" aria-label="Not included" />}</span>
                 <span className={`text-xs ${f.on ? 'text-foreground' : 'text-muted-foreground'}`}>{f.label}</span>
               </div>
             ))}

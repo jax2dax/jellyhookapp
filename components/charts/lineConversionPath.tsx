@@ -546,7 +546,7 @@ const pathFrequency = React.useMemo(() => {
         <div className="mt-12 border-t pt-8">
           <div className="flex items-baseline justify-between mb-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
-              Best Converting Flows
+              Best converting flows
               <span className="text-xs font-normal bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
                 ELITE
               </span>

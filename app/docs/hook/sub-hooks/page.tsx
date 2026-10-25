@@ -13,7 +13,7 @@ export default function SubHooksPage() {
       <DocHeader
         eyebrow="Hook"
         title="Sub-hooks and tunnels"
-        intro="The most powerful part of Hook. A sub-hook is a whole question whose answer becomes a value inside another question. The tunnel is that flow. It replaces copying a result from one report into the next."
+        intro="The deepest part of Hook. A sub-hook is a whole question whose answer becomes a value inside another question. The tunnel is that flow. It replaces copying a result from one report into the next."
       />
 
       <Section title="Why you would use one">

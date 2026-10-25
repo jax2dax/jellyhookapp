@@ -6,17 +6,19 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import type { MarkVar } from "@/jh-marks/catalog";
 import { setMarkVars, type MarkView } from "@/lib/actions/marks.action";
+import { useAction } from "@/components/sandbox/sandbox";
 
 export function MarkVarsEditor({ mark, pages, onSaved, onCancel }: { mark: MarkView; pages: string[]; onSaved: (m: MarkView) => void; onCancel: () => void }) {
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(mark.vars.map((v) => [v.key, mark.varValues[v.key] ?? v.default])));
   const unit = (t: MarkVar["type"]) => (t === "seconds" ? "s" : t === "percent" ? "%" : t === "count" ? "x" : "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const actSetVars = useAction("setMarkVars", setMarkVars);
   if (!mark.vars.length) return <p className="text-xs text-muted-foreground">This mark has no values to set.</p>;
   const save = async () => {
     setBusy(true);
     setError(null);
-    const r = await setMarkVars(mark.id, values);
+    const r = await actSetVars(mark.id, values);
     setBusy(false);
     if (!r.ok) return setError(r.error);
     onSaved(r.mark);

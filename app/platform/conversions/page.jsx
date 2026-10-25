@@ -10,7 +10,7 @@ export default async function ConversionsPage() {
   return (
     <div className="min-h-screen bg-background p-6">
       <header className="mb-6">
-        <h1 className="text-lg font-semibold text-foreground">Conversions</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Conversions</h1>
         <p className="mt-1 text-sm text-muted-foreground">Each card shows the path a lead actually took, start of session through the moment they converted.</p>
       </header>
 

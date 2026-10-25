@@ -8,6 +8,7 @@
 //   children: React.ReactNode
 
 import Link from "next/link";
+import { ArrowRight, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const TIER = { free: 0, pro: 1, elite: 2 };
@@ -32,13 +33,13 @@ export default function PlanGate({ required = "free", userPlan = "free", sitePla
 
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-lg bg-background/70">
         <div className="text-center text-sm text-foreground">
-          🔒 {required.charAt(0).toUpperCase() + required.slice(1)} plan required
+          <span className="inline-flex items-center gap-1.5 font-medium"><Lock className="size-3.5" /> {required.charAt(0).toUpperCase() + required.slice(1)} plan required</span>
           <div className="mt-1 text-xs text-muted-foreground">
             your plan: {effectivePlan} (user: {userPlan}, site: {sitePlan})
           </div>
         </div>
         <Button asChild>
-          <Link href="/platform/subscription">Upgrade →</Link>
+          <Link href="/platform/subscription">Upgrade <ArrowRight className="size-4" /></Link>
         </Button>
       </div>
     </div>

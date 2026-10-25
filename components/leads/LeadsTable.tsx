@@ -19,9 +19,8 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ChevronRight, Search } from "lucide-react";
+import { AppLink, useNavigate } from "@/components/sandbox/sandbox";
 import { Input } from "@/components/ui/input";
 import { DateRangeField } from "@/components/ui/DateRangeField";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -72,7 +71,7 @@ export function LeadsTable({
   selected?: Set<string>;
   onToggle?: (ids: string[], on: boolean) => void;
 }) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [url, setUrl] = useUrlState({ q: "", date: "all", from: "", to: "", qualify: "all" });
   const [text, setText] = useDebouncedUrlText(url.q, (q) => setUrl({ q }));
   const dateFilter = oneOf(url.date, DATE_FILTERS, "all");
@@ -131,7 +130,7 @@ export function LeadsTable({
     return () => ro.disconnect();
   }, [measure, filtered.length]);
 
-  const openLead = (id: string) => router.push(`/platform/leads/${id}`);
+  const openLead = (id: string) => navigate(`/platform/leads/${id}`);
 
   return (
     <div className="space-y-4">
@@ -197,7 +196,7 @@ export function LeadsTable({
         </div>
       ) : (
         <div className="relative">
-          <div ref={scroller} onScroll={measure} className="max-h-[calc(100vh-16rem)] min-h-64 overflow-y-auto rounded-lg border">
+          <div ref={scroller} onScroll={measure} className="max-h-[calc(var(--jh-vh,100vh)-16rem)] min-h-64 overflow-y-auto rounded-lg border">
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur supports-backdrop-filter:bg-muted/60">
                 <TableRow className="hover:bg-transparent">
@@ -257,15 +256,15 @@ export function LeadsTable({
                         <div className="flex min-w-0 items-center gap-3">
                           <InitialsAvatar label={lead.name || lead.email} size="sm" className="size-8 shrink-0 text-[11px]" />
                           <div className="min-w-0">
-                            <Link href={`/platform/leads/${lead.id}`} className="block truncate text-sm font-medium text-foreground hover:text-primary">
+                            <AppLink href={`/platform/leads/${lead.id}`} className="block truncate text-sm font-medium text-foreground hover:text-primary">
                               {lead.name || lead.email || "Unnamed lead"}
-                            </Link>
+                            </AppLink>
                             {lead.name && lead.email && <div className="truncate text-xs text-muted-foreground">{lead.email}</div>}
                           </div>
                         </div>
                       </TableCell>
                       {marks && (
-                        <TableCell className="py-2.5">
+                        <TableCell className="py-2.5" data-tour="lead-marks">
                           <MarkDots marks={marks.byLead[lead.id] ?? []} />
                         </TableCell>
                       )}

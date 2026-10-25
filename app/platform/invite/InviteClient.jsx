@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { acceptInvite, declineInvite } from "@/lib/actions/site-management.actions";
+import { CheckCircle2, LogOut } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,8 +58,8 @@ export default function InviteClient({ invite }) {
     return (
       <Card className="w-full max-w-sm">
         <CardContent className="py-2">
-          <div className="mb-3 text-3xl">✅</div>
-          <div className="mb-2 text-base font-bold text-primary">Invite accepted!</div>
+          <div className="mb-3 flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary"><CheckCircle2 className="size-4" /></div>
+          <div className="mb-1 text-base font-semibold text-foreground">Invite accepted</div>
           <div className="text-sm text-muted-foreground">Redirecting to your dashboard...</div>
         </CardContent>
       </Card>
@@ -69,8 +70,8 @@ export default function InviteClient({ invite }) {
     return (
       <Card className="w-full max-w-sm">
         <CardContent className="py-2">
-          <div className="mb-3 text-3xl">👋</div>
-          <div className="mb-2 text-base font-bold text-foreground">Invite declined</div>
+          <div className="mb-3 flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground"><LogOut className="size-4" /></div>
+          <div className="mb-1 text-base font-semibold text-foreground">Invite declined</div>
           <div className="text-sm text-muted-foreground">Redirecting to site setup...</div>
         </CardContent>
       </Card>

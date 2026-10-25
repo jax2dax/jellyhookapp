@@ -13,26 +13,43 @@
 // Used by: /platform/leads, /platform/conversions (ConvertedLeadsExplorer and
 // the chart section), /platform/leads/[lead_id] (selected session). See
 // mds/documentation/url-state.md for every key.
+//
+// Inside a sandbox (components/sandbox: the demo on the home page) the state is kept in memory instead: the demo
+// must not write its filters into the host page's address.
 "use client";
 
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSandbox } from "@/components/sandbox/sandbox";
 
 export function useUrlState<T extends Record<string, string>>(defaults: T): [T, (patch: Partial<T>) => void] {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
+  const sandbox = !!useSandbox();
   // the defaults are fixed for the life of the page (a stable copy, safe to read during render)
   const [defs] = React.useState(defaults);
+  const [memory, setMemory] = React.useState<Record<string, string>>({});
 
   const state = React.useMemo(() => {
     const out: Record<string, string> = {};
-    for (const key of Object.keys(defs)) out[key] = params.get(key) ?? defs[key];
+    for (const key of Object.keys(defs)) out[key] = (sandbox ? memory[key] : params.get(key)) ?? defs[key];
     return out as T;
-  }, [params, defs]);
+  }, [params, defs, sandbox, memory]);
 
   const set = React.useCallback(
     (patch: Partial<T>) => {
+      if (sandbox) {
+        setMemory((m) => {
+          const next = { ...m };
+          for (const [key, value] of Object.entries(patch)) {
+            if (value === undefined || value === "" || value === defs[key]) delete next[key];
+            else next[key] = String(value);
+          }
+          return next;
+        });
+        return;
+      }
       // read the freshest URL, not a stale render's: two quick changes must both stick
       const next = new URLSearchParams(typeof window !== "undefined" ? window.location.search : params.toString());
       for (const [key, value] of Object.entries(patch)) {
@@ -43,7 +60,7 @@ export function useUrlState<T extends Record<string, string>>(defaults: T): [T, 
       const qs = next.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
-    [params, pathname, router, defs],
+    [params, pathname, router, defs, sandbox],
   );
 
   return [state, set];

@@ -3,8 +3,7 @@
 // Hooks → Hooked leads: every lead a hook caught, newest first, with the hooks that caught it. Click a row to open the
 // lead. `compact` is the dashboard's short version. Data: lib/actions/hooks.action.ts.
 import * as React from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { AppLink as Link, useAction, useNavigate } from "@/components/sandbox/sandbox";
 import { FishingHook } from "lucide-react";
 import type { HookedLead } from "@/lib/actions/hooks.action";
 import { markRead } from "@/lib/actions/notifications.action";
@@ -12,12 +11,13 @@ import { NOTIFICATIONS_CHANGED } from "@/components/notifications/UnreadBadge";
 import { formatRelativeTime } from "@/lib/leadFormat";
 
 export function HookedLeads({ leads, ready, compact = false, markSeen = false }: { leads: HookedLead[]; ready: boolean; compact?: boolean; markSeen?: boolean }) {
-  const router = useRouter();
+  const navigate = useNavigate();
+  const actMarkRead = useAction("markRead", markRead);
   // on the Hooks page, looking at the hooked leads clears the yellow count on the sidebar
   React.useEffect(() => {
     if (!markSeen) return;
-    markRead("all").then(() => window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED)));
-  }, [markSeen]);
+    actMarkRead("all").then(() => window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED)));
+  }, [markSeen, actMarkRead]);
   if (!ready) return <p className="text-sm text-muted-foreground">Hooks are not set up on this database yet (migration 20).</p>;
   if (!leads.length)
     return (
@@ -33,7 +33,7 @@ export function HookedLeads({ leads, ready, compact = false, markSeen = false }:
     <ul className="divide-y overflow-hidden rounded-lg border bg-card">
       {leads.map((l) => (
         <li key={l.leadId}>
-          <button type="button" onClick={() => router.push(`/platform/leads/${l.leadId}`)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50">
+          <button type="button" onClick={() => navigate(`/platform/leads/${l.leadId}`)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50">
             {l.ad?.thumbnailUrl ? (
               // the ad that brought them (Ads library), when it has a thumbnail
               // eslint-disable-next-line @next/next/no-img-element

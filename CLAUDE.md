@@ -95,6 +95,7 @@ Keep this list current: add a line when you create a .md file, change it when a 
 - `form-study/`: `plan.md`, `averages-and-versions.md` (form dashboard versions and reference), `tracker-changes.md`.
 - `ai-hook-translate/`: Ask Hook (question to Hook query). `README.md` index, `Architecture.md`, `data-flow.md`, `prompt-and-rules.md`, `models-and-cost.md`, `ledger-and-limits.md`, `eval-and-tests.md`, `security-and-privacy.md`, `setup-and-env.md`, `roadmap.md`.
 - `mcp/`: MCP server. `plan.md`, `architecture.md`, `build-log.md`, `resume.md`.
+- `showcase/interactive-demo.md`: the home page's interactive demo and the guided-tour engine (sandbox, demo store, `data-tour` handles, how to add a tour, what to keep in step).
 
 **Subsystem docs**
 - `jh-hook/`: Hook (the query feature). `overview.md`, `plan.md`, `progress.md`, `architecture.md`, `data-flow.md`, `reference.md` (every field), `user-guide.md`, `ui-ux.md`, `naming.md`, `docs-brief.md`, `documentation.md` (index).

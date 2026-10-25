@@ -1,42 +1,34 @@
 // components/dashboard/ActiveNowTile.tsx
 //
-// "Active Now": a compact round badge (number + a pulsing green dot) rather
-// than a full-width tile; "visitors on site right now, live" shows on hover
-// or focus. Reads from the exact same live store the main chart does (see
-// useSessionsOnlineNow), so this number and the chart's "N open right now"
-// readout are always identical, never two independently-drifting sources.
+// "Active now": the number of visitors on the site right now, live, as a tile like the others, with a pulsing dot.
+// Reads from the exact same live store the main chart does (see useSessionsOnlineNow), so this number and the
+// chart's "N open right now" readout are always identical, never two independently-drifting sources.
+// ActiveNowCard draws it from a number (the dashboard preview passes a sample).
 "use client";
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Card, CardContent } from "@/components/ui/card";
 import { useSessionsOnlineNow } from "@/main-chart";
 
 export function ActiveNowTile({ siteId }: { siteId: string }) {
-  const onlineNow = useSessionsOnlineNow(siteId);
-  const n = onlineNow ?? null;
+  return <ActiveNowCard count={useSessionsOnlineNow(siteId) ?? null} />;
+}
+
+export function ActiveNowCard({ count }: { count: number | null }) {
   return (
-    <TooltipProvider delayDuration={100}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            tabIndex={0}
-            role="status"
-            aria-label={`${n ?? "Loading"} visitors on site right now, live`}
-            className="flex h-full min-h-[58px] items-center gap-2 rounded-xl border bg-card px-3 py-2 shadow-sm"
-          >
-            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-emerald-500/60 text-base font-bold text-foreground">
-              {n ?? "–"}
-              <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 motion-safe:animate-ping" />
-                <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-card bg-emerald-500" />
-              </span>
-            </span>
-            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Active now</span>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">
-          Visitors on site right now, live
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Card className="gap-0 py-0">
+      <CardContent className="p-4" role="status" aria-label={`${count ?? "Loading"} visitors on the site right now, live`}>
+        <div className="flex h-6 items-center gap-2 text-xs font-medium text-muted-foreground">
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex size-full rounded-full bg-emerald-500 opacity-60 motion-safe:animate-ping" />
+            <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+          </span>
+          Active now
+        </div>
+        <div className="mt-2 flex h-8 items-center">
+          {count === null ? <span className="jh-skeleton h-7 w-12 rounded-md" /> : <p className="text-2xl font-semibold leading-none tracking-tight text-foreground tabular-nums">{count}</p>}
+        </div>
+        <p className="mt-1.5 truncate text-xs text-muted-foreground">On the site, live</p>
+      </CardContent>
+    </Card>
   );
 }

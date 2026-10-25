@@ -1,39 +1,29 @@
 // components/leads/StoryText.tsx
 // A story from lib/leadSessions/story.ts with the parts that matter picked out, so it reads at a glance:
-//   pages            /pricing, /blogs, "/" (the home page)       a green-tinted code chip
-//   dates            Oct 12, 6 days                              an orange chip
-//   times            8m 24s, 1h 54m                              an amber (yellow) chip, close to the date's
-//   headings         "Pricing", "Hi, I'm Beny"                   a blue chip
-// Plain text elsewhere. Pure presentation: the story text itself is unchanged (copy and paste still reads naturally).
+//   pages            /pricing, /blogs, "/" (the home page)       monospace on a quiet chip
+//   dates, times     Oct 12, 6 days, 8m 24s                      medium weight, full contrast
+//   headings         "Pricing", "Hi, I'm Beny"                   medium weight, in the accent blue
+// Plain text elsewhere, a step quieter. (Until 2026-10-25 each kind had its own coloured chip: four colours in one
+// sentence read as noise.) Pure presentation: the story text itself is unchanged (copy and paste reads naturally).
 import * as React from "react";
 import { splitStory } from "@/lib/leadSessions/storyParts";
 import type { StoryVersion } from "@/lib/leadSessions/story";
 import { InfoTip } from "@/components/InfoTip";
 
+/** One part of a story: a page, a heading, a date or a time, or plain words. */
+function Part({ p }: { p: ReturnType<typeof splitStory>[number] }) {
+  if (p.kind === "page") return <code className="rounded bg-muted px-1 py-px font-mono text-[0.9em] text-foreground ring-1 ring-inset ring-border">{p.text}</code>;
+  if (p.kind === "heading") return <span className="font-medium text-sky-700 dark:text-sky-300">{p.text}</span>;
+  if (p.kind === "date" || p.kind === "when") return <span className="font-medium text-foreground tabular-nums">{p.text}</span>;
+  return <>{p.text}</>;
+}
+
 export function StoryText({ text, className, children }: { text: string; className?: string; children?: React.ReactNode }) {
   return (
     <p className={className}>
-      {splitStory(text).map((p, i) =>
-        p.kind === "page" ? (
-          <code key={i} className="rounded bg-primary/15 px-1 py-px font-mono text-[0.92em] text-foreground">
-            {p.text}
-          </code>
-        ) : p.kind === "heading" ? (
-          <span key={i} className="rounded bg-sky-500/15 px-1 py-px font-medium text-sky-900 dark:text-sky-200">
-            {p.text}
-          </span>
-        ) : p.kind === "date" ? (
-          <span key={i} className="rounded bg-orange-500/25 px-1 py-px font-medium text-orange-900 dark:text-orange-200">
-            {p.text}
-          </span>
-        ) : p.kind === "when" ? (
-          <span key={i} className="rounded bg-amber-500/20 px-1 py-px font-medium text-amber-900 dark:text-amber-200">
-            {p.text}
-          </span>
-        ) : (
-          <React.Fragment key={i}>{p.text}</React.Fragment>
-        ),
-      )}
+      {splitStory(text).map((p, i) => (
+        <Part key={i} p={p} />
+      ))}
       {children}
     </p>
   );
@@ -91,27 +81,9 @@ export function StoryFormatToggle({ lines, onChange }: { lines: boolean; onChang
 function Highlighted({ text }: { text: string }) {
   return (
     <>
-      {splitStory(text).map((p, i) =>
-        p.kind === "page" ? (
-          <code key={i} className="rounded bg-primary/15 px-1 py-px font-mono text-[0.92em] text-foreground">
-            {p.text}
-          </code>
-        ) : p.kind === "heading" ? (
-          <span key={i} className="rounded bg-sky-500/15 px-1 py-px font-medium text-sky-900 dark:text-sky-200">
-            {p.text}
-          </span>
-        ) : p.kind === "date" ? (
-          <span key={i} className="rounded bg-orange-500/25 px-1 py-px font-medium text-orange-900 dark:text-orange-200">
-            {p.text}
-          </span>
-        ) : p.kind === "when" ? (
-          <span key={i} className="rounded bg-amber-500/20 px-1 py-px font-medium text-amber-900 dark:text-amber-200">
-            {p.text}
-          </span>
-        ) : (
-          <React.Fragment key={i}>{p.text}</React.Fragment>
-        ),
-      )}
+      {splitStory(text).map((p, i) => (
+        <Part key={i} p={p} />
+      ))}
     </>
   );
 }

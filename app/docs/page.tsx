@@ -38,8 +38,10 @@ export default function DocsIndexPage() {
           leads. Visitors are anonymous until they submit a form, so it does not tell you who an unknown visitor is.
         </P>
         <P>
-          Want to see one first? Open the{" "}
-          <Link href="/demo" className={link}>sample lead page</Link>. It uses made-up data and needs no sign-up.
+          Want to see it first? Open the{" "}
+          <Link href="/demo" className={link}>sample lead page</Link>, or try the{" "}
+          <Link href="/#try-it" className={link}>interactive demo</Link> on the home page: the real Leads and Hooks screens on a made-up
+          site. Both use sample data and need no sign-up.
         </P>
       </Section>
 
@@ -68,11 +70,19 @@ export default function DocsIndexPage() {
               </span>,
             ],
             [
+              "Badge the leads that did what you care about",
+              <Link key="m" href="/docs/reference/marks" className={link}>Marks</Link>,
+            ],
+            [
+              "Get told in Jellyhook or Slack when such a lead arrives",
+              <Link key="n" href="/docs/reference/notifications" className={link}>Hooks and notifications</Link>,
+            ],
+            [
               "See where visitors and leads came from",
               <Link key="e" href="/docs/reference/conversions" className={link}>Conversions page</Link>,
             ],
             [
-              "Ask a question across all your data",
+              "Ask a precise question across all your data (query builder)",
               <Link key="f" href="/docs/hook" className={link}>What is Hook</Link>,
             ],
             [
@@ -87,14 +97,14 @@ export default function DocsIndexPage() {
         />
       </Section>
 
-      <Section title="Two words to know first">
+      <Section title="Words to know first">
         <UL>
           <li>
             A <B>lead</B> is one form submission. A <B>visitor</B> is one browser. The same person on a phone and a laptop is two visitors.
             More in <Link href="/docs/concepts/visitors-sessions" className={link}>Visitors, sessions, and page views</Link>.
           </li>
           <li>
-            <B>Leads</B> counts every submission, while <B>Conversions</B> and <B>Conversion Rate</B> count each person once.
+            <B>Leads</B> counts every submission, while <B>Conversions</B> and <B>Conversion rate</B> count each person once.
             An example is on <Link href="/docs/use-cases" className={link}>What Jellyhook is for</Link>.
           </li>
         </UL>

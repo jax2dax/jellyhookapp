@@ -64,8 +64,8 @@ export default function UseCasesPage() {
           build={
             <>
               A form arrives from &quot;Priya&quot; asking for a quote. Before replying, the owner opens the{" "}
-              <B>Leads</B> page and clicks her row. On the lead profile, <B>Path to Conversion</B> lists every page she viewed before
-              submitting, in order, with the time on each. <B>Session History</B> loads the visit chart for each of her visits. In this
+              <B>Leads</B> page and clicks her row. On the lead profile, <B>Path to conversion</B> lists every page she viewed before
+              submitting, in order, with the time on each. <B>Session history</B> loads the visit chart for each of her visits. In this
               example she read the pricing page twice and the page for sole traders, so the reply starts there.
             </>
           }
@@ -153,11 +153,11 @@ export default function UseCasesPage() {
       <Section title="Look-alike numbers: count people or count submissions">
         <Callout title="Leads is not Conversions">
           <p>
-            <B>Leads</B> counts every form submission. <B>Conversions</B> and <B>Conversion Rate</B> count different people, each once.
+            <B>Leads</B> counts every form submission. <B>Conversions</B> and <B>Conversion rate</B> count different people, each once.
           </p>
           <p>
             Example: one visitor submits the form 3 times today, and 20 different people visit. Leads shows 3. Conversions shows 1.
-            Conversion Rate is 1 of 20, or 5%.
+            Conversion rate is 1 of 20, or 5%.
           </p>
           <p>
             Also, a person who uses their phone and later their laptop is two visitors, because there is no way to tell they are the same

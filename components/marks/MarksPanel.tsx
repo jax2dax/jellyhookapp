@@ -10,7 +10,7 @@
 import { ArrowLeft, Bookmark, ChevronDown, ExternalLink, FishingHook, Lock, Plug, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
 import { InfoTip } from "@/components/forms/InfoTip";
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { AppLink, useAction } from "@/components/sandbox/sandbox";
 import { emptyRule } from "@/jh-marks/rule";
 import { MarkVarsEditor } from "./MarkVarsEditor";
 import { deleteMark, recheckMark, setMarkActive, type MarkView, type MarksState } from "@/lib/actions/marks.action";
@@ -71,6 +71,9 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
     });
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const actDelete = useAction("deleteMark", deleteMark);
+  const actRecheck = useAction("recheckMark", recheckMark);
+  const actSetActive = useAction("setMarkActive", setMarkActive);
 
   if (!state.ok) return <aside className="sticky top-6 w-[24rem] shrink-0 rounded-lg border bg-card p-3 text-xs text-muted-foreground">{state.error}</aside>;
   const s = state as Ready;
@@ -111,7 +114,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
 
   // ── open ──
   return (
-    <aside className="sticky top-6 flex max-h-[calc(100vh-3rem)] min-h-[calc(100vh-3rem)] w-[24rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card" aria-label="Marks">
+    <aside className="sticky top-6 flex max-h-[calc(var(--jh-vh,100vh)-3rem)] min-h-[calc(var(--jh-vh,100vh)-3rem)] w-[24rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card" aria-label="Marks" data-tour="marks-panel">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
         {builder ? (
           <button type="button" onClick={() => setBuilder(null)} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Back to the marks">
@@ -131,6 +134,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
               type="button"
               disabled={full || !s.ready}
               onClick={() => startNew()}
+              data-tour="marks-new"
               title={full ? `You have ${s.limit} marks: delete one to add another` : "New mark"}
               className="flex h-7 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -171,6 +175,8 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                     <div
                       role="button"
                       tabIndex={0}
+                      data-tour="mark-row"
+                      data-mark-id={m.id}
                       onClick={() => toggleApply(m.id)}
                       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), toggleApply(m.id))}
                       title={on ? "Applied to the table. Click to remove." : "Apply to the table: its leads go first"}
@@ -217,7 +223,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                           disabled={!m.mine}
                           label={"Turn " + m.name + (m.active ? " off" : " on")}
                           onChange={(v) =>
-                            run(m.id, () => setMarkActive(m.id, v), (r) => ({
+                            run(m.id, () => actSetActive(m.id, v), (r) => ({
                               text: v ? `${m.name} is on: ${r.ok ? (r.matchCount ?? 0) : 0} leads.` : `${m.name} is off.`,
                               change: { type: "patched", id: m.id, patch: r.ok ? { active: v, matchCount: r.matchCount, evaluatedAt: r.evaluatedAt } : { active: v } },
                             }))
@@ -233,6 +239,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                         className="-mr-1 flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-label="More"
                         data-mark-menu
+                        data-tour="mark-more"
                       >
                         <MoreHorizontal className="size-4" />
                       </button>
@@ -250,7 +257,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                             type="button"
                             onClick={() => {
                               setConfirmDelete(null);
-                              run(m.id, () => deleteMark(m.id), () => ({ text: `${m.name} deleted.`, change: { type: "deleted", id: m.id } }));
+                              run(m.id, () => actDelete(m.id), () => ({ text: `${m.name} deleted.`, change: { type: "deleted", id: m.id } }));
                             }}
                             className="h-7 rounded-md bg-red-600 px-2.5 text-xs font-medium text-white hover:bg-red-700"
                           >
@@ -300,11 +307,11 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                             <FishingHook className="size-3" /> Create a hook
                           </span>
                         ) : (
-                          <Link href={"/platform/hooks?tab=rules&newHook=" + m.id} onClick={() => setMenu(null)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted" title="Catch every new lead with this mark and tell your team">
+                          <AppLink data-tour="mark-create-hook" href={"/platform/hooks?tab=rules&newHook=" + m.id} onClick={() => setMenu(null)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted" title="Catch every new lead with this mark and tell your team">
                             <FishingHook className="size-3" /> Create a hook
-                          </Link>
+                          </AppLink>
                         )}
-                        <button type="button" onClick={() => run(m.id, () => recheckMark(m.id), (r) => ({ text: `${m.name}: ${r.ok ? r.matchCount : 0} leads.`, change: { type: "patched", id: m.id, patch: r.ok ? { matchCount: r.matchCount, evaluatedAt: r.evaluatedAt } : {} } }))} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
+                        <button type="button" onClick={() => run(m.id, () => actRecheck(m.id), (r) => ({ text: `${m.name}: ${r.ok ? r.matchCount : 0} leads.`, change: { type: "patched", id: m.id, patch: r.ok ? { matchCount: r.matchCount, evaluatedAt: r.evaluatedAt } : {} } }))} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
                           <RefreshCw className="size-3" /> Re-check all leads
                         </button>
                         {m.mine && (
@@ -327,12 +334,12 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
             </ul>
 
             {/* the library: published marks to add (app/platform/marks) */}
-            <Link href="/platform/marks" className="flex items-center justify-between rounded-md border border-dashed px-3 py-2.5 text-sm text-muted-foreground transition hover:border-primary/50 hover:text-foreground">
+            <AppLink href="/platform/marks" className="flex items-center justify-between rounded-md border border-dashed px-3 py-2.5 text-sm text-muted-foreground transition hover:border-primary/50 hover:text-foreground">
               <span className="flex items-center gap-2">
                 <Bookmark className="size-4" /> Browse marks
               </span>
               <span className="text-[11px]">ready-made marks to add →</span>
-            </Link>
+            </AppLink>
 
             {full && <p className="px-1 text-[11px] text-muted-foreground">{ownFull ? `You have ${s.limit} marks of your own, the most there can be.` : `Your library is full (${s.totalLimit} marks).`} Delete one to add another.</p>}
           </div>

@@ -232,7 +232,7 @@ export function HookWorkspace({ mode }: { mode: WorkspaceMode }) {
         <div className="min-w-0 space-y-4">
         <div className="flex flex-wrap items-start gap-3">
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold">Query builder{dev ? " (test bench)" : ""}</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Query builder{dev ? " (test bench)" : ""}</h1>
             <p className="text-sm text-muted-foreground">
               {dev ? "Runs against your current site only. Shows the SQL and raw ids." : "Ask precise questions about your visitors, sessions, leads and forms."}
             </p>

@@ -6,6 +6,7 @@
 import * as React from "react";
 import { Check, ChevronDown, Lock, MoreHorizontal, Plus, Users, X } from "lucide-react";
 import { addToGroup, createGroup, deleteGroup, removeFromGroup, updateGroup, type GroupView } from "@/lib/actions/groups.action";
+import { useAction } from "@/components/sandbox/sandbox";
 
 type Note = { tone: "ok" | "error"; text: string } | null;
 
@@ -148,17 +149,20 @@ export function GroupDialog({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [confirm, setConfirm] = React.useState(false);
+  const createG = useAction("createGroup", createGroup);
+  const updateG = useAction("updateGroup", updateGroup);
+  const deleteG = useAction("deleteGroup", deleteGroup);
 
   const save = async () => {
     setBusy(true);
     setError(null);
     if (!group) {
-      const r = await createGroup(name, visibility, leadIds);
+      const r = await createG(name, visibility, leadIds);
       setBusy(false);
       if (!r.ok) return setError(r.error);
       onCreated(r.group);
     } else {
-      const r = await updateGroup(group.id, { name, visibility });
+      const r = await updateG(group.id, { name, visibility });
       setBusy(false);
       if (!r.ok) return setError(r.error);
       onUpdated(group.id, { name: name.trim(), visibility });
@@ -167,7 +171,7 @@ export function GroupDialog({
   const remove = async () => {
     if (!group) return;
     setBusy(true);
-    const r = await deleteGroup(group.id);
+    const r = await deleteG(group.id);
     setBusy(false);
     if (!r.ok) return setError(r.error);
     onDeleted(group.id);
@@ -226,6 +230,8 @@ export function useGroups(initial: GroupView[]) {
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [busy, setBusy] = React.useState(false);
   const [note, setNote] = React.useState<Note>(null);
+  const addTo = useAction("addToGroup", addToGroup);
+  const removeFrom = useAction("removeFromGroup", removeFromGroup);
 
   React.useEffect(() => {
     if (!note) return;
@@ -247,7 +253,7 @@ export function useGroups(initial: GroupView[]) {
   const add = async (groupId: string) => {
     const ids = [...selected];
     setBusy(true);
-    const r = await addToGroup(groupId, ids);
+    const r = await addTo(groupId, ids);
     setBusy(false);
     if (!r.ok) return setNote({ tone: "error", text: r.error });
     setGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, leadIds: [...new Set([...ids, ...g.leadIds])] } : g)));
@@ -259,7 +265,7 @@ export function useGroups(initial: GroupView[]) {
   const remove = async (groupId: string) => {
     const ids = [...selected];
     setBusy(true);
-    const r = await removeFromGroup(groupId, ids);
+    const r = await removeFrom(groupId, ids);
     setBusy(false);
     if (!r.ok) return setNote({ tone: "error", text: r.error });
     setGroups((gs) => gs.map((g) => (g.id === groupId ? { ...g, leadIds: g.leadIds.filter((id) => !selected.has(id)) } : g)));

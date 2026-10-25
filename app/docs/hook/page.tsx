@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 const MAP: [string, string, string][] = [
   ["/docs/hook/building", "Build a question", "Pick what you look at, add conditions, choose what you want back, run it."],
   ["/docs/hook/connected-rows", "Connected rows, groups and journeys", "Ask about a session's pages, combine conditions with any of / none of, follow visitors from page to page."],
-  ["/docs/hook/sub-hooks", "Sub-hooks and tunnels", "Feed the answer of one question into another. The most powerful part of Hook."],
+  ["/docs/hook/sub-hooks", "Sub-hooks and tunnels", "Feed the answer of one question into another. The deepest part of Hook."],
   ["/docs/hook/organizing", "Organize, share and run", "Names, notes, links, run order and credits."],
   ["/docs/hook/examples", "Worked examples", "Twenty-four questions for marketing, content, sales, forms and journeys."],
   ["/docs/hook/field-reference", "Field reference", "Every field, type, operator and measure. Always matches what the builder offers."],

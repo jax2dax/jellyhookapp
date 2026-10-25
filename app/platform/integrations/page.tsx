@@ -19,7 +19,7 @@ export default async function IntegrationsPage({ searchParams }: { searchParams:
   return (
     <div className="space-y-4 p-6">
       <div className="mx-auto w-full max-w-3xl">
-        <h1 className="text-lg font-semibold text-foreground">Integrations</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Integrations</h1>
         <p className="text-sm text-muted-foreground">Where your hooks can send a hooked lead outside Jellyhook. Pick them per hook, under Notification method.</p>
       </div>
       {!r.ok ? (

@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { InfoTip } from "@/components/InfoTip";
 import { getWindowStat, type StatMetric, type StatWindow, type WindowStat } from "@/lib/actions/dashboardStats.action";
+import { useAction } from "@/components/sandbox/sandbox";
 
 // The icon is chosen by NAME: this tile is used from server pages (the
 // dashboard), and a component (function) can't be passed from a server
@@ -50,6 +51,7 @@ export function WindowStatTile({
   storageId?: string;
 }) {
   const Icon = ICONS[icon];
+  const loadStat = useAction("getWindowStat", getWindowStat);
   const storageKey = `jh_tile_window_${storageId ?? metric}`;
   const [win, setWin] = React.useState<StatWindow>(defaultWindow);
   const [stat, setStat] = React.useState<WindowStat | null>(null);
@@ -70,7 +72,7 @@ export function WindowStatTile({
 
   React.useEffect(() => {
     let live = true;
-    getWindowStat(siteId, metric, win)
+    loadStat(siteId, metric, win)
       .then((s) => {
         if (!live) return;
         setStat(s);
@@ -87,7 +89,7 @@ export function WindowStatTile({
       live = false;
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
     };
-  }, [siteId, metric, win, attempt]);
+  }, [siteId, metric, win, attempt, loadStat]);
 
   const choose = (w: StatWindow) => {
     setAttempt(0);
@@ -101,37 +103,45 @@ export function WindowStatTile({
 
   const isRate = metric === "conversionRate";
   const shown = stat && stat.window === win ? stat : null;
-  const value = shown ? (isRate ? `${shown.current.toFixed(1)}%` : shown.current.toLocaleString()) : failed ? "!" : "–";
+  const value = shown ? (isRate ? `${shown.current.toFixed(1)}%` : shown.current.toLocaleString()) : null;
 
   return (
-    <Card>
-      <CardContent className="px-3 py-2.5">
+    <Card className="gap-0 py-0">
+      <CardContent className="p-4">
         <div className="flex items-center justify-between gap-1">
-          <div className="flex min-w-0 items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            <Icon className="h-3 w-3 shrink-0" />
+          <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Icon className="size-3.5 shrink-0" />
             <span className="truncate">{label}</span>
             <InfoTip label={`About ${label}`}>{info}</InfoTip>
           </div>
           <select
             aria-label={`Time window for ${label}`}
-            className="h-6 shrink-0 rounded border bg-background px-1 text-[11px] text-muted-foreground"
+            className="h-6 shrink-0 cursor-pointer rounded-md bg-transparent px-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
             value={win}
             onChange={(e) => choose(e.target.value as StatWindow)}
           >
-            <option value="24h">Last 24 hrs</option>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
+            <option value="24h">24 hours</option>
+            <option value="7d">7 days</option>
+            <option value="30d">30 days</option>
             {allowAll && <option value="all">All time</option>}
           </select>
         </div>
-        <div className="mt-0.5 flex items-baseline gap-2">
-          <p className="text-lg font-bold leading-tight text-foreground" title={failed ? "Couldn't load this number (the database could not be reached). Trying again..." : undefined}>
-            {value}
-          </p>
+        <div className="mt-2 flex h-8 items-center gap-2">
+          {value !== null ? (
+            <p key={win} className="jh-page-in text-2xl font-semibold leading-none tracking-tight text-foreground tabular-nums">
+              {value}
+            </p>
+          ) : failed ? (
+            <p className="text-sm text-muted-foreground" title="The database could not be reached. Trying again...">
+              Could not load
+            </p>
+          ) : (
+            <span className="jh-skeleton h-7 w-20 rounded-md" aria-label="Loading" />
+          )}
           {shown && shown.previous !== null && <Trend stat={shown} noun={noun} />}
         </div>
-        <p className="truncate text-[11px] text-muted-foreground">
-          {shown?.detail ?? (win === "all" ? "all time" : `last ${WINDOW_LABEL[win].short}`)}
+        <p className="mt-1.5 truncate text-xs text-muted-foreground">
+          {shown?.detail ?? (win === "all" ? "All time" : `Last ${WINDOW_LABEL[win].short}`)}
         </p>
       </CardContent>
     </Card>
@@ -163,12 +173,12 @@ function Trend({ stat, noun }: { stat: WindowStat; noun: string }) {
     sentence = dir === "flat" ? `About the same number of ${noun} as ${period} (${prev.toLocaleString()})` : `${Math.abs(Math.round(pct))}% ${dir === "up" ? "more" : "fewer"} ${noun} than ${period} (${prev.toLocaleString()})`;
   }
   const Arrow = dir === "up" ? ArrowUpRight : dir === "down" ? ArrowDownRight : Minus;
-  const color = dir === "up" ? "text-emerald-600 dark:text-emerald-400" : dir === "down" ? "text-red-600 dark:text-red-400" : "text-muted-foreground";
+  const color = dir === "up" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : dir === "down" ? "bg-red-500/10 text-red-700 dark:text-red-400" : "bg-muted text-muted-foreground";
   return (
     <TooltipProvider delayDuration={100}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span tabIndex={0} className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${color}`} aria-label={sentence}>
+          <span tabIndex={0} className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums ${color}`} aria-label={sentence}>
             <Arrow className="h-3 w-3" />
             {text}
           </span>

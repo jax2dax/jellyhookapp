@@ -13,6 +13,7 @@ import { loadFormFields } from "@/lib/actions/formFields.action";
 import type { CatalogField } from "@/lib/forms/catalog";
 import { FieldNamingHelp } from "@/components/forms/FieldNamingHelp";
 import { RuleEditor } from "./RuleEditor";
+import { useAction } from "@/components/sandbox/sandbox";
 import type { BuilderInitial } from "../MarkBuilder";
 
 const AI_EXAMPLES = [
@@ -40,10 +41,13 @@ export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: {
   const [undo, setUndo] = React.useState<MarkRuleV2 | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const saveAction = useAction("saveMark", saveMark);
+  const aiAction = useAction("markFromAiV2", markFromAiV2);
+  const fieldsAction = useAction("loadFormFields", loadFormFields);
 
   React.useEffect(() => {
-    loadFormFields().then((r) => setFields(r.ok ? r.fields : []));
-  }, []);
+    fieldsAction().then((r) => setFields(r.ok ? r.fields : []));
+  }, [fieldsAction]);
 
   const check = React.useMemo(() => {
     if (empty) return { reads: [] as string[], problem: "Add at least one condition." };
@@ -61,7 +65,7 @@ export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: {
     if (!ai.trim() || aiBusy) return;
     setAiBusy(true);
     setAiNote(null);
-    const res = await markFromAiV2(ai);
+    const res = await aiAction(ai);
     setAiBusy(false);
     if (!res.ok) return setAiNote({ tone: "error", text: res.error });
     const r = res.result;
@@ -84,7 +88,7 @@ export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: {
     if (!name.trim()) return setError("Give the mark a name.");
     setSaving(true);
     setError(null);
-    const res = await saveMark({ id: initial.id ?? null, name, description, color, active, visibility, sharedWith, rule, templateKey: initial.templateKey ?? null });
+    const res = await saveAction({ id: initial.id ?? null, name, description, color, active, visibility, sharedWith, rule, templateKey: initial.templateKey ?? null });
     setSaving(false);
     if (!res.ok) return setError(res.error);
     onSaved(res.mark, res.warning);
@@ -143,7 +147,7 @@ export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: {
                 {aiBusy ? "Building..." : "Build the mark"}
               </button>
             </div>
-            <button type="button" onClick={() => setFace("manual")} className="mx-auto mt-2 flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground">
+            <button type="button" data-tour="builder-manual" onClick={() => setFace("manual")} className="mx-auto mt-2 flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground">
               Enter manually <ArrowRight className="size-3" />
             </button>
           </div>
@@ -182,7 +186,7 @@ export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: {
       </div>
 
       {check.reads.length > 0 && (
-        <div className="space-y-0.5 text-xs leading-relaxed text-muted-foreground">
+        <div className="space-y-0.5 text-xs leading-relaxed text-muted-foreground" data-tour="mark-reads">
           {check.reads.map((l, i) => (
             <p key={i}>{l}</p>
           ))}
@@ -190,7 +194,7 @@ export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: {
       )}
 
       <div className="space-y-2.5">
-        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Name, e.g. Pricing reader" className="h-8 w-full rounded-md border bg-background px-2 text-sm" aria-label="Name" />
+        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Name, e.g. Pricing reader" className="h-8 w-full rounded-md border bg-background px-2 text-sm" aria-label="Name" data-tour="mark-name" />
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} rows={2} placeholder="Purpose, in plain words: who these leads are and what to do with them (the AI fills this in)" className="w-full resize-none rounded-md border bg-background p-2 text-xs" />
         <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Colour">
           {MARK_COLORS.map((c) => (
@@ -230,7 +234,7 @@ export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: {
         <button type="button" onClick={onCancel} className="h-8 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted">
           Cancel
         </button>
-        <button type="button" onClick={save} disabled={saving || empty} className="flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50">
+        <button type="button" data-tour="mark-save" onClick={save} disabled={saving || empty} className="flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50">
           {saving && <Loader2 className="size-3.5 animate-spin" />}
           {initial.id ? "Save" : "Save mark"}
         </button>

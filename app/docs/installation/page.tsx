@@ -169,7 +169,7 @@ Everything recorded goes into this site&apos;s real analytics. Do not install th
             form activity on its own from here. No further setup is required.
           </p>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Settings, Tracking shows the last time data arrived, any other website that sent data and was turned away, and whether your
+            Settings → Tracker shows the last time data arrived, any other website that sent data and was turned away, and whether your
             attributes are working. If you ever regenerate the API key, the old one keeps working for 72 hours so there is no gap in tracking.
           </p>
         </div>

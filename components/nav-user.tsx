@@ -23,7 +23,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, BugIcon, LogOutIcon, SunIcon, MoonIcon, MonitorIcon, UserRound } from "lucide-react"
+import { ChevronsUpDownIcon, BugIcon, LogOutIcon, SunIcon, CheckIcon, MoonIcon, MonitorIcon, UserRound } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useClerk } from "@clerk/nextjs"
@@ -75,17 +75,17 @@ export function NavUser({
             <DropdownMenuItem onSelect={() => setTheme("light")}>
               <SunIcon />
               Light
-              {theme === "light" && <span className="ml-auto text-xs text-muted-foreground">✓</span>}
+              {theme === "light" && <CheckIcon className="ml-auto size-3.5 text-muted-foreground" />}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setTheme("dark")}>
               <MoonIcon />
               Dark
-              {theme === "dark" && <span className="ml-auto text-xs text-muted-foreground">✓</span>}
+              {theme === "dark" && <CheckIcon className="ml-auto size-3.5 text-muted-foreground" />}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setTheme("system")}>
               <MonitorIcon />
               System
-              {theme === "system" && <span className="ml-auto text-xs text-muted-foreground">✓</span>}
+              {theme === "system" && <CheckIcon className="ml-auto size-3.5 text-muted-foreground" />}
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
