@@ -21,13 +21,13 @@ export interface PageNav {
 }
 
 export const SECONDARY_NAV: Record<string, PageNav> = {
-  "/platform/notifications": {
-    title: "Notifications",
-    defaultId: "inbox",
+  "/platform/hooks": {
+    title: "Hooks",
+    defaultId: "hooked",
     items: [
-      { id: "inbox", label: "Inbox" }, // what reached me
-      { id: "rules", label: "Rules" }, // when to notify, whom, where
-      { id: "channels", label: "Channels" }, // Slack and webhooks
+      { id: "hooked", label: "Hooked leads" }, // every lead a hook caught
+      { id: "rules", label: "Hooks" }, // the hooks: which marks, who is told, where; on / off
+      { id: "integrations", label: "Integrations" }, // Slack and webhooks
     ],
   },
   "/platform/settings": {

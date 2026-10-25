@@ -12,7 +12,7 @@ import { isSlackUrl } from "@/lib/notifications/send";
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 const back = (req: NextRequest, result: string) => {
-  const res = NextResponse.redirect(new URL("/platform/notifications?tab=channels&slack=" + result, req.nextUrl.origin));
+  const res = NextResponse.redirect(new URL("/platform/hooks?tab=integrations&slack=" + result, req.nextUrl.origin));
   res.cookies.delete({ name: SLACK_STATE_COOKIE, path: "/api/integrations/slack" });
   return res;
 };

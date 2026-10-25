@@ -20,7 +20,7 @@ const state: MarksState = { ok: true, ready: true, me: "user_me", marks, leadMar
 
 export default function MarksLibraryDemo() {
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 p-6">
+    <div className="mx-auto w-full max-w-[1900px] space-y-4 p-6">
       <div className="text-xs font-medium uppercase tracking-wide text-amber-600">Demo, fake data</div>
       <h1 className="text-lg font-semibold">Marks</h1>
       <MarksLibrary state={state} />

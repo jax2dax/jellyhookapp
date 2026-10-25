@@ -66,7 +66,8 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
   }, [menu]);
   const [varsOpen, setVarsOpen] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  // each card opens on its own (several can be open at once)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [vars, setVars] = useState<Record<string, Record<string, string>>>({});
@@ -205,13 +206,13 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
                 <h2 className="text-sm font-semibold">{cat.name}</h2>
                 <span className="text-xs text-muted-foreground">{cat.blurb}</span>
               </div>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(19rem,1fr))] items-start gap-3">
                 {items.map((c) => {
                   const have = mine.find((m) => m.sourceKey === c.key);
                   const preview = previewOf(c);
-                  const open = expanded === c.key;
+                  const open = expanded.has(c.key);
                   return (
-                    <div key={c.key} className="flex flex-col gap-1.5 rounded-lg border bg-card px-3 py-2.5">
+                    <div key={c.key} className="flex flex-col gap-1.5 rounded-lg border bg-card px-4 py-3.5">
                       <div className="flex items-center gap-1.5">
                         <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
                         <span className="truncate text-sm font-medium">{c.name}</span>
@@ -221,7 +222,7 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
                             <Info className="size-3 text-muted-foreground" aria-label={c.note} />
                           </span>
                         )}
-                        <button type="button" onClick={() => setExpanded(open ? null : c.key)} className="ml-auto flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={open ? "Less" : "More about this mark"} aria-expanded={open}>
+                        <button type="button" onClick={() => setExpanded((s) => { const n = new Set(s); if (open) n.delete(c.key); else n.add(c.key); return n; })} className="ml-auto flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={open ? "Less" : "More about this mark"} aria-expanded={open}>
                           <ChevronDown className={"size-3.5 transition-transform " + (open ? "rotate-180" : "")} />
                         </button>
                       </div>
@@ -289,7 +290,7 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
       </div>
 
       {/* ── right: My marks, then Shared with me ── */}
-      <aside className="sticky top-6 flex max-h-[calc(100vh-3rem)] w-80 shrink-0 flex-col overflow-hidden rounded-lg border bg-card">
+      <aside className="sticky top-6 flex max-h-[calc(100vh-3rem)] w-80 shrink-0 flex-col overflow-hidden rounded-lg border bg-card xl:w-96 2xl:w-[28rem]">
         <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
           {builder ? (
             <>

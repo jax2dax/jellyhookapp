@@ -39,7 +39,7 @@ export function Inbox({ items: initial, ready }: { items: InboxItem[]; ready: bo
           <Bell className="mx-auto size-6 text-muted-foreground" />
           <p className="mt-2 text-sm text-foreground">No notifications yet.</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Make a rule in <Link href="/platform/notifications?tab=rules" className="text-primary hover:underline">Rules</Link>: when a new lead has the marks you choose, it lands here.
+            Make a hook in <Link href="/platform/hooks?tab=rules" className="text-primary hover:underline">Hooks</Link>: when a new lead has the marks you choose, it is hooked and you are told here.
           </p>
         </div>
       ) : (

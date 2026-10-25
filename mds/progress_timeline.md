@@ -1834,3 +1834,13 @@ Plan and decisions: `mds/build/marks/marks-v2-plan.md`. Step 1 built:
 
 New marks open in a new builder: three starting buttons (Visit condition, Page condition, Form condition); a visit is a card (which visit: the one they sent the form in by default, any, first, visit number, every); "Then, a later visit" chains visits; pages in any order or in order with "right after" / "later"; headings picked from the page's real headings (read for N s, or not read); form answers by field (numbers with any-part ranges, choices, yes/no, text) and how the form was filled (fill time, hesitation on a field, a field left empty, left while filling, edits, errors). Checked by a new checker on the same numbers as the visit chart (`jh-marks/v2`, `lib/marks/journey.ts`), cheap conditions first. Enter with AI knows the site's form fields and only the headings the sentence names, a sales glossary (hesitation = time before typing), and answers "missing field" with the naming popup. Old marks keep the old builder. Docs: `/docs/reference/marks`. Also: the dashboard's live ticker removed (founder: it re-listed old page views and polled the server). Plan and status: `mds/build/marks/marks-v2-plan.md`.
 **Run `mds/migrations/22-marks-v2.sql` (and 21 if not yet).**
+
+## 2026-10-24 - Hooks page, updates from Jellyhook, sales dashboard
+
+- **Hooks** (new sidebar item, `/platform/hooks`): Hooked leads (every lead a hook caught, `lib/actions/hooks.action.ts`), Hooks (the rules, formerly Notifications -> Rules; a Live / Paused pill instead of a switch; "Add hook"), Integrations (formerly Channels; Slack OAuth now returns here). In the editor: "Notification method" (In app always on, unpicked channels dimmed), "Add lead to group (optional)".
+- **Notifications** is the inbox only: updates "From Jellyhook" (red dot, no number, in-app only; posted by the ids in `JELLYHOOK_ADMIN_USER_IDS`, migration 23) and one entry per hooked lead (yellow count). Old `?tab=rules` / `?tab=channels` links redirect.
+- **Hook -> Query builder**: the old Hook page is renamed and hidden from the sidebar (`/platform/hook` still works).
+- **Dashboard**: Pages and Lead footprints removed; a sales section on top (Hooked leads, Your marks with counts, Latest leads with their mark badges; `components/dashboard/SalesSection.tsx`). The Hook shortcut card is gone.
+- **Marks page**: wider (to 1900 px), library cards fill the row (at least about 19rem each), each card opens on its own, the My marks panel widens on big screens.
+- The 24 h notification guard is back on.
+**Run `mds/migrations/23-announcements.sql` and set `JELLYHOOK_ADMIN_USER_IDS` (your Clerk user id) in Vercel.**

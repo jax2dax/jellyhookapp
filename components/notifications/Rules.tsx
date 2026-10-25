@@ -7,7 +7,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Bell, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
-import { IntegrationTile, KindLogo, SlackLogo } from "./Brand";
+import { IntegrationTile, JellyhookTile, KindLogo, SlackLogo } from "./Brand";
 import { deleteRule, saveRule, setRuleActive, type RuleView, type RulesState } from "@/lib/actions/notifications.action";
 import { copySharedMark } from "@/lib/actions/marks.action";
 
@@ -31,7 +31,7 @@ export function Rules({ state: initial }: { state: RulesState }) {
     setState((s) => ({ ...s, rules: s.rules.map((x) => (x.id === r.id ? { ...x, active: !r.active } : x)) }));
   };
   const remove = async (r: RuleView) => {
-    if (!window.confirm(`Delete the rule "${r.name}"? Notifications already sent stay.`)) return;
+    if (!window.confirm(`Delete the hook "${r.name}"? Leads it already caught and notifications already sent stay.`)) return;
     setBusy(r.id);
     const res = await deleteRule(r.id);
     setBusy(null);
@@ -45,15 +45,15 @@ export function Rules({ state: initial }: { state: RulesState }) {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">Notify your team when a submitted lead matches every mark in a rule.</p>
+        <p className="text-sm text-muted-foreground">A hook watches every new lead. When one has all of its marks, the lead is hooked and your team is told.</p>
         <button
           type="button"
           disabled={mine >= state.limit || !!draft}
           onClick={() => setDraft(empty())}
-          title={mine >= state.limit ? `Limit of ${state.limit} rules reached` : "Add action"}
+          title={mine >= state.limit ? `Limit of ${state.limit} hooks reached` : "Add hook"}
           className="flex h-8 shrink-0 items-center gap-1 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground disabled:opacity-40"
         >
-          <Plus className="size-3.5" /> Add action
+          <Plus className="size-3.5" /> Add hook
         </button>
       </div>
       {note && <p className={"text-xs " + (note.tone === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400")}>{note.text}</p>}
@@ -80,24 +80,29 @@ export function Rules({ state: initial }: { state: RulesState }) {
       {state.rules.length === 0 && !draft ? (
         <div className="rounded-lg border border-dashed p-10 text-center">
           <Bell className="mx-auto size-6 text-muted-foreground" />
-          <p className="mt-2 text-sm text-foreground">No rules yet.</p>
-          <p className="mt-1 text-xs text-muted-foreground">Add an action to notify your team when a lead matches the marks you choose.</p>
+          <p className="mt-2 text-sm text-foreground">No hooks yet.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Add a hook to catch the leads that match the marks you choose, and tell your team.</p>
         </div>
       ) : (
         <ul className="space-y-2">
           {state.rules.map((r) => (
             <li key={r.id} className={"rounded-lg border bg-card p-3 " + (r.active ? "" : "opacity-60")}>
               <div className="flex items-start gap-3">
+                {/* a hook's own on/off: a "Live / Paused" pill, so it never looks like a mark's switch */}
                 <button
                   type="button"
                   role="switch"
                   aria-checked={r.active}
                   disabled={!r.canEdit || busy === r.id}
                   onClick={() => toggle(r)}
-                  title={r.active ? "On" : "Off"}
-                  className={"mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors disabled:opacity-50 " + (r.active ? "bg-primary" : "bg-muted-foreground/30")}
+                  title={r.active ? "Live: catches every new lead. Click to pause." : "Paused: catches nothing. Click to go live."}
+                  className={
+                    "mt-0.5 inline-flex h-6 w-[4.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full border text-[11px] font-semibold uppercase tracking-wide transition-colors disabled:opacity-50 " +
+                    (r.active ? "border-amber-500/60 bg-amber-400/15 text-amber-700 dark:text-amber-300" : "border-border bg-muted text-muted-foreground")
+                  }
                 >
-                  <span className={"size-4 rounded-full bg-white shadow transition-transform " + (r.active ? "translate-x-4" : "")} />
+                  <span className={"size-1.5 rounded-full " + (r.active ? "animate-pulse bg-amber-500" : "bg-muted-foreground/50")} />
+                  {r.active ? "Live" : "Paused"}
                 </button>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-2">
@@ -111,7 +116,7 @@ export function Rules({ state: initial }: { state: RulesState }) {
                     {r.markIds.map((id) => {
                       const m = markOf(id);
                       return (
-                        <span key={id} className={"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " + (m && m.active ? "text-foreground" : "border-red-500/50 text-red-600 dark:text-red-400")} title={m ? (m.active ? undefined : "This mark is off. The rule is paused until it is on.") : "This mark was deleted. The rule is paused."}>
+                        <span key={id} className={"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " + (m && m.active ? "text-foreground" : "border-red-500/50 text-red-600 dark:text-red-400")} title={m ? (m.active ? undefined : "This mark is off. The hook is paused until it is on.") : "This mark was deleted. The hook is paused."}>
                           <span className="size-1.5 rounded-full" style={{ backgroundColor: m?.color ?? "#999" }} />
                           {m?.name ?? "Deleted mark"}
                         </span>
@@ -176,7 +181,7 @@ function RuleEditor({
   const save = async () => {
     setBusy(true);
     setError(null);
-    const name = d.name.trim() || "New rule";
+    const name = d.name.trim() || "New hook";
     const r = await saveRule({ ...d, name, title: d.title.trim() || name });
     setBusy(false);
     if (!r.ok) return setError(r.error);
@@ -201,8 +206,8 @@ function RuleEditor({
           value={d.name}
           maxLength={60}
           onChange={(e) => set({ name: e.target.value })}
-          placeholder="New rule"
-          aria-label="Rule name"
+          placeholder="New hook"
+          aria-label="Hook name"
           className="h-8 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 text-sm font-semibold hover:border-border focus:border-border focus:outline-none"
         />
         <button type="button" onClick={onCancel} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close">
@@ -329,8 +334,9 @@ function RuleEditor({
         </div>
 
         <div className="flex gap-3">
-          <span className={label}>Integrations</span>
+          <span className={label}>Notification method</span>
           <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+            <JellyhookTile />
             {state.channels.map((c) => {
               const on = d.channelIds.includes(c.id);
               return (
@@ -346,7 +352,7 @@ function RuleEditor({
               );
             })}
             {!state.channels.some((c) => c.kind === "slack") && (
-              <Link href="/platform/notifications?tab=channels" className="relative flex h-[72px] w-[84px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-background hover:border-foreground/30" title="Connect Slack">
+              <Link href="/platform/hooks?tab=integrations" className="relative flex h-[72px] w-[84px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-background hover:border-foreground/30" title="Connect Slack">
                 <SlackLogo className="size-6 opacity-60" />
                 <span className="text-[11px] text-muted-foreground">Connect</span>
               </Link>
@@ -355,7 +361,9 @@ function RuleEditor({
         </div>
 
         <div className="flex gap-3">
-          <span className={label}>Add to group</span>
+          <span className={label}>
+            Add lead to group <span className="block font-normal text-muted-foreground/70">(optional)</span>
+          </span>
           <select
             value={d.addToGroupId ?? ""}
             disabled={!state.groups.length}
@@ -379,7 +387,7 @@ function RuleEditor({
           Cancel
         </button>
         <button type="button" disabled={busy || !d.markIds.length} onClick={save} className="flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-40">
-          {busy && <Loader2 className="size-3.5 animate-spin" />} {d.id ? "Save changes" : "Create rule"}
+          {busy && <Loader2 className="size-3.5 animate-spin" />} {d.id ? "Save changes" : "Create hook"}
         </button>
       </div>
     </div>

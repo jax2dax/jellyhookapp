@@ -15,7 +15,7 @@ const INTEGRATIONS: { kind: "slack" | "webhook"; name: string; text: string }[] 
 ];
 
 const SLACK_RESULT: Record<string, { tone: "ok" | "error"; text: string }> = {
-  connected: { tone: "ok", text: "Slack connected. Pick it under Integrations in a rule." },
+  connected: { tone: "ok", text: "Slack connected. Pick it under Notification method in a hook." },
   cancelled: { tone: "error", text: "Slack connection cancelled." },
   expired: { tone: "error", text: "The Slack connection was started more than an hour ago. Press Connect again." },
   "other-user": { tone: "error", text: "You came back from Slack signed in as a different Jellyhook user than the one who started. Sign in as that user and press Connect again." },

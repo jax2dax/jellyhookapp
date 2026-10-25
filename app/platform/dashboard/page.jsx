@@ -1,17 +1,11 @@
 import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
 import { getLeads } from "@/lib/actions/supabase.actions";
-import { getSitePagesOverview } from "@/lib/actions/pagesOverview.action";
 import { VisitsOverTimeChart } from "@/components/charts/visitsOverTime";
-import { PageViewsBar } from "@/components/charts/pageViewsBar";
 import { ReachConversionsSection } from "@/components/charts/ReachConversionsSection";
-import { FramePlatePreviewCard } from "@/components/dashboard/FramePlatePreviewCard";
 import { ActiveNowTile } from "@/components/dashboard/ActiveNowTile";
 import { WindowStatTile } from "@/components/dashboard/WindowStatTile";
-import { HookShortcutCard } from "@/components/dashboard/HookShortcutCard";
+import { SalesSection } from "@/components/dashboard/SalesSection";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDuration } from "@/lib/leadFormat";
 import { LocalDate } from "@/components/LocalDate";
 import { OnlineChart } from "@/main-chart";
 
@@ -21,7 +15,7 @@ export default async function OverviewPage() {
 
   // The top tiles load their own numbers per time window (WindowStatTile);
   // only the data the rest of the page renders on the server is read here.
-  const [leads, pages] = await Promise.all([getLeads(site.id), getSitePagesOverview(site.id)]);
+  const leads = await getLeads(site.id);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -77,18 +71,18 @@ export default async function OverviewPage() {
         />
       </div>
 
+      {/* ── Sales first: hooked leads, marks, latest leads (components/dashboard/SalesSection.tsx) ── */}
+      <SalesSection leads={leads} />
+
       {/* ── Main charts: pages online (open page views, dips when a page closes) and sessions online (start to last
           seen, does not dip when someone leaves and comes back in the same session) ── */}
       <div className="mb-6">
         <OnlineChart siteId={site.id} />
       </div>
 
-      {/* ── Visits over time + the Hook shortcut (replaced Site Health) ── */}
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <VisitsOverTimeChart siteId={site.id} />
-        </div>
-        <HookShortcutCard />
+      {/* ── Visits over time (the Hook shortcut went with the query builder, hidden 2026-10-24) ── */}
+      <div className="mb-6">
+        <VisitsOverTimeChart siteId={site.id} />
       </div>
 
       {/* ── Reach & Conversions: new visitors and unique conversions, merged by default (Separate and Split on the
@@ -97,56 +91,7 @@ export default async function OverviewPage() {
         <ReachConversionsSection siteId={site.id} defaultView="merged" />
       </div>
 
-      {/* ── Pages overview: how many people are looking at each page ── */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-base">Pages</CardTitle>
-          <CardDescription>How many people are looking at each page, all time.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {pages.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">No page views recorded yet.</div>
-          ) : (
-            // Side by side on wide screens instead of stacked — the bar
-            // chart and the table show the same data two ways, so putting
-            // one above the other doubled the vertical space this card
-            // needed for no real benefit.
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <PageViewsBar data={pages.slice(0, 10)} />
-              {/* Capped instead of growing with every page the site has —
-                  scrolls internally past this height rather than pushing
-                  everything below it down the page. */}
-              <div className="max-h-80 overflow-y-auto lg:max-h-[22rem]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Page</TableHead>
-                      <TableHead className="text-right">Views</TableHead>
-                      <TableHead className="text-right">Unique Visitors</TableHead>
-                      <TableHead className="text-right">Avg Time</TableHead>
-                      <TableHead className="text-right">Avg Scroll</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pages.map((p) => (
-                      <TableRow key={p.page_path}>
-                        <TableCell className="text-foreground">{p.page_path}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{p.views}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{p.uniqueVisitors}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{formatDuration(p.avgTimeMs)}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{p.avgScrollPct != null ? `${p.avgScrollPct}%` : "—"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── FramePlate preview: shortcut ad for the full lead-session chart ── */}
-      <FramePlatePreviewCard siteId={site.id} leads={leads.map((l) => ({ visitor_id: l.visitor_id, name: l.name, email: l.email }))} />
+      {/* Removed 2026-10-24 (founder): the Pages card (views per page) and the Lead footprints card. */}
 
       {/* The live ticker was removed 2026-10-24 (founder): it re-listed old page views and polled the server. */}
 

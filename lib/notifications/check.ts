@@ -21,8 +21,8 @@ const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVI
 const BATCH = 50;
 const LEASE_SECONDS = 60;
 const COOLDOWN_MS = 24 * 3600_000;
-// TEMPORARY (load test, 2026-10-23): the once-per-24h-per-visitor guard is off. Set back to true before shipping.
-const COOLDOWN_ON = false;
+// once per visitor per hook per 24 h (switched off 2026-10-23 for load testing, back on for production 2026-10-24)
+const COOLDOWN_ON = true;
 const DAILY_EXTERNAL_CAP = 500;
 const MAX_ATTEMPTS = 5;
 const RETRY_MS = [10_000, 60_000, 5 * 60_000, 30 * 60_000];
@@ -256,7 +256,7 @@ export async function sendDeliveries(ids?: string[]): Promise<number> {
     c.consecutive_failures = failures;
     await admin.from("notification_channels").update({ consecutive_failures: failures, last_error: res.error, ...(failures >= FAILING_AFTER ? { status: "failing" } : {}) }).eq("id", c.id);
     if (failures === FAILING_AFTER) {
-      await admin.from("notifications").insert({ site_id: c.site_id, user_id: c.created_by, title: "A channel is failing", body: `${c.name} has failed ${FAILING_AFTER} times in a row (${res.error}). Check its address in Notifications, Channels.` });
+      await admin.from("notifications").insert({ site_id: c.site_id, user_id: c.created_by, title: "A channel is failing", body: `${c.name} has failed ${FAILING_AFTER} times in a row (${res.error}). Check it in Hooks, Integrations.` });
     }
   }
   return sent;

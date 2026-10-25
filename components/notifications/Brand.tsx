@@ -43,8 +43,9 @@ export function IntegrationTile({
       aria-pressed={selected}
       className={
         "relative flex h-[72px] w-[84px] flex-col items-center justify-center gap-1.5 rounded-lg border bg-background px-1.5 transition-colors " +
-        (selected ? "border-primary ring-1 ring-primary" : "hover:border-foreground/30") +
-        (muted ? " opacity-70" : "")
+        // not picked = dimmed and grey, so a channel never looks switched on before it is clicked
+        (selected ? "border-primary ring-1 ring-primary" : "opacity-45 grayscale hover:opacity-80 hover:grayscale-0") +
+        (muted && selected ? " opacity-70" : "")
       }
     >
       {selected && (
@@ -55,5 +56,23 @@ export function IntegrationTile({
       <KindLogo kind={kind} className="size-6" />
       <span className="w-full truncate text-center text-[11px] text-muted-foreground">{label}</span>
     </button>
+  );
+}
+
+/** In-app (Jellyhook): every hook always notifies inside Jellyhook, so this tile is always on and cannot be clicked. */
+export function JellyhookTile() {
+  return (
+    <span
+      title="Inside Jellyhook: always on"
+      aria-label="Inside Jellyhook, always on"
+      className="relative flex h-[72px] w-[84px] flex-col items-center justify-center gap-1.5 rounded-lg border border-primary bg-background px-1.5 ring-1 ring-primary"
+    >
+      <span className="absolute right-1 top-1 flex size-3.5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <Check className="size-2.5" />
+      </span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/jellyhook-nobg.png" alt="" className="size-6 object-contain" />
+      <span className="w-full truncate text-center text-[11px] text-muted-foreground">In app</span>
+    </span>
   );
 }

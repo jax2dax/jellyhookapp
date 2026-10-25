@@ -68,7 +68,7 @@ export const DOCS_NAV: DocsNavSection[] = [
       { slug: "reference/leads", title: "Leads page" },
       { slug: "reference/lead-profile", title: "Lead profile page" },
       { slug: "reference/groups", title: "Lead groups" },
-      { slug: "reference/notifications", title: "Notifications" },
+      { slug: "reference/notifications", title: "Hooks and notifications" },
       { slug: "reference/marks", title: "Marks" },
       { slug: "reference/form-fields", title: "Form fields" },
       { slug: "reference/conversions", title: "Conversions page" },

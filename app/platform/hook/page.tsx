@@ -7,7 +7,8 @@ import type { Metadata } from "next";
 import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
 import { HookWorkspace } from "@/components/hook/HookWorkspace";
 
-export const metadata: Metadata = { title: "Hook" };
+// renamed 2026-10-24: what was "Hook" is the Query builder; "Hooks" (/platform/hooks) are now the lead-catching rules. Hidden from the sidebar for now.
+export const metadata: Metadata = { title: "Query builder" };
 
 export default async function HookPage() {
   const user = await getAuthUser();

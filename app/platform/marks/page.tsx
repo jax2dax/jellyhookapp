@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function MarksPage() {
   const state = await loadMarks();
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5 p-6">
+    <div className="mx-auto w-full max-w-[1900px] space-y-5 p-6">
       <h1 className="flex items-center gap-2 text-lg font-semibold">
         Marks
         <InfoTip>
