@@ -2587,7 +2587,7 @@ function firePageViewStart() {
           else wrongValue++;
         } else if (!isTrue) {
           wrongValue++;
-        } else if (el.querySelector("form, iframe, .hbspt-form, [id^='hsForm_']") || el.querySelector("script[src*='hsforms'], script[src*='marketo'], script[src*='mktoForms']")) {
+        } else if (el.querySelector("form, iframe, .hbspt-form, [id^='hsForm_'], .hs-form-frame") || el.classList.contains("hs-form-frame") || el.querySelector("script[src*='hsforms'], script[src*='marketo'], script[src*='mktoForms']")) {
           marked++; // a wrapper around a form or a vendor embed: valid, the vendor renders the form inside it
         } else {
           wrongElement++;
