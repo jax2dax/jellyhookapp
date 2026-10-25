@@ -4,31 +4,8 @@
 // Exact formats: mds/build/notifications/webhooks.md.
 import { createHmac } from "node:crypto";
 
-export interface DeliveryPayload {
-  deliveryId: string;
-  eventId: string;
-  createdAt: string;
-  site: { id: string; domain: string | null };
-  rule: { id: string; name: string };
-  title: string;
-  body: string;
-  marks: { id: string; name: string }[];
-  lead: { id: string; url: string; submittedAt: string | null };
-  /** where the lead came from (credited visit) and, for an ad, its library entry. Never personal data. */
-  source?: { line: string; ad: { platform: string; adId: string; title: string; thumbnailUrl: string | null; videoUrl: string | null } | null } | null;
-}
-
-const httpUrl = (u: string | null | undefined): string | null => {
-  if (!u) return null;
-  try {
-    const x = new URL(u);
-    return x.protocol === "https:" || x.protocol === "http:" ? x.toString() : null;
-  } catch {
-    return null;
-  }
-};
-
-export type SendResult = { ok: true; status: number } | { ok: false; status: number | null; error: string };
+export * from "./message";
+import { slackMessage, webhookBody, type DeliveryPayload, type SendResult } from "./message";
 
 const TIMEOUT_MS = 10_000;
 
@@ -54,41 +31,6 @@ export function isSafeWebhookUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
-
-export function slackMessage(p: DeliveryPayload) {
-  const when = Math.floor(Date.parse(p.lead.submittedAt ?? p.createdAt) / 1000);
-  const ad = p.source?.ad ?? null;
-  const thumb = httpUrl(ad?.thumbnailUrl);
-  const video = httpUrl(ad?.videoUrl);
-  const blocks: Record<string, unknown>[] = [
-    { type: "header", text: { type: "plain_text", text: p.title.slice(0, 150) } },
-    { type: "section", text: { type: "mrkdwn", text: p.body } },
-  ];
-  // what is in the lead's head: the ad (tag, thumbnail) that brought them, so the closer can match it in 3 seconds
-  if (p.source?.line) blocks.push({ type: "section", text: { type: "mrkdwn", text: "*Came from:* " + p.source.line.slice(0, 280) } });
-  if (thumb) blocks.push({ type: "image", image_url: thumb, alt_text: (ad?.title ?? "The ad").slice(0, 200), title: { type: "plain_text", text: (ad?.title ?? "The ad").slice(0, 150) } });
-  blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Hook: ${p.rule.name}${p.site.domain ? " · " + p.site.domain : ""} · <!date^${when}^{date_short} {time}|${new Date(when * 1000).toISOString()}>` }] });
-  const buttons: Record<string, unknown>[] = [{ type: "button", text: { type: "plain_text", text: "Open the lead" }, url: p.lead.url, style: "primary" }];
-  if (video) buttons.push({ type: "button", text: { type: "plain_text", text: "Watch the ad" }, url: video });
-  blocks.push({ type: "actions", elements: buttons });
-  return { text: p.title + ": " + p.body + (p.source?.line ? " (came from " + p.source.line + ")" : ""), blocks };
-}
-
-export function webhookBody(p: DeliveryPayload) {
-  return {
-    event: "rule.fired",
-    id: p.eventId,
-    created_at: p.createdAt,
-    site: p.site,
-    rule: p.rule,
-    message: { title: p.title, body: p.body },
-    marks: p.marks,
-    lead: { id: p.lead.id, url: p.lead.url, submitted_at: p.lead.submittedAt },
-    source: p.source
-      ? { line: p.source.line, ad: p.source.ad ? { platform: p.source.ad.platform, ad_id: p.source.ad.adId, title: p.source.ad.title, thumbnail_url: p.source.ad.thumbnailUrl, video_url: p.source.ad.videoUrl } : null }
-      : null,
-  };
 }
 
 /** The signature header: t=<seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>">. */

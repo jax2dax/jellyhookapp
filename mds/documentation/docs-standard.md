@@ -40,7 +40,7 @@ Order within a section: the thing most people need first. Put the use cases befo
 No em dashes. No marketing words (powerful, seamless, unlock). Short sentences. Define a term once, where it first appears, and use
 it the same way everywhere. Say what is NOT collected or NOT done when a reader would assume it is. Every claim must match the code
 today; cite the file in `mds/documentation/doc_source_map.md`, not on the page. Do not document the excluded items in `roadmap.md`
-(lead confidence, /intent, Engagement Score, /acquisition). Do not call the visit chart "session replay".
+(lead confidence, /intent, Engagement Score). Do not call the visit chart "session replay".
 
 ## Definition of done for a feature
 A feature that changes what a user sees is not finished until: its feature-reference page exists or is updated, the use case page

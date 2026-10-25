@@ -65,7 +65,9 @@ One page per real screen:
 - Billing and plans (added 2026-10-02: what the Billing and Subscription
   pages show during early access, when nothing is actually charged)
 
-**Not documented, on purpose, as of 2026-10-02:** `/platform/acquisition`.
+**Not documented, on purpose, as of 2026-10-02:** `/platform/acquisition`. **Lifted 2026-10-24** (founder): the page
+was rebuilt (platforms, campaigns, ads, credit model, Ads library) and is documented at `/docs/reference/acquisition`
+and `/docs/guides/ad-tracking`. Marketing claims about it still need the claims ledger first.
 It exists and is reachable by direct URL, but is not linked from the
 sidebar (see `components/app-sidebar.tsx`) because it isn't considered to
 have real content yet. Give it a doc page once it's actually part of the

@@ -4,6 +4,7 @@
 // (the templates for Meta / Google / TikTok). The tab is ?tab= (components/nav/navRegistry.ts). Plan:
 // mds/build/acquisition/plan.md.
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getAuthUser, requireSite } from "@/lib/actions/permission.actions";
 import { AcquisitionView } from "@/components/acquisition/AcquisitionView";
 import { AdsLibrary } from "@/components/acquisition/AdsLibrary";
@@ -31,7 +32,17 @@ export default async function AcquisitionPage({ searchParams }: { searchParams: 
   }
   return (
     <div className="space-y-4 p-6 pt-4">
-      <p className="text-sm text-muted-foreground">Which platforms, campaigns and ads bring your leads, and your best ones.</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">Which platforms, campaigns and ads bring your leads, and your best ones.</p>
+        <div className="flex items-center gap-3 text-xs">
+          <Link href="/platform/acquisition?tab=setup" className="font-medium text-foreground underline-offset-4 hover:underline">
+            Set up ad tracking
+          </Link>
+          <a href="/docs/reference/acquisition" target="_blank" rel="noreferrer" className="text-muted-foreground underline-offset-4 hover:underline">
+            How it works
+          </a>
+        </div>
+      </div>
       <AcquisitionView />
     </div>
   );

@@ -19,8 +19,9 @@ they reached, time per form field), and where your form loses the people who sta
    people, "approach local businesses", friends/family, or "comment about Jellyhook in threads". Work from
    `marketing/strategy.md`.
 6. Read the current date/weekday before planning. Plans are day-by-day with a time and a place.
-7. Excluded on purpose (see `mds/documentation/roadmap.md`): lead `confidence`, `/platform/intent`, Engagement Score,
-   `/platform/acquisition`. Never market them.
+7. Excluded on purpose (see `mds/documentation/roadmap.md`): lead `confidence`, `/platform/intent`, Engagement Score.
+   Never market them. (`/platform/acquisition` was rebuilt and documented at the founder's request on 2026-10-24; its
+   claims are not in the claims ledger yet, so do not market it until they are.)
 
 ## Where things are
 - Product facts: `SAAS_PRODUCT_AUDIT.md`, `saas-overview.md`, `mds/documentation/*`, `public/tracker.js`

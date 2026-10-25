@@ -73,7 +73,11 @@ export function TrackingSetup() {
       ))}
       <p className="text-xs text-muted-foreground">
         Only clicks after you paste these carry the ad. Older visits still show their platform (from the ad network&apos;s click id or the referrer), without the
-        ad.
+        ad. Full steps and how to check it works:{" "}
+        <a href="/docs/guides/ad-tracking" target="_blank" rel="noreferrer" className="font-medium text-foreground underline-offset-4 hover:underline">
+          Set up ad tracking
+        </a>
+        .
       </p>
     </div>
   );

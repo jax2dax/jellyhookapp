@@ -10,8 +10,9 @@ import { randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { siteOrThrow } from "@/lib/hook/site";
 import { isHookError } from "@/jh-hook/errors";
-import { maskUrl, sealSecret } from "@/lib/notifications/secret";
-import { isSafeWebhookUrl, isSlackUrl, post } from "@/lib/notifications/send";
+import { maskUrl, openSecret, sealSecret } from "@/lib/notifications/secret";
+import { isSafeWebhookUrl, isSlackUrl, messageOptions, post, type MessageOptions } from "@/lib/notifications/send";
+import { fillTemplate } from "@/lib/notifications/decide";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -130,6 +131,8 @@ export interface RuleView {
   canEdit: boolean;
   createdByEmail: string | null;
   firedThisWeek: number;
+  /** what its Slack message shows (migration 26); every part by default */
+  messageOptions: MessageOptions;
 }
 
 export interface ChannelView {
@@ -152,20 +155,22 @@ export interface RulesState {
   groups: { id: string; name: string; color: string }[];
   channels: ChannelView[];
   limit: number;
+  /** the most recent ad in the Ads library that has a thumbnail, to preview hook messages with; null when none */
+  sampleAd: { title: string; thumbnailUrl: string; videoUrl: string | null; line: string } | null;
 }
 
 export async function loadRules(): Promise<Result<{ state: RulesState }>> {
   try {
     const { userId, siteId, role } = await who();
     const [rulesRes, marksRes, membersRes, groupsRes, channelsRes] = await Promise.all([
-      admin.from("notification_rules").select("id, name, title, body, mark_ids, recipients, channel_ids, add_to_group_id, active, created_by, created_by_email, created_at").eq("site_id", siteId).order("created_at"),
+      ruleRows(siteId),
       admin.from("marks").select("id, name, color, active, created_by, visibility, shared_with, source").eq("site_id", siteId).eq("kind", "lead"),
       admin.from("site_members").select("user_id, user_email").eq("site_id", siteId).eq("status", "active"),
       admin.from("lead_groups").select("id, name, color, visibility, created_by").eq("site_id", siteId).order("created_at"),
       admin.from("notification_channels").select("id, kind, name, hint, status, last_error").eq("site_id", siteId).order("created_at"),
     ]);
     if (rulesRes.error && missing(rulesRes.error.message)) {
-      return { ok: true, state: { ready: false, me: userId, canManageChannels: false, rules: [], marks: [], members: [], groups: [], channels: [], limit: RULE_LIMIT } };
+      return { ok: true, state: { ready: false, me: userId, canManageChannels: false, rules: [], marks: [], members: [], groups: [], channels: [], limit: RULE_LIMIT, sampleAd: null } };
     }
     for (const r of [rulesRes, membersRes, groupsRes, channelsRes]) if (r.error) throw new Error(r.error.message);
     const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
@@ -195,11 +200,13 @@ export async function loadRules(): Promise<Result<{ state: RulesState }>> {
           canEdit: r.created_by === userId || isAdmin(role),
           createdByEmail: (r.created_by_email as string) ?? null,
           firedThisWeek: fired.get(r.id as string) ?? 0,
+          messageOptions: messageOptions(r.message_options),
         })),
         marks: visible.map((m) => ({ id: m.id as string, name: m.name as string, color: m.color as string, active: !!m.active, mine: m.created_by === userId, source: (m.source as string) ?? "own" })),
         members: (membersRes.data ?? []).filter((m) => !String(m.user_id).startsWith("pending:")).map((m) => ({ userId: m.user_id as string, email: (m.user_email as string) ?? null })),
         groups: (groupsRes.data ?? []).filter((g) => g.visibility === "team" || g.created_by === userId).map((g) => ({ id: g.id as string, name: g.name as string, color: g.color as string })),
         channels: (channelsRes.data ?? []).map((c) => ({ id: c.id as string, kind: c.kind as "slack" | "webhook", name: c.name as string, hint: (c.hint as string) ?? null, status: c.status as "ok" | "failing", lastError: (c.last_error as string) ?? null })),
+        sampleAd: await latestAd(siteId),
       },
     };
   } catch (e) {
@@ -216,6 +223,24 @@ export interface SaveRuleInput {
   recipients: string[];
   channelIds: string[];
   addToGroupId: string | null;
+  messageOptions?: Partial<MessageOptions>;
+}
+
+const RULE_COLS = "id, name, title, body, mark_ids, recipients, channel_ids, add_to_group_id, active, created_by, created_by_email, created_at";
+
+/** The site's rules, with their message options when the database has them (migration 26). */
+async function ruleRows(siteId: string) {
+  const r = await admin.from("notification_rules").select(RULE_COLS + ", message_options").eq("site_id", siteId).order("created_at");
+  if (!r.error || !/message_options/.test(r.error.message)) return r as { data: Record<string, unknown>[] | null; error: { message: string } | null };
+  return (await admin.from("notification_rules").select(RULE_COLS).eq("site_id", siteId).order("created_at")) as { data: Record<string, unknown>[] | null; error: { message: string } | null };
+}
+
+/** The newest ad with a thumbnail (Ads library, migration 25), to preview and test hook messages with. */
+async function latestAd(siteId: string): Promise<RulesState["sampleAd"]> {
+  const { data, error } = await admin.from("ads").select("platform, ad_id, ad_name, tag, campaign, thumbnail_url, video_url").eq("site_id", siteId).not("thumbnail_url", "is", null).order("last_seen", { ascending: false }).limit(1).maybeSingle();
+  if (error || !data) return null;
+  const title = (data.tag as string) || (data.ad_name as string) || (data.ad_id as string);
+  return { title, thumbnailUrl: data.thumbnail_url as string, videoUrl: (data.video_url as string) ?? null, line: [data.platform + " · Ads", data.campaign, title].filter(Boolean).join(" · ") };
 }
 
 /** Create or change a rule. Marks: the person's own (built or copied), switched on; marks already in the rule may stay. */
@@ -258,21 +283,73 @@ export async function saveRule(input: SaveRuleInput): Promise<Result<{ id: strin
       if (!g || (g.visibility === "private" && g.created_by !== userId)) return { ok: false, error: "That group is not there anymore." };
       addToGroupId = g.id as string;
     }
-    const row = { name, title, body, mark_ids: markIds, recipients, channel_ids: channelIds, add_to_group_id: addToGroupId, updated_at: new Date().toISOString() };
+    const base = { name, title, body, mark_ids: markIds, recipients, channel_ids: channelIds, add_to_group_id: addToGroupId, updated_at: new Date().toISOString() };
+    // the Slack message's options (migration 26); before it, the rule is saved without them (every part shown)
+    let row: Record<string, unknown> = input.messageOptions ? { ...base, message_options: messageOptions(input.messageOptions) } : base;
+    const withoutOptions = (e: { message: string } | null) => !!e && /message_options/.test(e.message) && "message_options" in row;
     if (input.id) {
-      const { error } = await admin.from("notification_rules").update(row).eq("id", input.id).eq("site_id", siteId);
+      let { error } = await admin.from("notification_rules").update(row).eq("id", input.id).eq("site_id", siteId);
+      if (withoutOptions(error)) ({ error } = await admin.from("notification_rules").update((row = base)).eq("id", input.id).eq("site_id", siteId));
       if (error) throw new Error(error.message);
       return { ok: true, id: input.id };
     }
     const email = (await currentUser())?.primaryEmailAddress?.emailAddress ?? null;
-    const { data, error } = await admin.from("notification_rules").insert({ ...row, site_id: siteId, created_by: userId, created_by_email: email, active: true }).select("id").single();
+    let { data, error } = await admin.from("notification_rules").insert({ ...row, site_id: siteId, created_by: userId, created_by_email: email, active: true }).select("id").single();
+    if (withoutOptions(error)) ({ data, error } = await admin.from("notification_rules").insert({ ...(row = base), site_id: siteId, created_by: userId, created_by_email: email, active: true }).select("id").single());
     if (error) {
       if (/rule_limit/.test(error.message)) return { ok: false, error: `You have ${RULE_LIMIT} rules, the most there can be. Delete one to make another.` };
       throw new Error(error.message);
     }
-    return { ok: true, id: data.id as string };
+    return { ok: true, id: data!.id as string };
   } catch (e) {
     return fail(e, "save rule");
+  }
+}
+
+/**
+ * Sends a sample hooked-lead message, exactly as this hook (not yet saved, or saved) would send it, to the Slack
+ * channels picked in it: its subject, its message with "a new lead", its options, and where a lead came from (the newest
+ * ad with a thumbnail in the Ads library, or an example line). Nothing personal: there is no real lead.
+ */
+export async function testHookMessage(input: { name: string; title: string; body: string; markIds: string[]; channelIds: string[]; messageOptions?: Partial<MessageOptions> }): Promise<Result<{ sent: number; failed: string[] }>> {
+  try {
+    const { siteId } = await who();
+    const ids = (input.channelIds ?? []).slice(0, 10);
+    if (!ids.length) return { ok: false, error: "Pick a Slack channel under Notification method first." };
+    const [chans, marks, site, ad] = await Promise.all([
+      admin.from("notification_channels").select("id, kind, name, secret, signing_secret").eq("site_id", siteId).in("id", ids),
+      admin.from("marks").select("id, name").eq("site_id", siteId).in("id", (input.markIds ?? []).slice(0, 10)),
+      admin.from("sites").select("domain").eq("id", siteId).maybeSingle(),
+      latestAd(siteId),
+    ]);
+    const names = (marks.data ?? []).map((m) => m.name as string);
+    const now = new Date().toISOString();
+    const name = (input.name ?? "").trim() || "New hook";
+    const payload = {
+      deliveryId: "test_" + randomBytes(6).toString("hex"),
+      eventId: "evt_test",
+      createdAt: now,
+      site: { id: siteId, domain: (site.data?.domain as string) ?? null },
+      rule: { id: "test", name: name + " (test)" },
+      title: ((input.title ?? "").trim() || name).slice(0, 80),
+      body: fillTemplate(input.body ?? "", "a new lead", names.length ? names : ["your marks"]),
+      marks: (marks.data ?? []).map((m) => ({ id: m.id as string, name: m.name as string })),
+      lead: { id: "test", url: (process.env.NEXT_PUBLIC_APP_URL || "https://jellyhook.com").replace(/\/+$/, "") + "/platform/hooks", submittedAt: now },
+      source: ad ? { line: ad.line, ad: { platform: "", adId: "", title: ad.title, thumbnailUrl: ad.thumbnailUrl, videoUrl: ad.videoUrl } } : { line: "Meta · Ads · Spring sale · Example ad (add ads in Acquisition → Ads to see yours)", ad: null },
+      options: messageOptions(input.messageOptions),
+    };
+    let sent = 0;
+    const failed: string[] = [];
+    for (const c of chans.data ?? []) {
+      if (c.kind !== "slack") continue; // webhooks are tested from Integrations
+      const r = await post("slack", openSecret(c.secret as string), payload, null);
+      if (r.ok) sent++;
+      else failed.push(`${c.name}: ${r.error}`);
+    }
+    if (!sent && !failed.length) return { ok: false, error: "Pick a Slack channel under Notification method first." };
+    return { ok: true, sent, failed };
+  } catch (e) {
+    return fail(e, "test hook message");
   }
 }
 

@@ -19,14 +19,15 @@ const items: InboxItem[] = [
   { id: "n3", title: "Hot Lead new", body: "Sara Lind matched Pricing reader, Came back", leadId: "L3", ruleId: "r1", marks: [marks[0], marks[1]].map(({ id, name, color }) => ({ id, name, color })), createdAt: ago(60 * 26), readAt: ago(60 * 20) },
 ];
 const state: RulesState = {
-  ready: true, me: "u1", canManageChannels: true, limit: 10, marks,
+  ready: true, me: "u1", canManageChannels: true,
+    sampleAd: null, limit: 10, marks,
   members: [{ userId: "u1", email: "you@example.com" }, { userId: "u2", email: "sara@example.com" }, { userId: "u3", email: "ben@example.com" }],
   groups: [{ id: "g1", name: "Deal pipeline", color: "#22c55e" }],
   channels: [{ id: "c1", kind: "slack", name: "#sales", hint: "hooks.slack.com/…/9xQe", status: "ok", lastError: null }, { id: "c2", kind: "webhook", name: "HubSpot via Zapier", hint: "hooks.zapier.com/…/a1b2", status: "failing", lastError: "answered 410" }],
   rules: [
-    { id: "r1", name: "Hot Lead new", title: "Hot Lead new", body: "", markIds: ["m1", "m2"], recipients: [], channelIds: ["c1"], addToGroupId: "g1", active: true, mine: true, canEdit: true, createdByEmail: "you@example.com", firedThisWeek: 4 },
-    { id: "r2", name: "Pricing readers", title: "Pricing readers", body: "", markIds: ["m1"], recipients: ["u2"], channelIds: [], addToGroupId: null, active: true, mine: false, canEdit: false, createdByEmail: "sara@example.com", firedThisWeek: 11 },
-    { id: "r3", name: "High intent", title: "High intent", body: "", markIds: ["m3"], recipients: [], channelIds: [], addToGroupId: null, active: true, mine: true, canEdit: true, createdByEmail: "you@example.com", firedThisWeek: 0 },
+    { id: "r1", name: "Hot Lead new", title: "Hot Lead new", body: "", markIds: ["m1", "m2"], recipients: [], channelIds: ["c1"], addToGroupId: "g1", active: true, mine: true, canEdit: true, createdByEmail: "you@example.com", firedThisWeek: 4, messageOptions: { source: true, adImage: true, watchButton: true, openButton: true, details: true } },
+    { id: "r2", name: "Pricing readers", title: "Pricing readers", body: "", markIds: ["m1"], recipients: ["u2"], channelIds: [], addToGroupId: null, active: true, mine: false, canEdit: false, createdByEmail: "sara@example.com", firedThisWeek: 11, messageOptions: { source: true, adImage: true, watchButton: true, openButton: true, details: true } },
+    { id: "r3", name: "High intent", title: "High intent", body: "", markIds: ["m3"], recipients: [], channelIds: [], addToGroupId: null, active: true, mine: true, canEdit: true, createdByEmail: "you@example.com", firedThisWeek: 0, messageOptions: { source: true, adImage: true, watchButton: true, openButton: true, details: true } },
   ],
 };
 

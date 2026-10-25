@@ -1,7 +1,7 @@
 // lib/notifications/tests/send.test.ts - outside messages (lib/notifications/send.ts): formats, address checks, signature.
 // Run: npx jiti lib/notifications/tests/send.test.ts
 import { createHmac } from "node:crypto";
-import { isSafeWebhookUrl, isSlackUrl, signature, slackMessage, webhookBody, type DeliveryPayload } from "../send";
+import { isSafeWebhookUrl, isSlackUrl, messageOptions, signature, slackMessage, webhookBody, type DeliveryPayload } from "../send";
 
 let fails = 0;
 let passes = 0;
@@ -51,6 +51,22 @@ for (const bad of ["http://example.com/x", "https://localhost/x", "https://127.0
   ok(!bad.blocks.some((b) => b.type === "image") && (bad.blocks[bad.blocks.length - 1].elements ?? []).length === 1, "a link that is not http(s) is never sent");
   const wb = webhookBody(withAd);
   ok(wb.source?.ad?.title === "2026 Core Demo Video" && wb.source?.ad?.video_url?.startsWith("https://") === true, "the webhook carries the source and the ad too");
+}
+
+// ── the hook's message options (migration 26): every part can be hidden; defaults show everything ──
+{
+  const full: DeliveryPayload = { ...p, source: { line: "Meta · Ads · Spring sale · Core Demo", ad: { platform: "Meta", adId: "1", title: "Core Demo", thumbnailUrl: "https://x.co/a.jpg", videoUrl: "https://x.co/v" } } };
+  const types = (o: object) => (slackMessage({ ...full, options: o }) as unknown as { blocks: { type: string }[] }).blocks.map((b) => b.type).join(",");
+  ok(types({}) === "header,section,section,image,context,actions", "no options: everything shown");
+  ok(types({ source: false }) === "header,section,image,context,actions", "Came from hidden");
+  ok(types({ adImage: false }) === "header,section,section,context,actions", "thumbnail hidden");
+  ok(types({ details: false }) === "header,section,section,image,actions", "the hook / site / time line hidden");
+  ok(types({ openButton: false, watchButton: false }) === "header,section,section,image,context", "both buttons hidden: no button row at all");
+  const onlyWatch = slackMessage({ ...full, options: { openButton: false } }) as unknown as { blocks: { type: string; elements?: { text?: { text: string } }[] }[] };
+  ok(onlyWatch.blocks[onlyWatch.blocks.length - 1].elements?.length === 1 && onlyWatch.blocks[onlyWatch.blocks.length - 1].elements?.[0].text?.text === "Watch the ad", "Open the lead hidden, Watch the ad kept");
+  ok(!(slackMessage({ ...full, options: { source: false } }) as { text: string }).text.includes("came from"), "a hidden Came from is not in the fallback text either");
+  ok(JSON.stringify(messageOptions({ source: false, adImage: "no", junk: 1 })) === JSON.stringify({ source: false, adImage: true, watchButton: true, openButton: true, details: true }), "stored options are cleaned (non-booleans take the default)");
+  ok(webhookBody({ ...full, options: { source: false } }).source?.line === "Meta · Ads · Spring sale · Core Demo", "webhooks always get every field");
 }
 
 console.log(`\n${passes} passed, ${fails} failed`);

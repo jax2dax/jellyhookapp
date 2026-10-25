@@ -14,7 +14,7 @@ import { createClient } from "@supabase/supabase-js";
 import { evaluateLeads } from "@/lib/marks/evaluate";
 import { decide, type LeadIn, type RuleIn } from "./decide";
 import { openSecret } from "./secret";
-import { post, type DeliveryPayload } from "./send";
+import { messageOptions, post, type DeliveryPayload } from "./send";
 import { leadSources } from "@/lib/acquisition/leadSource";
 
 const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -97,11 +97,10 @@ export async function runSiteLane(siteId: string, budgetMs: number): Promise<boo
 
 /** The notification rules for these (just checked) leads. Returns the ids of the deliveries to send. */
 export async function fireRules(siteId: string, leadIds: string[]): Promise<string[]> {
-  const { data: ruleRows, error: rulesError } = await admin
-    .from("notification_rules")
-    .select("id, name, title, body, mark_ids, recipients, channel_ids, add_to_group_id")
-    .eq("site_id", siteId)
-    .eq("active", true);
+  const cols = "id, name, title, body, mark_ids, recipients, channel_ids, add_to_group_id";
+  let { data: ruleRows, error: rulesError } = (await admin.from("notification_rules").select(cols + ", message_options").eq("site_id", siteId).eq("active", true)) as { data: Record<string, unknown>[] | null; error: { message: string } | null };
+  // before 26-hook-message-options.sql: every part of the message is shown
+  if (rulesError && /message_options/.test(rulesError.message)) ({ data: ruleRows, error: rulesError } = (await admin.from("notification_rules").select(cols).eq("site_id", siteId).eq("active", true)) as { data: Record<string, unknown>[] | null; error: { message: string } | null });
   if (rulesError) throw new Error("rules: " + rulesError.message);
   if (!ruleRows?.length) return [];
   const rules: RuleIn[] = ruleRows.map((r) => ({
@@ -114,6 +113,7 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
     addToGroupId: (r.add_to_group_id as string) ?? null,
   }));
   const ruleName = new Map(ruleRows.map((r) => [r.id as string, r.name as string]));
+  const ruleOptions = new Map(ruleRows.map((r) => [r.id as string, messageOptions(r.message_options)]));
   const allMarkIds = [...new Set(rules.flatMap((r) => r.markIds))];
 
   const [leadsRes, lmRes, marksRes, membersRes, siteRes] = await Promise.all([
@@ -210,6 +210,7 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
         marks: f.markIds.map((id, i) => ({ id, name: f.markNames[i] })),
         lead: { id: f.leadId, url: `${APP_URL}/platform/leads/${f.leadId}`, submittedAt: submittedAt.get(f.leadId) ?? null },
         source: sources.get(f.leadId) ? { line: sources.get(f.leadId)!.line, ad: sources.get(f.leadId)!.ad } : null,
+        options: ruleOptions.get(f.ruleId) ?? null,
       };
       rows.push({ site_id: siteId, event_id: ev.id, channel_id, payload });
     }

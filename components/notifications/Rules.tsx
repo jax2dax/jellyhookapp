@@ -6,13 +6,16 @@
 // they keep running when their creator leaves; their creator or an owner/admin changes them.
 import * as React from "react";
 import Link from "next/link";
-import { Bell, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Bell, Check, ChevronDown, Loader2, Pencil, Plus, Send, Trash2, X } from "lucide-react";
 import { IntegrationTile, JellyhookTile, KindLogo, SlackLogo } from "./Brand";
-import { deleteRule, saveRule, setRuleActive, type RuleView, type RulesState } from "@/lib/actions/notifications.action";
+import { deleteRule, saveRule, setRuleActive, testHookMessage, type RuleView, type RulesState } from "@/lib/actions/notifications.action";
+import { DEFAULT_MESSAGE_OPTIONS, slackMessage, type MessageOptions } from "@/lib/notifications/message";
+import { fillTemplate } from "@/lib/notifications/decide";
+import { SlackPreview } from "./SlackPreview";
 import { copySharedMark } from "@/lib/actions/marks.action";
 
-type Draft = { id?: string; name: string; title: string; body: string; markIds: string[]; recipients: string[]; channelIds: string[]; addToGroupId: string | null };
-const empty = (): Draft => ({ name: "", title: "", body: "", markIds: [], recipients: [], channelIds: [], addToGroupId: null });
+type Draft = { id?: string; name: string; title: string; body: string; markIds: string[]; recipients: string[]; channelIds: string[]; addToGroupId: string | null; messageOptions: MessageOptions };
+const empty = (): Draft => ({ name: "", title: "", body: "", markIds: [], recipients: [], channelIds: [], addToGroupId: null, messageOptions: { ...DEFAULT_MESSAGE_OPTIONS } });
 
 /**
  * `startMark`: a mark id from a mark's "Create a hook" (?newHook=<id>): the editor opens with that mark in it and the
@@ -80,7 +83,7 @@ export function Rules({ state: initial, startMark = null }: { state: RulesState;
           onCopied={(m) => setState((s) => ({ ...s, marks: [...s.marks, m] }))}
           onSaved={(id, d) => {
             setState((s) => {
-              const view: RuleView = { id, name: d.name, title: d.title || d.name, body: d.body, markIds: d.markIds, recipients: d.recipients, channelIds: d.channelIds, addToGroupId: d.addToGroupId, active: true, mine: true, canEdit: true, createdByEmail: null, firedThisWeek: 0 };
+              const view: RuleView = { id, name: d.name, title: d.title || d.name, body: d.body, markIds: d.markIds, recipients: d.recipients, channelIds: d.channelIds, addToGroupId: d.addToGroupId, active: true, mine: true, canEdit: true, createdByEmail: null, firedThisWeek: 0, messageOptions: d.messageOptions };
               const known = s.rules.find((r) => r.id === id);
               return { ...s, rules: known ? s.rules.map((r) => (r.id === id ? { ...known, ...view, active: known.active, mine: known.mine, createdByEmail: known.createdByEmail, firedThisWeek: known.firedThisWeek } : r)) : [...s.rules, view] };
             });
@@ -151,7 +154,7 @@ export function Rules({ state: initial, startMark = null }: { state: RulesState;
                 </div>
                 {r.canEdit && (
                   <span className="flex shrink-0 items-center gap-1">
-                    <button type="button" disabled={!!draft} onClick={() => setDraft({ id: r.id, name: r.name, title: r.title, body: r.body, markIds: r.markIds, recipients: r.recipients, channelIds: r.channelIds, addToGroupId: r.addToGroupId })} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40" aria-label={"Edit " + r.name}>
+                    <button type="button" disabled={!!draft} onClick={() => setDraft({ id: r.id, name: r.name, title: r.title, body: r.body, markIds: r.markIds, recipients: r.recipients, channelIds: r.channelIds, addToGroupId: r.addToGroupId, messageOptions: r.messageOptions })} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40" aria-label={"Edit " + r.name}>
                       <Pencil className="size-3.5" />
                     </button>
                     <button type="button" disabled={busy === r.id} onClick={() => remove(r)} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-red-500/10 hover:text-red-600" aria-label={"Delete " + r.name}>
@@ -373,6 +376,8 @@ function RuleEditor({
           </div>
         </div>
 
+        {d.channelIds.some((id) => state.channels.find((c) => c.id === id)?.kind === "slack") && <SlackMessageOptions d={d} state={state} set={set} />}
+
         <div className="flex gap-3">
           <span className={label}>
             Add lead to group <span className="block font-normal text-muted-foreground/70">(optional)</span>
@@ -402,6 +407,81 @@ function RuleEditor({
         <button type="button" disabled={busy || !d.markIds.length} onClick={save} className="flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-40">
           {busy && <Loader2 className="size-3.5 animate-spin" />} {d.id ? "Save changes" : "Create hook"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+const OPTION_ROWS: { key: keyof MessageOptions; label: string; hint: string }[] = [
+  { key: "source", label: "Where they came from", hint: "Came from: Meta · Ads · Spring sale · 2026 Core Demo Video" },
+  { key: "adImage", label: "The ad's thumbnail", hint: "When the ad has one in Acquisition → Ads" },
+  { key: "watchButton", label: "Watch the ad button", hint: "When the ad has a video link" },
+  { key: "openButton", label: "Open the lead button", hint: "A link to the lead in Jellyhook" },
+  { key: "details", label: "Hook, site and time", hint: "The small line under the message" },
+];
+
+/**
+ * "Customize the Slack message" (shown once a Slack channel is picked): which parts the hook's Slack message carries
+ * besides its subject and message, a preview drawn from the exact blocks sent, and a test sent to the picked channels.
+ * Webhooks always receive every field.
+ */
+function SlackMessageOptions({ d, state, set }: { d: Draft; state: RulesState; set: (patch: Partial<Draft>) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const [testing, setTesting] = React.useState(false);
+  const [note, setNote] = React.useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const o = d.messageOptions;
+  const markNames = d.markIds.map((id) => state.marks.find((m) => m.id === id)?.name ?? "a mark");
+  const ad = state.sampleAd;
+  const preview = slackMessage({
+    deliveryId: "preview",
+    eventId: "preview",
+    createdAt: new Date().toISOString(),
+    site: { id: "", domain: null },
+    rule: { id: "", name: d.name.trim() || "New hook" },
+    title: d.title.trim() || d.name.trim() || "New hook",
+    body: fillTemplate(d.body, "a new lead", markNames.length ? markNames : ["your marks"]),
+    marks: [],
+    lead: { id: "", url: "https://jellyhook.com", submittedAt: new Date().toISOString() },
+    source: ad ? { line: ad.line, ad: { platform: "", adId: "", title: ad.title, thumbnailUrl: ad.thumbnailUrl, videoUrl: ad.videoUrl ?? "https://example.com/video" } } : { line: "Meta · Ads · Spring sale · Example ad", ad: { platform: "", adId: "", title: "Example ad", thumbnailUrl: (typeof window === "undefined" ? "https://jellyhook.com" : window.location.origin) + "/jellyhook-nobg.png", videoUrl: "https://example.com/video" } },
+    options: o,
+  }) as unknown as { blocks: Parameters<typeof SlackPreview>[0]["blocks"] };
+  const test = async () => {
+    setTesting(true);
+    setNote(null);
+    const r = await testHookMessage({ name: d.name, title: d.title, body: d.body, markIds: d.markIds, channelIds: d.channelIds, messageOptions: o });
+    setTesting(false);
+    if (!r.ok) return setNote({ tone: "error", text: r.error });
+    setNote(r.failed.length ? { tone: "error", text: "Not delivered: " + r.failed.join("; ") } : { tone: "ok", text: `Sent to ${r.sent} Slack channel${r.sent === 1 ? "" : "s"}. Check Slack.` });
+  };
+  return (
+    <div className="flex gap-3">
+      <span className="w-24 shrink-0 pt-1.5 text-xs font-medium text-muted-foreground">Slack message</span>
+      <div className="min-w-0 flex-1 space-y-2">
+        <button type="button" onClick={() => setOpen((x) => !x)} className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs hover:bg-muted" aria-expanded={open}>
+          Customize <ChevronDown className={"size-3 transition-transform " + (open ? "rotate-180" : "")} />
+        </button>
+        {open && (
+          <div className="grid gap-3 rounded-md border bg-background p-3 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+            <div className="space-y-2">
+              <p className="text-[11px] text-muted-foreground">The subject and message are always sent. Choose what else the Slack message shows:</p>
+              {OPTION_ROWS.map((row) => (
+                <label key={row.key} className="flex cursor-pointer items-start gap-2 text-xs">
+                  <input type="checkbox" className="mt-0.5" checked={o[row.key]} onChange={(e) => set({ messageOptions: { ...o, [row.key]: e.target.checked } })} />
+                  <span>
+                    <span className="block text-foreground">{row.label}</span>
+                    <span className="block text-[11px] text-muted-foreground">{row.hint}</span>
+                  </span>
+                </label>
+              ))}
+              <button type="button" disabled={testing} onClick={test} className="mt-1 inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs hover:bg-muted disabled:opacity-40">
+                {testing ? <Loader2 className="size-3 animate-spin" /> : <Send className="size-3" />} Send a test to Slack
+              </button>
+              {note && <p className={"text-[11px] " + (note.tone === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400")}>{note.text}</p>}
+              {!ad && <p className="text-[11px] text-muted-foreground">The preview uses an example ad. Add your ads in Acquisition → Ads to see yours.</p>}
+            </div>
+            <SlackPreview blocks={preview.blocks} />
+          </div>
+        )}
       </div>
     </div>
   );
