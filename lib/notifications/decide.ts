@@ -20,6 +20,8 @@ export interface RuleIn {
   recipients: string[];
   channelIds: string[];
   addToGroupId: string | null;
+  /** "every": notify for every matching lead; default: once per visitor per 24 hours */
+  repeat?: "daily" | "every";
 }
 
 export interface LeadIn {
@@ -94,7 +96,8 @@ export function decide(input: {
       const has = input.leadMarks.get(lead.id);
       if (!has || !ids.every((id) => has.has(id))) continue;
       const key = rule.id + "|" + (lead.visitorId ?? "lead:" + lead.id);
-      const cooled = input.recent.has(key) || firedNow.has(key);
+      // a hook set to "every time" (message_options.repeat) notifies for every lead; otherwise once per visitor per 24 h
+      const cooled = rule.repeat !== "every" && (input.recent.has(key) || firedNow.has(key));
       firedNow.add(key);
       fires.push({
         ruleId: rule.id,

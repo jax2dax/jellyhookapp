@@ -51,9 +51,15 @@ const l1 = d.fires.find((f) => f.leadId === "L1")!;
 ok(!l1.notify && l1.addToGroupId === "G1", "same person within 24 hours: no notification, but still added to the group");
 ok(d.fires.find((f) => f.leadId === "L2")!.notify, "others are not held back by someone else's cooldown");
 
+// a hook set to "every time" ignores the 24-hour rule, and a second lead of the same visitor in one batch also notifies
+d = decide({ rules: [rule("R1", ["m1"], { repeat: "every" })], leads, leadMarks, marks, recent: new Set(["R1|v1"]), members });
+ok(d.fires.find((f) => f.leadId === "L1")!.notify, 'a hook set to "every time" notifies although this visitor fired it today');
+
 const twice = [{ id: "A", visitorId: "v9", name: "X", email: null }, { id: "B", visitorId: "v9", name: "X", email: null }];
 d = decide({ rules: [rule("R1", ["m1"])], leads: twice, leadMarks: new Map([["A", new Set(["m1"])], ["B", new Set(["m1"])]]), marks, recent: new Set(), members });
 ok(d.fires[0].notify && !d.fires[1].notify, "the same person twice in one batch: notified once");
+d = decide({ rules: [rule("R1", ["m1"], { repeat: "every" })], leads: twice, leadMarks: new Map([["A", new Set(["m1"])], ["B", new Set(["m1"])]]), marks, recent: new Set(), members });
+ok(d.fires[0].notify && d.fires[1].notify, 'a hook set to "every time": the same person twice in one batch is notified twice');
 
 ok(fillTemplate("New: {lead} ({marks})", "a new lead", ["A", "B"]) === "New: a new lead (A, B)", "{lead} in the middle stays lower case");
 ok(fillTemplate("", "a new lead", ["A"]) === "A new lead matched A", "an empty body uses the default");

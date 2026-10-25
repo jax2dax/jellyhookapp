@@ -69,7 +69,15 @@ export interface MessageOptions {
   pageScope: PageScope;
   /** where the lead opens when the site has HubSpot connected: its HubSpot contact, Jellyhook, or a button for each */
   leadLink: LeadLink;
+  /**
+   * The same visitor sending another form that matches this hook: "daily" notifies once per visitor per 24 hours (the
+   * default, so one person filling in three forms is one message), "every" notifies for every lead. Not about the Slack
+   * message itself; kept with the hook's options so it needs no migration. Read by lib/notifications/decide.ts.
+   */
+  repeat: RepeatMode;
 }
+
+export type RepeatMode = "daily" | "every";
 
 export type LeadLink = "hubspot" | "jellyhook" | "both";
 
@@ -77,7 +85,7 @@ export type LeadLink = "hubspot" | "jellyhook" | "both";
 export type MessageToggle = "source" | "adImage" | "watchButton" | "openButton" | "details";
 export const MAX_SUMMARY_PAGES = 3;
 
-export const DEFAULT_MESSAGE_OPTIONS: MessageOptions = { source: true, adImage: true, watchButton: true, openButton: true, details: true, summary: "moderate", pages: [], pageScope: "all", leadLink: "hubspot" };
+export const DEFAULT_MESSAGE_OPTIONS: MessageOptions = { source: true, adImage: true, watchButton: true, openButton: true, details: true, summary: "moderate", pages: [], pageScope: "all", leadLink: "hubspot", repeat: "daily" };
 
 /** Cleans stored or submitted options: anything missing or invalid takes its default. */
 export function messageOptions(raw: unknown): MessageOptions {
@@ -89,7 +97,8 @@ export function messageOptions(raw: unknown): MessageOptions {
     : [];
   const pageScope = o.pageScope === "converting" ? "converting" : "all";
   const leadLink = o.leadLink === "jellyhook" || o.leadLink === "both" ? o.leadLink : "hubspot";
-  return { source: pick("source"), adImage: pick("adImage"), watchButton: pick("watchButton"), openButton: pick("openButton"), details: pick("details"), summary, pages, pageScope, leadLink };
+  const repeat = o.repeat === "every" ? "every" : "daily";
+  return { source: pick("source"), adImage: pick("adImage"), watchButton: pick("watchButton"), openButton: pick("openButton"), details: pick("details"), summary, pages, pageScope, leadLink, repeat };
 }
 
 /**

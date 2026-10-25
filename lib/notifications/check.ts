@@ -116,6 +116,7 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
     recipients: (r.recipients as string[]) ?? [],
     channelIds: (r.channel_ids as string[]) ?? [],
     addToGroupId: (r.add_to_group_id as string) ?? null,
+    repeat: messageOptions(r.message_options).repeat,
   }));
   const ruleName = new Map(ruleRows.map((r) => [r.id as string, r.name as string]));
   const ruleOptions = new Map(ruleRows.map((r) => [r.id as string, messageOptions(r.message_options)]));

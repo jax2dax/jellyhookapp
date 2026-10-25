@@ -399,6 +399,22 @@ function RuleEditor({
         {d.channelIds.some((id) => state.channels.find((c) => c.id === id)?.kind === "slack") && <SlackMessageOptions d={d} state={state} set={set} />}
 
         <div className="flex gap-3">
+          <span className={label}>Same visitor again</span>
+          <div className="min-w-0 flex-1 space-y-1">
+            <select
+              value={d.messageOptions.repeat}
+              onChange={(e) => set({ messageOptions: { ...d.messageOptions, repeat: e.target.value as MessageOptions["repeat"] } })}
+              className="h-8 min-w-0 rounded-md border bg-background px-2 text-sm"
+              aria-label="When the same visitor matches this hook again"
+            >
+              <option value="daily">Notify once a day</option>
+              <option value="every">Notify every time</option>
+            </select>
+            <p className="text-[11px] text-muted-foreground">When one visitor sends several forms that match. Once a day avoids repeat messages; every time is useful for testing.</p>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
           <span className={label}>
             Add lead to group <span className="block font-normal text-muted-foreground/70">(optional)</span>
           </span>
