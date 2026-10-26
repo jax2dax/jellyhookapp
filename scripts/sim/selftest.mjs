@@ -1,6 +1,5 @@
 // scripts/sim/selftest.mjs - checks the traffic simulator (scripts/sim/traffic.mjs) against a recording mock server: what it
 // sends, from which origin, with which key, the rush mode, and that it refuses production. No database. Run: node scripts/sim/selftest.mjs
-/* eslint-disable */
 import http from "node:http";
 import { spawn } from "node:child_process";
 const got = { track: [], form: [], headers: [] };

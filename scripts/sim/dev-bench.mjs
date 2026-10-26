@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-/* eslint-disable */
 // scripts/sim/dev-bench.mjs - runs Jellyhook on http://localhost:3100 against the TEST database (npm run dev:bench).
 //
 // Reads .env.bench (the separate Supabase project's keys; never committed, never read by anyone but this process) before
