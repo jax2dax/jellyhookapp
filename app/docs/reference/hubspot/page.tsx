@@ -67,8 +67,8 @@ export default function HubSpotReferencePage() {
             after it is sent, so by the time someone clicks, the contact is there.
           </li>
           <li>
-            If HubSpot has no contact with that email, the lead has no email, or HubSpot does not answer within 4 seconds, the button opens the lead
-            in Jellyhook instead.
+            If HubSpot has no contact with that email, a short page says so, with <B>Look again</B> and <B>Open in Jellyhook</B>. If the lead has no email, or HubSpot does not
+            answer within 4 seconds, the button opens the lead in Jellyhook instead.
           </li>
           <li>Webhooks also receive the link, as <B>lead.hubspot_url</B>.</li>
         </UL>
@@ -105,7 +105,10 @@ export default function HubSpotReferencePage() {
           <li>&quot;No email on this contact&quot;: Jellyhook matches by email.</li>
           <li>&quot;Reconnect Jellyhook&quot;: HubSpot stopped accepting the connection (for example, the app was removed in HubSpot). Connect again in Integrations.</li>
           <li>&quot;This chart link has expired&quot;: a chart opened from the card stays readable for 30 minutes. Close it and open it again.</li>
-          <li>Open in HubSpot opened Jellyhook: no contact had that email when it was clicked. Click again once the contact exists.</li>
+          <li>
+            Open in HubSpot shows &quot;No HubSpot contact yet&quot;: HubSpot has no contact with that lead&apos;s email in the connected account. A contact can take a minute to appear, and a
+            form that HubSpot treats as spam creates none. Click <B>Look again</B>, or open the lead in Jellyhook.
+          </li>
         </UL>
       </Section>
 
