@@ -2,9 +2,11 @@
 // The Jellyhook card on a HubSpot contact record (middle column). Asks Jellyhook (app/api/hubspot/card, signed by
 // HubSpot) what this contact did on the website before sending the form: each of their Jellyhook leads with its visit
 // summary (Short / Moderate / Long), team marks, the hooks that caught it, where it came from, and "Open visit chart",
-// which opens the real chart in a HubSpot modal (app/embed/visit). Design: mds/build/integrations/hubspot.md.
+// which opens the real chart in a HubSpot modal (app/embed/visit). Laid out with colour-coded tags (green: hooked,
+// orange: came from, blue: marks), a tile per lead and a stats row. HubSpot cards take only HubSpot's own components (no
+// custom CSS), so colour comes from their variants. Design: mds/build/integrations/hubspot.md.
 import React, { useEffect, useState } from "react";
-import { Button, Divider, EmptyState, ErrorState, Flex, Link, LoadingSpinner, Tag, Text, hubspot } from "@hubspot/ui-extensions";
+import { Button, Divider, EmptyState, ErrorState, Flex, Link, LoadingSpinner, Statistics, StatisticsItem, Tag, Tile, Text, hubspot } from "@hubspot/ui-extensions";
 
 const CARD_URL = "https://jellyhook.com/api/hubspot/card";
 const VERSIONS = [
@@ -15,6 +17,14 @@ const VERSIONS = [
 
 hubspot.extend(({ context, actions }) => <JellyhookCard context={context} actions={actions} />);
 
+/** "3 h ago", "2 days ago" */
+const ago = (iso) => {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60_000) return "just now";
+  if (ms < 3_600_000) return Math.round(ms / 60_000) + " min ago";
+  if (ms < 86_400_000) return Math.round(ms / 3_600_000) + " h ago";
+  return Math.round(ms / 86_400_000) + " days ago";
+};
 const when = (iso) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
 function JellyhookCard({ context, actions }) {
@@ -66,59 +76,78 @@ function JellyhookCard({ context, actions }) {
       </EmptyState>
     );
 
+  const leads = answer.leads;
+  const hookCount = new Set(leads.flatMap((l) => l.hooks)).size;
+  const markCount = new Set(leads.flatMap((l) => l.marks)).size;
+
   return (
-    <Flex direction="column" gap="medium">
+    <Flex direction="column" gap="md">
+      <Statistics>
+        <StatisticsItem id="leads" label={leads.length === 1 ? "Lead" : "Leads"} number={leads.length} />
+        <StatisticsItem id="hooks" label="Hooks that caught them" number={hookCount} />
+        <StatisticsItem id="marks" label="Marks" number={markCount} />
+      </Statistics>
+
       <Flex direction="row" gap="extra-small" align="center" wrap="wrap">
-        <Text variant="microcopy">Summary:</Text>
+        <Text variant="microcopy">Summary</Text>
         {VERSIONS.map(([v, label]) => (
           <Button key={v} size="xs" variant={v === version ? "primary" : "secondary"} onClick={() => setVersion(v)}>
             {label}
           </Button>
         ))}
       </Flex>
-      {answer.leads.map((lead, i) => (
-        <Flex key={lead.id} direction="column" gap="small">
-          {i > 0 && <Divider />}
-          <Text format={{ fontWeight: "bold" }}>
-            Form sent {when(lead.submittedAt)}
-            {lead.page ? " on " + lead.page : ""}
-            {lead.form ? " (" + lead.form + ")" : ""} · {lead.site}
-          </Text>
-          {lead.cameFrom && <Text variant="microcopy">Came from: {lead.cameFrom}</Text>}
-          {(lead.hooks.length > 0 || lead.marks.length > 0) && (
+
+      {leads.map((lead) => (
+        <Tile key={lead.id}>
+          <Flex direction="column" gap="sm">
+            <Flex direction="row" justify="between" align="center" wrap="wrap" gap="extra-small">
+              <Text format={{ fontWeight: "bold" }}>Form sent {when(lead.submittedAt)}</Text>
+              <Text variant="microcopy">{ago(lead.submittedAt)}</Text>
+            </Flex>
+
             <Flex direction="row" gap="extra-small" wrap="wrap">
               {lead.hooks.map((h) => (
                 <Tag key={"h" + h} variant="success">
-                  Hook: {h}
+                  Hooked: {h}
                 </Tag>
               ))}
+              {lead.cameFrom && <Tag variant="warning">Came from {lead.cameFrom}</Tag>}
               {lead.marks.map((m) => (
-                <Tag key={"m" + m}>{m}</Tag>
+                <Tag key={"m" + m} variant="info">
+                  {m}
+                </Tag>
               ))}
+              {lead.form && <Tag variant="default">Form {lead.form}</Tag>}
             </Flex>
-          )}
-          {lead.summary ? (
-            <Flex direction="column" gap="flush">
-              {lead.summary[version].map((line, j) => (
-                <Text key={j}>{line}</Text>
-              ))}
-            </Flex>
-          ) : (
-            <Text variant="microcopy">The visit summary could not be made just now.</Text>
-          )}
-          <Flex direction="row" gap="small" align="center">
-            {lead.chartUrl && (
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => actions.openIframeModal({ uri: lead.chartUrl, height: 820, width: 1280, title: "Visit chart", flush: true })}
-              >
-                Open visit chart
-              </Button>
+            <Text variant="microcopy">
+              {lead.page ? lead.page + " · " : ""}
+              {lead.site}
+            </Text>
+
+            <Divider />
+
+            {lead.summary ? (
+              <Flex direction="column" gap="flush">
+                {lead.summary[version].map((line, j) => (
+                  <Text key={j} format={j === 0 ? { fontWeight: "bold" } : undefined}>
+                    {line}
+                  </Text>
+                ))}
+              </Flex>
+            ) : (
+              <Text variant="microcopy">The visit summary could not be made just now.</Text>
             )}
-            <Link href={{ url: lead.jellyhookUrl, external: true }}>Open in Jellyhook</Link>
+
+            <Flex direction="row" gap="small" align="center">
+              {lead.chartUrl && (
+                <Button size="sm" variant="primary" onClick={() => actions.openIframeModal({ uri: lead.chartUrl, height: 820, width: 1280, title: "Visit chart", flush: true })}>
+                  Open visit chart
+                </Button>
+              )}
+              <Link href={{ url: lead.jellyhookUrl, external: true }}>Open in Jellyhook</Link>
+            </Flex>
           </Flex>
-        </Flex>
+        </Tile>
       ))}
     </Flex>
   );
