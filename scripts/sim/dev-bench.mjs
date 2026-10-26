@@ -38,7 +38,30 @@ if (bench.NEXT_PUBLIC_SUPABASE_URL !== bench.SUPABASE_URL) {
   console.error("\nSUPABASE_URL and NEXT_PUBLIC_SUPABASE_URL in .env.bench are different. They must be the same test project.");
   process.exit(1);
 }
-console.log(`Test database: ${host}\n`);
+console.log(`Test database: ${host}`);
+
+// The database must carry the test mark (mds/bench/01-mark-test-database.sql, run in the TEST project only). Production
+// never has it, so a .env.bench that points at production is refused here, before anything is started.
+const refuse = (why) => {
+  console.error(`\nNOT STARTING: ${why}\nThis check exists so load tests never run against production.`);
+  process.exit(1);
+};
+try {
+  const res = await fetch(`${bench.SUPABASE_URL.replace(/\/+$/, "")}/rest/v1/jh_environment?select=name`, {
+    headers: { apikey: bench.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${bench.SUPABASE_SERVICE_ROLE_KEY}` },
+    signal: AbortSignal.timeout(15_000),
+  });
+  const rows = res.ok ? await res.json().catch(() => null) : null;
+  if (!Array.isArray(rows) || !rows.some((r) => r && r.name === "bench")) {
+    refuse(
+      `${host} is not marked as the test database.\nIf it IS your test project, run mds/bench/01-mark-test-database.sql in ITS SQL editor (the project whose address is ${host}), then try again.\nIf it is your production project, .env.bench is wrong: fix it.`,
+    );
+  }
+} catch (e) {
+  refuse(`could not check ${host} (${e instanceof Error ? e.message : String(e)}).`);
+}
+console.log("Marked as the test database: ok\n");
+if (process.env.JELLYHOOK_BENCH_CHECK_ONLY === "1") process.exit(0);
 
 const next = path.join("node_modules", "next", "dist", "bin", "next");
 const child = spawn(process.execPath, [next, "dev", "-p", "3100"], {

@@ -92,6 +92,7 @@ Keep this list current: add a line when you create a .md file, change it when a 
 - `marks/marks.md`: marks on leads, library, site statistics (v1, the chip builder). `marks/marks-v2-plan.md`: the new builder (visit blocks, page sequences, headings, form answers and activity): plan, founder decisions, build status.
 - `heading-time/plan.md`: time per heading (tracker, storage, heat map).
 - `forms/lead-forms.md`: which form submissions are leads (per-form switches, data-conversion as an override, form_key on every lead, skipped counts), the rule, the flow, tests, docs still to rewrite.
+- `mds/bench/WHICH-SQL-WHERE.md`: which SQL runs in the production project and which in the test (bench) project, and the safety nets; `01-mark-test-database.sql` is for the test project only.
 - `control-room.md`: the founder's control room (/admin): every metric and its source, how work is measured (meter, pipeline_runs), cost split, the test environment (.env.bench, dev:bench, the traffic simulator).
 - `settings/sidebar.md`: the Settings page as a grouped sidebar (sections, addresses, what each shows, how it is built, wording fixed).
 - `form-study/`: `plan.md`, `averages-and-versions.md` (form dashboard versions and reference), `tracker-changes.md`.

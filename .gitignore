@@ -56,6 +56,7 @@ saas-overview.md
 /mds/database.md
 /mds/*
 !/mds/migrations/
+!/mds/bench/
 !/mds/documentation/
 
 /mds/todos.md
