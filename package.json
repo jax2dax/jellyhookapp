@@ -12,7 +12,7 @@
     "test:silhouette": "jiti silhouette/tests/derive.test.ts",
     "test:output": "jiti output/tests/output.test.ts",
     "test:visits": "jiti lib/analytics/visitsAggregate.test.ts",
-    "test:tracking": "jiti lib/tracking/tests/tracking.test.ts && jiti lib/tracking/tests/identity.test.ts && jiti lib/tracking/tests/headingTime.test.ts && jiti lib/tracking/tests/pageSnapshot.test.ts && jiti lib/settings/tests/sections.test.js && jiti lib/metrics/tests/meter.test.ts",
+    "test:tracking": "jiti lib/tracking/tests/tracking.test.ts && jiti lib/tracking/tests/identity.test.ts && jiti lib/tracking/tests/headingTime.test.ts && jiti lib/tracking/tests/pageSnapshot.test.ts && jiti lib/settings/tests/sections.test.js && jiti lib/metrics/tests/meter.test.ts && jiti lib/metrics/tests/costs.test.ts && jiti lib/metrics/tests/markWeight.test.ts",
     "test:tracking-sql": "jiti lib/tracking/tests/migration.test.ts && jiti lib/metrics/tests/controlRoom.sql.test.ts",
     "bench:storage": "jiti lib/tracking/bench/storage.bench.ts",
     "bench:planner": "jiti scripts/bench/planner.bench.ts",

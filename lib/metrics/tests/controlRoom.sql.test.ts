@@ -91,7 +91,7 @@ async function main() {
   ok(Number(b.events) === 0 && b.slack_p50_ms === null && Number(b.runs) === 0, "a quiet site: zeros and no latency, not an error");
 
   const days = (await db.query(`select * from jh_admin_daily($1, 7)`, [A])).rows as any[];
-  ok(days.length === 7 && Number(days[6].events) === 15 && Number(days[6].runs) === 4, "daily: 7 days, today has the traffic and the batches");
+  ok(days.length === 7 && Number(days[6].events) === 15 && Number(days[6].runs) === 4 && Number(days[6].run_db_calls) === 140, "daily: 7 days, today has the traffic, the batches and their database calls");
   const all = (await db.query(`select * from jh_admin_daily(null, 3)`)).rows as any[];
   ok(all.length === 3 && Number(all[2].events) === 15, "daily for all sites (null site)");
 
@@ -99,6 +99,10 @@ async function main() {
   ok(Number(now.people) === 2, "people: distinct active members across sites");
   ok(Number(now.queue_leads) === 1 && now.queue_oldest_ms >= 4000 && Number(now.queue_parked) === 1, "queue: one waiting (about 5 s), one parked after its last try");
   ok(Number(now.failed_messages_24h) === 1 && Number(now.run_errors_24h) === 1, "failures in the last 24 hours");
+
+  const lat = (await db.query(`select * from jh_admin_latency(now() - interval '30 days')`)).rows[0] as any;
+  ok(Number(lat.sent) === 4 && Math.abs(lat.slack_p50_ms - 7000) < 1 && Number(lat.over_30s) === 1, "all sites: 4 sent, median 7 s, one over the 30 s promise");
+  ok(Number(lat.runs) === 4 && Number(lat.run_max_ms) === 1600, "all sites: batch times");
 
   console.log(`\n${passes} passed, ${fails} failed`);
   process.exit(fails ? 1 : 0);

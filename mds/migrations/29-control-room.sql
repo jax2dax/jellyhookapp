@@ -7,6 +7,7 @@
 --        jh_admin_sites(since)          one row per site: traffic, leads, marks, hooks, form-to-Slack time, work
 --        jh_admin_daily(site, days)     one row per day for one site (all sites when site is null)
 --        jh_admin_now()                 the queue right now: waiting leads, oldest wait, pending and failed messages
+--        jh_admin_latency(since)        every site together: form to Slack and batch time percentiles, messages over 30 s
 -- Only the service role may call them; no table here is readable by signed-in users.
 
 -- 1 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -156,7 +157,7 @@ $$;
 create or replace function public.jh_admin_daily(p_site uuid, p_days integer)
 returns table (
   day date, events bigint, visits bigint, page_views bigint, forms bigint, server_ms bigint, db_calls bigint, db_ms bigint,
-  runs bigint, run_leads bigint, run_ms bigint, run_p95_ms double precision, sent bigint, slack_p95_ms double precision
+  runs bigint, run_leads bigint, run_ms bigint, run_p95_ms double precision, run_db_calls bigint, sent bigint, slack_p95_ms double precision
 )
 language sql stable security definer set search_path = public as $$
   with days as (select generate_series(current_date - (greatest(p_days, 1) - 1), current_date, interval '1 day')::date as day),
@@ -166,7 +167,7 @@ language sql stable security definer set search_path = public as $$
     from site_usage_daily where (p_site is null or site_id = p_site) and day >= current_date - (greatest(p_days, 1) - 1) group by day
   ),
   r as (
-    select created_at::date as day, count(*) runs, sum(leads) run_leads, sum(total_ms) run_ms, percentile_cont(0.95) within group (order by total_ms) run_p95_ms
+    select created_at::date as day, count(*) runs, sum(leads) run_leads, sum(total_ms) run_ms, percentile_cont(0.95) within group (order by total_ms) run_p95_ms, sum(db_calls) run_db_calls
     from pipeline_runs where kind = 'leads' and (p_site is null or site_id = p_site) and created_at >= current_date - (greatest(p_days, 1) - 1) group by 1
   ),
   d as (
@@ -180,7 +181,7 @@ language sql stable security definer set search_path = public as $$
   )
   select days.day, coalesce(u.events, 0), coalesce(u.visits, 0), coalesce(u.page_views, 0), coalesce(u.forms, 0),
          coalesce(u.server_ms, 0), coalesce(u.db_calls, 0), coalesce(u.db_ms, 0),
-         coalesce(r.runs, 0), coalesce(r.run_leads, 0), coalesce(r.run_ms, 0), r.run_p95_ms, coalesce(d.sent, 0), d.slack_p95_ms
+         coalesce(r.runs, 0), coalesce(r.run_leads, 0), coalesce(r.run_ms, 0), r.run_p95_ms, coalesce(r.run_db_calls, 0), coalesce(d.sent, 0), d.slack_p95_ms
   from days left join u using (day) left join r using (day) left join d using (day)
   order by days.day;
 $$;
@@ -202,12 +203,35 @@ language sql stable security definer set search_path = public as $$
     (select count(*) from pipeline_runs where error is not null and created_at >= now() - interval '24 hours');
 $$;
 
+-- every site together: form to Slack, and batch times, as real percentiles over all of them (not an average of averages)
+create or replace function public.jh_admin_latency(p_since timestamptz)
+returns table (sent bigint, slack_p50_ms double precision, slack_p95_ms double precision, slack_max_ms double precision,
+               over_30s bigint, runs bigint, run_p50_ms double precision, run_p95_ms double precision, run_max_ms double precision)
+language sql stable security definer set search_path = public as $$
+  with x as (
+    select extract(epoch from (d.sent_at - f.submitted_at)) * 1000 ms
+    from notification_deliveries d join notification_events e on e.id = d.event_id join form_submissions f on f.id = e.lead_id
+    where d.status = 'sent' and d.sent_at >= p_since
+  ), r as (select total_ms from pipeline_runs where kind = 'leads' and created_at >= p_since)
+  select (select count(*) from x),
+         (select percentile_cont(0.5) within group (order by ms) from x),
+         (select percentile_cont(0.95) within group (order by ms) from x),
+         (select max(ms) from x),
+         (select count(*) from x where ms > 30000),
+         (select count(*) from r),
+         (select percentile_cont(0.5) within group (order by total_ms) from r),
+         (select percentile_cont(0.95) within group (order by total_ms) from r),
+         (select max(total_ms) from r);
+$$;
+
 revoke all on function public.jh_admin_sites(timestamptz) from public, anon, authenticated;
 revoke all on function public.jh_admin_daily(uuid, integer) from public, anon, authenticated;
 revoke all on function public.jh_admin_now() from public, anon, authenticated;
+revoke all on function public.jh_admin_latency(timestamptz) from public, anon, authenticated;
 grant execute on function public.jh_admin_sites(timestamptz) to service_role;
 grant execute on function public.jh_admin_daily(uuid, integer) to service_role;
 grant execute on function public.jh_admin_now() to service_role;
+grant execute on function public.jh_admin_latency(timestamptz) to service_role;
 
 -- Keep 90 days of runs (one row per batch: small, but it grows). Run by hand, or schedule with pg_cron:
 --   select cron.schedule('jh-prune-runs', '17 3 * * *', $$delete from public.pipeline_runs where created_at < now() - interval '90 days'$$);
