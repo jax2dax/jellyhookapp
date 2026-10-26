@@ -4,11 +4,11 @@
 // in by the team: migration 25). Used by Hooks -> Hooked leads and by hooked-lead messages (Slack, webhooks).
 // Nothing personal: platforms, campaigns and ads only. Server only (service role).
 import "server-only";
-import { createClient } from "@supabase/supabase-js";
+import { meteredAdmin } from "@/lib/db/admin";
 import { channelOf, creditedVisit, type Channel, type VisitSource } from "./channel";
 import { LOOKBACK_DAYS, sourceLine } from "./report";
 
-const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const admin = meteredAdmin();
 
 export interface LeadAd {
   platform: string;

@@ -9,7 +9,8 @@
 // Needs HUBSPOT_CLIENT_ID and HUBSPOT_CLIENT_SECRET (the HubSpot app's Auth tab) and CHANNEL_SECRET_KEY (sealing).
 import "server-only";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { meteredAdmin } from "@/lib/db/admin";
 import { openSecret, sealSecret } from "@/lib/notifications/secret";
 
 export const HUBSPOT_SCOPES = ["oauth", "crm.objects.contacts.read"];
@@ -25,7 +26,7 @@ export const CHART_TOKEN_MS = 30 * 60_000;
 const SIGNATURE_MAX_AGE_MS = 5 * 60_000;
 
 let adminClient: SupabaseClient | null = null;
-const admin = () => (adminClient ??= createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!));
+const admin = () => (adminClient ??= meteredAdmin());
 
 export function hubspotConfigured(): boolean {
   return !!(process.env.HUBSPOT_CLIENT_ID && process.env.HUBSPOT_CLIENT_SECRET);

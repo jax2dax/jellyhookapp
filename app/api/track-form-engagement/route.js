@@ -19,7 +19,8 @@
 // wipes all client-side JS state) still accumulates correctly without the
 // client needing to remember or re-fetch anything.
 import { NextResponse, after } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { meteredAdmin } from "@/lib/db/admin";
+import { metered, newMeter } from "@/lib/metrics/meter";
 import { emptyUsage, bump } from "@/lib/tracking/usage";
 import { cleanDelta, cleanErrors, cleanFormFields, mergeFieldTimings } from "@/lib/tracking/formEngagement";
 import { formKeyOf } from "@/lib/tracking/formKey";
@@ -27,7 +28,7 @@ import { canonicalVisitorId } from "@/lib/tracking/identity";
 import { CORS, MAX_BODY_BYTES, cleanId, cleanStr, cleanNum, cleanTime, authorizeRequest, applySiteEffects, flushUsage, markHealthEvent } from "@/lib/tracking/server";
 
 // Service role — see app/api/track/route.js's header comment for why.
-const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabaseAdmin = meteredAdmin();
 
 const corsHeaders = () => CORS;
 
@@ -38,7 +39,13 @@ export async function OPTIONS() {
 const VALID_STATUSES = new Set(["viewed", "started", "submitted", "abandoned"]);
 // cleanDelta / cleanErrors / cleanFormFields / mergeFieldTimings: lib/tracking/formEngagement.js (pure, tested).
 
+// the request's database work and server time are counted (lib/metrics/meter.ts) and added to the site's daily usage
+// by flushUsage, for the control room (app/admin)
 export async function POST(req) {
+  return metered(newMeter(), () => handlePost(req));
+}
+
+async function handlePost(req) {
   try {
     const supabase = supabaseAdmin;
     const usage = emptyUsage();

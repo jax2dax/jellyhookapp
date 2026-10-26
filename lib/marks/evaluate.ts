@@ -13,7 +13,7 @@
 // mark's Hook query (jh-marks/rule.ts compileRule), on the read-only Hook role.
 // Why: jh-marks/reason.ts from the lead's own rows. Design: mds/build/marks/marks.md.
 import "server-only";
-import { createClient } from "@supabase/supabase-js";
+import { meteredAdmin } from "@/lib/db/admin";
 import { runHook } from "@/jh-hook/engine/run";
 import type { HookSpec } from "@/jh-hook/types";
 import { reasonFor, type ReasonInput, type ReasonPage } from "@/jh-marks/reason";
@@ -23,8 +23,10 @@ import { getSiteStats } from "@/lib/stats/siteStats";
 import { pgHookDb } from "@/lib/hook/pgDb";
 import { isRuleV2, type MarkRuleV2 } from "@/jh-marks/v2/rule";
 import { matchV2 } from "./journey";
+import { metered, newMeter } from "@/lib/metrics/meter";
+import { recordRun } from "@/lib/metrics/runs";
 
-const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const admin = meteredAdmin();
 
 /** A mark's Hook query may cost more than a dashboard tile: it scans the site's leads and their pages. */
 const MARK_MAX_CREDITS = 5000;
@@ -137,7 +139,21 @@ async function marked(siteId: string, mark: MarkToRun, onlyLeads?: string[]): Pr
   return { ids, reasons: await reasonsFor(siteId, rule, ids) };
 }
 
+/** Applies one mark to every lead of the site (after it is saved). Measured and recorded for the control room. */
 export async function evaluateMark(siteId: string, mark: MarkToRun): Promise<number> {
+  const meter = newMeter();
+  const t0 = Date.now();
+  try {
+    const n = await metered(meter, () => applyMark(siteId, mark));
+    await recordRun({ site_id: siteId, kind: "mark_apply", leads: n, marks: 1, total_ms: Date.now() - t0 }, meter);
+    return n;
+  } catch (e) {
+    await recordRun({ site_id: siteId, kind: "mark_apply", leads: 0, marks: 1, total_ms: Date.now() - t0, error: e instanceof Error ? e.message : String(e) }, meter);
+    throw e;
+  }
+}
+
+async function applyMark(siteId: string, mark: MarkToRun): Promise<number> {
   const { ids, reasons } = await marked(siteId, mark);
   const { error: delErr } = await admin.from("lead_marks").delete().eq("mark_id", mark.id);
   if (delErr) throw new Error("lead_marks delete: " + delErr.message);
@@ -149,16 +165,19 @@ export async function evaluateMark(siteId: string, mark: MarkToRun): Promise<num
   return ids.length;
 }
 
-/** Checks some leads (new, or whose visit just ended) against every active mark of the site. Never throws. */
-export async function evaluateLeads(siteId: string, leadIds: string[]): Promise<void> {
-  if (!leadIds.length) return;
+/**
+ * Checks some leads (new, or whose visit just ended) against every mark of the site. Never throws. Returns how many
+ * marks were checked (for the control room's record of the batch).
+ */
+export async function evaluateLeads(siteId: string, leadIds: string[]): Promise<number> {
+  if (!leadIds.length) return 0;
   try {
     const first = await admin.from("marks").select("id, rule, spec, reads, source, source_key, var_values").eq("site_id", siteId).eq("kind", "lead");
     // before 19-marks-library.sql: the library columns do not exist yet
     const res = first.error && /source|var_values/.test(first.error.message) ? await admin.from("marks").select("id, rule, spec, reads").eq("site_id", siteId).eq("kind", "lead") : first;
     const marks = res.data as MarkToRun[] | null;
     const error = res.error;
-    if (error || !marks?.length) return; // no marks (or the table is not there yet): nothing to do
+    if (error || !marks?.length) return 0; // no marks (or the table is not there yet): nothing to do
     for (const m of marks as MarkToRun[]) {
       try {
         const { ids, reasons } = await marked(siteId, m, leadIds);
@@ -172,8 +191,10 @@ export async function evaluateLeads(siteId: string, leadIds: string[]): Promise<
         console.error("[marks] lead check failed", { site: siteId.slice(0, 8), mark: m.id.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
       }
     }
+    return marks.length;
   } catch (e) {
     console.error("[marks] lead check failed", { site: siteId.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
+    return 0;
   }
 }
 

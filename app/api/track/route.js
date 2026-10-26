@@ -16,7 +16,8 @@
 // visitor on a CUSTOMER's site, never someone logged in to Jellyhook. The key
 // check in step 2 is the authorization, before any write.
 import { NextResponse, after } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { meteredAdmin } from "@/lib/db/admin";
+import { metered, newMeter } from "@/lib/metrics/meter";
 import { resolvePendingCountries } from "@/lib/resolvePendingCountries";
 import { leadsOfSession } from "@/lib/marks/evaluate";
 import { checkNewLeads } from "@/lib/notifications/check";
@@ -32,7 +33,7 @@ import {
   authorizeRequest, applySiteEffects, flushUsage, clientIp, markHealthEvent,
 } from "@/lib/tracking/server";
 
-const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabaseAdmin = meteredAdmin();
 
 export async function OPTIONS() {
   return new Response(null, { status: 200, headers: CORS });
@@ -48,7 +49,13 @@ const MAX_CLICK_NAME = 80;
 
 const ok = () => NextResponse.json({ success: true }, { headers: CORS });
 
+// the request's database work and server time are counted (lib/metrics/meter.ts) and added to the site's daily usage
+// by flushUsage, for the control room (app/admin)
 export async function POST(req) {
+  return metered(newMeter(), () => handlePost(req));
+}
+
+async function handlePost(req) {
   const supabase = supabaseAdmin;
   const usage = emptyUsage();
   let siteId = null;

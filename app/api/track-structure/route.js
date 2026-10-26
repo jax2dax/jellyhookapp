@@ -15,12 +15,13 @@
 // now" (page analysis, intent failure, output engine). Session replay reads
 // the versions instead.
 import { NextResponse, after } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { meteredAdmin } from "@/lib/db/admin";
+import { metered, newMeter } from "@/lib/metrics/meter";
 import { normalizeHeaders, pageHeightOf, fingerprint, deviceClassFromWidth, canCreateVersion } from "@/lib/tracking/structure";
 import { emptyUsage, bump } from "@/lib/tracking/usage";
 import { CORS, MAX_BODY_BYTES, cleanId, cleanStr, cleanNum, authorizeRequest, applySiteEffects, flushUsage } from "@/lib/tracking/server";
 
-const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabaseAdmin = meteredAdmin();
 
 export async function OPTIONS() {
   return new Response(null, { status: 200, headers: CORS });
@@ -28,7 +29,13 @@ export async function OPTIONS() {
 
 const ok = () => NextResponse.json({ success: true }, { headers: CORS });
 
+// the request's database work and server time are counted (lib/metrics/meter.ts) and added to the site's daily usage
+// by flushUsage, for the control room (app/admin)
 export async function POST(req) {
+  return metered(newMeter(), () => handlePost(req));
+}
+
+async function handlePost(req) {
   const supabase = supabaseAdmin;
   const usage = emptyUsage();
   const now = Date.now();

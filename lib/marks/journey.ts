@@ -7,12 +7,12 @@
 // only when the mark has visit conditions, and only for the leads still in the running, 100 visitors at a time, so
 // memory stays small on a big site. Design: mds/build/marks/marks-v2-plan.md.
 import "server-only";
-import { createClient } from "@supabase/supabase-js";
+import { meteredAdmin } from "@/lib/db/admin";
 import { checkLead, needs, type Journey } from "@/jh-marks/v2/check";
 import { buildJourney, type LeadRow } from "@/jh-marks/v2/journey";
 import type { MarkRuleV2 } from "@/jh-marks/v2/rule";
 
-const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const admin = meteredAdmin();
 
 const LEAD_PAGE = 1000;
 const VISITOR_CHUNK = 100;

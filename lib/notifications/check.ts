@@ -10,17 +10,19 @@
 // Before 20-groups-and-notifications.sql has run, the lane does not exist and the marks are checked directly, as before.
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
+import { meteredAdmin } from "@/lib/db/admin";
 import { evaluateLeads } from "@/lib/marks/evaluate";
 import { decide, type LeadIn, type RuleIn } from "./decide";
 import { openSecret } from "./secret";
 import { messageOptions, post, type DeliveryPayload } from "./send";
 import { leadSources } from "@/lib/acquisition/leadSource";
 import { summariesWithin } from "./summary";
+import { metered, newMeter } from "@/lib/metrics/meter";
+import { recordRun } from "@/lib/metrics/runs";
 import { connectionOf, hubspotLeadLink } from "@/lib/integrations/hubspot";
 import { formKeyLabel } from "@/lib/tracking/formKey";
 
-const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const admin = meteredAdmin();
 
 const BATCH = 50;
 const LEASE_SECONDS = 60;
@@ -70,18 +72,29 @@ export async function runSiteLane(siteId: string, budgetMs: number): Promise<boo
       const { data: jobs, error } = await admin.from("check_jobs").select("lead_id, attempts, created_at").eq("site_id", siteId).lte("run_after", new Date().toISOString()).order("created_at").limit(BATCH);
       if (error || !jobs?.length) break;
       const ids = jobs.map((j) => j.lead_id as string);
+      // the batch's work is measured (lib/metrics/meter.ts) and recorded for the control room (pipeline_runs)
+      const meter = newMeter();
+      const stats = { marks: 0, rules: 0, fires: 0 };
+      const t0 = Date.now();
+      const waited = Math.max(...jobs.map((j) => t0 - Date.parse(j.created_at as string)));
+      let t1 = t0;
+      let t2 = t0;
+      let made: string[] = [];
       try {
-        const t0 = Date.now();
-        const waited = Math.max(...jobs.map((j) => t0 - Date.parse(j.created_at as string)));
-        await evaluateLeads(siteId, ids);
-        const t1 = Date.now();
-        deliveries.push(...(await fireRules(siteId, ids)));
-        const t2 = Date.now();
+        await metered(meter, async () => {
+          stats.marks = await evaluateLeads(siteId, ids);
+          t1 = Date.now();
+          made = await fireRules(siteId, ids, stats);
+          t2 = Date.now();
+        });
+        deliveries.push(...made);
         await admin.from("check_jobs").delete().in("lead_id", ids);
         // timing, for finding what is slow: queue wait (oldest lead), marks, rules + notifications, cleanup
-        console.log(`[notifications] batch leads=${ids.length} waited=${waited}ms marks=${t1 - t0}ms rules=${t2 - t1}ms cleanup=${Date.now() - t2}ms`);
+        console.log(`[notifications] batch leads=${ids.length} waited=${waited}ms marks=${t1 - t0}ms rules=${t2 - t1}ms cleanup=${Date.now() - t2}ms db=${meter.calls} calls`);
+        await recordRun({ site_id: siteId, kind: "leads", leads: ids.length, marks: stats.marks, hooks: stats.rules, fires: stats.fires, deliveries: made.length, wait_ms: waited, marks_ms: t1 - t0, hooks_ms: t2 - t1, total_ms: Date.now() - t0 }, meter);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        await recordRun({ site_id: siteId, kind: "leads", leads: ids.length, marks: stats.marks, hooks: stats.rules, wait_ms: waited, total_ms: Date.now() - t0, error: msg }, meter);
         log("check failed", { site: siteId.slice(0, 8), leads: ids.length, error: msg });
         for (const j of jobs) {
           const attempts = (j.attempts as number) + 1;
@@ -101,12 +114,14 @@ export async function runSiteLane(siteId: string, budgetMs: number): Promise<boo
 }
 
 /** The notification rules for these (just checked) leads. Returns the ids of the deliveries to send. */
-export async function fireRules(siteId: string, leadIds: string[]): Promise<string[]> {
+/** `stats` (optional) is filled with how many live hooks were compared and how many notifications were made. */
+export async function fireRules(siteId: string, leadIds: string[], stats?: { rules: number; fires: number }): Promise<string[]> {
   const cols = "id, name, title, body, mark_ids, recipients, channel_ids, add_to_group_id";
   let { data: ruleRows, error: rulesError } = (await admin.from("notification_rules").select(cols + ", message_options").eq("site_id", siteId).eq("active", true)) as { data: Record<string, unknown>[] | null; error: { message: string } | null };
   // before 26-hook-message-options.sql: every part of the message is shown
   if (rulesError && /message_options/.test(rulesError.message)) ({ data: ruleRows, error: rulesError } = (await admin.from("notification_rules").select(cols).eq("site_id", siteId).eq("active", true)) as { data: Record<string, unknown>[] | null; error: { message: string } | null });
   if (rulesError) throw new Error("rules: " + rulesError.message);
+  if (stats) stats.rules = ruleRows?.length ?? 0;
   if (!ruleRows?.length) return [];
   const rules: RuleIn[] = ruleRows.map((r) => ({
     id: r.id as string,
@@ -177,6 +192,7 @@ export async function fireRules(siteId: string, leadIds: string[]): Promise<stri
   if (eventsError) throw new Error("events: " + eventsError.message);
   const eventOf = new Map((events ?? []).map((e) => [e.rule_id + "|" + e.lead_id, e]));
   const fresh = toNotify.filter((f) => eventOf.has(f.ruleId + "|" + f.leadId));
+  if (stats) stats.fires = fresh.length;
   if (!fresh.length) return [];
 
   const inApp = fresh.flatMap((f) =>

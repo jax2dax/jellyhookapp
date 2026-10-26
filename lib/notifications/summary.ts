@@ -5,7 +5,8 @@
 // and put in words by lib/leadSessions/story.ts. The visit with the form is cut at the form, so the summary is what they
 // did before contacting you. Never throws for one lead: a lead whose data cannot be read gets no summary.
 import "server-only";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { meteredAdmin } from "@/lib/db/admin";
 import { buildSessionsRaw, truncateSessionToSubmission } from "@/lib/leadSessions/transform";
 import { fetchStructureRows } from "@/lib/leadSessions/structureRows";
 import { pageSummary, sessionStoryVersion } from "@/lib/leadSessions/story";
@@ -14,7 +15,7 @@ import type { SessionRaw } from "@/framePlate/types";
 import type { MessageOptions, PageSummaryLine, SummaryVersion } from "./message";
 
 let adminClient: SupabaseClient | null = null;
-const admin = () => (adminClient ??= createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!));
+const admin = () => (adminClient ??= meteredAdmin());
 
 /** Rows per request (PostgREST returns at most 1,000) and at most this many requests per table, so one visitor with a
  *  huge history cannot hold a hook run. Past it, the newest rows are kept. */

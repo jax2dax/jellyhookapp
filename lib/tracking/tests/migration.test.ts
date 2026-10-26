@@ -1,5 +1,5 @@
 // lib/tracking/tests/migration.test.ts
-// Runs mds/migrations/2026-10-07-ingestion-hardening.sql against a real
+// Runs mds/migrations/07-ingestion-hardening.sql against a real
 // Postgres (PGlite, in memory) built from the table definitions in
 // mds/database.md, then checks what the migration promises. Run: npm run test:tracking-sql
 /* eslint-disable @typescript-eslint/ban-ts-comment */
@@ -16,7 +16,7 @@ const ok = (c, m) => {
 
 const root = path.resolve(__dirname, "../../..");
 const doc = fs.readFileSync(path.join(root, "mds/database.md"), "utf8").replace(/\r\n/g, "\n");
-const migration = fs.readFileSync(path.join(root, "mds/migrations/2026-10-07-ingestion-hardening.sql"), "utf8");
+const migration = fs.readFileSync(path.join(root, "mds/migrations/07-ingestion-hardening.sql"), "utf8");
 
 /** The create-table statement for one table in database.md. */
 function tableDdl(name) {
