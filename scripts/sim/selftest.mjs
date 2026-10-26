@@ -29,5 +29,9 @@ const srv = http.createServer((req, res) => {
   const sample = ["# comment", "A=1", 'export B="two words"', "C='x=y'", "", "  D = spaced  ", "bad line", "=nokey", "1X=bad"].join("\r\n");
   const e = parseEnv(sample);
   ok(e.A === "1" && e.B === "two words" && e.C === "x=y" && e.D === "spaced" && !("1X" in e) && Object.keys(e).length === 4, "env file: comments, quotes, export, CRLF, an = inside a value, bad lines skipped");
+  const { cleanDump } = await import("./dumpclean.mjs");
+  const dump = ["--", "-- PostgreSQL database dump", "", "\\restrict abcDEF123", "", "SET statement_timeout = 0;", "SET transaction_timeout = 0;", "CREATE SCHEMA public;", "CREATE TABLE public.sites (id uuid);", "CREATE SCHEMA publicity;", "\\unrestrict abcDEF123"].join("\r\n");
+  const cleaned = cleanDump(dump);
+  ok(!/restrict|transaction_timeout|CREATE SCHEMA public;/.test(cleaned) && /SET statement_timeout = 0;/.test(cleaned) && /CREATE TABLE public\.sites/.test(cleaned) && /CREATE SCHEMA publicity;/.test(cleaned), "a schema dump is made runnable: meta-commands, CREATE SCHEMA public and SET transaction_timeout are removed, the rest is kept");
   srv.close();
 });

@@ -19,11 +19,14 @@ Migrations in `mds/migrations/` that production has not had yet. For the control
 Never the schema copy of the test project (it is a copy FROM production; it would only re-create what exists).
 
 ## Run in the TEST project only (in this order)
-1. **The structure of production, without data.** Make it from production, read-only on production:
-   `pg_dump --schema-only --no-owner --no-privileges "<production connection string>" > bench-schema.sql`
-   (or `npx supabase db dump --db-url "<production connection string>" -f bench-schema.sql`, needs Docker). Then paste
-   `bench-schema.sql` into the TEST project's SQL editor and run it. Making the file reads production; pasting it writes
-   only the test project. Do not paste it into production.
+1. **The structure of production, without data.** One command, which only READS production (it needs Docker Desktop
+   running; nothing else to install):
+   `node scripts/sim/bench-schema.mjs "<production connection string>"`
+   (Supabase dashboard of PRODUCTION: Connect > Session pooler, with the real password in place of [YOUR-PASSWORD]).
+   It writes `bench-schema.sql` in the project folder (ignored by git). Then paste that file's contents into the TEST
+   project's SQL editor and run it. Making the file reads production; pasting it writes only the test project. Do not
+   paste it into production. If the editor reports an error, paste it to the developer; do not edit the file by hand.
+   Without this step, every other file fails with "relation ... does not exist": the test project starts empty.
 2. **`mds/migrations/29-control-room.sql`** (production does not have it yet, so the copy in step 1 does not either).
    The same file as production gets: it is safe in both.
 3. **`mds/bench/01-mark-test-database.sql`**: marks the database as the test one. `npm run dev:bench` refuses to start
