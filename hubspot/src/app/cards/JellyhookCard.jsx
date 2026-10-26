@@ -3,7 +3,8 @@
 // HubSpot) what this contact did on the website before sending the form: each of their Jellyhook leads with its visit
 // summary (Short / Moderate / Long), team marks, the hooks that caught it, where it came from, and "Open visit chart",
 // which opens the real chart in a HubSpot modal (app/embed/visit). Laid out with colour-coded tags (green: hooked,
-// orange: came from, blue: marks), a tile per lead and a stats row. HubSpot cards take only HubSpot's own components (no
+// blue: marks), a tile per lead and a stats row (hooks, marks). Per lead: page, site and form small at the top, then the
+// date, the tags, "Came from" as plain text right above the summary. HubSpot cards take only HubSpot's own components (no
 // custom CSS), so colour comes from their variants. Design: mds/build/integrations/hubspot.md.
 import React, { useEffect, useState } from "react";
 import { Button, Divider, EmptyState, ErrorState, Flex, Link, LoadingSpinner, Statistics, StatisticsItem, Tag, Tile, Text, hubspot } from "@hubspot/ui-extensions";
@@ -83,7 +84,6 @@ function JellyhookCard({ context, actions }) {
   return (
     <Flex direction="column" gap="md">
       <Statistics>
-        <StatisticsItem id="leads" label={leads.length === 1 ? "Lead" : "Leads"} number={leads.length} />
         <StatisticsItem id="hooks" label="Hooks that caught them" number={hookCount} />
         <StatisticsItem id="marks" label="Marks" number={markCount} />
       </Statistics>
@@ -101,30 +101,36 @@ function JellyhookCard({ context, actions }) {
         <Tile key={lead.id}>
           <Flex direction="column" gap="sm">
             <Flex direction="row" justify="between" align="center" wrap="wrap" gap="extra-small">
+              <Text variant="microcopy">
+                {lead.page ? lead.page + " · " : ""}
+                {lead.site}
+              </Text>
+              {lead.form && <Text variant="microcopy">{lead.form}</Text>}
+            </Flex>
+
+            <Flex direction="row" justify="between" align="center" wrap="wrap" gap="extra-small">
               <Text format={{ fontWeight: "bold" }}>Form sent {when(lead.submittedAt)}</Text>
               <Text variant="microcopy">{ago(lead.submittedAt)}</Text>
             </Flex>
 
-            <Flex direction="row" gap="extra-small" wrap="wrap">
-              {lead.hooks.map((h) => (
-                <Tag key={"h" + h} variant="success">
-                  Hooked: {h}
-                </Tag>
-              ))}
-              {lead.cameFrom && <Tag variant="warning">Came from {lead.cameFrom}</Tag>}
-              {lead.marks.map((m) => (
-                <Tag key={"m" + m} variant="info">
-                  {m}
-                </Tag>
-              ))}
-              {lead.form && <Tag variant="default">Form {lead.form}</Tag>}
-            </Flex>
-            <Text variant="microcopy">
-              {lead.page ? lead.page + " · " : ""}
-              {lead.site}
-            </Text>
+            {(lead.hooks.length > 0 || lead.marks.length > 0) && (
+              <Flex direction="row" gap="extra-small" wrap="wrap">
+                {lead.hooks.map((h) => (
+                  <Tag key={"h" + h} variant="success">
+                    Hooked: {h}
+                  </Tag>
+                ))}
+                {lead.marks.map((m) => (
+                  <Tag key={"m" + m} variant="info">
+                    {m}
+                  </Tag>
+                ))}
+              </Flex>
+            )}
 
             <Divider />
+
+            {lead.cameFrom && <Text>Came from: {lead.cameFrom}</Text>}
 
             {lead.summary ? (
               <Flex direction="column" gap="flush">
