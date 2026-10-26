@@ -7,7 +7,7 @@
 // the form's key and the page snapshot). Each visitor waits real time on each page, so durations, the lead queue and
 // form-to-Slack times are real. Some visitors come back, some come from an ad, some send the form.
 //
-//   node scripts/sim/traffic.mjs --base http://localhost:3100 --key <site api key> --domain sim.jellyhook.test
+//   npm run sim -- --key <site api key> --domain sim.jellyhook.test        (--base defaults to http://localhost:3100)
 //        [--visitors 100] [--over 60] [--pages /,/pricing,/blogs,/contact] [--form-page /contact]
 //        [--form-rate 0.3] [--returning 0.2] [--ads 0.3] [--dwell 2-12] [--burst 30] [--allow-production]
 //
@@ -27,14 +27,25 @@ const args = Object.fromEntries(
     return acc;
   }, []),
 );
-const need = (k) => {
-  if (!args[k]) {
-    console.error(`missing --${k}. Example: node scripts/sim/traffic.mjs --base http://localhost:3100 --key <api key> --domain sim.jellyhook.test`);
-    process.exit(1);
-  }
-  return args[k];
+const need = (k, fallback) => {
+  if (args[k]) return args[k];
+  if (fallback) return fallback;
+  console.error(`
+Missing --${k}.
+
+What to run (after "npm run dev:bench" is running and you created a test site there):
+
+  npm run sim -- --key <the test site's API key> --domain <the test site's domain>
+
+  --key     Settings > Installation on http://localhost:3100 (the API key)
+  --domain  the domain you gave the test site, for example sim.jellyhook.test
+  --base    defaults to http://localhost:3100 (the test server)
+
+Add  --visitors 100 --over 60  for 100 visitors over a minute, and  --burst 30  for a rush of 30 forms, one per second.
+Note the "--" after "npm run sim": it passes the rest to the script.`);
+  process.exit(1);
 };
-const BASE = need("base").replace(/\/+$/, "");
+const BASE = need("base", "http://localhost:3100").replace(/\/+$/, "");
 const KEY = need("key");
 const DOMAIN = need("domain").replace(/^https?:\/\//, "").replace(/\/.*$/, "");
 if (/(^|\.)jellyhook\.com$/i.test(new URL(BASE).hostname) && args["allow-production"] !== "true") {
