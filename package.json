@@ -23,6 +23,8 @@
     "test:mcp": "jiti jh-mcp/tests/tokens.test.ts && jiti jh-mcp/tests/tools.test.ts && jiti jh-mcp/tests/protocol.test.ts && jiti jh-mcp/tests/config.test.ts",
     "ai:eval": "jiti jh-ai/eval/run.ts",
     "docs:check": "jiti scripts/docs-sync.ts",
+    "dev:bench": "node scripts/sim/dev-bench.mjs",
+    "sim": "node scripts/sim/traffic.mjs",
     "docs:stamp": "jiti scripts/docs-sync.ts --stamp"
   },
   "dependencies": {

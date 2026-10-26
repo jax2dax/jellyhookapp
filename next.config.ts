@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // the test server (npm run dev:bench, scripts/sim/dev-bench.mjs) builds into its own folder, so it can run next to `npm run dev`
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   async headers() {
     return [
       {
