@@ -68,9 +68,19 @@ export default function SupportedFormsPage() {
         </Callout>
       </Section>
 
-      <Section title="Where to put the attribute">
+      <Section title="Which forms count as leads">
         <P>
-          If your site is set to <B>Only the form I label</B> (recommended), the form you want counted must carry <C>data-conversion=&quot;true&quot;</C>. You can put it on the <C>&lt;form&gt;</C> itself, or on <B>any element around the form</B>. The second option is what you use for forms a tool builds for you, because you cannot edit the form tag it produces.
+          Every form with an email counts as a lead by default, and each one has a switch in <B>Settings, Lead forms</B>. Switch off a newsletter box or a job
+          application there, with no code. A form that is not a lead is only counted: its name, email and answers are never kept.
+        </P>
+        <P>
+          The attribute <C>data-conversion</C> is optional. <C>data-conversion=&quot;true&quot;</C> always counts a form and <C>data-conversion=&quot;false&quot;</C> never does,
+          whatever its switch says. You can put it on the <C>&lt;form&gt;</C> itself or on <B>any element around the form</B>. The second option is for forms a tool builds for you,
+          because you cannot edit the form tag it produces.
+        </P>
+        <P>
+          Each form is named by its <C>id</C>, else its <C>name</C>, else its page and position. A new HubSpot form is named by its HubSpot form id, and a form inside another
+          site&apos;s iframe by the provider (Typeform, Calendly, Jotform). Every lead records which form it came from, and the lead page, Slack messages and the HubSpot card show it.
         </P>
         <H3>A form you can edit (your own HTML, Web-to-Lead, a Pardot form handler, a Mailchimp embed)</H3>
         <Code>{`<form data-conversion="true" action="..." method="post">\n  ...\n</form>`}</Code>
@@ -86,9 +96,10 @@ export default function SupportedFormsPage() {
         <Code>{`<div data-conversion="true">\n  [contact-form-7 id="123" title="Contact"]\n</div>`}</Code>
         <H3>Typeform, Calendly, Jotform</H3>
         <Code>{`<div data-conversion="true">\n  <iframe src="https://form.typeform.com/to/..."></iframe>\n</div>`}</Code>
-        <P>
-          Sites set to <B>Every form on my site</B> need no attribute for any of these.
-        </P>
+        <Callout title="Sites created with &quot;Only the form I label&quot;">
+          Older sites chose this at setup. On them, a form counts only when it carries <C>data-conversion=&quot;true&quot;</C> or has been switched on in Settings, Lead forms. Their
+          Settings page shows this as <B>Forms found from now on: Wait until I switch them on</B>, and you can change it to <B>Count as leads</B> at any time.
+        </Callout>
       </Section>
 
       <Section title="Choosing which fields are tracked">

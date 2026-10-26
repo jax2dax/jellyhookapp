@@ -28,20 +28,26 @@ export default function TrackingAttributesPage() {
       <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Core concepts</span>
       <h1 className="mt-3 ff-display text-3xl text-[#f4f2ea]">Tracking attributes</h1>
       <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
-        Four optional HTML attributes tell Jellyhook what matters on your pages. Everything works without them; they exist so you decide
-        which form is a lead, which fields are measured, which fields are left out and which buttons are counted.
+        Four optional HTML attributes tell Jellyhook what matters on your pages. Everything works without them; they exist so you can decide
+        in code which form is a lead, which fields are measured, which fields are left out and which buttons are counted. Which forms count as
+        leads can also be set without code, in Settings, Lead forms.
       </p>
 
       <div className="mt-12 space-y-12">
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">data-conversion: which form is a lead</h2>
+          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">data-conversion: decide in code whether a form is a lead</h2>
           <p className="mb-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Put it on the <code className="ff-mono text-[#c9c7bd]">&lt;form&gt;</code> element itself, or on any element around it (needed for forms a tool such as HubSpot builds for you; see Supported forms). When you chose &quot;I&apos;ll label my form&quot; while creating
-            the site, only forms carrying it are recorded as leads. A newsletter box or a search bar is then never mistaken for a lead.
+            Optional. By default every form with an email counts as a lead, and each form has a switch in Settings, Lead forms.{" "}
+            <code className="ff-mono text-[#c9c7bd]">data-conversion=&quot;true&quot;</code> makes a form always a lead and{" "}
+            <code className="ff-mono text-[#c9c7bd]">data-conversion=&quot;false&quot;</code> never one. The attribute wins over the switch, and the form&apos;s row in Settings shows
+            that it is set in code. Put it on the <code className="ff-mono text-[#c9c7bd]">&lt;form&gt;</code> element itself, or on any element around it (needed for forms a
+            tool such as HubSpot builds for you; see Supported forms). Sites created with the older choice &quot;Only the form I label&quot; keep that behaviour: a form
+            counts only when it carries the attribute or is switched on in Settings.
           </p>
           <CodeBlock>{`<form data-conversion="true">\n  ...\n</form>`}</CodeBlock>
           <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            It must be on the form, not on a button or a wrapping div, and the value must be exactly <code className="ff-mono text-[#c9c7bd]">true</code>.
+            The value must be exactly <code className="ff-mono text-[#c9c7bd]">true</code> or <code className="ff-mono text-[#c9c7bd]">false</code>. On the form itself or on an element
+            around it is fine; on a button it does nothing.
           </p>
         </div>
 

@@ -75,14 +75,18 @@ export default function HubSpotReferencePage() {
       </Section>
 
       <Section title="The Jellyhook card in HubSpot">
-        <P>For the contact&apos;s email, the card lists their Jellyhook leads (newest first, up to 5). For each:</P>
+        <P>
+          At the top, a count of the hooks that caught the contact&apos;s leads and of their marks, and the Short, Moderate and Long switch for the summaries. Then, for the
+          contact&apos;s email, their Jellyhook leads (newest first, up to 5), each in its own box. In each box:
+        </P>
         <DataTable
           head={["Part", "What it shows"]}
           rows={[
-            [<B key="a">Form sent</B>, "When, on which page, and on which of your sites"],
-            [<B key="b">Came from</B>, "The source, campaign and ad the lead is credited to (see Acquisition)"],
-            [<B key="c">Hooks and marks</B>, "The hooks that caught the lead, and its marks that are shared with your whole team. Marks kept private by their owner are never shown."],
-            [<B key="d">Summary</B>, "The visit with the form, in Short, Moderate (the default) or Long, as on the lead page in Jellyhook"],
+            [<B key="a">Top line</B>, "In small grey text: the page and your site on the left, and the form on the right"],
+            [<B key="a2">Form sent</B>, "When, with how long ago on the right"],
+            [<B key="c">Hooks and marks</B>, "Green tags for the hooks that caught the lead, blue tags for its marks that are shared with your whole team. Marks kept private by their owner are never shown."],
+            [<B key="b">Came from</B>, "Plain text above the summary: the source, campaign and ad the lead is credited to (see Acquisition)"],
+            [<B key="d">Summary</B>, "The visit with the form, in Short, Moderate (the default) or Long, as on the lead page in Jellyhook. The first line, the pages in order with their times, is in bold."],
             [<B key="e">Open visit chart</B>, "The visit chart from the lead page, in a HubSpot window: every visit, hover a page, click it for its summary"],
             [<B key="f">Open in Jellyhook</B>, "The lead page in Jellyhook (needs a Jellyhook account)"],
           ]}

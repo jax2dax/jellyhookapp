@@ -91,37 +91,26 @@ Everything recorded goes into this site&apos;s real analytics. Do not install th
             script never holds your page up. A snippet you copied earlier without it keeps working.
           </p>
           <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            By default, with nothing else configured, the tracker assumes there is one form on the site that matters and listens for a
-            submission on any form, anywhere on the site. That is enough for a simple site with a single contact form.
+            With nothing else configured, every form on your site that has an email field counts as a lead. Login, search and password
+            forms never do. A simple site with one contact form needs nothing more.
           </p>
         </div>
 
         <div>
           <div className="mb-3 flex items-center gap-3">
             <span className="ff-mono text-[11px] text-[var(--lime)]">03</span>
-            <h2 className="ff-display text-xl text-[#f4f2ea]">Recommended: label your conversion form</h2>
+            <h2 className="ff-display text-xl text-[#f4f2ea]">Choose which forms are leads</h2>
           </div>
           <p className="mb-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            If the site has more than one form (a newsletter signup, a search box, a real contact form), tell Jellyhook which one is
-            actually a lead. Two steps, no extra code beyond one attribute:
+            If the site has forms that are not leads (a newsletter signup, a job application), switch them off. Each form appears in{" "}
+            <strong className="text-[#c9c7bd]">Settings, Lead forms</strong> after its first submission, with a <strong className="text-[#c9c7bd]">Lead</strong> and a{" "}
+            <strong className="text-[#c9c7bd]">Not a lead</strong> switch. No code is needed. A form that is not a lead is only counted: its name, email and
+            answers are never kept. Changes apply within about a minute, and leads already recorded stay.
           </p>
-          <p className="mb-2 ff-body text-[13px] text-[#8b8980]">
-            <span className="ff-mono text-[11px] text-[var(--lime)]">Step 1</span> &nbsp;Turn on &quot;I&apos;ll label my form&quot; when
-            creating the site (it is preselected, and you can switch it any time in Settings).
-          </p>
-          <p className="mb-3 ff-body text-[13px] text-[#8b8980]">
-            <span className="ff-mono text-[11px] text-[var(--lime)]">Step 2</span> &nbsp;Add one attribute to the form that should count as
-            a conversion:
-          </p>
-          <CodeBlock>{`<form data-conversion="true">\n  ...\n</form>`}</CodeBlock>
-          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Once this is on, only forms carrying <code className="ff-mono text-[#c9c7bd]">data-conversion=&quot;true&quot;</code> are
-            recorded as leads. Everything else on the page is ignored, so a newsletter box or a search bar never shows up as a lead by
-            mistake.
-          </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Two more optional attributes choose which fields of a form are measured and which buttons are counted. Settings shows whether each one
-            is installed correctly and actually working. See{" "}
+          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+            If you prefer to decide in code, the optional attribute <code className="ff-mono text-[#c9c7bd]">data-conversion</code> does it. It always wins over the
+            switch. Two more optional attributes choose which fields of a form are measured and which buttons are counted. Settings, Attribute check shows whether
+            each one is found and working. See{" "}
             <Link href="/docs/concepts/tracking-attributes" className="text-[var(--lime)] hover:underline">
               Tracking attributes
             </Link>

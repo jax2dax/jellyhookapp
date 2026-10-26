@@ -86,7 +86,8 @@ export default function LeadProfileReferencePage() {
           <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Submitted form details</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
             Name, email and phone are already in the header, so this block only appears when the form had other
-            fields (a business name, a budget...). The first four are shown as plain key and value, and the rest
+            fields (a business name, a budget...). Its title names the form the lead came from, such as #contact or HubSpot form …ee65073
+            (recorded since forms were named; older leads show their page). The first four are shown as plain key and value, and the rest
             sit behind one compact &quot;+N more fields&quot; button.
           </p>
         </div>
