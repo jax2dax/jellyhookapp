@@ -25,5 +25,9 @@ const srv = http.createServer((req, res) => {
   ok(pvEnd.duration > 0 && pvEnd.max_scroll_depth > 0 && pvEnd.page_view_id, "a page view ends with its time and scroll");
   const prod = await run(["--base", "https://jellyhook.com"]);
   ok(prod.code === 1 && /Refusing/.test(prod.out), "it refuses to send to jellyhook.com without --allow-production");
+  const { parseEnv } = await import("./envfile.mjs");
+  const sample = ["# comment", "A=1", 'export B="two words"', "C='x=y'", "", "  D = spaced  ", "bad line", "=nokey", "1X=bad"].join("\r\n");
+  const e = parseEnv(sample);
+  ok(e.A === "1" && e.B === "two words" && e.C === "x=y" && e.D === "spaced" && !("1X" in e) && Object.keys(e).length === 4, "env file: comments, quotes, export, CRLF, an = inside a value, bad lines skipped");
   srv.close();
 });
