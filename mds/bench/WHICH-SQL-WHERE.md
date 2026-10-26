@@ -19,6 +19,9 @@ Migrations in `mds/migrations/` that production has not had yet. For the control
 Never the schema copy of the test project (it is a copy FROM production; it would only re-create what exists).
 
 ## Run in the TEST project only (in this order)
+0. **`mds/bench/00-create-hook-reader-role.sql`**: creates the read-only login that production's structure refers to
+   (without it step 1 stops with `role "hook_reader" does not exist`). Replace its CHANGE_ME_TEST_PASSWORD with a NEW
+   password (letters and digits), not production's; it goes into HOOK_DATABASE_URL in `.env.bench`.
 1. **The structure of production, without data.** One command, which only READS production (it needs Docker Desktop
    running; nothing else to install):
    `node scripts/sim/bench-schema.mjs "<production connection string>"`
@@ -27,10 +30,12 @@ Never the schema copy of the test project (it is a copy FROM production; it woul
    project's SQL editor and run it. Making the file reads production; pasting it writes only the test project. Do not
    paste it into production. If the editor reports an error, paste it to the developer; do not edit the file by hand.
    Without this step, every other file fails with "relation ... does not exist": the test project starts empty.
-2. **`mds/migrations/29-control-room.sql`** (production does not have it yet, so the copy in step 1 does not either).
-   The same file as production gets: it is safe in both.
+2. **`mds/migrations/29-control-room.sql`**: only if the copy in step 1 does not contain it (check:
+   `select to_regclass('public.pipeline_runs')` returns a name, not null). It is safe to run twice.
 3. **`mds/bench/01-mark-test-database.sql`**: marks the database as the test one. `npm run dev:bench` refuses to start
    without it, which is what stops a wrong `.env.bench` from ever load-testing production.
+4. **`mds/bench/02-hook-reader-grants.sql`**: lets hook_reader read the five tables the Hook queries use (the copy has no
+   permissions in it).
 
 ## The safety nets
 - `npm run dev:bench` prints the test database's address and stops unless that database carries the mark from step 3.
