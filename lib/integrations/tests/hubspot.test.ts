@@ -40,6 +40,10 @@ const run = async () => {
   const k = new URL(link).searchParams.get("k");
   ok(link.startsWith("https://jellyhook.com/go/hubspot/" + lead + "?k="), "the link: " + link.slice(0, 60) + "...");
   ok(hs.leadLinkValid(lead, k), "its signature checks");
+  ok(/^[0-9a-f]{40}$/.test(k ?? ""), "the signature is lowercase hex (it survives a chat tool changing the case of a link)");
+  ok(hs.leadLinkValid(lead, (k ?? "").toUpperCase()) && hs.leadLinkValid(lead, k), "a link whose signature was upper- or lowercased still checks");
+  const oldK = createHmac("sha256", createHmac("sha256", "client-secret").update("jellyhook:lead").digest()).update(lead).digest("base64url");
+  ok(hs.leadLinkValid(lead, oldK) && !hs.leadLinkValid(lead, oldK.toLowerCase()), "a link made before this change still checks as sent (the old format is case-sensitive)");
   ok(!hs.leadLinkValid("00000000-0000-0000-0000-000000000000", k) && !hs.leadLinkValid(lead, null) && !hs.leadLinkValid(lead, k + "x"), "another lead, no signature or a changed one: refused");
 
   // ── the visit-chart token ──

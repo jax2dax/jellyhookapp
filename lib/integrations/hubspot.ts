@@ -78,11 +78,19 @@ export function readState(state: string | null, nonce: string | undefined, userI
   return { ok: true, state: p };
 }
 
+/**
+ * The signature of a lead link, in lowercase hex. A link travels through chat tools, email clients and link scanners,
+ * and some of them change the case of an address; hex is the same in any case, so a link that was lowercased on the way
+ * still checks (2026-10-25: a link seen in Slack had its mixed-case signature lowercased, and every click fell back).
+ */
+const leadSig = (leadId: string) => createHmac("sha256", keyFor("lead")).update(leadId).digest("hex").slice(0, 40);
+
 /** The "Open in HubSpot" link of a lead, put in Slack messages. Resolved when clicked. */
 export function hubspotLeadLink(appUrl: string, leadId: string): string {
-  return appUrl.replace(/\/+$/, "") + "/go/hubspot/" + encodeURIComponent(leadId) + "?k=" + sign("lead", leadId);
+  return appUrl.replace(/\/+$/, "") + "/go/hubspot/" + encodeURIComponent(leadId) + "?k=" + leadSig(leadId);
 }
-export const leadLinkValid = (leadId: string, k: string | null) => !!k && same(sign("lead", leadId), k);
+/** Valid in any case (hex). Links made before 2026-10-25 carried a case-sensitive signature; they still check, as sent. */
+export const leadLinkValid = (leadId: string, k: string | null) => !!k && (same(leadSig(leadId), k.toLowerCase()) || same(sign("lead", leadId), k));
 
 export interface ChartToken {
   s: string; // site id
