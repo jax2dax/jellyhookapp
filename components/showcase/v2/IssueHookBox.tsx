@@ -22,13 +22,12 @@ export function IssueHookBox() {
         go();
       }}
     >
-      <div className="flex items-baseline gap-4 border-t-4 border-[var(--ink)] pt-4">
-        <span aria-hidden className="v2-serif text-[clamp(4rem,7vw,6rem)] leading-[0.7] text-[var(--spot)]">Q</span>
+      <div className="border-t-4 border-[var(--ink)] pt-4">
         <label htmlFor="v2-hook" className="v2-caps text-[12px] text-[var(--spot)]">
           <span key={prefix} className="jh-hero-prefix">{prefix}...</span>
         </label>
       </div>
-      <div className={"relative mt-5 border-2 bg-[var(--paper)] transition-[border-color,box-shadow] duration-300 " + (focused ? "border-[var(--spot)] shadow-[0_10px_30px_-12px_rgba(15,122,61,0.4)]" : "border-[var(--ink)]")}>
+      <div className={"relative mt-4 border-2 bg-[var(--paper)] transition-[border-color,box-shadow] duration-300 " + (focused ? "border-[var(--spot)] shadow-[0_10px_30px_-12px_rgba(15,122,61,0.4)]" : "border-[var(--ink)]")}>
         <div className="relative px-5 pb-4 pt-4">
           <textarea
             id="v2-hook"

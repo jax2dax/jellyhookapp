@@ -11,6 +11,7 @@ import { Reveal } from "@/components/showcase/v2/Reveal";
 import { HubSpotCardShowcase } from "@/components/showcase/v2/HubSpotCardShowcase";
 import { SlackDesktopShowcase } from "@/components/showcase/SlackDesktopShowcase";
 import { LeadsShowcase } from "@/components/showcase/LeadsShowcase";
+import { ExampleFramePlate } from "@/app/docs/concepts/session-replay/ExampleFramePlate";
 import { MarketingThemeStyles } from "@/components/marketing/MarketingTheme";
 import { marketingFontVariables, v2FontVariables } from "@/components/marketing/fonts";
 import "./landing.css";
@@ -75,12 +76,6 @@ function Dash({ items }: { items: string[] }) {
 /** A heavy section rule that draws itself in. */
 const Rule = ({ h = 6 }: { h?: number }) => <div data-reveal="rule" className="bg-[var(--ink)]" style={{ height: h }} />;
 
-const ROUTE = [
-  { n: "1", page: "/", time: "0:20", note: "Read the top, left at the second heading" },
-  { n: "2", page: "/pricing", time: "1:04", note: "Scrolled 72%, most time on “Business”" },
-  { n: "3", page: "/pricing", time: "0:51", note: "Came back the next day" },
-  { n: "4", page: "/contact", time: "0:48", note: "Sent the form" },
-];
 
 const JOURNEY = [
   ["Pages visited", "Follow their path from the first recorded visit to conversion."],
@@ -168,7 +163,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-[var(--ink)] py-12 lg:border-l lg:border-t-0 lg:py-16 lg:pl-12">
-            <p className="v2-serif mb-8 text-[clamp(1.6rem,2.4vw,2.2rem)] leading-[1.2]">Which new lead should someone call right now?</p>
+            <p className="v2-serif mb-8 text-[clamp(1.6rem,2.4vw,2.2rem)] leading-[1.2]">Which new lead should you call first?</p>
             <IssueHookBox />
           </div>
         </section>
@@ -229,27 +224,14 @@ export default function Home() {
               <p data-reveal="rise" className="v2-serif mt-6 text-[1.5rem]">See the journey, not just the numbers.</p>
             </div>
             <div className={RULE_COL}>
-              <div className="flex items-baseline justify-between border-t-4 border-[var(--ink)] pt-3 v2-caps text-[11px]">
-                <span>One lead&apos;s journey</span>
+              <div className="mb-4 flex items-baseline justify-between border-t-4 border-[var(--ink)] pt-3 v2-caps text-[11px]">
+                <span>One lead&apos;s visit chart</span>
                 <span className="text-[var(--ink-soft)]">Example data</span>
               </div>
-              <ol>
-                {ROUTE.map((r, i) => (
-                  <li
-                    key={r.n}
-                    data-reveal="rise"
-                    style={{ "--d": `${i * 160}ms` } as React.CSSProperties}
-                    className={"grid grid-cols-[3rem_1fr_auto] items-baseline gap-x-4 border-b border-[var(--ink)] py-5 " + (i === ROUTE.length - 1 ? "text-[var(--spot)]" : "")}
-                  >
-                    <span className="v2-serif v2-num text-[2rem] leading-none">{r.n}</span>
-                    <span>
-                      <span className="v2-serif block text-[1.5rem] leading-tight">{r.page}</span>
-                      <span className="mt-1 block text-[15px] text-[var(--ink-soft)]">{r.note}</span>
-                    </span>
-                    <span className="v2-caps v2-num text-[14px]">{r.time}</span>
-                  </li>
-                ))}
-              </ol>
+              {/* the real visit chart (framePlate) on a made-up visit, with click-to-inspect: claims ledger rows 2, 4, 21 */}
+              <div data-reveal="fade">
+                <ExampleFramePlate />
+              </div>
             </div>
           </div>
           <dl className="mt-16 grid gap-x-12 border-t border-[var(--ink)] sm:grid-cols-2 lg:grid-cols-5">
@@ -415,6 +397,15 @@ export default function Home() {
                 <span className="v2-serif v2-num block text-[3.5rem] leading-none text-[var(--spot)]">{i + 1}</span>
                 <h3 className="v2-caps mt-5 text-[13px]">{t}</h3>
                 <p className={"mt-3 " + BODY}>{d}</p>
+                {i === 0 && (
+                  <pre className="mt-4 overflow-x-auto border-2 border-[var(--ink)] bg-[var(--paper-2)] p-3 font-mono text-[12px] leading-relaxed text-[var(--ink)]">
+                    <code>
+                      {"<script defer\n  src=\"https://jellyhook.com/tracker.js\"\n  data-key=\""}
+                      <span className="text-[var(--spot)]">YOUR_SITE_KEY</span>
+                      {"\"></script>"}
+                    </code>
+                  </pre>
+                )}
               </li>
             ))}
           </ol>

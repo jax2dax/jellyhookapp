@@ -8,7 +8,7 @@ import { DocsSidebar } from "./DocsSidebar";
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return (
     <MarketingPage>
-      <div className="mx-auto flex max-w-[1200px] gap-10 px-5 py-12 lg:px-10 lg:py-16">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-8 px-5 py-8 lg:flex-row lg:gap-10 lg:px-10 lg:py-16">
         <DocsSidebar />
         <div className="min-w-0 flex-1">{children}</div>
       </div>

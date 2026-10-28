@@ -5,6 +5,11 @@
   --ink: #111111;
   --ink-soft: #4f544e;
   --spot: #0f7a3d;
+  /* the names the shared marketing pieces use (the visit chart example reads these) */
+  --ink-2: #2c2f2b;
+  --ink-mute: #646962;
+  --rule: #111111;
+  --info: #0b6aa2;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-v2-sans), system-ui, sans-serif;
@@ -15,9 +20,10 @@
 .v2-serif { font-family: var(--font-v2-serif), Georgia, serif; font-weight: 400; }
 .v2-caps { font-family: var(--font-v2-sans), system-ui, sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.16em; }
 .v2 h1, .v2 h2, .v2 h3 { text-wrap: balance; }
+/* a larger first letter in the text's own line (no float), so the lines below start at the left edge */
 .v2 .v2-dek::first-letter {
   font-family: var(--font-v2-serif), Georgia, serif;
-  float: left; font-size: 4.1em; line-height: 0.82; padding: 0.08em 0.12em 0 0; color: var(--spot);
+  font-size: 1.75em; line-height: 0; color: var(--spot);
 }
 .v2 .v2-num { font-variant-numeric: tabular-nums; }
 

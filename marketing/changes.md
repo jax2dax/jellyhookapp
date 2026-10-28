@@ -267,3 +267,13 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
 - app/docs/installation/page.tsx: sign-up forms with a password are not leads; Google Tag Manager install; banner line.
 - app/docs/reference/settings/page.tsx: Privacy section. app/docs/reference/billing: "unlocked" became "on".
 - Ledger: row 22 rewritten (automatic banner, never "compliant"), row 29 added (retention, erasure).
+
+## 2026-10-28 founder review 3 (home, docs on phones, pricing)
+- Docs on phones: the sidebar is a folded "Docs / Menu" bar above the page (lg and up keeps the side column);
+  app/docs/DocsSidebar.tsx, app/docs/layout.tsx.
+- Home: first letter of the hero paragraph is larger but inline (no float, no indent); the "Q" over the hook box removed;
+  "Which new lead should someone call right now?" became "Which new lead should you call first?"; the numbered example
+  route replaced by the real visit chart on example data with click-to-inspect (ExampleFramePlate, ledger 2, 4, 21);
+  setup step 1 shows the tracker snippet.
+- Pricing FAQ "Is this actually free": adds the limits (5 sites per account, 10 hooks per person per site, 500 Slack and
+  webhook messages per site per day; app/docs/reference/notifications Limits, pricing FAQ).

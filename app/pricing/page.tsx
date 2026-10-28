@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 const FAQS = [
   {
     q: "Is this actually free, no catch?",
-    a: "Yes. Jellyhook is in early access, and every feature on every account is free while we onboard early sites. No card on file, no trial countdown.",
+    a: "Yes. Jellyhook is in early access, and every feature on every account is free while we onboard early sites. No card on file, no trial countdown. There are limits so the service stays fast for everyone: up to 5 sites per account, 10 hooks per person on each site, and 500 Slack and webhook messages per site per day.",
   },
   {
     q: "Can I install it on more than one site?",

@@ -49,7 +49,7 @@ export function HubSpotCardShowcase() {
   const card = React.useRef<HTMLDivElement>(null);
   const call = React.useRef<HTMLDivElement>(null);
   const [scale, setScale] = React.useState(1);
-  const [phase, setPhase] = React.useState<Phase>("idle");
+  const [livePhase, setPhase] = React.useState<Phase>("idle");
   const [reduced, setReduced] = React.useState(false);
   const [geo, setGeo] = React.useState({ ox: 580, oy: 150, cx: 140, cy: 250 });
   const inView = useInView(frame);
@@ -82,10 +82,7 @@ export function HubSpotCardShowcase() {
   }, [scale]);
 
   React.useEffect(() => {
-    if (!inView || reduced) {
-      setPhase("idle");
-      return;
-    }
+    if (!inView || reduced) return;
     let timers: number[] = [];
     const run = () => {
       timers = TIMELINE.map(([p, at]) => window.setTimeout(() => setPhase(p), at));
@@ -95,6 +92,8 @@ export function HubSpotCardShowcase() {
     return () => timers.forEach((t) => window.clearTimeout(t));
   }, [inView, reduced]);
 
+  // out of view, or reduced motion: the still record
+  const phase = inView && !reduced ? livePhase : "idle";
   const zoomed = phase === "zoom";
   const lit = phase !== "idle";
   const pointer = phase === "point" || phase === "click" || phase === "call";
