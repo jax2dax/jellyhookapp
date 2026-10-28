@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto border border-[#1b1b18] bg-[#0a0a09] p-4 ff-mono text-[12px] leading-relaxed text-[#4fc3ff]">
+    <pre className="overflow-x-auto border border-[var(--rule)] bg-[var(--paper-2)] p-4 ff-mono text-[12px] leading-relaxed text-[var(--info)]">
       <code>{children}</code>
     </pre>
   );
@@ -36,9 +36,9 @@ const ENDPOINTS: [string, string][] = [
 export default function InstallationPage() {
   return (
     <div>
-      <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Getting started</span>
-      <h1 className="mt-3 ff-display text-3xl text-[#f4f2ea]">Installation and setup</h1>
-      <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+      <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[var(--ink-mute)]">Getting started</span>
+      <h1 className="mt-3 ff-display text-3xl text-[var(--ink)]">Installation and setup</h1>
+      <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
         There is no SDK to configure and no event schema to design. One script tag, and Jellyhook starts recording
         sessions, scroll depth, and form activity on its own.
       </p>
@@ -47,30 +47,30 @@ export default function InstallationPage() {
         <div>
           <div className="mb-3 flex items-center gap-3">
             <span className="ff-mono text-[11px] text-[var(--lime)]">01</span>
-            <h2 className="ff-display text-xl text-[#f4f2ea]">Create a site</h2>
+            <h2 className="ff-display text-xl text-[var(--ink)]">Create a site</h2>
           </div>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            From your dashboard, register the domain you want to track. Enter it without <code className="ff-mono text-[#c9c7bd]">https://</code> or{" "}
-            <code className="ff-mono text-[#c9c7bd]">www.</code>, for example <code className="ff-mono text-[#c9c7bd]">yourdomain.com</code>. Jellyhook
+          <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            From your dashboard, register the domain you want to track. Enter it without <code className="ff-mono text-[var(--ink-2)]">https://</code> or{" "}
+            <code className="ff-mono text-[var(--ink-2)]">www.</code>, for example <code className="ff-mono text-[var(--ink-2)]">yourdomain.com</code>. Jellyhook
             generates a unique API key for it. This key is what authenticates every event the tracker sends, so nothing else can post fake
             data under your site.
           </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             Install the script on this exact domain. Jellyhook only records events that come from this domain (and its subdomains), and it is
             what proves the site is yours: the first site to receive real data from a domain is verified and owns it. It is also what a
             teammate&apos;s work email gets matched against to join the site automatically.
           </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Adding a domain starts a claim that lasts <strong className="text-[#c9c7bd]">3 days</strong>. If the script has not reported from your site by
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            Adding a domain starts a claim that lasts <strong className="text-[var(--ink-2)]">3 days</strong>. If the script has not reported from your site by
             then, the setup expires and records nothing until you renew it with one click, or start again. Two people can set up the same
             domain at once; whoever installs the script on the real site first wins.
           </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
 Everything recorded goes into this site&apos;s real analytics. Do not install the script on test pages, a staging copy or a local development server
             unless you want those visits counted with your real ones; they would be mixed in and cannot be separated afterwards. Data from any host that is not your domain is turned
             away by default.
           </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             One account can own or belong to more than one site. Switch between them from the site name at the top
             of the sidebar, or add another from the same menu.
           </p>
@@ -79,36 +79,48 @@ Everything recorded goes into this site&apos;s real analytics. Do not install th
         <div>
           <div className="mb-3 flex items-center gap-3">
             <span className="ff-mono text-[11px] text-[var(--lime)]">02</span>
-            <h2 className="ff-display text-xl text-[#f4f2ea]">Install the tracker</h2>
+            <h2 className="ff-display text-xl text-[var(--ink)]">Install the tracker</h2>
           </div>
-          <p className="mb-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            Paste this inside the <code className="ff-mono text-[#c9c7bd]">&lt;head&gt;</code> of your site. Your setup page has the exact
+          <p className="mb-4 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            Paste this inside the <code className="ff-mono text-[var(--ink-2)]">&lt;head&gt;</code> of your site. Your setup page has the exact
             snippet with your real API key already filled in.
           </p>
           <CodeBlock>{`<script\n  defer\n  src="https://jellyhook.com/tracker.js"\n  data-key="YOUR_SITE_API_KEY"\n></script>`}</CodeBlock>
-          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            <code className="ff-mono text-[#c9c7bd]">defer</code> lets the browser draw your page first and run the tracker right after, so the
+          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            <code className="ff-mono text-[var(--ink-2)]">defer</code> lets the browser draw your page first and run the tracker right after, so the
             script never holds your page up. A snippet you copied earlier without it keeps working.
           </p>
-          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             With nothing else configured, every form on your site that has an email field counts as a lead. Login, search and password
-            forms never do. A simple site with one contact form needs nothing more.
+            forms never do, so a sign-up form with a password is not a lead. A simple site with one contact form needs nothing more.
+          </p>
+          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            <strong className="text-[var(--ink-2)]">Google Tag Manager:</strong> in Tags, New, Custom HTML, paste the snippet from your setup page&apos;s Tag Manager tab
+            (the key is in the address, because Tag Manager drops <code className="ff-mono text-[var(--ink-2)]">data-</code> attributes). Trigger it on All Pages, then Submit
+            and Publish. No site code is touched.
+          </p>
+          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            <strong className="text-[var(--ink-2)]">Cookie banner:</strong> if your site has one, the tracker follows it with no extra setup. See{" "}
+            <Link href="/docs/concepts/privacy-consent" className="text-[var(--lime)] hover:underline">
+              Privacy and consent
+            </Link>
+            .
           </p>
         </div>
 
         <div>
           <div className="mb-3 flex items-center gap-3">
             <span className="ff-mono text-[11px] text-[var(--lime)]">03</span>
-            <h2 className="ff-display text-xl text-[#f4f2ea]">Choose which forms are leads</h2>
+            <h2 className="ff-display text-xl text-[var(--ink)]">Choose which forms are leads</h2>
           </div>
-          <p className="mb-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="mb-4 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             If the site has forms that are not leads (a newsletter signup, a job application), switch them off. Each form appears in{" "}
-            <strong className="text-[#c9c7bd]">Settings, Lead forms</strong> after its first submission, with a <strong className="text-[#c9c7bd]">Lead</strong> and a{" "}
-            <strong className="text-[#c9c7bd]">Not a lead</strong> switch. No code is needed. A form that is not a lead is only counted: its name, email and
+            <strong className="text-[var(--ink-2)]">Settings, Lead forms</strong> after its first submission, with a <strong className="text-[var(--ink-2)]">Lead</strong> and a{" "}
+            <strong className="text-[var(--ink-2)]">Not a lead</strong> switch. No code is needed. A form that is not a lead is only counted: its name, email and
             answers are never kept. Changes apply within about a minute, and leads already recorded stay.
           </p>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            If you prefer to decide in code, the optional attribute <code className="ff-mono text-[#c9c7bd]">data-conversion</code> does it. It always wins over the
+          <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            If you prefer to decide in code, the optional attribute <code className="ff-mono text-[var(--ink-2)]">data-conversion</code> does it. It always wins over the
             switch. Two more optional attributes choose which fields of a form are measured and which buttons are counted. Settings, Attribute check shows whether
             each one is found and working. See{" "}
             <Link href="/docs/concepts/tracking-attributes" className="text-[var(--lime)] hover:underline">
@@ -121,16 +133,16 @@ Everything recorded goes into this site&apos;s real analytics. Do not install th
         <div>
           <div className="mb-3 flex items-center gap-3">
             <span className="ff-mono text-[11px] text-[var(--lime)]">04</span>
-            <h2 className="ff-display text-xl text-[#f4f2ea]">If it looks stuck on &quot;Pending Verification&quot;</h2>
+            <h2 className="ff-display text-xl text-[var(--ink)]">If it looks stuck on &quot;Pending Verification&quot;</h2>
           </div>
-          <p className="mb-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="mb-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             Right after creating a site, the dashboard shows a &quot;Listening for connection...&quot; screen and checks every few
             seconds. The instant one real event arrives with the right API key <em>from your own domain</em>, the site is marked verified and
             the page moves on by itself. There is no separate approval step. An event from any other website does not verify the site, even with
             the right key.
           </p>
-          <p className="mb-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">If it stays on this screen, check, in order:</p>
-          <ul className="mb-3 list-disc space-y-1.5 pl-5 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="mb-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">If it stays on this screen, check, in order:</p>
+          <ul className="mb-3 list-disc space-y-1.5 pl-5 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             <li>The script is actually deployed and live, not just saved locally or sitting in a preview build.</li>
             <li>
               The page you are viewing is the domain you registered. If the screen says &quot;We received data from another-site.com&quot;, the
@@ -138,12 +150,12 @@ Everything recorded goes into this site&apos;s real analytics. Do not install th
             </li>
             <li>The setup has not expired. After 3 days without data it stops recording until renewed; the screen shows a Renew button.</li>
             <li>
-              The <code className="ff-mono text-[#c9c7bd]">data-key</code> in the snippet matches exactly, no extra spaces or a key copied
+              The <code className="ff-mono text-[var(--ink-2)]">data-key</code> in the snippet matches exactly, no extra spaces or a key copied
               from a different site.
             </li>
             <li>Nothing on the page (an ad blocker, a strict content security policy) is blocking the script from loading at all.</li>
           </ul>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             Registered the wrong domain entirely? Cancel and start over from the same screen, no site gets left behind half-configured.
           </p>
         </div>
@@ -151,13 +163,13 @@ Everything recorded goes into this site&apos;s real analytics. Do not install th
         <div>
           <div className="mb-3 flex items-center gap-3">
             <span className="ff-mono text-[11px] text-[var(--lime)]">05</span>
-            <h2 className="ff-display text-xl text-[#f4f2ea]">Once it is verified</h2>
+            <h2 className="ff-display text-xl text-[var(--ink)]">Once it is verified</h2>
           </div>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             The tracker identifies each visitor and session, records every page view with scroll depth and time on page, and picks up
             form activity on its own from here. No further setup is required.
           </p>
-          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             Settings → Tracker shows the last time data arrived, any other website that sent data and was turned away, and whether your
             attributes are working. If you ever regenerate the API key, the old one keeps working for 72 hours so there is no gap in tracking.
           </p>
@@ -165,8 +177,8 @@ Everything recorded goes into this site&apos;s real analytics. Do not install th
       </div>
 
       <div className="mt-16">
-        <h2 className="ff-display text-xl text-[#f4f2ea] mb-2">What gets collected</h2>
-        <p className="mb-6 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+        <h2 className="ff-display text-xl text-[var(--ink)] mb-2">What gets collected</h2>
+        <p className="mb-6 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
           Exactly this, and nothing more. See{" "}
           <Link href="/privacy" className="text-[var(--lime)] hover:underline">
             Privacy
@@ -175,24 +187,24 @@ Everything recorded goes into this site&apos;s real analytics. Do not install th
         </p>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {COLLECTED.map(([title, desc]) => (
-            <div key={title} className="border border-[#1b1b18] bg-[#0a0a09] p-5">
+            <div key={title} className="border border-[var(--rule)] bg-[var(--paper-2)] p-5">
               <h3 className="ff-mono text-[11px] uppercase tracking-[0.2em] text-[var(--lime)]">{title}</h3>
-              <p className="mt-2 ff-body text-[13px] leading-relaxed text-[#8b8980]">{desc}</p>
+              <p className="mt-2 ff-body text-[13px] leading-relaxed text-[var(--ink-soft)]">{desc}</p>
             </div>
           ))}
         </div>
       </div>
 
       <div className="mt-16">
-        <h2 className="ff-display text-xl text-[#f4f2ea] mb-2">Ingestion endpoints</h2>
-        <p className="mb-6 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+        <h2 className="ff-display text-xl text-[var(--ink)] mb-2">Ingestion endpoints</h2>
+        <p className="mb-6 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
           Reference only. The tracker script calls these for you. Every request is authenticated with your site&apos;s API key.
         </p>
-        <div className="divide-y divide-[#1b1b18] border-t border-b border-[#1b1b18]">
+        <div className="divide-y divide-[var(--rule)] border-t border-b border-[var(--rule)]">
           {ENDPOINTS.map(([path, desc]) => (
             <div key={path} className="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:gap-6">
               <code className="ff-mono text-[13px] text-[var(--lime)] sm:w-64 sm:shrink-0">{path}</code>
-              <span className="ff-body text-[13px] text-[#8b8980]">{desc}</span>
+              <span className="ff-body text-[13px] text-[var(--ink-soft)]">{desc}</span>
             </div>
           ))}
         </div>

@@ -130,7 +130,24 @@ const pagesText = (pages: PageSummaryLine[]) =>
 
 export type SendResult = { ok: true; status: number } | { ok: false; status: number | null; error: string };
 
-export function slackMessage(p: DeliveryPayload) {
+/** A message sent this long after the form says it is late. */
+export const LATE_AFTER_MS = 2 * 60_000;
+
+/**
+ * "Sent 54 minutes late..." when the message goes out more than 2 minutes after the form, else null. Worked out when it
+ * is SENT (a retried message counts its retries too). Why: after a busy moment waiting leads are checked later (crowd
+ * test 2026-10-28: an hour later), and a closer must not call a lead believing the form was just sent.
+ */
+export function lateNote(p: DeliveryPayload, now = Date.now()): string | null {
+  const sent = Date.parse(p.lead.submittedAt ?? "");
+  if (!Number.isFinite(sent) || now - sent <= LATE_AFTER_MS) return null;
+  const min = Math.round((now - sent) / 60_000);
+  const late = min < 60 ? `${min} minutes` : min < 48 * 60 ? `${Math.floor(min / 60)} h ${min % 60} min` : `${Math.round(min / 1440)} days`;
+  const at = Math.floor(sent / 1000);
+  return `*Sent ${late} late.* Jellyhook was busy when this form came in. The form was sent <!date^${at}^{date_short} {time}|${new Date(sent).toISOString()}>.`;
+}
+
+export function slackMessage(p: DeliveryPayload, now = Date.now()) {
   const when = Math.floor(Date.parse(p.lead.submittedAt ?? p.createdAt) / 1000);
   const show = messageOptions(p.options);
   const ad = p.source?.ad ?? null;
@@ -141,6 +158,9 @@ export function slackMessage(p: DeliveryPayload) {
     { type: "header", text: { type: "plain_text", text: p.title.slice(0, 150) } },
     { type: "section", text: { type: "mrkdwn", text: p.body } },
   ];
+  // first thing under the message: a late message says so, before anyone calls the lead
+  const late = lateNote(p, now);
+  if (late) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: late }] });
   // what is in the lead's head: the ad (tag, thumbnail) that brought them, so the closer can match it in 3 seconds.
   // The line comes from links (utm_campaign...), so it is escaped: a campaign named "<!channel>" never pings anyone.
   if (line) blocks.push({ type: "section", text: { type: "mrkdwn", text: "*Came from:* " + slackEscape(line.slice(0, 280)) } });
@@ -153,7 +173,7 @@ export function slackMessage(p: DeliveryPayload) {
   if (show.openButton) buttons.push(...leadButtons(p, show.leadLink));
   if (video) buttons.push({ type: "button", text: { type: "plain_text", text: "Watch the ad" }, url: video });
   if (buttons.length) blocks.push({ type: "actions", elements: buttons });
-  return { text: p.title + ": " + p.body + (line ? " (came from " + slackEscape(line) + ")" : ""), blocks };
+  return { text: p.title + ": " + p.body + (late ? " (sent late)" : "") + (line ? " (came from " + slackEscape(line) + ")" : ""), blocks };
 }
 
 /**
@@ -161,11 +181,13 @@ export function slackMessage(p: DeliveryPayload) {
  * Sent once when Slack answers 400 to the full message (an image it cannot load, a block it rejects), so the lead still
  * reaches the channel (lib/notifications/send.ts).
  */
-export function slackPlainMessage(p: DeliveryPayload) {
+export function slackPlainMessage(p: DeliveryPayload, now = Date.now()) {
   const line = p.source?.line ? slackEscape(p.source.line.slice(0, 280)) : null;
+  const late = lateNote(p, now);
   const blocks: Record<string, unknown>[] = [
     { type: "header", text: { type: "plain_text", text: p.title.slice(0, 150) || "New lead" } },
     { type: "section", text: { type: "mrkdwn", text: clip(p.body || " ", SECTION_MAX) } },
+    ...(late ? [{ type: "context", elements: [{ type: "mrkdwn", text: late }] }] : []),
   ];
   if (line) blocks.push({ type: "section", text: { type: "mrkdwn", text: "*Came from:* " + line } });
   const buttons = leadButtons(p, messageOptions(p.options).leadLink).filter((b) => httpUrl(b.url as string));

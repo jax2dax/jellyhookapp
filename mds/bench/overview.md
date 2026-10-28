@@ -114,3 +114,11 @@ Marks built with the newer builder (v2) and everything the control room shows do
   100,000-lead site needs a bigger test project for a day.
 - The test project must match production's compute size for the numbers to mean anything.
 - The database's own CPU and disk work, and Vercel's billing, cannot be read from inside the app (see the control room doc).
+
+## The drainer on the test server (added 2026-10-28)
+`npm run drain:bench` calls the test server's drainer (`/api/jobs/drain`) every 30 seconds, 20 times (`--times 0` = until
+Ctrl+C), the way Supabase Cron calls production's every minute. The drainer does the work left for later: Slack and
+webhook retries (Slack refuses more than about one message a second per webhook), the queue of other marks
+(`mds/build/marks/queue-and-cap.md`), checks of past leads. Without it that work waits for the next form or for someone
+opening the leads page. It reads `CRON_SECRET` from `.env.bench` or `.env.local` (never printed) and only calls localhost.
+Run it in a second terminal during and after a crowd run.

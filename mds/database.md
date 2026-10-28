@@ -624,3 +624,12 @@ policy on a table Clerk users touch.
 the full two-layer design (app-layer check + RLS backstop) is consistent
 across every table in this file, not just the ones added since this
 section was first written.
+## Privacy (migration 35, 2026-10-28)
+- `sites.retention_months` integer, default 13, allowed 6 / 13 / 25 / null (null keeps everything). `sites.purged_at`
+  timestamptz: when the daily retention sweep last finished this site.
+- `erasure_requests`: one row per person erased. `id, site_id, requested_by (Clerk user id), email_hash (sha256 of the
+  lowercased email; the email is never stored), leads, visitors, rows_deleted, created_at`. RLS on, no grants to anon or
+  authenticated (service role only).
+- `jh_purge_site(site, before, batch)`, `jh_erase_person(site, email)`: security definer, service role only.
+  Details: mds/build/privacy/privacy.md.
+- Indexes added for the sweep: `page_views (site_id, created_at)`, `form_engagement (site_id, created_at)`.

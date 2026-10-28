@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 function CodeBlock({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto border border-[#1b1b18] bg-[#0a0a09] p-4 ff-mono text-[12px] leading-relaxed text-[#4fc3ff]">
+    <pre className="overflow-x-auto border border-[var(--rule)] bg-[var(--paper-2)] p-4 ff-mono text-[12px] leading-relaxed text-[var(--info)]">
       <code>{children}</code>
     </pre>
   );
@@ -32,9 +32,9 @@ const RULES: [string, string][] = [
 export default function SensitiveFieldsPage() {
   return (
     <div>
-      <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Core concepts</span>
-      <h1 className="mt-3 ff-display text-3xl text-[#f4f2ea]">Sensitive fields</h1>
-      <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[#8b8980]">
+      <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[var(--ink-mute)]">Core concepts</span>
+      <h1 className="mt-3 ff-display text-3xl text-[var(--ink)]">Sensitive fields</h1>
+      <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
         When a visitor submits a lead form, Jellyhook stores what they entered so you can see the lead. Some values should never be stored by a
         lead tool at all: payment cards, bank accounts and identity numbers. Jellyhook leaves those out automatically, in the visitor&apos;s browser,
         before anything is sent. You can leave out any other field yourself with one attribute.
@@ -42,8 +42,8 @@ export default function SensitiveFieldsPage() {
 
       <div className="mt-12 space-y-12">
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">When this matters</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">When this matters</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             A consultancy&apos;s enquiry form also takes a deposit: it has a card number and a security code below the message box. With Jellyhook
             installed, the lead arrives with the name, email, company and message. The card details never leave the visitor&apos;s browser, so they
             are not in your Jellyhook data, not in exports and not in anything an AI app connected to your account can read.
@@ -51,42 +51,42 @@ export default function SensitiveFieldsPage() {
         </div>
 
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">What is never stored</h2>
-          <div className="divide-y divide-[#1b1b18] border-t border-b border-[#1b1b18]">
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">What is never stored</h2>
+          <div className="divide-y divide-[var(--rule)] border-t border-b border-[var(--rule)]">
             {NEVER.map(([k, v]) => (
               <div key={k} className="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:gap-6">
                 <span className="ff-mono text-[12px] text-[var(--lime)] sm:w-60 sm:shrink-0">{k}</span>
-                <span className="ff-body text-[13px] leading-relaxed text-[#8b8980]">{v}</span>
+                <span className="ff-body text-[13px] leading-relaxed text-[var(--ink-soft)]">{v}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">How a field is recognised</h2>
-          <p className="mb-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">A field is left out when any one of these is true:</p>
-          <div className="divide-y divide-[#1b1b18] border-t border-b border-[#1b1b18]">
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">How a field is recognised</h2>
+          <p className="mb-4 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">A field is left out when any one of these is true:</p>
+          <div className="divide-y divide-[var(--rule)] border-t border-b border-[var(--rule)]">
             {RULES.map(([k, v]) => (
               <div key={k} className="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:gap-6">
                 <span className="ff-mono text-[12px] text-[var(--lime)] sm:w-60 sm:shrink-0">{k}</span>
-                <span className="ff-body text-[13px] leading-relaxed text-[#8b8980]">{v}</span>
+                <span className="ff-body text-[13px] leading-relaxed text-[var(--ink-soft)]">{v}</span>
               </div>
             ))}
           </div>
-          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             The same rules run again on Jellyhook&apos;s servers when a submission arrives, so a value is still removed if an old copy of the script is
             cached in a visitor&apos;s browser. HubSpot forms follow the same rules, using the field names HubSpot reports.
           </p>
         </div>
 
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">data-jh-ignore: leave out any other field</h2>
-          <p className="mb-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">data-jh-ignore: leave out any other field</h2>
+          <p className="mb-4 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             For anything the rules above cannot know about, such as a medical question, an internal reference or a free-text box you would rather not
-            keep, add <code className="ff-mono text-[#c9c7bd]">data-jh-ignore</code> to the field or to an element around it inside the form.
+            keep, add <code className="ff-mono text-[var(--ink-2)]">data-jh-ignore</code> to the field or to an element around it inside the form.
           </p>
           <CodeBlock>{`<form data-conversion="true">\n  <input name="email">\n  <input name="name">\n  <div data-jh-ignore>\n    <label>Describe your symptoms</label>\n    <textarea name="symptoms"></textarea>\n  </div>\n</form>`}</CodeBlock>
-          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <p className="mt-4 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             An ignored field is left out of everything: its value, its timing, the form&apos;s field list and validation errors. It is also not used to
             find the lead&apos;s name, email or phone, so do not put it on those fields. On the form element itself, it leaves out every field: only the
             fact that the form was submitted is recorded.
@@ -94,8 +94,8 @@ export default function SensitiveFieldsPage() {
         </div>
 
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">What is still recorded for a sensitive field</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">What is still recorded for a sensitive field</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             A field recognised by the rules (not one marked data-jh-ignore) still appears in{" "}
             <Link href="/docs/concepts/form-engagement" className="text-[var(--lime)] hover:underline">
               form engagement
@@ -106,8 +106,8 @@ export default function SensitiveFieldsPage() {
         </div>
 
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Limits</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Limits</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             Recognition works from names, labels and value patterns. A sensitive field with a meaningless name and no label (for example
             &quot;field_12&quot;) whose value does not look like a card or social security number cannot be recognised: mark it with data-jh-ignore.
             Card fields inside a payment provider&apos;s own frame (Stripe, PayPal and similar) are never visible to Jellyhook at all. Submissions
@@ -116,8 +116,8 @@ export default function SensitiveFieldsPage() {
         </div>
 
         <div>
-          <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">Related</h2>
-          <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Related</h2>
+          <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             <Link href="/docs/concepts/tracking-attributes" className="text-[var(--lime)] hover:underline">Tracking attributes</Link>,{" "}
             <Link href="/docs/concepts/form-engagement" className="text-[var(--lime)] hover:underline">Form engagement</Link>,{" "}
             <Link href="/docs/concepts/privacy-consent" className="text-[var(--lime)] hover:underline">Privacy and consent</Link>.

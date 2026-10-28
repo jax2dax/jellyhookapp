@@ -17,6 +17,7 @@ import { rotationStatus } from "@/lib/tracking/keys";
 import { McpCard } from "./McpCard";
 import { KeyRotationNotice, TrackingStatusCard, AllowedHostsCard, TrackingHealthCard } from "./TrackingCards";
 import { FormSwitchesCard } from "./FormSwitchesCard";
+import { CookieBannerCard, PrivacyDataCards } from "./PrivacyCards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -296,6 +297,14 @@ export default function SettingsClient({ site: initialSite, visitorCount = 0, ro
 
       {/* ATTRIBUTE CHECK: found on the page versus proven by a real event */}
       {section === "attributes" && (ingestion ? <TrackingHealthCard status={ingestion} /> : <p className="text-sm text-muted-foreground">The attribute check could not be loaded. Reload the page.</p>)}
+
+      {/* PRIVACY: cookie banner, retention, erasing a person, where data is stored (PrivacyCards.jsx) */}
+      {section === "privacy" && (
+        <>
+          <CookieBannerCard consent={ingestion?.consent} />
+          <PrivacyDataCards siteId={site.id} role={role} />
+        </>
+      )}
 
       {/* LEAD FORMS: which submissions count as leads */}
       {section === "forms" && <FormSwitchesCard siteId={site.id} onChanged={setSite} initialState={demoForms} />}

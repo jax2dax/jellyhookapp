@@ -173,3 +173,97 @@ To revert a change, put the "before" text back.
   rule is checked first, the moment the form is sent, so the notification never waits. Other marks are checked right
   after, in the background. When many forms arrive at once they can take a few minutes, so a badge may appear a little later."
 - Why: migration 34, the queue of other marks (`mds/build/marks/queue-and-cap.md`). No ledger claim changes.
+
+## 2026-10-28: notifications docs, the "Sent late" line
+- File: `app/docs/reference/notifications/page.tsx`, "The Slack message" table.
+- Before: no row about late messages.
+- After: a row "Sent late": "Sent 54 minutes late. Jellyhook was busy when this form came in. The form was sent ...",
+  right under the message; shown when the message goes out more than 2 minutes after the form; always on.
+- Why: `lib/notifications/message.ts` `lateNote` (crowd test 2026-10-28: waiting leads were sent an hour late with no
+  sign of it). No ledger claim changes.
+
+## 2026-10-28 founder-requested build: hero hook box, Slack notification showcase (not an agent edit)
+- app/page.tsx hero: the four-item promise list is replaced by a "write a hook" box (components/showcase/HeroHookBox.tsx). First line alternates "Notify me when..." / "Notify me on Slack when..."; under it, example conditions type out, erase and retype as a moving placeholder:
+  `their budget is between $20k and $30k, and they stayed on the site for at least 2 minutes`; `they saw 90% or more of "/pricing" and did not hesitate on the form`; `they came from a Facebook ad and spent 40 seconds or more on "Best deals"`; `they came from a TikTok ad, opened "/" and went straight to "/contact"`. Visitors can type their own; "Hook it" goes to /sign-up?hook=... Ledger 23 (widened to name where the visit came from, per the founder's examples).
+  - Before: the list "Pages read, time and scroll for each lead / Time spent on every form field / Forms started but never submitted / Which headings they reached".
+- New section `#get-told` "02 / Get told" (components/showcase/SlackDesktopShowcase.tsx): a Windows desktop where Slack notifications from Jellyhook slide in for three sample leads ("🔥 Hot lead: <name> just filled out a form"), with the marks matched and a visit line; taskbar Slack badge counts up. Heading `A lead does what you hooked. Slack tells you.` Ledger 24. No speed claim (delivery goes through a queue).
+- Sections renumbered: 03 Capabilities, 04 Why it matters, 05 Get started.
+- Founder asked for the subject "High intent level 5 🔥 just filled out a form"; used "🔥 Hot lead: <name> just filled out a form" instead because "intent level" reads as lead scoring (banned-claims.md). One-line change in TOASTS if the founder wants it.
+- Checks: tsc clean, eslint clean, screenshots at 1440 px.
+- 2026-10-28 (same section): each cycle now zooms the screen in on the Slack toast (2x), a pointer presses an orange **Contact lead** button with the HubSpot logo, then zooms back out. `HubSpotLogo` (components/notifications/Brand.tsx) takes a `color` (white on the orange button). Note: the real Slack button is labelled "Open in HubSpot", and HubSpot is not in the claims ledger; banned-claims.md still says "No integration exists" (out of date since 2026-10-25, founder setup pending).
+
+## 2026-10-28 design taste test: magazine look preview (app/v2/page.tsx, new)
+Founder rejected the black + lime look and the fonts and chose "The Magazine Issue" (white paper, ink black, one tangerine
+spot #d4380a, Young Serif + Albert Sans, heavy rules, two-column grid). Built as a separate, not-indexed preview at /v2; the
+live app/page.tsx is unchanged. Copy is placeholder until the founder sends new words; it reuses lines already on the live
+page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
+- New: `app/v2/page.tsx`, `app/v2/v2.css`, `components/showcase/v2/IssueHookBox.tsx` (the hook box restyled).
+- Changed: `components/showcase/HeroHookBox.tsx` now exports PREFIXES, EXAMPLES and useTypewriter (no visible change).
+- `npx tsc --noEmit` passed. Design brief: `.impeccable/surfaces/app-v2-page-tsx.md`.
+
+## 2026-10-28 /v2 preview: green spot color and the founder's new copy
+- Spot color tangerine #d4380a to green #0f7a3d (white text on it passes 4.5:1); light band #eef2ec.
+- All copy replaced with the founder's 10-section landing copy (pasted 2026-10-28). One em dash changed to a comma (style rule).
+- NOT in the claims ledger yet, check before /v2 replaces the live page:
+  1. Section 05 (ads, UTM, "which sources bring leads"): Acquisition is not in the ledger (CLAUDE.md rule 7).
+  2. "Use Google Tag Manager" (hero and setup step 2): no ledger row.
+  3. Section 06 "Compare journeys across converted and non-converted visitors" and "sections frequently reached before conversion": no ledger row.
+  4. "Flag potential confusion" / "intent markers" wording: marks exist (ledger 23); "intent" wording sits near banned "intent score".
+  5. "Stop watching session videos": contrasts with replay, does not claim it; banned list only bans calling the chart a replay.
+
+## 2026-10-28 the magazine look becomes the live home page (app/page.tsx)
+- Before: app/page.tsx (black + lime, Instrument Serif / Inter Tight). Kept unrouted at `app/_legacy-home/page.tsx`; to revert,
+  move it back to `app/page.tsx`.
+- After: the /v2 design (white, ink, green #0f7a3d, Young Serif + Albert Sans) with the founder's copy. Files: `app/page.tsx`,
+  `app/landing.css`, `components/showcase/v2/{IssueHookBox,HookMark,Reveal,HubSpotCardShowcase}.tsx`. /v2 removed.
+- Review fixes: own tracker script kept (same key as MarketingPage); interactive demo (LeadsShowcase) kept as a dark
+  spread; real title/description (not "Preview", indexed); no Clerk avatar; hero trimmed to headline, one paragraph,
+  button and the Tag Manager note, the three bullets moved to a strip under it; broken "J" replaced by a fish-hook mark
+  (eye, shank, bend, barb), also in the cover art, where it sways on its line.
+- New section in 08: a HubSpot contact record (example data) with the Jellyhook card outlined in green; it zooms on the
+  card, underlines the summary, then the pointer clicks Call and a call starts. Copy: "Every form's footprint shows up in
+  a Jellyhook card on the HubSpot contact. Read it and call, without leaving HubSpot." (ledger 28)
+- Motion: below-the-fold headings and rows lift out of a soft blur once, section rules draw in, cover shapes settle.
+  Nothing animates with reduced motion; content shows without JavaScript.
+- Ledger: rows 26 (Tag Manager, verified in InstallSteps.jsx and tracker.js), 27 (source and UTM per lead), 28 (HubSpot card) added.
+- Section 06 bullets reworded to what the product does today: "See which headings and sections converted leads reached",
+  "Compare converted leads with visitors who never sent the form", "Investigate which pages and sections your best leads read"
+  (were: "sections frequently reached before conversion", "compare journeys across converted and non-converted visitors").
+- Section 07 shortened by one clause ("or completes a combination of actions"; "applies your rules to recorded lead activity").
+- `npx tsc --noEmit` passed; design detector clean.
+
+## 2026-10-28 the other marketing pages take the home page's look
+- Pages: /pricing, /about, /privacy, /terms, /demo, /docs (all pages), sign-in, sign-up. Shell: `components/marketing/`
+  (MarketingPage, SiteHeader, SiteFooter, MarketingTheme, fonts, PricingCards).
+- Colours only, no copy changed: the old dark palette's 19 colours were swapped for tokens (ink, ink-soft, rule, paper,
+  paper-2), set in MarketingTheme.tsx under `.jh-mkt`; `--lime` now holds the green inside `.jh-mkt`, so lime classes turn
+  green. The home page's dark demo band keeps the old lime (`:root`).
+- Fonts: Young Serif + Albert Sans (code stays in JetBrains Mono). Italic emphasis became plain green (the serif has no italic).
+- Header: the home page's masthead (serif wordmark with the hook mark, caps links, 6px ink rule). No Clerk avatar; signed-in
+  visitors get a Dashboard button. Footer: one rule, caps links. Grain overlay removed.
+- Buttons on green use white text. `npx tsc --noEmit` passed.
+
+## 2026-10-28 founder review: pricing, docs negatives, sign-in/up cards
+- app/pricing/page.tsx: removed the "Where pricing is headed" section (PricingCards, site vs just-me toggle) and the
+  paid-plan FAQs ("What happens when paid plans launch?", "upgrading a site vs upgrading just me"). Added "Can my team use
+  it?" (ledger 14, 16). Hero: "Paid plans are coming later, but not yet." removed; now "...marks, hooks, all of it) is on
+  every account, for your whole team, no card required."
+- app/docs/reference/billing/page.tsx: "Subscription page" paragraph (future site/personal upgrade) replaced by "Your team".
+- app/docs/use-cases/page.tsx: "What it does not do" (six "No." rows, one wrong: "There is no CRM integration") became
+  "Good to know" with plain facts, CRM row now names the HubSpot card (ledger 28).
+- app/about/page.tsx: "What it isn't" (Not a CRM...) became "Where it fits". CTA button text white on black.
+- app/privacy/page.tsx: Google Analytics / Vercel Analytics row shortened to "Visit statistics for jellyhook.com." (kept
+  listed: a privacy policy names the tools that process visits to our own site).
+- Sign-in / sign-up: AuthCardFrame, SignInCard, SignUpCard and both pages in the magazine look (wordmark + hook over an ink
+  rule, white card with a 2px ink border, green button, no glow).
+- Docs sidebar: active page on light green, not black. `npx tsc --noEmit` and `npm run docs:check` passed.
+
+## 2026-10-28 privacy docs and notices
+- app/docs/concepts/privacy-consent/page.tsx rewritten: full storage key list (adds jh_consent, jh_ignore, jh_outbox),
+  automatic banner reading and its four states, consent mode for other banners, retention, erasing a person, where data
+  is stored with the no-DPA notice for EU/UK sites, and a privacy-notice text for customers.
+- app/privacy/page.tsx: consent paragraph (banner followed automatically, no cookies, no DPA), retention (13 months
+  default, erase by email), "Last updated October 28, 2026".
+- app/docs/installation/page.tsx: sign-up forms with a password are not leads; Google Tag Manager install; banner line.
+- app/docs/reference/settings/page.tsx: Privacy section. app/docs/reference/billing: "unlocked" became "on".
+- Ledger: row 22 rewritten (automatic banner, never "compliant"), row 29 added (retention, erasure).

@@ -2,6 +2,7 @@
 // Run: npx jiti lib/notifications/tests/send.test.ts
 import { createHmac } from "node:crypto";
 import { isSafeWebhookUrl, isSlackUrl, messageOptions, post, signature, slackMessage, slackPlainMessage, webhookBody, type DeliveryPayload } from "../send";
+import { lateNote } from "../message";
 
 let fails = 0;
 let passes = 0;
@@ -13,7 +14,8 @@ const p: DeliveryPayload = {
   deliveryId: "d1", eventId: "e1", createdAt: "2026-10-22T09:00:01Z", site: { id: "s1", domain: "acme.com" }, rule: { id: "r1", name: "Hot Lead new" },
   title: "Hot Lead new", body: "A new lead fulfills Pricing reader, Came back requirements",
   marks: [{ id: "m1", name: "Pricing reader" }, { id: "m2", name: "Came back" }],
-  lead: { id: "L1", url: "https://jellyhook.com/platform/leads/L1", submittedAt: "2026-10-22T09:00:00Z" },
+  // sent just now: a message within 2 minutes of the form has no "sent late" line (tested at the end)
+  lead: { id: "L1", url: "https://jellyhook.com/platform/leads/L1", submittedAt: new Date(Date.now() - 10_000).toISOString() },
 };
 const slack = JSON.stringify(slackMessage(p));
 const hook = JSON.stringify(webhookBody(p));
@@ -136,6 +138,24 @@ const run = async () => {
   const r4 = await post("webhook", "https://hooks.zapier.com/hooks/catch/1/abc", payload, "s");
   ok(!r4.ok && bodies.length === 1, "webhooks are not resent as a plain message");
   globalThis.fetch = realFetch;
+
+  // ── a late message says so (2026-10-28: after a busy moment, waiting leads were sent an hour late) ──
+  {
+    const sent = Date.parse("2026-10-28T07:00:00Z");
+    const late = { ...p, lead: { ...p.lead, submittedAt: new Date(sent).toISOString() } };
+    const at = (min: number) => sent + min * 60_000;
+    ok(lateNote(late, at(2)) === null, "2 minutes after the form: not late");
+    ok(lateNote(late, at(54))?.startsWith("*Sent 54 minutes late.*") ?? false, "54 minutes: 'Sent 54 minutes late.'");
+    ok(lateNote(late, at(135))?.startsWith("*Sent 2 h 15 min late.*") ?? false, "135 minutes: 'Sent 2 h 15 min late.'");
+    ok(lateNote(late, at(3 * 1440))?.startsWith("*Sent 3 days late.*") ?? false, "3 days: 'Sent 3 days late.'");
+    ok(lateNote({ ...late, lead: { ...late.lead, submittedAt: null } }, at(500)) === null, "no sending time known: no line");
+    const m = slackMessage(late, at(54)) as unknown as { text: string; blocks: { type: string; elements?: { text: string }[] }[] };
+    const line = m.blocks[2].elements?.[0].text ?? "";
+    ok(m.blocks[2].type === "context" && line.includes("54 minutes late") && line.includes("<!date^"), "the line is right under the message, with the form's time in the reader's time zone");
+    ok(m.text.includes("(sent late)"), "the notification text says it too");
+    ok(JSON.stringify(slackPlainMessage(late, at(54))).includes("54 minutes late"), "the plain fallback keeps it");
+    ok(!JSON.stringify(slackMessage(late, at(1))).includes("late."), "on time: no line");
+  }
 
   console.log(`\n${passes} passed, ${fails} failed`);
   process.exit(fails ? 1 : 0);

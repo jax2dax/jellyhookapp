@@ -174,6 +174,14 @@ export function InstallSteps({ apiKey, trackerBase, specifyForm }) {
         </div>
         <p className="mb-2 text-[11px] text-muted-foreground">{current.note}</p>
         <CodeBox code={current.code} copyText={current.copy} tabs={{ options: FRAMEWORKS, value: framework, onChange: setFramework }} />
+        {/* privacy at install time (2026-10-28): the banner is followed automatically; no DPA yet (docs: privacy-consent) */}
+        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+          Have a cookie banner? The tracker follows it with no extra setup. Visitors from the EU or the UK: Jellyhook stores data in the US and does not offer a data processing
+          agreement yet.{" "}
+          <a href="/docs/concepts/privacy-consent" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+            Privacy and consent
+          </a>
+        </p>
       </div>
 
       {specifyForm ? (

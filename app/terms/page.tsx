@@ -104,11 +104,11 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
 export default function TermsPage() {
   return (
     <MarketingPage>
-      <section className="border-b border-[#1b1b18] pt-16 md:pt-24">
+      <section className="border-b border-[var(--rule)] pt-16 md:pt-24">
         <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
-          <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[#77756d]">Legal</span>
-          <h1 className="mt-4 ff-display text-[clamp(2rem,4.5vw,3.25rem)] leading-[0.98] tracking-[-0.02em] text-[#f4f2ea]">Terms of Service</h1>
-          <p className="mt-4 ff-mono text-[10px] uppercase tracking-[0.2em] text-[#5f5d57]">Last updated 2026</p>
+          <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[var(--ink-mute)]">Legal</span>
+          <h1 className="mt-4 ff-display text-[clamp(2rem,4.5vw,3.25rem)] leading-[0.98] tracking-[-0.02em] text-[var(--ink)]">Terms of Service</h1>
+          <p className="mt-4 ff-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ink-mute)]">Last updated 2026</p>
         </div>
       </section>
 
@@ -117,8 +117,8 @@ export default function TermsPage() {
           <div className="space-y-10">
             {SECTIONS.map((s) => (
               <div key={s.title}>
-                <h2 className="ff-display text-xl text-[#f4f2ea] mb-3">{s.title}</h2>
-                <div className="ff-body text-[14px] leading-relaxed text-[#8b8980]">{s.body}</div>
+                <h2 className="ff-display text-xl text-[var(--ink)] mb-3">{s.title}</h2>
+                <div className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">{s.body}</div>
               </div>
             ))}
           </div>

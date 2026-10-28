@@ -13,7 +13,7 @@ const GOOGLE = "utm_source=google&utm_medium=cpc&campaign_id={campaignid}&utm_co
 const TIKTOK = "utm_source=tiktok&utm_medium=paid_social&utm_campaign=__CAMPAIGN_NAME__&campaign_id=__CAMPAIGN_ID__&utm_content=__CID__&ad_name=__AD_NAME__";
 
 function Snippet({ value }: { value: string }) {
-  return <pre className="max-w-2xl overflow-x-auto whitespace-pre-wrap break-all border border-[#1b1b18] bg-[#0a0a09] p-3 ff-mono text-[12px] text-[#c9c7bd]">{value}</pre>;
+  return <pre className="max-w-2xl overflow-x-auto whitespace-pre-wrap break-all border border-[var(--rule)] bg-[var(--paper-2)] p-3 ff-mono text-[12px] text-[var(--ink-2)]">{value}</pre>;
 }
 
 export default function AdTrackingGuidePage() {

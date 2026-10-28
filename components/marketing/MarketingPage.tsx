@@ -1,24 +1,20 @@
 // components/marketing/MarketingPage.tsx
-// Shared shell for every public marketing page: fonts, lime theme, grain
-// texture, header, footer. A plain server component — none of this needs
-// client-side state (SiteHeader carries its own "use client" for the mobile
-// menu toggle).
+// Shared shell for the public marketing pages (/pricing, /about, /terms, /privacy, /demo, /docs, sign-in): fonts, the
+// magazine theme (MarketingTheme.tsx, same look as the home page), masthead header and footer. A plain server
+// component; SiteHeader carries its own "use client" for the mobile menu.
 import * as React from "react";
 import Script from "next/script";
-import { marketingFontVariables } from "./fonts";
-import { MarketingThemeStyles, GrainOverlay } from "./MarketingTheme";
+import { marketingFontVariables, v2FontVariables } from "./fonts";
+import { MarketingThemeStyles } from "./MarketingTheme";
 import { SiteHeader } from "./SiteHeader";
 import { SiteFooter } from "./SiteFooter";
 
 export function MarketingPage({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className={`${marketingFontVariables} ff-body min-h-screen overflow-x-hidden bg-[#070706] text-[#e9e7e0] antialiased selection:bg-[var(--lime)] selection:text-black`}
-    >
+    <div className={`jh-mkt ${marketingFontVariables} ${v2FontVariables} ff-body min-h-screen overflow-x-clip bg-[var(--paper)] text-[var(--ink)] antialiased`}>
       <MarketingThemeStyles />
-      <GrainOverlay />
       <SiteHeader />
-      <main className="pt-16 md:pt-[72px]">{children}</main>
+      <main className="pt-[88px] md:pt-[100px]">{children}</main>
       <SiteFooter />
       {/* Jellyhook tracking its own public pages (landing, docs, demo, pricing). Kept here, not in the root layout, so
           visits inside /platform are not recorded as marketing-site traffic. */}

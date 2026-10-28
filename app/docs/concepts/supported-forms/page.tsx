@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/docs/concepts/supported-forms" },
 };
 
-const BLOCK = "overflow-x-auto border border-[#1b1b18] bg-[#0a0a09] p-4 ff-mono text-[12px] leading-relaxed text-[#4fc3ff]";
+const BLOCK = "overflow-x-auto border border-[var(--rule)] bg-[var(--paper-2)] p-4 ff-mono text-[12px] leading-relaxed text-[var(--info)]";
 
 function Code({ children }: { children: string }) {
   return (

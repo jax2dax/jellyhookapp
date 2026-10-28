@@ -29,6 +29,7 @@ that needs it** (not before, not after). Every migration is safe to run twice.
 | 32-other-marks-runs.sql | to run now | at the same deploy | recording the "other marks" step of the v2 lane |
 | 33-marks-v3.sql | to run now | at the same deploy | when marks run (v3): past leads in the background, off = not checked |
 | 34-mark-queue-and-cap.sql | to run now | at the same deploy | the queue of other marks and the cap on mark work (`mds/build/marks/queue-and-cap.md`) |
+| 35-privacy-retention-and-erasure.sql | to run now | at the same deploy | Settings, Privacy: retention (13 months by default, the drainer deletes older data daily) and erasing a person (`mds/build/privacy/privacy.md`) |
 
 Keep this table current: add a row when a migration is written, and fill in the dates when it has run.
 
@@ -38,7 +39,9 @@ renames anything, and the code that runs in production today ignores what they a
 before the deploy is safe; running the code before them is also safe (every new reader falls back when a column is
 missing), but then the new parts stay switched off. The order that keeps everything working:
 1. Test project: 31, 32, 33, 34 (29, 30 are done), measure (`mds/crowd-test/v2/summary.md`, `v3/summary.md`).
-2. Production SQL editor (check the project name first): 29, 30, 31, 32, 33, 34, in that order, right before pushing.
+2. Production SQL editor (check the project name first): 29, 30, 31, 32, 33, 34, 35, in that order, right before pushing.
+   35 is the only one that deletes data on its own: once it runs, the drainer deletes rows older than 13 months every day
+   (nothing in production is that old yet).
 3. Push the code.
 Note: the control room code and the v2 and v3 code are already on `main` and pushed (commit 92d5c81, 2026-10-27). If
 production deploys `main`, it runs that code before these migrations: `/admin` says "not ready" until 29, and v2/v3 fall

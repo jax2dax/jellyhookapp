@@ -1,151 +1,96 @@
 // components/marketing/SiteHeader.tsx
-// Shared top nav for every public marketing page. The wordmark now renders
-// in the lime brand color (was plain off-white) and the logo mark is
-// jellyhookMark.png — a chroma-keyed, transparent version of the original
-// darkMainLogo.png. That original file has an opaque WHITE background baked
-// into the PNG (no alpha channel at all), so on this near-black header it
-// rendered as a pale square smudge behind the hook — effectively invisible
-// as a "logo" rather than displaying one. jellyhookMark.png keys that white
-// out to transparent and is trimmed to the mark's real bounding box, so only
-// the black badge + green hook show, sitting flush on the header's own
-// near-black background.
+// Shared masthead for the public marketing pages, in the home page's magazine look: the serif wordmark with the
+// fish-hook mark, caps links, a heavy ink rule under it. Signed-in visitors get a Dashboard button (no avatar).
 "use client";
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { Show, UserButton, SignOutButton } from "@clerk/nextjs";
+import { Show, SignOutButton } from "@clerk/nextjs";
 import { ArrowRight, Menu, X } from "lucide-react";
-import { avatarAppearance } from "./MarketingTheme";
+import { HookMark } from "@/components/showcase/v2/HookMark";
 
 const NAV = [
-  { label: "Features", href: "/#features", index: "01" },
-  { label: "Pricing", href: "/pricing", index: "02" },
-  { label: "About", href: "/about", index: "03" },
-  { label: "Docs", href: "/docs", index: "04" },
+  { label: "How it works", href: "/#journey" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "About", href: "/about" },
+  { label: "Docs", href: "/docs" },
 ];
 
-export function Wordmark({ size = 28, textClassName = "text-[13px]" }: { size?: number; textClassName?: string }) {
+const CAPS = "ff-body text-[12px] font-bold uppercase tracking-[0.16em]";
+
+export function Wordmark({ className = "text-[30px]" }: { className?: string }) {
   return (
-    <Link href="/" className="group flex items-center gap-3">
-      <span
-        className="relative flex shrink-0 items-center justify-center transition-transform duration-300 group-hover:scale-110"
-        style={{ height: size, width: size }}
-      >
-        <Image src="/jellyhookMark.png" alt="Jellyhook" width={size} height={size} priority className="h-full w-full object-contain" />
+    <Link href="/" className={"flex items-end gap-1.5 ff-display leading-none tracking-[-0.02em] text-[var(--ink)] " + className}>
+      <span>
+        Jelly<span className="text-[var(--lime)]">hook</span>
       </span>
-      <span className={`ff-mono ${textClassName} font-semibold uppercase tracking-[0.34em] text-[var(--lime)] drop-shadow-[0_0_12px_var(--lime-glow)]`}>
-        Jellyhook
-      </span>
+      <HookMark className="mb-[0.08em] h-[0.7em] w-[0.46em] text-[var(--lime)]" strokeWidth={3.6} />
     </Link>
   );
 }
 
 export function SiteHeader() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-[#1b1b18] bg-[#070706]/85 backdrop-blur-xl">
-      <div className="mx-auto max-w-[1400px] px-5 lg:px-10">
-        <div className="flex h-16 items-center justify-between md:h-[72px]">
-          <Wordmark size={30} textClassName="text-[12px]" />
+    <header className="fixed inset-x-0 top-0 z-50 bg-[var(--paper)]/95 backdrop-blur-sm">
+      <div className="mx-auto max-w-[1440px] px-5 md:px-12 lg:px-[72px]">
+        <div className="flex h-[82px] items-end justify-between pb-3 md:h-[94px]">
+          <Wordmark className="text-[clamp(1.9rem,3vw,2.6rem)]" />
 
-          {/* desktop links */}
-          <nav className="hidden items-center gap-9 md:flex">
+          <nav className="hidden items-center gap-8 pb-1 md:flex">
             {NAV.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="group flex items-baseline gap-2 ff-mono text-[10px] uppercase tracking-[0.24em] text-[#77756d] transition-colors hover:text-[#e9e7e0]"
-              >
-                <span className="text-[var(--lime)]/60 transition-colors group-hover:text-[var(--lime)]">{item.index}</span>
+              <Link key={item.label} href={item.href} className={CAPS + " text-[var(--ink)] transition-colors hover:text-[var(--lime)]"}>
                 {item.label}
               </Link>
             ))}
+            <Show when="signed-out">
+              <Link href="/sign-in" className={CAPS + " text-[var(--ink)] transition-colors hover:text-[var(--lime)]"}>
+                Sign in
+              </Link>
+              <Link href="/sign-up" className={CAPS + " group inline-flex items-center gap-2 bg-[var(--ink)] px-4 py-2.5 text-white transition-colors hover:bg-[var(--lime)]"}>
+                Try it free
+                <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+              </Link>
+            </Show>
+            <Show when="signed-in">
+              <Link href="/platform/dashboard" className={CAPS + " group inline-flex items-center gap-2 bg-[var(--ink)] px-4 py-2.5 text-white transition-colors hover:bg-[var(--lime)]"}>
+                Dashboard
+                <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+              </Link>
+            </Show>
           </nav>
 
-          {/* desktop auth */}
-          <div className="hidden items-center gap-3 md:flex">
-            <Show when="signed-out">
-              <Link href="/sign-in">
-                <button className="h-10 px-4 ff-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-[#a8a69d] transition-colors hover:text-[var(--lime)]">
-                  Sign in
-                </button>
-              </Link>
-              <Link href="/sign-up">
-                <button className="group inline-flex h-10 items-center gap-2.5 bg-[var(--lime)] px-5 ff-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-black transition-colors hover:bg-[var(--lime-bright)]">
-                  Get started
-                  <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-                </button>
-              </Link>
-            </Show>
-
-            <Show when="signed-in">
-              <Link href="/platform/dashboard">
-                <button className="group inline-flex h-10 items-center gap-2.5 bg-[var(--lime)] px-5 ff-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-black transition-colors hover:bg-[var(--lime-bright)]">
-                  Dashboard
-                  <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-                </button>
-              </Link>
-              <UserButton appearance={avatarAppearance} />
-            </Show>
-          </div>
-
-          {/* mobile toggle */}
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            aria-label="Toggle menu"
-            className="p-2 text-[#e9e7e0] transition-colors hover:text-[var(--lime)] md:hidden"
-          >
-            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          <button onClick={() => setOpen(!open)} aria-label="Toggle menu" aria-expanded={open} className="p-2 text-[var(--ink)] transition-colors hover:text-[var(--lime)] md:hidden">
+            {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
         </div>
+        <div className="h-[6px] bg-[var(--ink)]" />
       </div>
 
-      {/* mobile menu */}
-      {isMobileMenuOpen && (
-        <div className="max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-[#1b1b18] bg-[#070706] md:hidden">
+      {open && (
+        <div className="max-h-[calc(100vh-5.5rem)] overflow-y-auto border-b-2 border-[var(--ink)] bg-[var(--paper)] md:hidden">
           <div className="px-5 py-2">
             {NAV.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-baseline gap-3 border-b border-[#141412] py-4 ff-mono text-[11px] uppercase tracking-[0.24em] text-[#a8a69d] transition-colors hover:text-[var(--lime)]"
-              >
-                <span className="text-[var(--lime)]/60">{item.index}</span>
+              <Link key={item.label} href={item.href} onClick={() => setOpen(false)} className="block border-b border-[var(--ink)] py-4 ff-display text-[22px] text-[var(--ink)] hover:text-[var(--lime)]">
                 {item.label}
               </Link>
             ))}
-
             <div className="flex flex-col gap-3 py-5">
               <Show when="signed-out">
-                <Link href="/sign-up" onClick={() => setIsMobileMenuOpen(false)}>
-                  <button className="inline-flex w-full items-center justify-center bg-[var(--lime)] py-4 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-black">
-                    Get started
-                  </button>
+                <Link href="/sign-up" onClick={() => setOpen(false)} className={CAPS + " flex justify-center bg-[var(--lime)] py-4 text-white"}>
+                  Try it free
                 </Link>
-                <Link href="/sign-in" onClick={() => setIsMobileMenuOpen(false)}>
-                  <button className="inline-flex w-full items-center justify-center border border-[#2b2b25] py-4 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#cac8bf]">
-                    Sign in
-                  </button>
+                <Link href="/sign-in" onClick={() => setOpen(false)} className={CAPS + " flex justify-center border-2 border-[var(--ink)] py-4 text-[var(--ink)]"}>
+                  Sign in
                 </Link>
               </Show>
-
               <Show when="signed-in">
-                <Link href="/platform/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
-                  <button className="inline-flex w-full items-center justify-center bg-[var(--lime)] py-4 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-black">
-                    Dashboard
-                  </button>
+                <Link href="/platform/dashboard" onClick={() => setOpen(false)} className={CAPS + " flex justify-center bg-[var(--lime)] py-4 text-white"}>
+                  Dashboard
                 </Link>
-                <div className="flex items-center justify-between border border-[#1b1b18] px-4 py-3">
-                  <span className="ff-mono text-[10px] uppercase tracking-[0.22em] text-[#77756d]">Account</span>
-                  <UserButton appearance={avatarAppearance} />
-                </div>
                 <SignOutButton redirectUrl="/">
-                  <button className="inline-flex w-full items-center justify-center border border-[#3a1c1c] py-4 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#ff7a6b] transition-colors hover:bg-[#ff7a6b]/10">
-                    Sign out
-                  </button>
+                  <button className={CAPS + " w-full border-2 border-[var(--danger-rule)] py-4 text-[var(--danger)]"}>Sign out</button>
                 </SignOutButton>
               </Show>
             </div>

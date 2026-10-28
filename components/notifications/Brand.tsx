@@ -63,16 +63,16 @@ export function IntegrationTile({
   );
 }
 
-/** HubSpot's orange sprocket, drawn simply (a hub with three spokes). */
-export function HubSpotLogo({ className }: { className?: string }) {
+/** HubSpot's orange sprocket, drawn simply (a hub with three spokes). `color`: white on an orange button. */
+export function HubSpotLogo({ className, color = "#FF7A59" }: { className?: string; color?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
-      <g fill="none" stroke="#FF7A59" strokeWidth="2.2" strokeLinecap="round">
+      <g fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round">
         <circle cx="14.5" cy="14.5" r="4" />
         <path d="M14.5 10.5V5.6M11.4 17.4l-4.6 3.8M10.8 12.4 5.4 8.6" />
       </g>
-      <circle cx="14.5" cy="4" r="2.1" fill="#FF7A59" />
-      <circle cx="4.4" cy="7.9" r="1.7" fill="#FF7A59" />
+      <circle cx="14.5" cy="4" r="2.1" fill={color} />
+      <circle cx="4.4" cy="7.9" r="1.7" fill={color} />
     </svg>
   );
 }

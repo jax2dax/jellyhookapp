@@ -12,15 +12,15 @@ import Link from "next/link";
 import { AuthCardFrame } from "./AuthCardFrame";
 
 const inputClass =
-  "w-full border border-[#2b2b25] bg-[#0f0f0d] px-3.5 py-2.5 ff-body text-[14px] text-[#f4f2ea] placeholder:text-[#5c5a52] outline-none transition-all duration-200 focus:border-[var(--lime)] focus:shadow-[0_0_0_3px_var(--lime-glow)]";
+  "w-full border-2 border-[var(--ink)] bg-[var(--paper)] px-3.5 py-2.5 ff-body text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-mute)] outline-none transition-[border-color,box-shadow] duration-200 focus:border-[var(--lime)] focus:shadow-[0_8px_20px_-12px_rgba(15,122,61,0.5)]";
 
-const labelClass = "ff-mono text-[10px] uppercase tracking-[0.2em] text-[#8b8980]";
+const labelClass = "ff-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ink-soft)]";
 
 const socialBtn =
-  "inline-flex h-11 w-full items-center justify-center gap-2.5 border border-[#2b2b25] px-5 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#cac8bf] transition-all duration-200 hover:border-[var(--lime)] hover:text-[var(--lime)] hover:shadow-[0_0_24px_-6px_var(--lime-glow)] active:scale-[0.99]";
+  "inline-flex h-11 w-full items-center justify-center gap-2.5 border-2 border-[var(--ink)] px-5 ff-body text-[12px] font-bold uppercase tracking-[0.16em] text-[var(--ink)] transition-colors duration-200 hover:border-[var(--lime)] hover:text-[var(--lime)] active:scale-[0.99]";
 
 const submitBtn =
-  "group relative inline-flex h-11 w-full items-center justify-center gap-2.5 bg-[var(--lime)] px-5 text-black ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] transition-all duration-200 hover:bg-[var(--lime-bright)] hover:shadow-[0_0_28px_-4px_var(--lime-glow)] active:scale-[0.99] active:bg-[var(--lime-dim)] disabled:opacity-50 disabled:hover:shadow-none";
+  "group relative inline-flex h-11 w-full items-center justify-center gap-2.5 bg-[var(--lime)] px-5 text-white ff-body text-[12px] font-bold uppercase tracking-[0.16em] transition-colors duration-200 hover:bg-[var(--ink)] active:scale-[0.99] disabled:opacity-50";
 
 function GoogleIcon() {
   return (
@@ -88,8 +88,8 @@ export function SignInCard() {
 
   return (
     <AuthCardFrame eyebrow="Auth / Sign in">
-      <h1 className="mt-3 ff-display text-2xl text-[#f4f2ea]">Sign in</h1>
-      <p className="mt-1.5 ff-body text-[13px] leading-relaxed text-[#8b8980]">Welcome back.</p>
+      <h1 className="mt-3 ff-display text-2xl text-[var(--ink)]">Sign in</h1>
+      <p className="mt-1.5 ff-body text-[13px] leading-relaxed text-[var(--ink-soft)]">Welcome back.</p>
 
       <button type="button" onClick={handleGoogle} className={`${socialBtn} mt-5`}>
         <GoogleIcon />
@@ -97,9 +97,9 @@ export function SignInCard() {
       </button>
 
       <div className="mt-5 flex items-center gap-3">
-        <div className="h-px flex-1 bg-[#1b1b18]" />
-        <span className="ff-mono text-[10px] uppercase tracking-[0.2em] text-[#5c5a52]">or</span>
-        <div className="h-px flex-1 bg-[#1b1b18]" />
+        <div className="h-px flex-1 bg-[var(--ink)]/25" />
+        <span className="ff-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ink-mute)]">or</span>
+        <div className="h-px flex-1 bg-[var(--ink)]/25" />
       </div>
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-3">
@@ -123,7 +123,7 @@ export function SignInCard() {
         </button>
       </form>
 
-      <p className="mt-5 text-center ff-body text-[13px] text-[#8b8980]">
+      <p className="mt-5 text-center ff-body text-[13px] text-[var(--ink-soft)]">
         Don&apos;t have an account?{" "}
         <Link href="/sign-up" className="text-[var(--lime)] hover:underline">
           Sign up

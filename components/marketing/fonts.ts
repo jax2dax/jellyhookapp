@@ -5,7 +5,13 @@
 // once here and exporting the results is the supported way to share it
 // across multiple page files without re-declaring the same three fonts in
 // each one.
-import { Instrument_Serif, Inter_Tight, JetBrains_Mono } from "next/font/google";
+import { Albert_Sans, Instrument_Serif, Inter_Tight, JetBrains_Mono, Young_Serif } from "next/font/google";
+
+// The magazine look (2026-10-28): Young Serif for headings, Albert Sans for text. The three faces below stay for the
+// home page's dark interactive demo.
+export const v2Serif = Young_Serif({ weight: "400", subsets: ["latin"], variable: "--font-v2-serif" });
+export const v2Sans = Albert_Sans({ weight: ["400", "600", "700", "800"], subsets: ["latin"], variable: "--font-v2-sans" });
+export const v2FontVariables = `${v2Serif.variable} ${v2Sans.variable}`;
 
 export const display = Instrument_Serif({
   subsets: ["latin"],
@@ -19,3 +25,4 @@ export const body = Inter_Tight({ subsets: ["latin"], variable: "--font-body" })
 export const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const marketingFontVariables = `${display.variable} ${body.variable} ${mono.variable}`;
+

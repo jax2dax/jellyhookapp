@@ -21,7 +21,7 @@ export function ExampleFramePlate() {
 
   return (
     <div>
-      <div className="rounded-md border border-[#1b1b18] bg-[#0a0a09] p-4">
+      <div className="rounded-md border border-[var(--rule)] bg-[var(--paper-2)] p-4">
         <FramePlateChart
           session={exampleSession}
           deviceType="desktop"
@@ -29,7 +29,7 @@ export function ExampleFramePlate() {
           className="w-full"
         />
       </div>
-      <p className="mt-2 ff-body text-[12px] text-[#77756d]">Click any frame above. This is the exact detail panel a real dashboard shows.</p>
+      <p className="mt-2 ff-body text-[12px] text-[var(--ink-mute)]">Click any frame above. This is the exact detail panel a real dashboard shows.</p>
       {selected && (
         <div className="mt-3">
           <SelectedFrameDetails item={selected.item} isLastVisit={selected.isLastVisit} onClose={() => setSelected(null)} />

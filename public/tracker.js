@@ -72,7 +72,7 @@
   }
   function eraseStoredData() {
     try {
-      ["visitor_id", "jh_session", "jh_active", "jh_sc", "jh_hr"].forEach(function (k) {
+      ["visitor_id", "jh_session", "jh_active", "jh_sc", "jh_hr", "jh_outbox"].forEach(function (k) {
         localStorage.removeItem(k);
       });
       Object.keys(sessionStorage).forEach(function (k) {
@@ -132,6 +132,100 @@
         }
       },
     };
+  }
+
+  // 4. The site's own cookie banner, read automatically (2026-10-28). Unless the tag uses consent mode above or says
+  //    data-banner="ignore", the tracker looks for a consent tool it knows (Cookiebot, OneTrust, CookieYes, Complianz,
+  //    any IAB TCF banner, Google Consent Mode) and follows the visitor's analytics/statistics choice: it starts when
+  //    they accept, stays off while they have not answered or have refused, and stops and erases what it stored if they
+  //    withdraw later. When no tool shows up within a second, it runs, and its health report tells Settings that no
+  //    banner was found. Docs: /docs/concepts/privacy-consent. Nothing is stored or sent while it waits.
+  /** The consent tool on the page and the visitor's analytics choice in it, or null when there is none. */
+  let tcfData = null;
+  function readBanner() {
+    try {
+      const cb = window.Cookiebot;
+      if (cb && cb.consent) return { tool: "Cookiebot", state: !cb.hasResponse ? "pending" : cb.consent.statistics ? "granted" : "denied" };
+      if (window.OneTrust || typeof window.OnetrustActiveGroups === "string") {
+        const groups = String(window.OnetrustActiveGroups || "");
+        const closed = window.OneTrust && typeof window.OneTrust.IsAlertBoxClosed === "function" && window.OneTrust.IsAlertBoxClosed();
+        return { tool: "OneTrust", state: groups.indexOf(",C0002,") !== -1 ? "granted" : closed ? "denied" : "pending" };
+      }
+      if (typeof window.getCkyConsent === "function") {
+        const c = window.getCkyConsent() || {};
+        return { tool: "CookieYes", state: c.categories && c.categories.analytics ? "granted" : c.isUserActionCompleted ? "denied" : "pending" };
+      }
+      if (typeof window.cmplz_has_consent === "function") return { tool: "Complianz", state: window.cmplz_has_consent("statistics") ? "granted" : "pending" };
+      if (typeof window.__tcfapi === "function") {
+        try {
+          window.__tcfapi("getTCData", 2, function (d, ok) {
+            if (ok) tcfData = d;
+          });
+        } catch (e) {}
+        const d = tcfData;
+        if (!d) return { tool: "IAB TCF", state: "pending" };
+        if (d.gdprApplies === false) return { tool: "IAB TCF", state: "granted" };
+        const answered = d.eventStatus === "tcloaded" || d.eventStatus === "useractioncomplete";
+        return { tool: "IAB TCF", state: d.purpose && d.purpose.consents && d.purpose.consents[1] ? "granted" : answered ? "denied" : "pending" };
+      }
+      // Google Consent Mode: the last analytics_storage set by gtag('consent', 'default' | 'update', {...}).
+      const dl = window.dataLayer;
+      if (Array.isArray(dl)) {
+        let seen = false;
+        let value = null;
+        for (let i = 0; i < dl.length; i++) {
+          const e = dl[i];
+          if (e && e[0] === "consent" && e[2] && typeof e[2] === "object") {
+            seen = true;
+            if (e[2].analytics_storage) value = e[2].analytics_storage;
+          }
+        }
+        if (seen) return { tool: "Google Consent Mode", state: value === "granted" ? "granted" : "denied" };
+      }
+    } catch (e) {}
+    return null;
+  }
+  let jhHalted = false; // set when the visitor withdraws consent in their banner: nothing more is stored or sent
+  const followBanner = setting("require-consent") === null && setting("banner") !== "ignore";
+  if (followBanner && scriptTag.getAttribute("data-jh-go") === null) {
+    const now = readBanner();
+    if (!now || now.state !== "granted") {
+      if (now) eraseStoredData();
+      // wait: for the banner to load (up to a second) and then for the visitor's answer. Start a fresh copy of this
+      // tag when tracking may begin, so nothing of this copy ever ran.
+      const startedWaiting = Date.now();
+      const go = function (why) {
+        const again = document.createElement("script");
+        for (let i = 0; i < scriptTag.attributes.length; i++) again.setAttribute(scriptTag.attributes[i].name, scriptTag.attributes[i].value);
+        again.setAttribute("data-jh-go", why);
+        document.head.appendChild(again);
+      };
+      const timer = setInterval(function () {
+        const b = readBanner();
+        if (b && b.state === "granted") {
+          clearInterval(timer);
+          go("granted");
+        } else if (!b && Date.now() - startedWaiting > 1000) {
+          clearInterval(timer);
+          go("no-banner");
+        } else if (b && b.state === "denied") {
+          eraseStoredData();
+        }
+      }, 400);
+      return;
+    }
+  }
+  // running under a banner: if the visitor later refuses or withdraws, stop and erase
+  if (followBanner) {
+    const watch = setInterval(function () {
+      const b = readBanner();
+      if (b && b.state !== "granted") {
+        clearInterval(watch);
+        jhHalted = true;
+        eraseStoredData();
+        window.addEventListener("pagehide", eraseStoredData);
+      }
+    }, 2000);
   }
   window.__jhTrackerLoaded = true;
 
@@ -628,6 +722,7 @@
     outboxWrite(outboxRead().filter((x) => x.id !== id));
   }
   function outboxAttempt(item) {
+    if (jhHalted) return;
     try {
       _originalFetch(item.url, { method: "POST", headers: SEND_HEADERS, body: item.body, keepalive: item.body.length < 60000, credentials: "omit" })
         .then((r) => {
@@ -654,6 +749,7 @@
   }
   /** Sends a body to a tracker endpoint through the outbox. */
   function deliver(url, body) {
+    if (jhHalted) return;
     const item = { id: uuid(), url, body, at: Date.now(), tries: 0 };
     const list = outboxRead();
     list.push(item);
@@ -2741,6 +2837,10 @@ function firePageViewStart() {
 
       const clickEls = document.querySelectorAll("[data-track-click]");
       if (clickEls.length > 0) report.click_attr = { marked: clickEls.length };
+
+      // Which consent tool this page has (none: Settings warns the owner) and how the tracker follows it.
+      const banner = readBanner();
+      report.consent = { tool: banner ? banner.tool : "none", mode: setting("require-consent") !== null ? "manual" : followBanner ? "auto" : "ignore" };
       return report;
     }
 

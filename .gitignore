@@ -75,3 +75,6 @@ business-validation.mdjh-ai/eval/last-run.json
 
 # HubSpot config file
 hubspot.config.yml
+
+# impeccable design skill: review screenshots and sketches (local only)
+.impeccable/

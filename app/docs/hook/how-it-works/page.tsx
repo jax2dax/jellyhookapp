@@ -156,7 +156,7 @@ export default function HookHowItWorksPage() {
         </UL>
         <Callout title="Want the engineering detail?">
           <p>
-            The developer guides live in the repository under <code className="ff-mono text-[#c9c7bd]">jh-hook/</code>: architecture, data flow, the field reference and the decision log.
+            The developer guides live in the repository under <code className="ff-mono text-[var(--ink-2)]">jh-hook/</code>: architecture, data flow, the field reference and the decision log.
           </p>
         </Callout>
       </Section>

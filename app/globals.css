@@ -605,3 +605,52 @@ html::-webkit-scrollbar-thumb:hover {
     animation: none;
   }
 }
+
+/* home page showcases (components/showcase/HeroHookBox.tsx, SlackDesktopShowcase.tsx) */
+@keyframes jh-caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  95% {
+    opacity: 0;
+  }
+}
+.jh-caret {
+  animation: jh-caret 1s step-end infinite;
+}
+@keyframes jh-hero-prefix {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.jh-hero-prefix {
+  animation: jh-hero-prefix 320ms ease-out both;
+}
+@keyframes jh-badge-pop {
+  0% {
+    transform: scale(0.4);
+  }
+  60% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.jh-badge-pop {
+  animation: jh-badge-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jh-caret,
+  .jh-hero-prefix,
+  .jh-badge-pop {
+    animation: none;
+  }
+}

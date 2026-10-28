@@ -42,7 +42,7 @@ export default async function SettingsPage({ searchParams }) {
   // only what the chosen section shows is fetched
   const role = await getMySiteRole(site.id);
   const visitorCount = id === "general" ? await getVisitorCount(site.id) : 0;
-  const ingestion = id === "installation" || id === "connection" || id === "attributes" ? await getIngestionStatus(site.id) : null;
+  const ingestion = id === "installation" || id === "connection" || id === "attributes" || id === "privacy" ? await getIngestionStatus(site.id) : null;
 
   return (
     <SettingsShell siteName={site.name || site.domain} groups={groups} active={id} section={section}>

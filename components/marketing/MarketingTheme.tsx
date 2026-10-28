@@ -1,29 +1,43 @@
 // components/marketing/MarketingTheme.tsx
-// The lime/dark visual system shared by every public marketing page. Pulled
-// out of app/page.tsx verbatim (colors, fonts-as-classes, rope-bob keyframes,
-// marquee keyframes, grid + grain textures) so /pricing, /about, /terms,
-// /docs and /privacy all read as the same site instead of drifting.
+// The visual system shared by the public marketing pages (/pricing, /about, /terms, /privacy, /demo, /docs, sign-in):
+// the home page's magazine look since 2026-10-28 (white paper, ink, one green; app/landing.css). The old dark palette's
+// colours were swapped for these tokens; --lime keeps its name and now holds the green, so older classes still work.
+// Scoped to .jh-mkt (the MarketingPage shell) so the interactive demo on the home page, which uses the same
+// styles inside a dark band, keeps its own dark colours.
 export function MarketingThemeStyles() {
   return (
     <style>{`
-        /* ===================================================
-           🎨 LIME / GREEN THEME — TWEAK THESE 3 VALUES
-           ===================================================
-           --lime-h : hue        (lower = more yellow-green, higher = more blue-green)
-           --lime-s : saturation (0% = grey, 100% = full intensity)
-           --lime-l : lightness  (0% = black,  100% = white)
-        */
-        :root {
-            --lime-h: 78;
-            --lime-s: 100%;
-            --lime-l: 62%;
+        .jh-mkt {
+            --paper: #ffffff;
+            --paper-2: #eef2ec;
+            --ink: #111111;
+            --ink-2: #2c2f2b;
+            --ink-soft: #4f544e;
+            --ink-mute: #646962;
+            --rule: #111111;
+            --info: #0b6aa2;
+            --danger: #b42318;
+            --danger-rule: #e9b8b2;
+            --spot: #0f7a3d;
 
-            --lime:        hsl(var(--lime-h) var(--lime-s) var(--lime-l));
-            --lime-bright: hsl(var(--lime-h) var(--lime-s) 78%);
-            --lime-dim:    hsl(var(--lime-h) 85% 46%);
-            --lime-glow:   hsl(var(--lime-h) var(--lime-s) var(--lime-l) / 0.28);
-            --lime-fade:   hsl(var(--lime-h) 55% 55% / 0.45);
+            --lime:        #0f7a3d;
+            --lime-bright: #13924a;
+            --lime-dim:    #0b5e2f;
+            --lime-glow:   rgba(15, 122, 61, 0.18);
+            --lime-fade:   rgba(15, 122, 61, 0.35);
         }
+        :root {
+            --lime:        hsl(78 100% 62%);
+            --lime-bright: hsl(78 100% 78%);
+            --lime-dim:    hsl(78 85% 46%);
+            --lime-glow:   hsl(78 100% 62% / 0.28);
+            --lime-fade:   hsl(78 55% 55% / 0.45);
+        }
+        .jh-mkt ::selection { background: #0f7a3d; color: #fff; }
+        .jh-mkt :focus-visible { outline: 2px solid #0f7a3d; outline-offset: 3px; }
+        .jh-mkt .ff-display { font-family: var(--font-v2-serif), Georgia, serif; font-style: normal; }
+        .jh-mkt .ff-body { font-family: var(--font-v2-sans), system-ui, sans-serif; }
+        .jh-mkt h1, .jh-mkt h2, .jh-mkt h3 { text-wrap: balance; }
 
         .ff-display { font-family: var(--font-display), Georgia, 'Times New Roman', serif; }
         .ff-body    { font-family: var(--font-body), system-ui, sans-serif; }
@@ -90,13 +104,14 @@ export function GrainOverlay() {
 }
 
 export const primaryBtn =
-  "group relative inline-flex h-14 w-full sm:w-auto items-center justify-center gap-3 bg-[var(--lime)] px-7 text-black ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] transition-colors duration-200 hover:bg-[var(--lime-bright)] active:bg-[var(--lime-dim)]";
+  "group relative inline-flex h-14 w-full sm:w-auto items-center justify-center gap-3 bg-[var(--lime)] px-7 text-white ff-body text-[12px] font-bold uppercase tracking-[0.16em] transition-colors duration-200 hover:bg-[var(--ink)] active:bg-[var(--lime-dim)]";
 
 export const ghostBtn =
-  "inline-flex h-14 w-full sm:w-auto items-center justify-center gap-3 border border-[#2b2b25] px-7 ff-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[#cac8bf] transition-colors duration-200 hover:border-[var(--lime)] hover:text-[var(--lime)]";
+  "inline-flex h-14 w-full sm:w-auto items-center justify-center gap-3 border-2 border-[var(--ink)] px-7 ff-body text-[12px] font-bold uppercase tracking-[0.16em] text-[var(--ink)] transition-colors duration-200 hover:border-[var(--lime)] hover:text-[var(--lime)]";
 
 export const avatarAppearance = {
   elements: {
     avatarBox: "w-8 h-8 rounded-none border border-[#2b2b25]",
   },
 };
+

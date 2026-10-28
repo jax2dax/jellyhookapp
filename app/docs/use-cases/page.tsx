@@ -168,16 +168,16 @@ export default function UseCasesPage() {
         </Callout>
       </Section>
 
-      <Section title="What it does not do">
+      <Section title="Good to know">
         <DataTable
-          head={["You might expect", "What is true"]}
+          head={["Topic", "How it works"]}
           rows={[
-            ["It tells me which company an anonymous visitor works for.", "No. Visitors are anonymous until they submit a form. A name or email exists only if the visitor typed one into a form."],
-            ["It records the screen like a video.", "No. The visit chart is a chart of pages, time and scroll. It does not record the screen, mouse movement or keystrokes."],
-            ["It syncs leads into my CRM.", "No. There is no CRM integration. It sits next to the tool where you keep your leads and does not replace it."],
-            ["It shows a cookie or consent banner.", "No. The tracker has no banner of its own. It does nothing when the browser sends Global Privacy Control or Do Not Track, and a site owner can switch on a mode that waits for the site's own banner. You remain responsible for getting consent where the law requires it."],
-            ["It follows one person across devices.", "No. A visitor is one browser. Phone and laptop are two visitors."],
-            ["It tracks purchases.", "No. A conversion is a form submission."],
+            ["Names and emails", "A lead has the name and email they typed into your form. Visitors who have not sent a form stay anonymous."],
+            ["The visit chart", "A chart of the pages they read, time, scroll and the headings they reached."],
+            ["Your CRM", "Jellyhook works next to it. With HubSpot connected, each contact gets a Jellyhook card with their visits. For any other CRM, open the lead from its Jellyhook link."],
+            ["Consent", "The tracker does nothing when the browser sends Global Privacy Control or Do Not Track. With consent mode on, it waits for your cookie banner's yes. See Privacy and consent."],
+            ["Devices", "One browser is one visitor, so a phone and a laptop are two visitors."],
+            ["Conversions", "A conversion is a form submission."],
           ]}
         />
         <P>

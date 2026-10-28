@@ -25,7 +25,7 @@ they reached, time per form field), and where your form loses the people who sta
 
 ## Where things are
 - Product facts: `SAAS_PRODUCT_AUDIT.md`, `saas-overview.md`, `mds/documentation/*`, `public/tracker.js`
-- Landing page: `app/page.tsx`. Pricing: `app/pricing/page.tsx`. About: `app/about/page.tsx`. Docs: `app/docs/**`.
+- Landing page: `app/page.tsx` (magazine look since 2026-10-28, styles in `app/landing.css`, parts in `components/showcase/v2/`; the old page is kept unrouted in `app/_legacy-home/page.tsx`). Pricing: `app/pricing/page.tsx`. About: `app/about/page.tsx`. Docs: `app/docs/**`.
   Privacy: `app/privacy/page.tsx`. Site metadata: `app/layout.tsx`.
 - Validation and market research: `business-validation.md`, `mds/reports/saas_validation.md`
 - Marketing memory (read first, update last): `marketing/`
@@ -50,6 +50,7 @@ Keep this list current: add a line when you create a .md file, change it when a 
 
 **Root**
 - `CLAUDE.md`: this handbook (rules for agents, where things are, this index).
+- `PRODUCT.md`: product record for the impeccable design skill (users, purpose, brand commitments, no-invention rule).
 - `README.md`: the default Next.js readme (how to run the dev server).
 - `RESUME_INVENTORY.md`: inventory of the whole project (features, files, tech) for a resume/portfolio.
 - `SAAS_PRODUCT_AUDIT.md`: full product, feature and data-flow audit. A source of product facts.
@@ -92,6 +93,7 @@ Keep this list current: add a line when you create a .md file, change it when a 
 - `marks/review-2026-10-27.md`: marks and hooks review: how a lead goes through them, what cannot be changed later, production readiness, capacity on Nano.
 - `acquisition/plan.md`: where leads come from (platform, campaign, ad), credit model, radars, "came from an ad" in marks.
 - `marks/marks.md`: marks on leads, library, site statistics (v1, the chip builder). `marks/marks-v2-plan.md`: the new builder (visit blocks, page sequences, headings, form answers and activity): plan, founder decisions, build status. `marks/when-marks-run.md`: when marks run (before v3, what other products do, the v3 plan, built 2026-10-27; section 8: does a check stop at the first failed condition).
+- `privacy/privacy.md`: the tracker following the site's cookie banner, the "no banner" warning, retention (migration 35), erasing a person, the EU/no-DPA notice, tests.
 - `heading-time/plan.md`: time per heading (tracker, storage, heat map).
 - `forms/lead-forms.md`: which form submissions are leads (per-form switches, data-conversion as an override, form_key on every lead, skipped counts), the rule, the flow, tests, docs still to rewrite.
 - `mds/bench/overview.md`: the test environment in one place: why, the pieces, `.env.bench` variables, the `hook_reader.<ref>` login and `HOOK_DATABASE_URL`, day to day, safety nets, problems met and their fix.

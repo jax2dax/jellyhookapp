@@ -19,6 +19,7 @@ import { evaluateLeads } from "@/lib/marks/evaluate";
 import { continueBackfills } from "@/lib/marks/backfill";
 import { continueMarkQueues, enqueueMarks, runMarkQueue } from "@/lib/marks/queue";
 import { takeMarkWork } from "@/lib/marks/work";
+import { continueRetention } from "@/lib/privacy/retention";
 import { decide, type LeadIn, type RuleIn } from "./decide";
 import { openSecret } from "./secret";
 import { messageOptions, post, type DeliveryPayload } from "./send";
@@ -354,7 +355,7 @@ export async function sendDeliveries(ids?: string[]): Promise<number> {
 /** The drainer: sites with waiting leads, a few at a time, then the due deliveries, then the queue of other marks
  *  (lib/marks/queue.ts), then (v3) checks of past leads that nobody is running (lib/marks/backfill.ts), with what is left
  *  of the time. Both background parts give way to the hook lane and stop at the minute's mark budget. */
-export async function drain(maxSites = 4): Promise<{ sites: number; sent: number; queued: number; backfills: number }> {
+export async function drain(maxSites = 4): Promise<{ sites: number; sent: number; queued: number; backfills: number; purged: number }> {
   const t0 = Date.now();
   const { data } = await admin.from("check_jobs").select("site_id").lte("run_after", new Date().toISOString()).order("created_at").limit(500);
   const sites = [...new Set((data ?? []).map((r) => r.site_id as string))].slice(0, maxSites);
@@ -362,7 +363,9 @@ export async function drain(maxSites = 4): Promise<{ sites: number; sent: number
   const sent = await sendDeliveries();
   const queued = await continueMarkQueues(Math.min(20_000, 40_000 - (Date.now() - t0))).catch(() => 0);
   const backfills = await continueBackfills(Math.min(30_000, 50_000 - (Date.now() - t0))).catch(() => 0);
-  return { sites: sites.length, sent, queued, backfills };
+  // last, with what is left: data older than each site's retention (lib/privacy/retention.ts, migration 35)
+  const purged = await continueRetention(Math.min(8_000, 55_000 - (Date.now() - t0))).catch(() => 0);
+  return { sites: sites.length, sent, queued, backfills, purged };
 }
 
 /** The channel a person's bell listens on (components/notifications/UnreadBadge.tsx). */

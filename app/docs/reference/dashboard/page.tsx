@@ -52,13 +52,13 @@ export default function DashboardReferencePage() {
         <H3>Hooked leads</H3>
         <P>
           The six newest leads your hooks caught, with the hook that caught each one and how long ago. Click one to open the lead. <B>All hooked</B> opens Hooks →
-          Hooked leads. See <Link href="/docs/reference/notifications" className="underline underline-offset-4 hover:text-[#f4f2ea]">Hooks and notifications</Link>.
+          Hooked leads. See <Link href="/docs/reference/notifications" className="underline underline-offset-4 hover:text-[var(--ink)]">Hooks and notifications</Link>.
         </P>
 
         <H3>Your marks</H3>
         <P>
           Each mark that is on, most leads first: its number of leads and its share of all the site&apos;s leads, drawn as a bar in the mark&apos;s colour. Click a
-          mark to open the Leads page with that mark applied. See <Link href="/docs/reference/marks" className="underline underline-offset-4 hover:text-[#f4f2ea]">Marks</Link>.
+          mark to open the Leads page with that mark applied. See <Link href="/docs/reference/marks" className="underline underline-offset-4 hover:text-[var(--ink)]">Marks</Link>.
         </P>
 
         <H3>Latest leads</H3>
@@ -133,13 +133,13 @@ export default function DashboardReferencePage() {
       <Section title="Related">
         <UL>
           <li>
-            <Link href="/docs/concepts/visitors-sessions" className="underline underline-offset-4 hover:text-[#f4f2ea]">Visitors, sessions, and page views</Link>: what each word means.
+            <Link href="/docs/concepts/visitors-sessions" className="underline underline-offset-4 hover:text-[var(--ink)]">Visitors, sessions, and page views</Link>: what each word means.
           </li>
           <li>
-            <Link href="/docs/concepts/leads-qualification" className="underline underline-offset-4 hover:text-[#f4f2ea]">Leads and qualification</Link>: why Leads and conversions differ.
+            <Link href="/docs/concepts/leads-qualification" className="underline underline-offset-4 hover:text-[var(--ink)]">Leads and qualification</Link>: why Leads and conversions differ.
           </li>
           <li>
-            <Link href="/docs/troubleshooting" className="underline underline-offset-4 hover:text-[#f4f2ea]">Troubleshooting</Link>: empty or wrong numbers.
+            <Link href="/docs/troubleshooting" className="underline underline-offset-4 hover:text-[var(--ink)]">Troubleshooting</Link>: empty or wrong numbers.
           </li>
         </UL>
       </Section>

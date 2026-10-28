@@ -61,6 +61,7 @@ export default function NotificationsReferencePage() {
             [<B key="c">Watch the ad button</B>, "Opens the ad's video", "The ad has a video link in Acquisition → Ads"],
             [<B key="d">Open the lead button</B>, <span key="d2">Opens the lead in Jellyhook, or its HubSpot contact when <Link href="/docs/reference/hubspot" className="text-[var(--lime)] hover:underline">HubSpot</Link> is connected (Open the lead in: HubSpot, Jellyhook or both)</span>, "Always"],
             [<B key="e">Hook, site and time</B>, "A small line under the message", "Always"],
+            [<B key="h">Sent late</B>, <span key="h2">&quot;Sent 54 minutes late. Jellyhook was busy when this form came in. The form was sent ...&quot;, right under the message, so nobody calls a lead believing the form was just sent</span>, "The message goes out more than 2 minutes after the form. Always on"],
             [<B key="f">Visit summary</B>, "What they did in the visit with the form, before sending it: Short, Moderate (the default) or Long, as on the lead page", "Set to anything but Off"],
             [<B key="g">Page summaries</B>, <span key="g2">Up to 3 pages you pick, one line each: &quot;/pricing: 3m 10s over 2 views in 2 visits; read up to 72% of the page ...&quot;, or &quot;Page not visited&quot;</span>, "At least one page is picked"],
           ]}

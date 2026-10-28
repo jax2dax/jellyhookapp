@@ -2040,3 +2040,36 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
 - Founder must: run 34 in the test project (after 31 to 33), `npm run start:bench`, repeat the heavy-marks burst; then
   production 29 to 34; schedule the drainer.
 - Founder decision recorded: no bigger database ($25 a month) until the product shows traction.
+- 2026-10-28: heavy-marks burst with the queue and cap: 1,000 forms in 703 s, 192 first tries failed, all recovered,
+  LOST 0. After it: 319 leads left in `mark_jobs` (attempts 0) and 61 Slack messages for 75 hooks: no drainer runs on the
+  test setup. Added `npm run drain:bench` (`scripts/sim/drain.mjs`, `mds/bench/overview.md`). Disk IO budget warning on
+  the test project after three bursts in one night (swap).
+
+## 2026-10-28 — Late Slack messages say so; drainer scheduled in production; wrap-up
+- Slack messages sent more than 2 minutes after the form carry "Sent N minutes late. Jellyhook was busy when this form
+  came in. The form was sent <time>." right under the message, and " (sent late)" in the phone notification
+  (`lib/notifications/message.ts` `lateNote`, also in the plain fallback; tests in `lib/notifications/tests/send.test.ts`,
+  62 passed). Docs: notifications docs page, `mds/build/notifications/webhooks.md`, `marketing/changes.md`.
+- Seen on the test setup with `drain:bench`: the drainer first cleared leads still waiting in the hook lane from the burst
+  (an hour old, "lanes 1" on every call), so hooks and Slack messages kept coming (over 99 hooks, 227 Slack messages):
+  delayed, not lost, and with no sign they were late, hence the line above. The queue of other marks waits until the hook
+  lane is empty, by design.
+- **Production: the drainer is scheduled** (Supabase Cron job `jh-drain`, every minute, job id 3, founder 2026-10-28).
+  Check: `select status_code, left(content::text,200) from net._http_response order by created desc limit 5;` must
+  show 200.
+
+## 2026-10-28 - Home page: hero hook box and Slack notification showcase
+- Hero: `components/showcase/HeroHookBox.tsx`, a typed, rotating placeholder of hook conditions under "Notify me when..." / "Notify me on Slack when..."; visitors can write their own and go to sign-up (respects reduced motion).
+- New section "02 / Get told": `components/showcase/SlackDesktopShowcase.tsx`, a CSS Windows 11 desktop where Slack toasts from Jellyhook slide in while the section is on screen. Details in `marketing/changes.md`.
+
+## 2026-10-28 (evening): new look across the public site, privacy (banner, retention, erasure), production prep
+- Public site: home page in the magazine look (app/page.tsx, app/landing.css, components/showcase/v2/), the old page kept
+  unrouted (app/_legacy-home). Pricing, About, Privacy, Terms, Demo, Docs, sign-in and sign-up follow it
+  (components/marketing/MarketingTheme.tsx tokens under .jh-mkt, SiteHeader, SiteFooter, components/auth/*).
+  Pricing: no paid-plan or "upgrade just me" text. Docs: defensive "No." rows rewritten. Log: marketing/changes.md.
+- Tracker: follows the site's cookie banner automatically (Cookiebot, OneTrust, CookieYes, Complianz, IAB TCF, Google
+  Consent Mode); health reports carry the banner found. mds/build/privacy/privacy.md.
+- Settings, Privacy (new section): cookie banner status, data retention (6/13/25 months or everything, default 13),
+  erase a person by email, where data is stored (US, no DPA). Install screen: one line on banner and EU.
+- Migration 35 (retention + erasure). Tests: lib/privacy/tests/privacy.sql.test.ts (15 passed).
+- Founder must: run migrations 29 to 35 in production (mds/bench/WHICH-SQL-WHERE.md), then push.
