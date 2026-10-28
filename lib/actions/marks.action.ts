@@ -23,6 +23,7 @@ import { listSitePages } from "@/lib/actions/hook.action";
 import { siteOrThrow } from "@/lib/hook/site";
 import { evaluateMark, type MarkToRun } from "@/lib/marks/evaluate";
 import { CHECK_COLS, checkOf, clearResults, continueBackfills, countLeadsSince, runBackfill, startBackfill, stopChecks, v3Missing, V3MissingError } from "@/lib/marks/backfill";
+import { runMarkQueue } from "@/lib/marks/queue";
 import { DEFAULT_PAST, PAST_CHOICES, pastFrom, type MarkCheck, type PastChoice } from "@/lib/marks/coverage";
 import { matchV2 } from "@/lib/marks/journey";
 import { getSiteStats } from "@/lib/stats/siteStats";
@@ -164,6 +165,8 @@ async function team(siteId: string): Promise<TeamMember[]> {
 export async function loadMarks(opts: { leadIds?: string[]; withLeadMarks?: boolean } = {}): Promise<MarksState> {
   try {
     const { userId, siteId } = await who();
+    // opening the leads page moves the queue of other marks on (lib/marks/queue.ts), after the answer
+    after(() => runMarkQueue(siteId, RUN_MS));
     const supabase = createSupabaseClient();
     const { data, error } = await selectMarks((cols) => supabase.from("marks").select(cols).eq("site_id", siteId).order("created_at", { ascending: true }));
     if (error) {

@@ -77,7 +77,11 @@ export default function MarksReferencePage() {
       <Section title="Preview, and which leads are checked">
         <UL>
           <li><B>Preview.</B> While you build a mark, it is tried on your last 100 leads: &quot;9 of your last 100 leads match&quot;, with the first few and why. Nothing is saved.</li>
-          <li><B>New leads.</B> While a mark is on, every new lead is checked when the form is sent, and again when that visit ends.</li>
+          <li>
+            <B>New leads.</B> While a mark is on, every new lead is checked, and again when that visit ends. A mark used by a notification rule is checked
+            first, the moment the form is sent, so the notification never waits. Other marks are checked right after, in the background. When many forms
+            arrive at once they can take a few minutes, so a badge may appear a little later.
+          </li>
           <li>
             <B>Past leads.</B> When you save a new or changed mark, or turn one on, you choose which earlier leads to check too: <B>Last 30 days</B> (the
             default), <B>Last 90 days</B>, <B>All leads</B>, or <B>None, only new leads</B>. Each choice shows how many leads it covers. They are checked in the

@@ -17,6 +17,8 @@ import { randomUUID } from "node:crypto";
 import { meteredAdmin } from "@/lib/db/admin";
 import { evaluateLeads } from "@/lib/marks/evaluate";
 import { continueBackfills } from "@/lib/marks/backfill";
+import { continueMarkQueues, enqueueMarks, runMarkQueue } from "@/lib/marks/queue";
+import { takeMarkWork } from "@/lib/marks/work";
 import { decide, type LeadIn, type RuleIn } from "./decide";
 import { openSecret } from "./secret";
 import { messageOptions, post, type DeliveryPayload } from "./send";
@@ -103,6 +105,8 @@ export async function runSiteLane(siteId: string, budgetMs: number): Promise<boo
           // v2: first only the marks live hooks use (all marks when the hooks could not be read), strictly: a mark that
           // cannot be checked fails the batch, which is tried again later, so a hook is delayed, never skipped
           stats.marks = await evaluateLeads(siteId, ids, hookMarks ? { only: hookMarks, strict: true } : { strict: true });
+          // never held back by the mark budget, but counted: the background gets less this minute (lib/marks/work.ts)
+          if (stats.marks) await takeMarkWork(siteId, ids.length * stats.marks, true);
           t1 = Date.now();
           made = await fireRules(siteId, ids, stats);
           t2 = Date.now();
@@ -132,10 +136,19 @@ export async function runSiteLane(siteId: string, budgetMs: number): Promise<boo
   } finally {
     await admin.rpc("jh_release_site_lease", { p_site: siteId, p_holder: holder });
   }
-  // v2: the marks no live hook uses, for the leads just checked, after the lane is released: the next leads' hooks do not
-  // wait for them. Not strict: a failure is logged and the badge is filled at the next check of that lead (its visit's
-  // end, or a re-check). Measured and recorded apart (pipeline_runs kind 'other_marks', migration 32).
-  if (rest.length) {
+  // A lead that joined the lane after this run's last read found the lease taken and left its lead to this run. Look
+  // once more after releasing, before the other marks, so its hook does not wait for the drainer or the site's next form.
+  const left = budgetMs - (Date.now() - started);
+  if (left > 1000) {
+    const { data: late } = await admin.from("check_jobs").select("lead_id").eq("site_id", siteId).lte("run_after", new Date().toISOString()).limit(1);
+    if (late?.length) await runSiteLane(siteId, left);
+  }
+  // The marks no live hook uses, for the leads just checked. Since migration 34: into the background queue
+  // (lib/marks/queue.ts), which gives way to the hook lane and to the minute's mark budget, and is run right here with
+  // what is left of the time. Before it (v2): checked right here, after the lease, not strictly.
+  if (rest.length && (await enqueueMarks(siteId, rest))) {
+    await runMarkQueue(siteId, Math.max(5_000, budgetMs - (Date.now() - started)));
+  } else if (rest.length) {
     const meter = newMeter();
     const t0 = Date.now();
     const n = await metered(meter, () => evaluateLeads(siteId, rest, { except: hookMarks ?? [] }));
@@ -338,16 +351,18 @@ export async function sendDeliveries(ids?: string[]): Promise<number> {
   return sent;
 }
 
-/** The drainer: sites with waiting leads, a few at a time, then the due deliveries, then (v3) checks of past leads that
- *  nobody is running (lib/marks/backfill.ts), with what is left of the time. */
-export async function drain(maxSites = 4): Promise<{ sites: number; sent: number; backfills: number }> {
+/** The drainer: sites with waiting leads, a few at a time, then the due deliveries, then the queue of other marks
+ *  (lib/marks/queue.ts), then (v3) checks of past leads that nobody is running (lib/marks/backfill.ts), with what is left
+ *  of the time. Both background parts give way to the hook lane and stop at the minute's mark budget. */
+export async function drain(maxSites = 4): Promise<{ sites: number; sent: number; queued: number; backfills: number }> {
   const t0 = Date.now();
   const { data } = await admin.from("check_jobs").select("site_id").lte("run_after", new Date().toISOString()).order("created_at").limit(500);
   const sites = [...new Set((data ?? []).map((r) => r.site_id as string))].slice(0, maxSites);
   await Promise.all(sites.map((s) => runSiteLane(s, 20_000)));
   const sent = await sendDeliveries();
+  const queued = await continueMarkQueues(Math.min(20_000, 40_000 - (Date.now() - t0))).catch(() => 0);
   const backfills = await continueBackfills(Math.min(30_000, 50_000 - (Date.now() - t0))).catch(() => 0);
-  return { sites: sites.length, sent, backfills };
+  return { sites: sites.length, sent, queued, backfills };
 }
 
 /** The channel a person's bell listens on (components/notifications/UnreadBadge.tsx). */

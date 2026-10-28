@@ -165,3 +165,11 @@ To revert a change, put the "before" text back.
 - app/docs/reference/marks/page.tsx: new section "Preview, and which leads are checked" (preview on the last 100 leads, the four past-leads choices, background check with progress, off means not checked, a changed rule clears old results, "not checked", Re-check its leads); "How it is checked" now says the order of checks and that the first failed condition ends a lead's check (the old line "Saving a mark checks every lead" is gone).
 - mds/documentation/doc_source_map.md: marks row lists the v3 sources.
 - Checks: npx tsc --noEmit clean, npm run docs:check in sync.
+
+## 2026-10-28: marks docs, when new leads are checked (background queue)
+- File: `app/docs/reference/marks/page.tsx`, "Preview, and which leads are checked", the "New leads" item.
+- Before: "While a mark is on, every new lead is checked when the form is sent, and again when that visit ends."
+- After: "While a mark is on, every new lead is checked, and again when that visit ends. A mark used by a notification
+  rule is checked first, the moment the form is sent, so the notification never waits. Other marks are checked right
+  after, in the background. When many forms arrive at once they can take a few minutes, so a badge may appear a little later."
+- Why: migration 34, the queue of other marks (`mds/build/marks/queue-and-cap.md`). No ledger claim changes.

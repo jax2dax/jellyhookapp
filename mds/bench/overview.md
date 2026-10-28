@@ -78,6 +78,9 @@ Marks built with the newer builder (v2) and everything the control room shows do
 
 ## Day to day
 1. `npm run dev:bench` (leave it running). It prints "Test database: <test ref>.supabase.co" and "Marked as the test database: ok".
+   For load tests use `npm run start:bench` instead: the same checks, then a production build (into `.next-bench-prod`,
+   a few minutes) and `next start` on port 3100. The development server compiles pages while it answers ("Compiling..."
+   in the browser) and slows down under load, so it would be measured along with the database.
 2. On http://localhost:3100 create a test site with a made-up domain (for example `sim.jellyhook.test`), copy its API key
    (Settings, Installation), and add marks and hooks as a business would. Use a separate Slack channel for the test hooks:
    the burst sends real messages.

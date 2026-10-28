@@ -264,9 +264,28 @@ async function burst(n) {
 
 const t0 = Date.now();
 console.log(`Simulating ${VISITORS} visitors over ${OVER_S}s on ${DOMAIN} -> ${BASE}${BURST ? `, plus a rush of ${BURST} forms (1/s)` : ""}`);
+// "refused" = answered 400 or more on the first try; with --retry 1 such a send is tried again in the background, so the
+// numbers that matter are on the right: still being retried, recovered, LOST
 const progress = setInterval(() => {
-  console.log(`  ${Math.round((Date.now() - t0) / 1000)}s: ${stats.visits} visits, ${stats.pageViews} page views, ${stats.forms} forms, ${stats.events} events, ${stats.refused} refused`);
+  const retry = RETRY ? ` | retrying ${retrying.size}, recovered ${stats.recovered}, LOST ${stats.lost}` : "";
+  console.log(`  ${Math.round((Date.now() - t0) / 1000)}s: ${stats.visits} visits, ${stats.pageViews} page views, ${stats.forms} forms, ${stats.events} events, ${stats.refused} refused, ${stats.errors} no answer${retry}`);
 }, 5000);
+
+function summary(stopped) {
+  console.log(`\n${stopped ? "STOPPED by hand" : "Done"} in ${Math.round((Date.now() - t0) / 1000)}s${!stopped && Date.now() - sent > 2000 ? ` (${Math.round((Date.now() - sent) / 1000)}s of it waiting for retries)` : ""}.`);
+  console.log(`  visits ${stats.visits}, page views ${stats.pageViews}, events ${stats.events}, requests ${stats.requests}`);
+  console.log(`  forms sent ${stats.forms} (${stats.formsRefused} failed on the first try)`);
+  console.log(`  server answers: ${JSON.stringify(stats.statuses)}${stats.errors ? `, ${stats.errors} network errors` : ""}`);
+  if (RETRY) console.log(`  failed on the first try ${stats.retried}: recovered by retrying ${stats.recovered}, LOST ${stats.lost} (forms lost: ${stats.formsLost})${stopped ? `, still being retried when stopped ${retrying.size} (unknown: a real browser would go on trying)` : ""}`);
+  console.log(`Open ${BASE}/admin to see it in the control room.`);
+}
+let sent = Date.now();
+// Ctrl+C: the totals so far, so a run stopped by hand still says what was recovered and lost
+process.on("SIGINT", () => {
+  clearInterval(progress);
+  summary(true);
+  process.exit(130);
+});
 const jobs = [];
 for (let i = 0; i < VISITORS; i++) {
   jobs.push(visitor(i));
@@ -274,14 +293,9 @@ for (let i = 0; i < VISITORS; i++) {
 }
 if (BURST) jobs.push(burst(BURST));
 await Promise.all(jobs);
-clearInterval(progress);
-const sent = Date.now();
+sent = Date.now();
 if (retrying.size) console.log(`\nAll visitors done; ${retrying.size} send(s) still being retried (pauses up to 10 minutes) ...`);
 while (retrying.size) await Promise.race([...retrying]);
-console.log(`\nDone in ${Math.round((Date.now() - t0) / 1000)}s${Date.now() - sent > 2000 ? ` (${Math.round((Date.now() - sent) / 1000)}s of it waiting for retries)` : ""}.`);
-console.log(`  visits ${stats.visits}, page views ${stats.pageViews}, events ${stats.events}, requests ${stats.requests}`);
-console.log(`  forms sent ${stats.forms} (${stats.formsRefused} refused)`);
-console.log(`  server answers: ${JSON.stringify(stats.statuses)}${stats.errors ? `, ${stats.errors} network errors` : ""}`);
-if (RETRY) console.log(`  failed on the first try ${stats.retried}: recovered by retrying ${stats.recovered}, LOST ${stats.lost} (forms lost: ${stats.formsLost})`);
-console.log(`Open ${BASE}/admin to see it in the control room.`);
+clearInterval(progress);
+summary(false);
 process.exit(stats.lost || (!RETRY && (stats.refused || stats.errors)) ? 1 : 0);

@@ -366,3 +366,44 @@ export function checkLead(rule: MarkRuleV2, j: Journey): CheckResult {
 export function needs(rule: MarkRuleV2): { visits: boolean; form: boolean } {
   return { visits: rule.blocks.length > 0, form: rule.form.some((c) => c.kind !== "fieldEmpty") };
 }
+
+// ── reading less: which visits' page views can decide the lead ───────────────
+// Page views are most of what a mark reads (lib/marks/journey.ts). The visits themselves are small and are read first;
+// from them alone, many leads are already decided, and for the others only a few visits' page views can matter.
+
+/** Visit conditions that need no page view (the visit's own row, or the visitor's device). */
+const PAGE_FREE = new Set<SessionCond["kind"]>(["duration", "source", "channel", "device"]);
+
+/** The block without anything that needs page views. Weaker than the block: wherever the block holds, this holds. */
+function pageFree(b: Block): Block {
+  return { ...b, session: b.session.filter((c) => PAGE_FREE.has(c.kind)), pages: null, then: b.then.map(pageFree) };
+}
+
+/**
+ * For a lead whose visits are known but whose page views may not be (`j` has the visits, any pages loaded so far):
+ *   - null when the lead cannot match, whatever its page views say (it fails on the answers, the form, the visit
+ *     numbers, lengths, sources, channels or device);
+ *   - otherwise the visits whose page views can change the answer. Checking the mark on a journey with the page views of
+ *     those visits (and of no other) gives exactly the result of checking it on the full journey
+ *     (tests/pages.test.ts compares the two on thousands of generated leads).
+ * A visit is in the set when some block of the mark (or "then" block) can be about it and its page-free conditions
+ * hold on it: on any other visit every block fails before it looks at a page.
+ */
+export function pagesToRead(rule: MarkRuleV2, j: Journey): Set<string> | null {
+  // "left while filling" is built from the sent visit's page views: not judged here, and that visit is read
+  const leftWhileFilling = rule.form.some((c) => c.kind === "leftWhileFilling");
+  const weaker: MarkRuleV2 = { v: 2, answers: rule.answers, form: rule.form.filter((c) => c.kind !== "leftWhileFilling"), blocks: rule.blocks.map(pageFree) };
+  if (!checkLead(weaker, j).match) return null;
+  const out = new Set<string>();
+  if (leftWhileFilling && j.convertingSessionId) out.add(j.convertingSessionId);
+  const visit = (b: Block) => {
+    for (const s of j.sessions) {
+      // the parent's visit is not known here: "later" may be any visit, "nth" any visit with that number
+      if (out.has(s.id) || !whichFits(b.which, s, j, null)) continue;
+      if (b.session.every((c) => !PAGE_FREE.has(c.kind) || sessionCondHolds(c, s, j))) out.add(s.id);
+    }
+    b.then.forEach(visit);
+  };
+  rule.blocks.forEach(visit);
+  return out;
+}

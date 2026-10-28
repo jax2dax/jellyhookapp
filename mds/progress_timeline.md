@@ -1984,3 +1984,59 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
 - Landing sentence and claims ledger row 23: "every new lead that matches", plus the past-leads choice.
 - Founder: in the test project run 31, 32, 33, restart dev:bench, run `v2/summary.md` and `v3/summary.md`; then production
   29 to 33 in order right before the push (`mds/bench/WHICH-SQL-WHERE.md`).
+
+## 2026-10-27 — Marks and hooks review; visits cut short; two lane fixes
+
+- Review written: `mds/build/marks/review-2026-10-27.md` (how a lead goes through marks and hooks, the founder's "other
+  marks in the background" idea, what cannot be changed later, production readiness, capacity on Nano).
+- Visits are cut short like answers: the visits and the sent visit's page views are read first, a lead that fails on
+  them is ruled out, and only the visits a condition can be about have their page views read (`jh-marks/v2/check.ts`
+  `pagesToRead`, `lib/marks/journey.ts`). Same results on 20,000 generated leads (`jh-marks/v2/tests/pages.test.ts`, in
+  `npm run test:marks`).
+- The lane looks once more after releasing its lease, so a lead that joined at that moment is not left until the next
+  form (`runSiteLane`). Mark counts are counted, not worked out (they drifted when two checks overlapped).
+- Found: v2 and v3 were already pushed (commit 92d5c81), and the drainer is not scheduled in production.
+- Founder must: run 31, 32, 33 in the test project and the correctness run; then 29 to 33 in production; schedule the
+  drainer in production (SQL in the review, section 4); commit and push these changes; decide the background queue for
+  other marks and the webhook version field.
+
+## 2026-10-27 (late) — Crowd run with all marks off; simulator and test server for load runs
+
+- The founder ran 1,000 visitors in 5 minutes (every one sending the form) with all 5 marks off, on the development
+  server. Stopped by hand at 761 s: 1,118 visits, 502 forms, 414 first tries answered 400+ (retried), LOST not known.
+  Test database: CPU 89%, swap 81%, memory "Severe", disk 1%. Dashboard stuck on loading cards. Written up:
+  `mds/crowd-test/v2/run-2026-10-27-marks-off.md`; also in `mds/issues/prod-issues.md` and the review's capacity section.
+- Simulator (`scripts/sim/traffic.mjs`): the progress line shows "no answer", "retrying N, recovered N, LOST N"; Ctrl+C
+  prints the summary (with what was still being retried); progress keeps printing while retries finish.
+- `npm run start:bench` (`scripts/sim/dev-bench.mjs --prod`): the same safety checks, then a production build into
+  `.next-bench-prod` and `next start` on port 3100, so load runs measure the database, not the development server
+  (git and eslint ignore the folder).
+- Docs updated: `mds/crowd-test/README.md` (start:bench, how to read the progress line), `mds/bench/overview.md`,
+  `mds/build/control-room.md`, `mds/crowd-test/v2/summary.md` (results).
+- Founder next: `npm run start:bench`, the same 1,000-visitor run to the end (pass: LOST 0), then the realistic ladder
+  (form rate 5%: 100, 300, 1,000 visitors over 300 s) for the capacity number.
+
+## 2026-10-28 — Crowd re-run on the production build: LOST 0
+- 1,000 visitors over 300 s, every one sending the form, marks off, `npm run start:bench`: done in 408 s, 12,809 requests
+  all answered 200, 1,000 forms stored, LOST 0, no retry needed. v1's same run on the development server took 2,081 s.
+  `mds/crowd-test/v2/run-2026-10-27-marks-off.md`. Next: the same with the 5 heavy marks on, the database peak, the ladder.
+
+## 2026-10-28 — Crowd run with the 5 heavy marks: the database stopped answering
+- Same 1,000-visitor burst, production build, marks A to E on: Supabase 522, CPU 99%, RAM 142%; 180 forms in 855 s,
+  2 Slack messages, 1,671 sends still waiting when stopped. Without marks the same burst passed. Write-up:
+  `mds/crowd-test/v2/run-2026-10-28-heavy-marks.md`.
+- Fixed: the `sites.last_event_at` write is limited per server process too, so a slow database no longer gets the same
+  write from every request (`lib/tracking/server.js`).
+- Founder decides: background queue for other marks, a per-site cap on mark work, a bigger database.
+
+## 2026-10-28 — Queue of other marks, and a cap on mark work (founder's decision)
+- Migration 34 (`mark_jobs`, `mark_work`, `jh_take_mark_work`). The hook lane checks only hook marks, then queues the lead
+  for the rest; `lib/marks/queue.ts` checks the queue while no lead waits for hooks; `lib/marks/work.ts` caps background
+  mark work at 300 lead checks per site and 1,200 for the database per minute (environment variables
+  `JELLYHOOK_MARK_WORK_SITE`, `JELLYHOOK_MARK_WORK_ALL`); the past-leads check takes from the same budget. Run by the lane's
+  request, the drainer and opening the leads page. Before 34 everything falls back to v2.
+- Tests: `lib/marks/tests/markQueue.sql.test.ts` (12 passed). Docs: `mds/build/marks/queue-and-cap.md`, the marks docs page
+  ("New leads"), `marketing/changes.md`, WHICH-SQL-WHERE (row 34), the review, prod-issues.
+- Founder must: run 34 in the test project (after 31 to 33), `npm run start:bench`, repeat the heavy-marks burst; then
+  production 29 to 34; schedule the drainer.
+- Founder decision recorded: no bigger database ($25 a month) until the product shows traction.

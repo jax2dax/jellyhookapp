@@ -250,24 +250,18 @@ export async function evaluateLeads(siteId: string, leadIds: string[], opts: Eva
       const { error } = await admin.from("lead_marks").upsert(c, { onConflict: "mark_id,lead_id", ignoreDuplicates: true });
       if (error) throw new Error("lead_marks insert: " + error.message);
     }
-    // 3. each mark's count, from the change (no count query): + new results - old ones; a new stamp only when this mark's
-    // results for these leads really changed (the browser refetches on a new stamp)
-    const removed = new Map<string, number>();
-    for (const g of gone ?? []) removed.set(g.mark_id as string, (removed.get(g.mark_id as string) ?? 0) + 1);
+    // 3. a new count and stamp for each mark whose results for these leads may have changed (the browser refetches on a
+    // new stamp). The count is counted (lead_marks_mark_idx), not worked out from the count read at the start: two
+    // checks of the same mark overlap (two requests' other marks, the background check of past leads) and a worked-out
+    // count then kept the last writer's error for good.
+    const removed = new Set((gone ?? []).map((g) => g.mark_id as string));
     const now = new Date().toISOString();
     await Promise.all(
       marks
-        .filter((m) => results.has(m.id))
+        .filter((m) => results.has(m.id) && (results.get(m.id)!.ids.length > 0 || removed.has(m.id)))
         .map(async (m) => {
-          const added = results.get(m.id)!.ids.length;
-          const lost = removed.get(m.id) ?? 0;
-          if (!added && !lost) return;
-          let count = typeof m.match_count === "number" ? Math.max(0, m.match_count + added - lost) : null;
-          if (count === null) {
-            const { count: exact } = await admin.from("lead_marks").select("lead_id", { count: "exact", head: true }).eq("mark_id", m.id);
-            count = exact ?? null;
-          }
-          await admin.from("marks").update({ match_count: count, evaluated_at: now }).eq("id", m.id);
+          const { count } = await admin.from("lead_marks").select("lead_id", { count: "exact", head: true }).eq("mark_id", m.id);
+          await admin.from("marks").update({ match_count: count ?? m.match_count ?? null, evaluated_at: now }).eq("id", m.id);
         }),
     );
   } catch (e) {

@@ -3,12 +3,14 @@
 // service role. The same rows the lead page reads: visits, page views (time, share seen, time per heading), the form's
 // answers and how it was filled. Only what happened up to sending the form.
 //
-// Cost: leads are read in pages of 1,000; answers are checked first (no extra read); visits and page views are read
-// only when the mark has visit conditions, and only for the leads still in the running, 100 visitors at a time, so
-// memory stays small on a big site. Design: mds/build/marks/marks-v2-plan.md.
+// Cost: leads are read in pages of 1,000; answers are checked first (no extra read); visits are read only when the mark
+// has visit conditions, and only for the leads still in the running, 100 visitors at a time, so memory stays small on a
+// big site. Page views (most of the rows) only for the visit the form was sent in, then for the other visits a lead
+// still needs once its visits are known (pagesToRead). Design: mds/build/marks/marks-v2-plan.md, the short-cut:
+// mds/build/marks/when-marks-run.md section 8.
 import "server-only";
 import { meteredAdmin } from "@/lib/db/admin";
-import { checkLead, needs, type Journey } from "@/jh-marks/v2/check";
+import { checkLead, needs, pagesToRead, type Journey } from "@/jh-marks/v2/check";
 import { buildJourney, type LeadRow } from "@/jh-marks/v2/journey";
 import type { MarkRuleV2 } from "@/jh-marks/v2/rule";
 
@@ -74,50 +76,56 @@ async function readLeads(siteId: string, onlyLeads?: string[]): Promise<LeadRow[
   }
 }
 
-/** Visits, page views, devices and sent forms for a set of leads (one chunk of visitors). */
-async function journeys(siteId: string, leads: LeadRow[], want: { visits: boolean; form: boolean }): Promise<Journey[]> {
-  const visitors = [...new Set(leads.map((l) => l.visitor_id).filter((v): v is string => !!v))];
-  const sessionsByVisitor = new Map<string, Record<string, unknown>[]>();
-  const pagesBySession = new Map<string, Record<string, unknown>[]>();
-  const device = new Map<string, string | null>();
-  if (want.visits && visitors.length) {
-    // nothing after the latest sending in this group can count: read only up to it
-    const until = new Date(Math.max(...leads.map((l) => t(l.submitted_at)))).toISOString();
-    const [ss, pv, vs] = await Promise.all([
-      visitRows(siteId, visitors, until),
-      allRows((from, to) => admin.from("page_views").select("visitor_id, session_id, page_path, entered_at, left_at, page_height, viewport_height, entry_scroll_depth, max_scroll_depth, revisit_start_scroll_depth, heading_time").eq("site_id", siteId).in("visitor_id", visitors).lte("entered_at", until).order("entered_at").order("page_view_id").range(from, to)),
-      allRows((from, to) => admin.from("visitors").select("visitor_id, device_type").eq("site_id", siteId).in("visitor_id", visitors).range(from, to)),
-    ]);
-    for (const s of ss) {
-      const list = sessionsByVisitor.get(s.visitor_id as string) ?? [];
-      list.push(s);
-      sessionsByVisitor.set(s.visitor_id as string, list);
-    }
-    for (const p of pv) {
-      const list = pagesBySession.get(p.session_id as string) ?? [];
-      list.push(p);
-      pagesBySession.set(p.session_id as string, list);
-    }
-    for (const v of vs) device.set(v.visitor_id as string, (v.device_type as string) ?? null);
-  }
+type Row = Record<string, unknown>;
+const push = (m: Map<string, Row[]>, k: string, r: Row) => m.set(k, [...(m.get(k) ?? []), r]);
 
-  const formBySession = new Map<string, Record<string, unknown>[]>();
-  if (want.form) {
-    const sessionIds = [...new Set(leads.map((l) => l.session_id).filter((v): v is string => !!v))];
-    for (const c of chunks(sessionIds, 200)) {
-      const data = await allRows((from, to) => admin.from("form_engagement").select("session_id, page_path, viewed_at, first_input_at, ended_at, form_fields, field_timings").eq("site_id", siteId).eq("status", "submitted").in("session_id", c).order("id").range(from, to));
-      for (const f of data) {
-        const list = formBySession.get(f.session_id as string) ?? [];
-        list.push(f);
-        formBySession.set(f.session_id as string, list);
-      }
-    }
-  }
+const PAGE_COLS = "visitor_id, session_id, page_path, entered_at, left_at, page_height, viewport_height, entry_scroll_depth, max_scroll_depth, revisit_start_scroll_depth, heading_time";
 
-  return leads.map((l) =>
-    buildJourney(l, l.visitor_id ? sessionsByVisitor.get(l.visitor_id) ?? [] : [], pagesBySession, l.visitor_id ? device.get(l.visitor_id) ?? null : null, l.session_id ? formBySession.get(l.session_id) ?? [] : []),
-  );
+/** The rows journeys are built from, for one chunk of visitors. Page views only for the visits in `pagesRead`. */
+interface Rows {
+  sessionsByVisitor: Map<string, Row[]>;
+  pagesBySession: Map<string, Row[]>;
+  pagesRead: Set<string>;
+  device: Map<string, string | null>;
+  formBySession: Map<string, Row[]>;
+  until: string;
 }
+
+/** Some visits' page views up to `until`, 200 visits a request (page_views_session_entered_idx). */
+async function readPages(siteId: string, rows: Rows, sessionIds: string[]): Promise<void> {
+  const ids = sessionIds.filter((s) => !rows.pagesRead.has(s));
+  const got = await Promise.all(chunks(ids, 200).map((c) => allRows((from, to) => admin.from("page_views").select(PAGE_COLS).eq("site_id", siteId).in("session_id", c).lte("entered_at", rows.until).order("entered_at").order("page_view_id").range(from, to))));
+  for (const p of got.flat()) push(rows.pagesBySession, p.session_id as string, p);
+  for (const s of ids) rows.pagesRead.add(s);
+}
+
+/**
+ * Visits, devices and sent forms for a set of leads (one chunk of visitors), and the page views of the visits the forms
+ * were sent in, in one round of requests. The page views of their other visits are read later, only for the leads and
+ * visits a mark still needs (jh-marks/v2/check.ts pagesToRead). Before (crowd test v3) every page view of every visitor
+ * was read: a visitor's 20th visit read all 20 visits' pages for a mark about the visit the form was sent in.
+ */
+async function readRows(siteId: string, leads: LeadRow[], want: { visits: boolean; form: boolean }): Promise<Rows> {
+  const visitors = [...new Set(leads.map((l) => l.visitor_id).filter((v): v is string => !!v))];
+  const sent = [...new Set(leads.map((l) => l.session_id).filter((v): v is string => !!v))];
+  // nothing after the latest sending in this group can count: read only up to it
+  const until = new Date(Math.max(...leads.map((l) => t(l.submitted_at)))).toISOString();
+  const rows: Rows = { sessionsByVisitor: new Map(), pagesBySession: new Map(), pagesRead: new Set(), device: new Map(), formBySession: new Map(), until };
+  const visits = want.visits && visitors.length > 0;
+  const [ss, vs, fs] = await Promise.all([
+    visits ? visitRows(siteId, visitors, until) : [],
+    visits ? allRows((from, to) => admin.from("visitors").select("visitor_id, device_type").eq("site_id", siteId).in("visitor_id", visitors).range(from, to)) : [],
+    want.form ? Promise.all(chunks(sent, 200).map((c) => allRows((from, to) => admin.from("form_engagement").select("session_id, page_path, viewed_at, first_input_at, ended_at, form_fields, field_timings").eq("site_id", siteId).eq("status", "submitted").in("session_id", c).order("id").range(from, to)))).then((x) => x.flat()) : [],
+    visits ? readPages(siteId, rows, sent) : null,
+  ]);
+  for (const s of ss) push(rows.sessionsByVisitor, s.visitor_id as string, s);
+  for (const v of vs) rows.device.set(v.visitor_id as string, (v.device_type as string) ?? null);
+  for (const f of fs) push(rows.formBySession, f.session_id as string, f);
+  return rows;
+}
+
+const journeyOf = (l: LeadRow, r: Rows): Journey =>
+  buildJourney(l, l.visitor_id ? r.sessionsByVisitor.get(l.visitor_id) ?? [] : [], r.pagesBySession, l.visitor_id ? r.device.get(l.visitor_id) ?? null : null, l.session_id ? r.formBySession.get(l.session_id) ?? [] : []);
 
 /**
  * The leads (all of the site's, or the given ones) that match a v2 mark, with the evidence for each.
@@ -173,12 +181,35 @@ export async function matchV2Many(siteId: string, marks: { id: string; rule: Mar
     byVisitor.set(k, [...(byVisitor.get(k) ?? []), l]);
   }
   for (const group of chunks([...byVisitor.values()], VISITOR_CHUNK)) {
-    const js = await journeys(siteId, group.flat(), { visits: wantVisits, form: wantForm });
-    for (const j of js) {
+    const ls = group.flat();
+    const rows = await readRows(siteId, ls, { visits: wantVisits, form: wantForm });
+    // per lead and mark: decided from what is read, or waiting for some visits' page views (jh-marks/v2/check.ts
+    // pagesToRead: the lead's visits without their pages already rule many leads out)
+    const waiting = new Map<LeadRow, string[]>();
+    const more = new Set<string>();
+    for (const l of ls) {
+      const j = journeyOf(l, rows);
       for (const m of marks) {
-        if (!pending.get(m.id)?.has(j.leadId)) continue;
+        if (!pending.get(m.id)?.has(l.id)) continue;
+        const need = pagesToRead(m.rule, j);
+        if (!need) continue;
+        const missing = [...need].filter((s) => !rows.pagesRead.has(s));
+        if (missing.length) {
+          missing.forEach((s) => more.add(s));
+          waiting.set(l, [...(waiting.get(l) ?? []), m.id]);
+          continue;
+        }
         const r = checkLead(m.rule, j);
-        if (r.match) out.get(m.id)!.set(j.leadId, r.parts);
+        if (r.match) out.get(m.id)!.set(l.id, r.parts);
+      }
+    }
+    if (!more.size) continue;
+    await readPages(siteId, rows, [...more]);
+    for (const [l, ids] of waiting) {
+      const j = journeyOf(l, rows);
+      for (const id of ids) {
+        const r = checkLead(marks.find((m) => m.id === id)!.rule, j);
+        if (r.match) out.get(id)!.set(l.id, r.parts);
       }
     }
   }

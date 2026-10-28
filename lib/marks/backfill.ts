@@ -9,6 +9,8 @@
 //   - one runner per mark (a lease of 90 s, freed by itself if the runner dies);
 //   - the hook lane goes first: a runner stops when its site has new leads waiting (lib/notifications/check.ts) and
 //     continues later, so past leads never slow a Slack message;
+//   - each chunk takes from the minute's mark budget (./work.ts, migration 34); when it is used, the runner stops and a
+//     later run continues;
 //   - it is started right after the save (after()), continued by the drainer (app/api/jobs/drain, every few seconds)
 //     and by the leads page while it shows progress (markProgress).
 // A rule edit makes a new version: the old results are deleted at once, and a runner still busy with the old version
@@ -17,6 +19,7 @@
 import "server-only";
 import { meteredAdmin } from "@/lib/db/admin";
 import { evaluateLeads } from "./evaluate";
+import { takeMarkWork } from "./work";
 import { metered, newMeter } from "@/lib/metrics/meter";
 import { recordRun } from "@/lib/metrics/runs";
 import type { MarkCheck } from "./coverage";
@@ -150,12 +153,15 @@ export async function runBackfill(markId: string, budgetMs: number): Promise<voi
       while (Date.now() - t0 < budgetMs) {
         if (s.backfill_state !== "running" || !s.active) return;
         if (await laneBusy(siteId)) return;
+        // as many past leads as the minute's mark budget allows (./work.ts); none left: continue at a later run
+        const size = await takeMarkWork(siteId, CHUNK);
+        if (!size) return;
         // the next chunk: newest first, below the cursor, within [from, until]
         let q = admin.from("form_submissions").select("id, submitted_at").eq("site_id", siteId);
         if (s.backfill_from) q = q.gte("submitted_at", s.backfill_from);
         if (s.backfill_until) q = q.lte("submitted_at", s.backfill_until);
         if (s.backfill_cursor_at && s.backfill_cursor_id) q = q.or(`submitted_at.lt.${s.backfill_cursor_at},and(submitted_at.eq.${s.backfill_cursor_at},id.lt.${s.backfill_cursor_id})`);
-        const { data: rows, error: readErr } = await q.order("submitted_at", { ascending: false }).order("id", { ascending: false }).limit(CHUNK);
+        const { data: rows, error: readErr } = await q.order("submitted_at", { ascending: false }).order("id", { ascending: false }).limit(size);
         if (readErr) throw new Error("leads: " + readErr.message);
         if (!rows?.length) {
           // done: the exact count, and a new stamp so the leads page reads the badges again

@@ -64,8 +64,15 @@ console.log("Marked as the test database: ok\n");
 if (process.env.JELLYHOOK_BENCH_CHECK_ONLY === "1") process.exit(0);
 
 const next = path.join("node_modules", "next", "dist", "bin", "next");
-const child = spawn(process.execPath, [next, "dev", "-p", "3100"], {
-  stdio: "inherit",
-  env: { ...process.env, ...bench, NEXT_DIST_DIR: ".next-bench", JELLYHOOK_BENCH: "1" },
-});
-child.on("exit", (code) => process.exit(code ?? 0));
+// --prod (npm run start:bench): a production build, then `next start`, like the live site. The development server
+// compiles pages when first asked and again later ("Compiling..." in the browser) and is much slower under load, so load
+// tests that should measure the DATABASE use this. Its own folder (.next-bench-prod), built with the test project's keys.
+const prod = process.argv.includes("--prod");
+const env = { ...process.env, ...bench, NEXT_DIST_DIR: prod ? ".next-bench-prod" : ".next-bench", JELLYHOOK_BENCH: "1" };
+const run = (args) => new Promise((done) => spawn(process.execPath, [next, ...args], { stdio: "inherit", env }).on("exit", (code) => done(code ?? 0)));
+if (prod) {
+  console.log("Building (production build, a few minutes) ...");
+  const built = await run(["build"]);
+  if (built !== 0) process.exit(built);
+}
+process.exit(await run(prod ? ["start", "-p", "3100"] : ["dev", "-p", "3100"]));
