@@ -6,9 +6,9 @@
 // personal data (name, email, phone) and the key is a credential.
 import { NextResponse, after } from "next/server";
 import { meteredAdmin } from "@/lib/db/admin";
-import { metered, newMeter } from "@/lib/metrics/meter";
+import { databaseFailed, metered, newMeter } from "@/lib/metrics/meter";
 import { emptyUsage, bump } from "@/lib/tracking/usage";
-import { CORS, MAX_BODY_BYTES, cleanId, cleanStr, authorizeRequest, applySiteEffects, flushUsage, markHealthEvent } from "@/lib/tracking/server";
+import { CORS, MAX_BODY_BYTES, cleanId, cleanStr, authorizeRequest, applySiteEffects, flushUsage, tryAgain, markHealthEvent } from "@/lib/tracking/server";
 
 const supabaseAdmin = meteredAdmin();
 
@@ -91,6 +91,7 @@ async function handlePost(req) {
     if (!apiKey) return NextResponse.json({ error: "No API key" }, { status: 400, headers: CORS });
 
     const auth = await authorizeRequest(supabase, { apiKey, event: payload, headers: req.headers, now });
+    if (auth.unavailable) return tryAgain(); // the database did not answer: the browser keeps the form and sends it again
     if (!auth.site || !auth.key.ok) return ok();
     const { site, key, decision, host } = auth;
 
@@ -126,6 +127,14 @@ async function handlePost(req) {
     const visitorId = await canonicalVisitorId(supabase, site.id, cleanId(payload.visitor_id));
     const email = cleanStr(payload.email, 320);
 
+    // A repeat of a submission already stored (the tracker's outbox sends a form again when it did not see the answer):
+    // the same submission id is one lead. Before 31-submission-id.sql the column does not exist and this is skipped.
+    const submissionId = cleanId(payload.submission_id);
+    if (submissionId) {
+      const { data: seen, error: seenError } = await supabase.from("form_submissions").select("id").eq("site_id", site.id).eq("submission_id", submissionId).limit(1);
+      if (!seenError && seen && seen.length > 0) return ok();
+    }
+
     // The same person submitting the same email within a minute is one lead.
     if (email && visitorId) {
       const { data: dupes } = await supabase
@@ -153,15 +162,24 @@ async function handlePost(req) {
       raw_data: cleanRaw(payload.raw_data),
       submitted_at: new Date(now).toISOString(),
       form_key: formKey,
+      submission_id: submissionId,
     };
     let { data: inserted, error: insertError } = await supabase.from("form_submissions").insert(row).select("id").single();
+    if (insertError && /submission_id/.test(insertError.message || "")) {
+      // before 31-submission-id.sql: no submission id (a repeat is then caught only by the one-minute email rule)
+      delete row.submission_id;
+      ({ data: inserted, error: insertError } = await supabase.from("form_submissions").insert(row).select("id").single());
+    }
     if (insertError && /form_key/.test(insertError.message || "")) {
       // before 28-lead-forms.sql: the lead without its form
       delete row.form_key;
       ({ data: inserted, error: insertError } = await supabase.from("form_submissions").insert(row).select("id").single());
     }
+    // two copies of the same submission arriving at once: the other one is stored
+    if (insertError && insertError.code === "23505") return ok();
     if (insertError) {
       console.error("[track-form] insert error:", insertError.message);
+      if (databaseFailed()) return tryAgain();
       return NextResponse.json({ error: "Server error" }, { status: 500, headers: CORS });
     }
 
@@ -186,6 +204,7 @@ async function handlePost(req) {
     return ok();
   } catch (err) {
     console.error("[track-form] error:", err);
+    if (databaseFailed()) return tryAgain();
     return NextResponse.json({ error: "Server error" }, { status: 500, headers: CORS });
   }
 }

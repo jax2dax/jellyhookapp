@@ -3,17 +3,21 @@
 // The marks panel: always on the right of the leads page, from the top. It lists the marks you can see, the
 // templates, and opens the builder in place.
 //   - clicking a mark APPLIES it to the table (its leads go first, the rest are dimmed): a view, nothing is saved;
-//   - the switch turns a mark ON or OFF (only its creator): one small update, nothing is re-checked;
+//   - the switch turns a mark ON or OFF (only its creator). v3: off means its new leads are not checked; turning it on
+//     asks which past leads to check (./PastLeadsChoice.tsx), in the background. While a check of past leads runs, its
+//     progress is read every few seconds (markProgress);
 //   - the menu: edit, re-check, delete (yours), or "edit in Hook" for a mark made there.
 // Every change is reported to the page (onChange) so it updates in place, without reloading. Design:
 // mds/build/marks/marks.md.
 import { ArrowLeft, Bookmark, ChevronDown, ExternalLink, FishingHook, Lock, Plug, Loader2, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
 import { InfoTip } from "@/components/forms/InfoTip";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppLink, useAction } from "@/components/sandbox/sandbox";
 import { emptyRule } from "@/jh-marks/rule";
 import { MarkVarsEditor } from "./MarkVarsEditor";
-import { deleteMark, recheckMark, setMarkActive, type MarkView, type MarksState } from "@/lib/actions/marks.action";
+import { deleteMark, markProgress, recheckMark, setMarkActive, type MarkView, type MarksState } from "@/lib/actions/marks.action";
+import { coverageText, DEFAULT_PAST, markStatus, type PastChoice } from "@/lib/marks/coverage";
+import { PastLeadsChoice, usePastCounts } from "./PastLeadsChoice";
 import { encodeSpecParam } from "@/lib/hook/specParam";
 import { MarkBuilder, type BuilderInitial } from "./MarkBuilder";
 
@@ -29,7 +33,7 @@ function Toggle({ on, disabled, onChange, label }: { on: boolean; disabled?: boo
       role="switch"
       aria-checked={on}
       aria-label={label}
-      title={disabled ? "Only its creator can turn it on or off" : on ? "On: leads that meet it get the badge" : "Off: no badges"}
+      title={disabled ? "Only its creator can turn it on or off" : on ? "On: new leads are checked, and those that meet it get the badge" : "Off: no lead is checked"}
       disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();
@@ -39,6 +43,28 @@ function Toggle({ on, disabled, onChange, label }: { on: boolean; disabled?: boo
     >
       <span className={"absolute top-0.5 size-3 rounded-full bg-background shadow transition-all " + (on ? "left-3.5" : "left-0.5")} />
     </button>
+  );
+}
+
+/** Turning a mark on: which past leads to check too (v3). */
+function TurnOnChoice({ name, onPick, onCancel }: { name: string; onPick: (p: PastChoice) => void; onCancel: () => void }) {
+  const counts = usePastCounts();
+  const [past, setPast] = useState<PastChoice>(DEFAULT_PAST);
+  return (
+    <div className="mx-1 mb-1 mt-1 space-y-2 rounded-md border bg-muted/30 p-2.5" role="dialog" aria-label={"Turn " + name + " on"}>
+      <p className="text-xs">
+        Turn <strong>{name}</strong> on: new leads are checked as they arrive.
+      </p>
+      <PastLeadsChoice value={past} onChange={setPast} counts={counts} name={"on-" + name} />
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onCancel} className="h-7 rounded-md px-2.5 text-xs text-muted-foreground hover:bg-muted">
+          Cancel
+        </button>
+        <button type="button" autoFocus onClick={() => onPick(past)} className="h-7 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+          Turn on
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -74,6 +100,31 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
   const actDelete = useAction("deleteMark", deleteMark);
   const actRecheck = useAction("recheckMark", recheckMark);
   const actSetActive = useAction("setMarkActive", setMarkActive);
+  const actProgress = useAction("markProgress", markProgress);
+  const [turnOn, setTurnOn] = useState<string | null>(null);
+
+  // v3: while a mark checks past leads, its progress every 3 s; the stamp (evaluatedAt, which makes the page read the
+  // badges again) only when the check has ended, so the badges are read once, not on every chunk
+  const marksNow = state.ok ? state.marks : [];
+  const running = marksNow.filter((m) => m.check?.state === "running").map((m) => m.id);
+  const runningKey = running.join(",");
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
+  useEffect(() => {
+    if (!runningKey) return;
+    const ids = runningKey.split(",");
+    const t = setInterval(async () => {
+      const r = await actProgress(ids);
+      if (!r.ok) return;
+      for (const x of r.marks) {
+        const ended = x.check?.state !== "running";
+        onChangeRef.current({ type: "patched", id: x.id, patch: { matchCount: x.matchCount, check: x.check, ...(ended ? { evaluatedAt: x.evaluatedAt } : {}) } });
+      }
+    }, 3000);
+    return () => clearInterval(t);
+  }, [runningKey, actProgress]);
 
   if (!state.ok) return <aside className="sticky top-6 w-[24rem] shrink-0 rounded-lg border bg-card p-3 text-xs text-muted-foreground">{state.error}</aside>;
   const s = state as Ready;
@@ -155,9 +206,9 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
             team={s.team}
             me={s.me}
             onCancel={() => setBuilder(null)}
-            onSaved={(m, warning) => {
+            onSaved={(m, warning, checking) => {
               setBuilder(null);
-              setNote({ tone: warning ? "error" : "ok", text: warning ?? `${m.name}: ${m.matchCount ?? 0} ${m.matchCount === 1 ? "lead has it" : "leads have it"}${m.active ? "." : " (off)."}` });
+              setNote({ tone: warning ? "error" : "ok", text: warning ?? (checking ? `${m.name} saved. Checking ${checking} past ${checking === 1 ? "lead" : "leads"} in the background.` : m.active ? `${m.name} saved.` : `${m.name} saved, off: no lead is checked until you turn it on.`) });
               onChange({ type: "saved", mark: m });
             }}
           />
@@ -192,7 +243,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                           {on && <span className="rounded px-1 text-[10px] font-medium" style={{ backgroundColor: m.color + "33" }}>applied</span>}
                         </span>
                         <span className="block truncate text-[11px] text-muted-foreground">
-                          {m.active ? (m.matchCount ?? 0) + (m.matchCount === 1 ? " lead" : " leads") : "off"}
+                          <span title={m.active && m.check ? "Checks " + coverageText(m.check) + " and every new lead" : undefined}>{markStatus(m)}</span>
                           {!m.mine && m.createdByEmail ? " · by " + m.createdByEmail : ""}
                           {m.mine && m.visibility !== "private" ? (m.visibility === "team" ? " · shared with the team" : " · shared with " + m.sharedWith.length) : ""}
                           {m.source === "connected" ? " · connected" : m.source !== "copy" && !m.rule ? " · made in Hook" : ""}
@@ -223,10 +274,12 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                           disabled={!m.mine}
                           label={"Turn " + m.name + (m.active ? " off" : " on")}
                           onChange={(v) =>
-                            run(m.id, () => actSetActive(m.id, v), (r) => ({
-                              text: v ? `${m.name} is on: ${r.ok ? (r.matchCount ?? 0) : 0} leads.` : `${m.name} is off.`,
-                              change: { type: "patched", id: m.id, patch: r.ok ? { active: v, matchCount: r.matchCount, evaluatedAt: r.evaluatedAt } : { active: v } },
-                            }))
+                            v
+                              ? setTurnOn(turnOn === m.id ? null : m.id)
+                              : run(m.id, () => actSetActive(m.id, false), (r) => ({
+                                  text: `${m.name} is off: new leads are not checked.`,
+                                  change: { type: "patched", id: m.id, patch: r.ok ? { active: false, matchCount: r.matchCount, evaluatedAt: r.evaluatedAt, check: r.check } : { active: false } },
+                                }))
                           }
                         />
                       )}
@@ -244,6 +297,19 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                         <MoreHorizontal className="size-4" />
                       </button>
                     </div>
+                    {turnOn === m.id && (
+                      <TurnOnChoice
+                        name={m.name}
+                        onCancel={() => setTurnOn(null)}
+                        onPick={(past) => {
+                          setTurnOn(null);
+                          run(m.id, () => actSetActive(m.id, true, past), (r) => ({
+                            text: r.ok && r.checking ? `${m.name} is on. Checking ${r.checking} past ${r.checking === 1 ? "lead" : "leads"} in the background.` : `${m.name} is on: new leads are checked as they arrive.`,
+                            change: { type: "patched", id: m.id, patch: r.ok ? { active: true, matchCount: r.matchCount, evaluatedAt: r.evaluatedAt, check: r.check } : { active: true } },
+                          }));
+                        }}
+                      />
+                    )}
                     {confirmDelete === m.id && (
                       <div className="mx-1 mb-1 mt-1 rounded-md border border-red-500/40 bg-red-500/5 p-2.5" role="alertdialog" aria-label={"Delete " + m.name}>
                         <p className="text-xs text-foreground">
@@ -274,7 +340,7 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                           onCancel={() => setVarsOpen(null)}
                           onSaved={(x) => {
                             setVarsOpen(null);
-                            setNote({ tone: "ok", text: `${x.name}: values saved, ${x.matchCount ?? 0} leads have it.` });
+                            setNote({ tone: "ok", text: x.check?.state === "running" ? `${x.name}: values saved. Checking its leads again in the background.` : `${x.name}: values saved, ${x.matchCount ?? 0} leads have it.` });
                             onChange({ type: "saved", mark: x });
                           }}
                         />
@@ -311,8 +377,8 @@ export function MarksPanel({ state, applied, onApply, onChange }: { state: Marks
                             <FishingHook className="size-3" /> Create a hook
                           </AppLink>
                         )}
-                        <button type="button" onClick={() => run(m.id, () => actRecheck(m.id), (r) => ({ text: `${m.name}: ${r.ok ? r.matchCount : 0} leads.`, change: { type: "patched", id: m.id, patch: r.ok ? { matchCount: r.matchCount, evaluatedAt: r.evaluatedAt } : {} } }))} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
-                          <RefreshCw className="size-3" /> Re-check all leads
+                        <button type="button" onClick={() => run(m.id, () => actRecheck(m.id), (r) => ({ text: r.ok && r.checking ? `${m.name}: checking ${r.checking} ${r.checking === 1 ? "lead" : "leads"} again in the background.` : `${m.name}: ${r.ok ? (r.matchCount ?? 0) : 0} leads.`, change: { type: "patched", id: m.id, patch: r.ok ? { matchCount: r.matchCount, check: r.check, ...(r.checking ? {} : { evaluatedAt: r.evaluatedAt }) } : {} } }))} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
+                          <RefreshCw className="size-3" /> Re-check its leads
                         </button>
                         {m.mine && (
                           <button

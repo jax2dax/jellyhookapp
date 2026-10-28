@@ -240,6 +240,19 @@ via what the tracker POSTs to `/api/track` / `/api/track-structure`.
   first session of a freshly created id is flagged `is_first_visit`, which is
   what lets the server record first-touch attribution.
 
+### `jh_outbox` (sessionStorage), 2026-10-28
+The tracker's outbox (crowd test v2, `mds/crowd-test/v2/summary.md`). Every send to `/api/track`, `/api/track-form` and
+status-only `/api/track-form-engagement` is written here BEFORE it goes out and removed when the server answers (any 2xx
+or 4xx). A 5xx, a 429 or no answer keeps it, and it is retried with pauses of 2 s, 5 s, 15 s, 30 s, 1 min, 2 min, 5 min,
+10 min; after 8 tries or 30 minutes it is dropped. A page of the same tab sends what the page before could not, 1.5 s
+after it starts.
+- Shape: array of `{ id, url, body, at, tries }` (`body` is the exact JSON sent, so a form's answers can be in it), at most
+  100 items, oldest dropped first.
+- sessionStorage, not localStorage: it stays in this tab only and goes when the tab closes (a form's answers are never
+  kept on the device beyond that).
+- Repeats are safe: the server ignores a page view, session or form submission it already has (`submission_id`,
+  migration 31), and form status only moves forward. Field timings are never put in the outbox (the server adds them up).
+
 ### `jh_session` (localStorage) — replaces `jh_session_id`, 2026-10-07
 
 ```ts

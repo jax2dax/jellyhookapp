@@ -124,34 +124,62 @@ async function journeys(siteId: string, leads: LeadRow[], want: { visits: boolea
  * Answers are checked before anything else is read; visits only for the leads still in the running.
  */
 export async function matchV2(siteId: string, rule: MarkRuleV2, onlyLeads?: string[]): Promise<Map<string, string[]>> {
-  const out = new Map<string, string[]>();
-  let leads = await readLeads(siteId, onlyLeads);
-  if (rule.answers.length) {
-    const answersOnly: MarkRuleV2 = { v: 2, blocks: [], answers: rule.answers, form: [] };
-    leads = leads.filter((l) => checkLead(answersOnly, { leadId: l.id, submittedAt: t(l.submitted_at), convertingSessionId: l.session_id, sessions: [], device: null, answers: (l.raw_data as Record<string, unknown>) ?? {}, form: null }).match);
-  }
+  return (await matchV2Many(siteId, [{ id: "mark", rule }], onlyLeads)).get("mark") ?? new Map();
+}
+
+/**
+ * Several v2 marks against the same leads, reading the leads and their visits ONCE for all of them. Before (crowd test
+ * v1, mds/crowd-test/v1/summary.md D7) every mark read the leads' history itself: about 8 database calls per mark per
+ * batch, one after another. Each mark's answers are still checked first, and visits or form activity are read only when
+ * some mark needs them, only for the leads still in the running for some mark, 100 visitors at a time.
+ * Returns, per mark id, the matching leads with their evidence. The result for a mark is the same as checking it alone.
+ */
+export async function matchV2Many(siteId: string, marks: { id: string; rule: MarkRuleV2 }[], onlyLeads?: string[]): Promise<Map<string, Map<string, string[]>>> {
+  const out = new Map(marks.map((m) => [m.id, new Map<string, string[]>()]));
+  if (!marks.length) return out;
+  const leads = await readLeads(siteId, onlyLeads);
   if (!leads.length) return out;
-  const want = needs(rule);
-  // "left while filling" needs the visit's pages
-  const wantVisits = want.visits || rule.form.some((c) => c.kind === "leftWhileFilling");
-  if (!wantVisits && !want.form) {
-    for (const l of leads) {
-      const r = checkLead(rule, { leadId: l.id, submittedAt: t(l.submitted_at), convertingSessionId: l.session_id, sessions: [], device: null, answers: (l.raw_data as Record<string, unknown>) ?? {}, form: null });
-      if (r.match) out.set(l.id, r.parts);
+  const bare = (l: LeadRow): Journey => ({ leadId: l.id, submittedAt: t(l.submitted_at), convertingSessionId: l.session_id, sessions: [], device: null, answers: (l.raw_data as Record<string, unknown>) ?? {}, form: null });
+
+  // per mark: answers first; a mark that needs nothing more is decided here
+  const pending = new Map<string, Set<string>>(); // mark id -> leads that still need their journey
+  let wantVisits = false;
+  let wantForm = false;
+  for (const m of marks) {
+    const answersOnly: MarkRuleV2 = { v: 2, blocks: [], answers: m.rule.answers, form: [] };
+    const pass = m.rule.answers.length ? leads.filter((l) => checkLead(answersOnly, bare(l)).match) : leads;
+    if (!pass.length) continue;
+    const want = needs(m.rule);
+    // "left while filling" needs the visit's pages
+    const visits = want.visits || m.rule.form.some((c) => c.kind === "leftWhileFilling");
+    if (!visits && !want.form) {
+      for (const l of pass) {
+        const r = checkLead(m.rule, bare(l));
+        if (r.match) out.get(m.id)!.set(l.id, r.parts);
+      }
+      continue;
     }
-    return out;
+    pending.set(m.id, new Set(pass.map((l) => l.id)));
+    wantVisits ||= visits;
+    wantForm ||= want.form;
   }
-  // 100 visitors at a time
+  if (!pending.size) return out;
+
+  // one read of the journeys for every lead some mark still needs, 100 visitors at a time
+  const needed = leads.filter((l) => [...pending.values()].some((s) => s.has(l.id)));
   const byVisitor = new Map<string, LeadRow[]>();
-  for (const l of leads) {
+  for (const l of needed) {
     const k = l.visitor_id ?? "lead:" + l.id;
     byVisitor.set(k, [...(byVisitor.get(k) ?? []), l]);
   }
   for (const group of chunks([...byVisitor.values()], VISITOR_CHUNK)) {
-    const js = await journeys(siteId, group.flat(), { visits: wantVisits, form: want.form });
+    const js = await journeys(siteId, group.flat(), { visits: wantVisits, form: wantForm });
     for (const j of js) {
-      const r = checkLead(rule, j);
-      if (r.match) out.set(j.leadId, r.parts);
+      for (const m of marks) {
+        if (!pending.get(m.id)?.has(j.leadId)) continue;
+        const r = checkLead(m.rule, j);
+        if (r.match) out.get(m.id)!.set(j.leadId, r.parts);
+      }
     }
   }
   return out;

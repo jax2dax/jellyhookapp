@@ -117,6 +117,15 @@ export interface LatencyRow {
   run_max_ms: number | null;
 }
 
+/** Form to Slack split into stages (migration 30). Null before that migration has run. */
+export interface StagesRow {
+  sent: number;
+  saved_p50_ms: number | null; saved_p95_ms: number | null; saved_max_ms: number | null;
+  hook_p50_ms: number | null; hook_p95_ms: number | null; hook_max_ms: number | null;
+  send_p50_ms: number | null; send_p95_ms: number | null; send_max_ms: number | null;
+  total_p50_ms: number | null; total_p95_ms: number | null; total_max_ms: number | null;
+}
+
 /** Postgres bigint and numeric arrive as strings or numbers: every field that looks numeric becomes a number. */
 function numbers<T>(row: Record<string, unknown>): T {
   const out: Record<string, unknown> = {};
@@ -128,16 +137,17 @@ const since = (days: number) => new Date(Date.now() - days * 86_400_000).toISOSt
 const notReady = (msg: string) => /jh_admin_|pipeline_runs|does not exist|schema cache/.test(msg);
 
 export type Overview =
-  | { ready: true; sites: SiteRow[]; daily: DayRow[]; now: NowRow; latency: LatencyRow; storage: { table_name: string; approx_rows: number; total_bytes: number }[] }
+  | { ready: true; sites: SiteRow[]; daily: DayRow[]; now: NowRow; latency: LatencyRow; stages?: StagesRow | null; storage: { table_name: string; approx_rows: number; total_bytes: number }[] }
   | { ready: false; error: string };
 
 export async function loadOverview(days: number): Promise<Overview> {
-  const [sites, daily, now, latency, storage] = await Promise.all([
+  const [sites, daily, now, latency, storage, stages] = await Promise.all([
     db.rpc("jh_admin_sites", { p_since: since(days) }),
     db.rpc("jh_admin_daily", { p_site: null, p_days: Math.max(days, 7) }),
     db.rpc("jh_admin_now"),
     db.rpc("jh_admin_latency", { p_since: since(days) }),
     db.rpc("jh_storage_report"),
+    db.rpc("jh_admin_stages", { p_since: since(days) }),
   ]);
   const err = sites.error ?? daily.error ?? now.error ?? latency.error;
   if (err) return { ready: false, error: notReady(err.message) ? "The control room needs mds/migrations/29-control-room.sql. Run it in Supabase, then reload." : err.message };
@@ -147,6 +157,7 @@ export async function loadOverview(days: number): Promise<Overview> {
     daily: (daily.data ?? []).map((r: Record<string, unknown>) => numbers<DayRow>(r)),
     now: numbers<NowRow>((now.data ?? [])[0] ?? {}),
     latency: numbers<LatencyRow>((latency.data ?? [])[0] ?? {}),
+    stages: stages.error ? null : numbers<StagesRow>((stages.data ?? [])[0] ?? {}),
     storage: ((storage.data ?? []) as Record<string, unknown>[]).map((r) => numbers<{ table_name: string; approx_rows: number; total_bytes: number }>(r)),
   };
 }

@@ -18,6 +18,7 @@ import { MarksPanel, type MarkChange } from "@/components/marks/MarksPanel";
 import { Card, CardContent } from "@/components/ui/card";
 import { leadMarksFor, type LeadMark, type MarksState, type MarkView } from "@/lib/actions/marks.action";
 import { cacheKey, readCache, writeCache } from "@/lib/client/cache";
+import { checkedLead } from "@/lib/marks/coverage";
 import { LeadsTable, type LeadRow, type TableMarks } from "./LeadsTable";
 import { GroupDialog, GroupTabs, SelectionBar, useGroups } from "./LeadGroups";
 import type { GroupsState, GroupView } from "@/lib/actions/groups.action";
@@ -149,7 +150,8 @@ export function LeadsWithMarks({
       if (!m.active) continue;
       for (const r of results[m.id] ?? []) (byLead[r.leadId] ??= []).push({ mark: { id: m.id, name: m.name, color: m.color }, parts: r.parts });
     }
-    return { byLead, applied: visibleApplied };
+    const appliedMarks = marks.filter((m) => visibleApplied.includes(m.id));
+    return { byLead, applied: visibleApplied, checked: (at: string | null) => appliedMarks.every((m) => checkedLead(m.check, at)) };
   }, [ready, marks, results, visibleApplied]);
 
   const state: MarksState = initial.ok ? { ...initial, marks } : initial;

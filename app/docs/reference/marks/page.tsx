@@ -74,10 +74,26 @@ export default function MarksReferencePage() {
         </UL>
       </Section>
 
+      <Section title="Preview, and which leads are checked">
+        <UL>
+          <li><B>Preview.</B> While you build a mark, it is tried on your last 100 leads: &quot;9 of your last 100 leads match&quot;, with the first few and why. Nothing is saved.</li>
+          <li><B>New leads.</B> While a mark is on, every new lead is checked when the form is sent, and again when that visit ends.</li>
+          <li>
+            <B>Past leads.</B> When you save a new or changed mark, or turn one on, you choose which earlier leads to check too: <B>Last 30 days</B> (the
+            default), <B>Last 90 days</B>, <B>All leads</B>, or <B>None, only new leads</B>. Each choice shows how many leads it covers. They are checked in the
+            background, newest first: the save does not wait, and the mark shows &quot;checking 120 of 412&quot; until it is done.
+          </li>
+          <li><B>Off</B> means not checked: while a mark is off, new leads are not checked and its badges are hidden. Turning it on asks the past-leads question again.</li>
+          <li><B>Changing the rule</B> clears the old results: a badge always belongs to the rule you see.</li>
+          <li><B>Not checked.</B> When you apply a mark, a lead it never checked (older than your choice, sent while it was off, or not reached yet) says &quot;not checked&quot; instead of looking like it does not match.</li>
+          <li><B>Re-check its leads</B> (in the mark&apos;s menu) checks the same leads again, in the background.</li>
+        </UL>
+      </Section>
+
       <Section title="How it is checked">
         <UL>
           <li>Only what happened before the lead sent the form counts. A badge never changes because of what they did afterwards.</li>
-          <li>A new lead is checked when the form is sent, and again when that visit ends (time and scroll are final then). Saving a mark checks every lead.</li>
+          <li>A lead is checked against the conditions in a fixed order, the cheapest first (answers, then how the form was filled, then visits). The first condition it fails ends the check for that lead.</li>
           <li>The numbers are the ones the lead&apos;s visit chart shows: time on a page is from opening it to leaving it, time per heading counts stays of 1 second or more.</li>
           <li>A range answer matches when any part of it qualifies: &quot;$1k-$5k&quot; meets &quot;budget at least 3,000&quot;.</li>
           <li>The badge shows why: for example <C>Budget: $1k-$5k</C>, <C>visit 2: /pricing 2 min &gt; /contact</C>.</li>

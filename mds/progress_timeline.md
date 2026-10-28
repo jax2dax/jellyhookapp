@@ -1933,3 +1933,54 @@ Diagnosed with the new reason header: the 4:10 PM lead's link opened the HubSpot
 
 The founder's control room: every site's traffic, leads, marks, hooks, form-to-Slack time (against the 30 s promise), the server and database work each causes and its share of the monthly plans; the queue right now; database size; one page per site with its marks by weight and its last 50 batches. Founder only (DEV_USAGE_USER_IDS). Work is measured, not guessed: a meter (`lib/metrics/meter.ts`) counts every Supabase call of a tracker request or lead batch; tracker work goes into `site_usage_daily`, each lead batch and each mark applied into `pipeline_runs`. A traffic simulator (`npm run sim`) sends realistic visitors to a test copy of Jellyhook (`npm run dev:bench`, its own Supabase project via `.env.bench`). Design and setup: `mds/build/control-room.md`. Tests: SQL 21, meter 6, costs 11, mark weight 4, simulator 7. Fixed: the ingestion migration test's file path.
 **Run `mds/migrations/29-control-room.sql`, deploy.** Next: the capacity measurements, then the caps.
+
+---
+
+## 2026-10-27 — Crowd tests v1: first measurements, and what they found
+
+- Built the crowd-test method (`mds/crowd-test/`: README, six variants per version, the heavy marks, `v1/summary.md`,
+  `v1/problems-and-cost.md`). A version is a state of the code; v2 is written after the speed changes and re-run with the
+  same variants.
+- Fixed on the way: the simulator merged visitors (own address and browser per fake visitor), sent no form reports (now sends
+  them), and can end visits (`--end-visits 1`); country lookup join (real bug, also in production); the home page in the
+  mark builder (real bug).
+- Control room: copy-everything button, stage table for form to Slack (`mds/migrations/30-control-room-stages.sql`; run it
+  in the test project, and in production at the next deploy).
+- Channels page: one button per card; Slack opens a panel with "Add to Slack" and a paste-a-webhook-URL form.
+- Measured: form to Slack 8.5 s median with 3 light marks, 15 s with 5 heavy marks (100 visitors). The mark check and the
+  wait behind the batch ahead are the cost. Not yet: a crowd.
+- The founder must: run migration 30 in the test project; push and deploy the fixes (country lookup, home page in marks).
+
+## 2026-10-28 — Crowd tests v1 closed
+
+- Variant 7: saving a mark on about 1,000 leads costs 2.6 to 8.3 s (about 3 to 8 ms per lead); re-check the same; off/on nothing.
+- 1,000 visitors in 5 minutes broke the Nano test database with 5 heavy marks on; without marks it survived slowly. Peak: CPU 94%, memory 97.7% with swap.
+- Fixed: country lookups now run one at a time and claim each visitor (they piled up and stalled the test server). Open: 403 on a database error, "no access" on a slow dashboard, cards that wait on everything.
+- Next: v2 (roadmap in `mds/crowd-test/roadmap.md`), tracker-never-loses-data first. Founder: `JELLYHOOK_COUNTRY_LOOKUP=off` and `AI_DAILY_QUESTIONS` in `.env.bench`; deploy the country fix and its guard together.
+
+## 2026-10-28 — v2 built (crowd tests): the tracker never drops data, faster marks, hooks first
+
+- Tracker: 503 instead of 403 when the database does not answer; any failed write answers 503; browser outbox
+  (`jh_outbox`, sessionStorage) retries up to 30 min, also from the next page; `submission_id` on every form (migration 31).
+  Browser test `scripts/tracker-e2e/outbox.js` passes; all existing tracker browser tests pass.
+- Lane: hook marks first (strict: retried, never skipped), hooks, send at once, other marks after the lease (migration 32).
+- Marks: all v2 marks against one read of the history (`matchV2Many`), results written together.
+- Dashboard: a slow database no longer says "no access".
+- Simulator: retries like the tracker and reports LOST.
+- `mds/bench/WHICH-SQL-WHERE.md` rewritten (it had been committed empty).
+- Founder: run migrations 31 and 32 in the test project, restart dev:bench, run the v2 measurements (`mds/crowd-test/v2/summary.md`).
+
+## 2026-10-27 — v3 built (when marks run), privacy page, production SQL plan
+
+- Marks v3 (`mds/crowd-test/v3/summary.md`, plan `mds/build/marks/when-marks-run.md`): preview on the last 100 leads while
+  building; at save or turn-on, choose past leads (last 30 days default, 90 days, all, none) with counts; they are checked
+  in the background newest first (`lib/marks/backfill.ts`, continued by the drainer and the open leads page, pauses for
+  the hook lane); "off" means not checked; a changed rule clears old results; "not checked" in the table; Re-check runs
+  in the background. Migration 33. Tests: `lib/marks/tests/coverage.test.ts` (25), `marksV3.sql.test.ts` (7).
+- Answered: a mark check stops at the first condition a lead fails (answers first, then form, then visits, cheapest
+  first), but for visits the lead's history is read before the check (`when-marks-run.md` section 8).
+- Privacy page and the privacy docs page now say unsent data, including a form's values, waits in the tab's session
+  storage for up to 30 minutes (`marketing/changes.md`).
+- Landing sentence and claims ledger row 23: "every new lead that matches", plus the past-leads choice.
+- Founder: in the test project run 31, 32, 33, restart dev:bench, run `v2/summary.md` and `v3/summary.md`; then production
+  29 to 33 in order right before the push (`mds/bench/WHICH-SQL-WHERE.md`).

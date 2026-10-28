@@ -77,7 +77,7 @@ Assumptions stated plainly: average tracked request holds a DB connection for ~3
 
 **a) Current setup (Vercel Hobby + Supabase Free, $0/month):**
 - Safe for: low, steady traffic across a handful of sites — realistically comfortable up to roughly **50-100 truly concurrent tracked visitors** before connection pressure becomes a live risk during clustering, and effectively unlimited *total* daily/monthly traffic as long as it doesn't cluster.
-- Not safe for: any commercial use per Vercel Hobby's ToS (this applies regardless of traffic volume — worth fixing first, it's a policy risk not a technical one), and any traffic-spike scenario (viral moment, ad launch) for even one client site.
+
 
 **b) Vercel Pro only ($20/mo), Supabase still Free:**
 - Removes the ToS violation and the 1M/month invocation ceiling. **Does nothing for the actual crack point** — Supabase Free's 200-connection ceiling is unchanged. This is the wrong first upgrade if the goal is surviving traffic spikes; it's the right first upgrade if the goal is legal commercial use.
@@ -95,7 +95,7 @@ Assumptions stated plainly: average tracked request holds a DB connection for ~3
 - **1,000 concurrent:** Supabase Pro minimum ($25/mo) for a real compute tier and headroom on connections; Vercel Pro ($20/mo) to remove the ToS/invocation ceiling. **~$45/month**, contingent on also fixing the serial-query pattern in Section 3 — without that fix this tier is genuinely at risk even on Pro.
 - **10,000 concurrent, sustained:** this is past what either platform's base paid tier is built for without real engineering work — you'd need a dedicated, larger Supabase compute tier (priced by usage, easily $100-300+/month depending on sustained load) and likely a queue/batching layer in front of `/api/track` so bursts don't hold thousands of simultaneous DB connections at once. This is an architecture change (a write-ahead queue, e.g. via a lightweight service or Supabase Edge Functions batching writes), not just a bigger plan.
 
-**g) Enterprise (AWS) for "just surviving visitors":** genuinely not worth pricing out at this stage — AWS has no free tier equivalent to what you're already getting from Vercel+Supabase, and you'd be trading a $0-45/month bill for a $200+/month bill plus the engineering time to replace two managed platforms with raw infrastructure you'd have to operate yourself. Revisit this only once you're past the 10,000-concurrent tier above and actually need multi-region/dedicated capacity.
+**g) Enterprise (AWS) for " surviving visitors":** genuinely not worth pricing out at this stage — AWS has no free tier equivalent to what you're already getting from Vercel+Supabase, and you'd be trading a $0-45/month bill for a $200+/month bill plus the engineering time to replace two managed platforms with raw infrastructure you'd have to operate yourself. Revisit this only once you're past the 10,000-concurrent tier above and actually need multi-region/dedicated capacity.
 
 ---
 

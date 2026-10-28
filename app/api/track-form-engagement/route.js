@@ -20,12 +20,12 @@
 // client needing to remember or re-fetch anything.
 import { NextResponse, after } from "next/server";
 import { meteredAdmin } from "@/lib/db/admin";
-import { metered, newMeter } from "@/lib/metrics/meter";
+import { databaseFailed, metered, newMeter } from "@/lib/metrics/meter";
 import { emptyUsage, bump } from "@/lib/tracking/usage";
 import { cleanDelta, cleanErrors, cleanFormFields, mergeFieldTimings } from "@/lib/tracking/formEngagement";
 import { formKeyOf } from "@/lib/tracking/formKey";
 import { canonicalVisitorId } from "@/lib/tracking/identity";
-import { CORS, MAX_BODY_BYTES, cleanId, cleanStr, cleanNum, cleanTime, authorizeRequest, applySiteEffects, flushUsage, markHealthEvent } from "@/lib/tracking/server";
+import { CORS, MAX_BODY_BYTES, cleanId, cleanStr, cleanNum, cleanTime, authorizeRequest, applySiteEffects, flushUsage, tryAgain, markHealthEvent } from "@/lib/tracking/server";
 
 // Service role — see app/api/track/route.js's header comment for why.
 const supabaseAdmin = meteredAdmin();
@@ -92,6 +92,7 @@ async function handlePost(req) {
     payload.last_activity_at = reportedActivity ? reportedActivity.toISOString() : undefined;
 
     const auth = await authorizeRequest(supabase, { apiKey, event: payload, headers: req.headers, now: nowMs });
+    if (auth.unavailable) return tryAgain(); // the database did not answer: the tracker sends it again
     if (!auth.site || !auth.key.ok) return NextResponse.json({ success: true }, { headers: corsHeaders() });
     const { site, key, decision, host } = auth;
     payload.visitor_id = await canonicalVisitorId(supabase, site.id, payload.visitor_id); // lib/tracking/identity.js
@@ -212,9 +213,11 @@ async function handlePost(req) {
       else if (payload.form_fields && "form_version_id" in existing && !existing.form_version_id) placeVersion(existing.id);
     }
 
+    if (databaseFailed()) return tryAgain(); // a write the database could not answer: a status change is safe to repeat
     return NextResponse.json({ success: true }, { headers: corsHeaders() });
   } catch (err) {
     console.error("FORM ENGAGEMENT TRACK ERROR:", err);
+    if (databaseFailed()) return tryAgain();
     return NextResponse.json({ error: "Server error" }, { status: 500, headers: corsHeaders() });
   }
 }

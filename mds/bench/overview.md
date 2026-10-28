@@ -45,6 +45,7 @@ test database's address, never a value.
 | `HOOK_DATABASE_URL` | the Hook read-only login, see the next section | Connect, Transaction pooler |
 | `NEXT_PUBLIC_TRACKER_URL`, `NEXT_PUBLIC_APP_URL` | `http://localhost:3100` | type it |
 | `HOOK_DATABASE_SSL` | only if `.env.local` has it: the same value | |
+| `JELLYHOOK_COUNTRY_LOOKUP` | `off` | type it. The simulator's fake addresses never resolve, and the lookups slowed the test server to a stop (2026-10-27) |
 
 Clerk, Slack and HubSpot keys stay in `.env.local`; the test server uses them from there.
 

@@ -2,13 +2,14 @@
 // Decides which leads have which marks and stores it (lead_marks), so the leads page only READS badges: no query runs
 // when someone opens it. Server only, service role (lead_marks has no write policy for signed-in users).
 //
-// When it runs:
-//   - a lead sends a form             evaluateLeads(site, [lead])      app/api/track-form/route.js, after the response
+// When it runs (v3, mds/build/marks/when-marks-run.md):
+//   - a lead sends a form             evaluateLeads(site, [lead])      the lead lane, lib/notifications/check.ts
 //   - the visit a lead sent ends      evaluateLeads(site, leads)       app/api/track/route.js (scroll/time are final then)
-//   - a mark is saved (its rule changed) evaluateMark(site, mark)       lib/actions/marks.action.ts
-// Every mark is kept up to date, on or off, so turning a mark on or off never re-checks anything: "on" only decides
-// whether its badges show. marks.evaluated_at changes exactly when a mark's results change; the browser keeps each
-// mark's results under that stamp and only asks again when it moves (components/leads/LeadsWithMarks.tsx).
+//   - past leads, after a save        evaluateLeads(site, chunk, only) lib/marks/backfill.ts, in the background
+// Only marks that are ON are checked: "off" means not checked (before v3 every mark was checked, on or off).
+// evaluateMark (every lead, inside the save) is kept for a database before migration 33.
+// marks.evaluated_at changes when a mark's results change; the browser keeps each mark's results under that stamp and
+// only asks again when it moves (components/leads/LeadsWithMarks.tsx).
 // Whether a lead has a mark: v2 marks (jh-marks/v2) by ./journey.ts from the lead's own rows; v1 and Hook marks by the
 // mark's Hook query (jh-marks/rule.ts compileRule), on the read-only Hook role.
 // Why: jh-marks/reason.ts from the lead's own rows. Design: mds/build/marks/marks.md.
@@ -22,7 +23,7 @@ import { catalogMark, type StatsInput } from "@/jh-marks/catalog";
 import { getSiteStats } from "@/lib/stats/siteStats";
 import { pgHookDb } from "@/lib/hook/pgDb";
 import { isRuleV2, type MarkRuleV2 } from "@/jh-marks/v2/rule";
-import { matchV2 } from "./journey";
+import { matchV2, matchV2Many } from "./journey";
 import { metered, newMeter } from "@/lib/metrics/meter";
 import { recordRun } from "@/lib/metrics/runs";
 
@@ -165,37 +166,115 @@ async function applyMark(siteId: string, mark: MarkToRun): Promise<number> {
   return ids.length;
 }
 
+export interface EvaluateOptions {
+  /** check only these marks (the ones live hooks use, checked first: lib/notifications/check.ts) */
+  only?: string[];
+  /** check every mark but these (the rest, after the hooks) */
+  except?: string[];
+  /** throw when a mark could not be checked, so the caller retries the leads later (a hook's marks must never be skipped
+   *  silently: the hook would not fire). Without it, failures are logged and skipped, as before. */
+  strict?: boolean;
+}
+
 /**
- * Checks some leads (new, or whose visit just ended) against every mark of the site. Never throws. Returns how many
- * marks were checked (for the control room's record of the batch).
+ * Checks some leads (new, or whose visit just ended) against the site's marks (all of them, or `only` / all but
+ * `except`). Returns how many marks were checked (for the control room's record of the batch). Never throws unless
+ * `strict`.
+ *
+ * v2 (crowd test, mds/crowd-test/roadmap.md): the v2 marks are checked together, reading the leads' history once
+ * (./journey.ts matchV2Many), and the results of every mark are written together: one delete, one insert, then one
+ * update per mark whose results changed. Before, each mark read the history and wrote its results itself, one after
+ * another (about 8 calls per mark per batch). Older marks (v1 chips, Hook queries, connected library marks) are still
+ * checked one by one.
  */
-export async function evaluateLeads(siteId: string, leadIds: string[]): Promise<number> {
-  if (!leadIds.length) return 0;
+export async function evaluateLeads(siteId: string, leadIds: string[], opts: EvaluateOptions = {}): Promise<number> {
+  if (!leadIds.length || (opts.only && !opts.only.length)) return 0;
+  const fail = (what: string, e: unknown, mark?: string) => {
+    console.error("[marks] lead check failed", { site: siteId.slice(0, 8), ...(mark ? { mark: mark.slice(0, 8) } : {}), what, error: e instanceof Error ? e.message : String(e) });
+    if (opts.strict) throw e instanceof Error ? e : new Error(String(e));
+  };
+  let marks: (MarkToRun & { match_count?: number | null })[];
   try {
-    const first = await admin.from("marks").select("id, rule, spec, reads, source, source_key, var_values").eq("site_id", siteId).eq("kind", "lead");
+    // v3: only marks that are on ("off" means not checked; mds/build/marks/when-marks-run.md)
+    let q = admin.from("marks").select("id, rule, spec, reads, source, source_key, var_values, match_count").eq("site_id", siteId).eq("kind", "lead").eq("active", true);
+    if (opts.only) q = q.in("id", opts.only);
+    const first = await q;
     // before 19-marks-library.sql: the library columns do not exist yet
-    const res = first.error && /source|var_values/.test(first.error.message) ? await admin.from("marks").select("id, rule, spec, reads").eq("site_id", siteId).eq("kind", "lead") : first;
-    const marks = res.data as MarkToRun[] | null;
-    const error = res.error;
-    if (error || !marks?.length) return 0; // no marks (or the table is not there yet): nothing to do
-    for (const m of marks as MarkToRun[]) {
-      try {
-        const { ids, reasons } = await marked(siteId, m, leadIds);
-        const { data: gone } = await admin.from("lead_marks").delete().eq("mark_id", m.id).in("lead_id", leadIds).select("lead_id");
-        const removed = !!gone?.length;
-        if (ids.length) await admin.from("lead_marks").insert(ids.map((lead_id) => ({ mark_id: m.id, lead_id, site_id: siteId, reason: { parts: reasons.get(lead_id) ?? [] } })));
-        const { count } = await admin.from("lead_marks").select("lead_id", { count: "exact", head: true }).eq("mark_id", m.id);
-        // a new stamp only when this mark's results for these leads really changed (the browser refetches on a new stamp)
-        if (ids.length || removed) await admin.from("marks").update({ match_count: count ?? null, evaluated_at: new Date().toISOString() }).eq("id", m.id);
-      } catch (e) {
-        console.error("[marks] lead check failed", { site: siteId.slice(0, 8), mark: m.id.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
-      }
+    let res = first;
+    if (first.error && /source|var_values/.test(first.error.message)) {
+      let q2 = admin.from("marks").select("id, rule, spec, reads, match_count").eq("site_id", siteId).eq("kind", "lead").eq("active", true);
+      if (opts.only) q2 = q2.in("id", opts.only);
+      res = (await q2) as typeof first;
     }
-    return marks.length;
+    if (res.error) {
+      // the table is not there yet (before migration 16): nothing to do; anything else is a failure
+      if (/marks/.test(res.error.message) && /does not exist|schema cache/.test(res.error.message)) return 0;
+      fail("marks", new Error(res.error.message));
+      return 0;
+    }
+    marks = (res.data ?? []) as typeof marks;
   } catch (e) {
-    console.error("[marks] lead check failed", { site: siteId.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
+    fail("marks", e);
     return 0;
   }
+  if (opts.except?.length) marks = marks.filter((m) => !opts.except!.includes(m.id));
+  if (!marks.length) return 0;
+
+  // 1. which leads have which mark
+  const results = new Map<string, { ids: string[]; reasons: Map<string, string[]> }>();
+  const together = marks.filter((m) => isRuleV2(m.rule) && m.source !== "connected");
+  if (together.length) {
+    try {
+      const hits = await matchV2Many(siteId, together.map((m) => ({ id: m.id, rule: m.rule as MarkRuleV2 })), leadIds);
+      for (const [id, found] of hits) results.set(id, { ids: [...found.keys()], reasons: found });
+    } catch (e) {
+      fail("v2 marks", e);
+    }
+  }
+  for (const m of marks.filter((x) => !together.includes(x))) {
+    try {
+      results.set(m.id, await marked(siteId, m, leadIds));
+    } catch (e) {
+      fail("mark", e, m.id);
+    }
+  }
+  if (!results.size) return 0;
+
+  // 2. store them: the old results of these leads for these marks go, the new ones come, in one delete and one insert
+  const checked = [...results.keys()];
+  try {
+    const { data: gone, error: delError } = await admin.from("lead_marks").delete().in("mark_id", checked).in("lead_id", leadIds).select("mark_id");
+    if (delError) throw new Error("lead_marks delete: " + delError.message);
+    const rows = [...results].flatMap(([mark_id, r]) => r.ids.map((lead_id) => ({ mark_id, lead_id, site_id: siteId, reason: { parts: r.reasons.get(lead_id) ?? [] } })));
+    for (const c of chunks(rows, 500)) {
+      const { error } = await admin.from("lead_marks").upsert(c, { onConflict: "mark_id,lead_id", ignoreDuplicates: true });
+      if (error) throw new Error("lead_marks insert: " + error.message);
+    }
+    // 3. each mark's count, from the change (no count query): + new results - old ones; a new stamp only when this mark's
+    // results for these leads really changed (the browser refetches on a new stamp)
+    const removed = new Map<string, number>();
+    for (const g of gone ?? []) removed.set(g.mark_id as string, (removed.get(g.mark_id as string) ?? 0) + 1);
+    const now = new Date().toISOString();
+    await Promise.all(
+      marks
+        .filter((m) => results.has(m.id))
+        .map(async (m) => {
+          const added = results.get(m.id)!.ids.length;
+          const lost = removed.get(m.id) ?? 0;
+          if (!added && !lost) return;
+          let count = typeof m.match_count === "number" ? Math.max(0, m.match_count + added - lost) : null;
+          if (count === null) {
+            const { count: exact } = await admin.from("lead_marks").select("lead_id", { count: "exact", head: true }).eq("mark_id", m.id);
+            count = exact ?? null;
+          }
+          await admin.from("marks").update({ match_count: count, evaluated_at: now }).eq("id", m.id);
+        }),
+    );
+  } catch (e) {
+    fail("store", e);
+    return 0;
+  }
+  return results.size;
 }
 
 /** The leads whose form was sent in this visit (to re-check them when the visit ends). */

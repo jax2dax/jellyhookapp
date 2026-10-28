@@ -3,17 +3,21 @@
 // The builder for new marks (marks v2): two faces like the old one. "Enter with AI" first for a new mark, "Enter
 // manually" shows the editor (./RuleEditor.tsx). Then the mark's name, purpose, colour, who sees it, on/off, Save.
 // Old marks (made with the chip keys) keep opening in components/marks/MarkBuilder.tsx's old builder.
+// v3 (mds/build/marks/when-marks-run.md): while the rule reads well it is previewed on the site's last 100 leads, and a
+// new or changed rule asks which past leads to check (../PastLeadsChoice.tsx); they are checked in the background.
 import * as React from "react";
 import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 import { describeRuleV2, isRuleV2, RuleV2Error, validateRuleV2, type MarkRuleV2 } from "@/jh-marks/v2/rule";
 import { MARK_COLORS } from "@/jh-marks/rule";
-import { saveMark, type MarkView, type TeamMember, type Visibility } from "@/lib/actions/marks.action";
+import { previewMark, saveMark, type MarkView, type TeamMember, type Visibility } from "@/lib/actions/marks.action";
+import { DEFAULT_PAST, type PastChoice } from "@/lib/marks/coverage";
+import { PastLeadsChoice, usePastCounts } from "../PastLeadsChoice";
 import { markFromAiV2 } from "@/lib/actions/marksAi.action";
 import { loadFormFields } from "@/lib/actions/formFields.action";
 import type { CatalogField } from "@/lib/forms/catalog";
 import { FieldNamingHelp } from "@/components/forms/FieldNamingHelp";
 import { RuleEditor } from "./RuleEditor";
-import { useAction } from "@/components/sandbox/sandbox";
+import { useAction, useSandbox } from "@/components/sandbox/sandbox";
 import type { BuilderInitial } from "../MarkBuilder";
 
 const AI_EXAMPLES = [
@@ -23,7 +27,9 @@ const AI_EXAMPLES = [
   "First found us on Google, later read the case studies",
 ];
 
-export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: { initial: BuilderInitial; pages: string[]; team: TeamMember[]; me: string; onSaved: (m: MarkView, warning?: string) => void; onCancel: () => void }) {
+type Preview = { state: "idle" } | { state: "busy" } | { state: "ok"; checked: number; count: number; leads: { id: string; label: string; at: string | null; parts: string[] }[] } | { state: "error"; text: string };
+
+export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: { initial: BuilderInitial; pages: string[]; team: TeamMember[]; me: string; onSaved: (m: MarkView, warning?: string, checking?: number) => void; onCancel: () => void }) {
   const [rule, setRule] = React.useState<MarkRuleV2>(() => (isRuleV2(initial.rule) ? initial.rule : { v: 2, blocks: [], answers: [], form: [] }));
   const empty = !rule.blocks.length && !rule.answers.length && !rule.form.length;
   const [face, setFace] = React.useState<"ai" | "manual">(empty ? "ai" : "manual");
@@ -44,22 +50,50 @@ export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: {
   const saveAction = useAction("saveMark", saveMark);
   const aiAction = useAction("markFromAiV2", markFromAiV2);
   const fieldsAction = useAction("loadFormFields", loadFormFields);
+  const previewAction = useAction("previewMark", previewMark);
+  const [past, setPast] = React.useState<PastChoice>(DEFAULT_PAST);
+  const counts = usePastCounts();
+  const [preview, setPreview] = React.useState<Preview>({ state: "idle" });
 
   React.useEffect(() => {
     fieldsAction().then((r) => setFields(r.ok ? r.fields : []));
   }, [fieldsAction]);
 
+  // the leads it will check: a new mark, a changed rule, or turned on here (v3: the rest keeps its results)
+  const initialRule = React.useMemo(() => JSON.stringify(initial.rule), [initial.rule]);
+  const ruleChanged = !initial.id || JSON.stringify(rule) !== initialRule;
+  const asksPast = active && (ruleChanged || !initial.active);
+
   const check = React.useMemo(() => {
     if (empty) return { reads: [] as string[], problem: "Add at least one condition." };
     try {
       const v = validateRuleV2(rule);
-      const blank = (b: MarkRuleV2["blocks"][number]): boolean => !!b.pages?.steps.some((s) => !s.path || s.path === "/") || b.then.some(blank);
+      const blank = (b: MarkRuleV2["blocks"][number]): boolean => !!b.pages?.steps.some((s) => !s.path) || b.then.some(blank);
       if (rule.blocks.some(blank)) return { reads: describeRuleV2(v), problem: "Type the address of every page." };
       return { reads: describeRuleV2(v), problem: null as string | null };
     } catch (e) {
       return { reads: [] as string[], problem: e instanceof RuleV2Error ? e.message : "Something is not right." };
     }
   }, [rule, empty]);
+
+  // the preview (v3): a rule that reads well is checked on the site's last 100 leads, a moment after the last change
+  const ruleKey = JSON.stringify(rule);
+  const sandbox = !!useSandbox(); // the home page demo has no leads to preview on
+  React.useEffect(() => {
+    if (check.problem || sandbox) return; // nothing shows then (see below)
+    let live = true;
+    const t = setTimeout(() => {
+      setPreview({ state: "busy" });
+      previewAction(JSON.parse(ruleKey)).then((r) => {
+        if (!live) return;
+        setPreview(r.ok ? { state: "ok", checked: r.checked, count: r.count, leads: r.leads } : { state: "error", text: r.error });
+      });
+    }, 900);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [ruleKey, check.problem, previewAction, sandbox]);
 
   const runAi = async () => {
     if (!ai.trim() || aiBusy) return;
@@ -88,10 +122,10 @@ export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: {
     if (!name.trim()) return setError("Give the mark a name.");
     setSaving(true);
     setError(null);
-    const res = await saveAction({ id: initial.id ?? null, name, description, color, active, visibility, sharedWith, rule, templateKey: initial.templateKey ?? null });
+    const res = await saveAction({ id: initial.id ?? null, name, description, color, active, visibility, sharedWith, rule, templateKey: initial.templateKey ?? null, ...(asksPast ? { past } : {}) });
     setSaving(false);
     if (!res.ok) return setError(res.error);
-    onSaved(res.mark, res.warning);
+    onSaved(res.mark, res.warning, res.checking);
   };
   const others = team.filter((m) => m.userId !== me);
 
@@ -193,6 +227,37 @@ export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: {
         </div>
       )}
 
+      {preview.state !== "idle" && !check.problem && !sandbox && (
+        <div className="rounded-md border bg-muted/30 p-2.5 text-xs" aria-live="polite" data-tour="mark-preview">
+          {preview.state === "busy" && (
+            <p className="flex items-center gap-1.5 text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" /> Checking your last 100 leads...
+            </p>
+          )}
+          {preview.state === "error" && <p className="text-muted-foreground">{preview.text}</p>}
+          {preview.state === "ok" &&
+            (preview.checked === 0 ? (
+              <p className="text-muted-foreground">No leads yet to try it on.</p>
+            ) : (
+              <>
+                <p>
+                  <strong>{preview.count}</strong> of your last {preview.checked} leads match.
+                </p>
+                {preview.leads.length > 0 && (
+                  <ul className="mt-1.5 space-y-1">
+                    {preview.leads.map((l) => (
+                      <li key={l.id} className="min-w-0">
+                        <span className="font-medium">{l.label}</span>
+                        {l.parts.length > 0 && <span className="block truncate text-[11px] text-muted-foreground">{l.parts.join(" · ")}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            ))}
+        </div>
+      )}
+
       <div className="space-y-2.5">
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Name, e.g. Pricing reader" className="h-8 w-full rounded-md border bg-background px-2 text-sm" aria-label="Name" data-tour="mark-name" />
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} rows={2} placeholder="Purpose, in plain words: who these leads are and what to do with them (the AI fills this in)" className="w-full resize-none rounded-md border bg-background p-2 text-xs" />
@@ -224,8 +289,10 @@ export function MarkBuilderV2({ initial, pages, team, me, onSaved, onCancel }: {
           )}
           <label className="flex cursor-pointer items-center gap-2">
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="size-3" />
-            On: mark leads now and every new lead
+            On: check new leads as they arrive
           </label>
+          {!active && <p className="text-[11px] text-muted-foreground">Off: no lead is checked and no badge shows until you turn it on.</p>}
+          {asksPast && <PastLeadsChoice value={past} onChange={setPast} counts={counts} name={"past-" + (initial.id ?? "new")} />}
         </div>
       </div>
 

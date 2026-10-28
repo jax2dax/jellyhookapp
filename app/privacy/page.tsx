@@ -22,6 +22,7 @@ const VISITOR_DATA = [
   ["First visit", "For a new visitor, the referrer, campaign tags (UTM) and landing page of their very first visit, kept to show where visitors originally came from."],
   ["Clicks", "Only on elements you mark with data-track-click on your own pages."],
   ["Form submissions", "Whatever fields your form collects, commonly name, email, and phone, tied to the page and session it came from."],
+  ["Waiting to be sent", "If our servers do not answer, the tracker keeps what it was sending (including a submitted form's values, without the fields that are always left out) in that browser tab's session storage and tries again for up to 30 minutes. Each item is deleted as soon as our servers accept it, and in any case when the tab is closed."],
   ["Page structure", "Heading text and position captured from your pages, used to mark headings on the visit chart."],
 ];
 
@@ -89,8 +90,8 @@ export default function PrivacyPage() {
         <div className="mx-auto max-w-[900px] px-5 py-16 lg:px-10 lg:py-20">
           <h2 className="ff-display text-2xl text-[#f4f2ea] mb-4">Consent and your responsibilities</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[#8b8980]">
-            The tracker stores a random visitor ID and session details in the visitor&apos;s browser (local storage) and sends the data
-            above to Jellyhook. It does not include a consent banner, but it respects the visitor&apos;s browser: when Global Privacy Control or Do Not Track is on, the tracker does nothing at all. A site owner can also switch on consent mode, where the tracker stays off until the site&apos;s own cookie banner says yes, and erases what it stored if the visitor says no.
+            The tracker stores a random visitor ID and session details in the visitor&apos;s browser (local storage), keeps anything
+            still waiting to be sent in that tab&apos;s session storage, and sends the data above to Jellyhook. It does not include a consent banner, but it respects the visitor&apos;s browser: when Global Privacy Control or Do Not Track is on, the tracker does nothing at all. A site owner can also switch on consent mode, where the tracker stays off until the site&apos;s own cookie banner says yes, and erases what it stored, including anything waiting to be sent, if the visitor says no.
           </p>
           <p className="mt-4 ff-body text-[14px] leading-relaxed text-[#8b8980]">
             If your site has visitors in the EU, the UK or anywhere else that requires consent for this kind of storage or tracking, you

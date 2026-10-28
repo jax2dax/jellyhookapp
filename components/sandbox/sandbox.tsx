@@ -13,7 +13,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { deleteMark, leadMarksFor, markFromAi, recheckMark, saveMark, setMarkActive, setMarkVars, copySharedMark } from "@/lib/actions/marks.action";
+import type { deleteMark, leadMarksFor, markFromAi, markProgress, pastLeadCounts, previewMark, recheckMark, saveMark, setMarkActive, setMarkVars, copySharedMark } from "@/lib/actions/marks.action";
 import type { markFromAiV2 } from "@/lib/actions/marksAi.action";
 import type { loadFormFields } from "@/lib/actions/formFields.action";
 import type { loadPageHeadings } from "@/lib/actions/pageHeadings.action";
@@ -30,6 +30,9 @@ export interface SandboxActions {
   setMarkVars: typeof setMarkVars;
   copySharedMark: typeof copySharedMark;
   leadMarksFor: typeof leadMarksFor;
+  previewMark: typeof previewMark;
+  pastLeadCounts: typeof pastLeadCounts;
+  markProgress: typeof markProgress;
   markFromAi: typeof markFromAi;
   markFromAiV2: typeof markFromAiV2;
   loadFormFields: typeof loadFormFields;

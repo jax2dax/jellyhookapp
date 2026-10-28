@@ -4,6 +4,7 @@
 // Plain data in, so the fake-data demo renders the same thing.
 import Link from "next/link";
 import { Live } from "./Live";
+import { CopyReport } from "./CopyReport";
 import { DailyChart } from "./DailyChart";
 import { PeriodSwitch, Section, Stat } from "./ControlRoomView";
 import { ago, bytes, count, dur, promiseTone, usd } from "@/lib/admin/format";
@@ -19,6 +20,7 @@ export function SiteView({ data, days, monthlyUsd, back = "/admin", base }: { da
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-8 p-6">
+      <div id="control-room-report" className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Link href={`${back}?days=${days}`} className="text-xs text-muted-foreground hover:text-foreground">
@@ -79,7 +81,7 @@ export function SiteView({ data, days, monthlyUsd, back = "/admin", base }: { da
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="Marks, heaviest first" note="Every mark is checked for every new lead, on or off.">
+        <Section title="Marks, heaviest first" note="Marks that are on are checked for every new lead (v3: off means not checked).">
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
@@ -189,6 +191,8 @@ export function SiteView({ data, days, monthlyUsd, back = "/admin", base }: { da
           </table>
         </div>
       </Section>
+      </div>
+      <CopyReport targetId="control-room-report" />
     </div>
   );
 }

@@ -55,6 +55,9 @@ export interface TableMarks {
   byLead: Record<string, { mark: BadgeMark; parts: string[] }[]>;
   /** applied marks: their leads go first (more applied marks first), the rest are dimmed */
   applied: string[];
+  /** v3: did every applied mark check a lead sent at this time? A lead one of them never checked says "not checked"
+   *  instead of looking like it does not match (lib/marks/coverage.ts) */
+  checked?: (submittedAt: string | null) => boolean;
 }
 
 export function LeadsTable({
@@ -112,6 +115,8 @@ export function LeadsTable({
   const hits = React.useCallback((id: string) => (marks?.byLead[id] ?? []).filter((m) => applied.includes(m.mark.id)).length, [marks, applied]);
   const ordered = React.useMemo(() => (applied.length ? [...filtered].sort((a, b) => hits(b.id) - hits(a.id)) : filtered), [filtered, applied, hits]);
   const matching = applied.length ? ordered.filter((l) => hits(l.id) > 0).length : 0;
+  const unchecked = React.useCallback((l: LeadRow) => applied.length > 0 && hits(l.id) === 0 && !!marks?.checked && !marks.checked(l.submitted_at), [applied, hits, marks]);
+  const notChecked = applied.length ? ordered.filter(unchecked).length : 0;
 
   // The bottom fade: only while rows are hidden below the visible part.
   const scroller = React.useRef<HTMLDivElement>(null);
@@ -187,6 +192,7 @@ export function LeadsTable({
       {applied.length > 0 && (
         <p className="text-xs text-muted-foreground">
           <strong className="text-foreground">{matching}</strong> of {filtered.length} leads have {applied.length === 1 ? "the applied mark" : "an applied mark"}; they are listed first.
+          {notChecked > 0 && ` ${notChecked} ${notChecked === 1 ? "was" : "were"} not checked by it (older than its past-leads choice, sent while it was off, or still waiting for the background check).`}
         </p>
       )}
 
@@ -265,7 +271,7 @@ export function LeadsTable({
                       </TableCell>
                       {marks && (
                         <TableCell className="py-2.5" data-tour="lead-marks">
-                          <MarkDots marks={marks.byLead[lead.id] ?? []} />
+                          {unchecked(lead) ? <span className="whitespace-nowrap text-[11px] text-muted-foreground" title="The applied mark has not checked this lead">not checked</span> : <MarkDots marks={marks.byLead[lead.id] ?? []} />}
                         </TableCell>
                       )}
                       <TableCell className="py-2.5">

@@ -597,31 +597,95 @@
   }
   const SEND_HEADERS = { "Content-Type": "text/plain;charset=UTF-8" };
 
-  function sendEvent(event) {
+  // ── OUTBOX: nothing is lost when the server is busy ──────────────────────
+  // Every send is written to the outbox (this tab's sessionStorage) BEFORE it goes out, and removed when the server
+  // answers. A 5xx or 429 answer ("try again", e.g. 503 when the database is overloaded) or a network failure keeps it
+  // and retries it later, with growing pauses. The outbox survives moving to the next page in the same tab (the usual
+  // case: a form that leads to a thank-you page), and is retried as soon as the tracker starts there. sessionStorage, not
+  // localStorage: a form's answers stay only in this tab and go when the tab closes. A send the page could not see the
+  // end of (the page unloaded) is sent again on the next page: the server ignores the repeat (unique page view, session
+  // and form submission ids; status changes only move forward). Sends whose repeat would add up twice (form field
+  // timings) do not use the outbox. Gives up after 8 tries or 30 minutes. See mds/local_cache_schema.md.
+  const OUTBOX_KEY = "jh_outbox";
+  const OUTBOX_MAX = 100;
+  const OUTBOX_PAUSES = [2000, 5000, 15000, 30000, 60000, 120000, 300000, 600000];
+  const OUTBOX_MAX_AGE = 30 * 60 * 1000;
+  function outboxRead() {
     try {
-      _originalFetch(API_URL, {
-        method: "POST",
-        headers: SEND_HEADERS,
-        body: JSON.stringify([withCommon(event)]),
-        keepalive: true,
-        credentials: "omit",
-      }).catch((err) => jhLog("[Tracker] send failed:", err));
+      const list = JSON.parse(sessionStorage.getItem(OUTBOX_KEY) || "[]");
+      return Array.isArray(list) ? list : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  function outboxWrite(list) {
+    try {
+      if (list.length) sessionStorage.setItem(OUTBOX_KEY, JSON.stringify(list.slice(-OUTBOX_MAX)));
+      else sessionStorage.removeItem(OUTBOX_KEY);
     } catch (e) {}
   }
+  function outboxRemove(id) {
+    outboxWrite(outboxRead().filter((x) => x.id !== id));
+  }
+  function outboxAttempt(item) {
+    try {
+      _originalFetch(item.url, { method: "POST", headers: SEND_HEADERS, body: item.body, keepalive: item.body.length < 60000, credentials: "omit" })
+        .then((r) => {
+          if (r.status >= 500 || r.status === 429) outboxRetryLater(item, "answered " + r.status);
+          else outboxRemove(item.id);
+        })
+        .catch((err) => outboxRetryLater(item, err));
+    } catch (e) {
+      outboxRetryLater(item, e);
+    }
+  }
+  function outboxRetryLater(item, why) {
+    item.tries = (item.tries || 0) + 1;
+    const list = outboxRead().filter((x) => x.id !== item.id);
+    if (item.tries > OUTBOX_PAUSES.length || Date.now() - item.at > OUTBOX_MAX_AGE) {
+      jhLog("[Tracker] gave up on a send after", item.tries, "tries:", why);
+      outboxWrite(list);
+      return;
+    }
+    jhLog("[Tracker] send failed, will retry:", why);
+    list.push(item);
+    outboxWrite(list);
+    setTimeout(() => outboxAttempt(item), OUTBOX_PAUSES[item.tries - 1]);
+  }
+  /** Sends a body to a tracker endpoint through the outbox. */
+  function deliver(url, body) {
+    const item = { id: uuid(), url, body, at: Date.now(), tries: 0 };
+    const list = outboxRead();
+    list.push(item);
+    outboxWrite(list);
+    outboxAttempt(item);
+  }
+  // What a previous page of this tab could not send: once, shortly after start (so a send still in flight from the
+  // page before is not doubled at once; a doubled one is ignored by the server anyway). Only what was put in before this
+  // page started: this page's own sends already have their own retries.
+  const OUTBOX_PAGE_START = Date.now();
+  setTimeout(function () {
+    for (const item of outboxRead()) {
+      if (item.at >= OUTBOX_PAGE_START) continue;
+      if (Date.now() - item.at > OUTBOX_MAX_AGE) outboxRemove(item.id);
+      else outboxAttempt(item);
+    }
+  }, 1500);
 
-  // For the moments the page is going away: keepalive fetch survives unload,
-  // sendBeacon is the fallback.
+  function sendEvent(event) {
+    deliver(API_URL, JSON.stringify([withCommon(event)]));
+  }
+
+  // For the moments the page is going away: the outbox's keepalive fetch survives unload, and what it could not finish
+  // is sent again from the next page. sendBeacon is the fallback when fetch cannot even start.
   function sendExitEvent(event) {
     const body = JSON.stringify([withCommon(event)]);
-    let sent = false;
     try {
-      _originalFetch(API_URL, { method: "POST", headers: SEND_HEADERS, body, keepalive: true, credentials: "omit" }).catch(function () {});
-      sent = true;
-    } catch (e) {}
-    if (!sent) {
+      deliver(API_URL, body);
+    } catch (e) {
       try {
         navigator.sendBeacon(API_URL, new Blob([body], { type: "text/plain;charset=UTF-8" }));
-      } catch (e) {}
+      } catch (e2) {}
     }
   }
 
@@ -1624,19 +1688,12 @@ function firePageViewStart() {
         form_key_hint: formHint.hint,
         form_index: formHint.index,
         page_snapshot: jhPageSnapshot(),
+        // this submission's own id: a retry from the outbox is recognised by the server and never makes a second lead
+        submission_id: uuid(),
       };
 
-      _originalFetch(FORM_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=UTF-8" },
-        body: JSON.stringify(payload),
-        credentials: "omit",
-        keepalive: true,
-      }).then(() => {
-        jhLog("[Tracker] ✅ Form payload sent successfully");
-      }).catch((err) => {
-        jhLog("[Tracker] ❌ Form send error:", err);
-      });
+      deliver(FORM_API_URL, JSON.stringify(payload));
+      jhLog("[Tracker] ✅ Form payload sent (outbox)");
 
     } catch (err) {
       jhLog("[Tracker] ❌ Form capture error:", err);
@@ -2066,23 +2123,14 @@ function firePageViewStart() {
         form_key_hint: { id: form.getAttribute("id") || null, name: form.getAttribute("name") || null },
       };
       jhLog("[Tracker] 📋 Form engagement → sending:", payload);
-      _originalFetch(ENGAGEMENT_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=UTF-8" },
-        body: JSON.stringify(payload),
-        credentials: "omit",
-        keepalive: true,
-      })
-        .then((r) => jhLog("[Tracker] ✅ Form engagement sent, status:", r.status, payload.status))
-        .catch((err) => {
-          jhLog("[Tracker] ❌ Form engagement send error, retrying once:", err);
-          // One retry: a dropped request used to mean this form was never recorded for the page view. The server
-          // merges by (session, page, form) and only moves status forward, so a repeat is harmless.
-          if (payload.field_timings_delta) return; // timings are ADDED by the server: a repeat would count them twice
-          setTimeout(function () {
-            _originalFetch(ENGAGEMENT_API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=UTF-8" }, body: JSON.stringify(payload), credentials: "omit", keepalive: true }).catch(function () {});
-          }, 2000);
-        });
+      // A status change goes through the outbox: the server merges by (session, page, form) and only moves status
+      // forward, so a repeat is harmless. Field timings are ADDED by the server, so a send that carries them is sent
+      // once (a repeat would count them twice).
+      if (!payload.field_timings_delta) deliver(ENGAGEMENT_API_URL, JSON.stringify(payload));
+      else
+        _originalFetch(ENGAGEMENT_API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=UTF-8" }, body: JSON.stringify(payload), credentials: "omit", keepalive: true })
+          .then((r) => jhLog("[Tracker] ✅ Form engagement sent, status:", r.status, payload.status))
+          .catch((err) => jhLog("[Tracker] ❌ Form engagement send error:", err));
     } catch (err) {
       jhLog("[Tracker] ❌ Form engagement error:", err);
     }
@@ -2957,21 +3005,11 @@ function firePageViewStart() {
           form_key_hint: keyHint,
           form_index: keyIndex,
           page_snapshot: jhPageSnapshot(),
+          submission_id: uuid(), // a retry from the outbox never makes a second lead
         };
 
-        _originalFetch(HS_FORM_API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=UTF-8" },
-          body: JSON.stringify(payload),
-          credentials: "omit",
-          keepalive: true,
-        })
-          .then(function () {
-            jhLog("[Tracker][HubSpot] ✅ Payload sent for formId:", formId);
-          })
-          .catch(function (err) {
-            jhLog("[Tracker][HubSpot] ❌ Send error:", err);
-          });
+        deliver(HS_FORM_API_URL, JSON.stringify(payload));
+        jhLog("[Tracker][HubSpot] ✅ Payload sent (outbox) for formId:", formId);
 
       } catch (err) {
         jhLog("[Tracker][HubSpot] ❌ sendHubSpotCapture error:", err);
@@ -3219,10 +3257,9 @@ function firePageViewStart() {
           const now = Date.now();
           if (recent[provider.id] && now - recent[provider.id] < 5000) return;
           recent[provider.id] = now;
-          _originalFetch(FORM_API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=UTF-8" },
-            body: JSON.stringify({
+          deliver(
+            FORM_API_URL,
+            JSON.stringify({
               api_key: apiKey,
               host: window.location.host,
               visitor_id,
@@ -3239,10 +3276,9 @@ function firePageViewStart() {
               form_key_hint: keyHint,
               form_index: -1,
               page_snapshot: jhPageSnapshot(),
+              submission_id: uuid(), // a retry from the outbox never makes a second lead
             }),
-            credentials: "omit",
-            keepalive: true,
-          }).catch(function () {});
+          );
           jhLog("[Tracker][iframe] " + provider.id + " submission announced by the embed");
         });
       } catch (err) {

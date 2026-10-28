@@ -1,6 +1,6 @@
 // lib/metrics/tests/meter.test.ts - the work meter (lib/metrics/meter.ts): rows from PostgREST's Content-Range, calls
 // counted only inside a meter, nested meters, work scheduled for later in the same flow. Run: npm run test:tracking
-import { currentMeter, metered, meteredFetch, newMeter, rowsOf } from "../meter";
+import { currentMeter, databaseFailed, metered, meteredFetch, newMeter, rowsOf } from "../meter";
 
 let fails = 0;
 let passes = 0;
@@ -53,6 +53,31 @@ const run = async () => {
   });
   await done;
   ok(later.calls === 1, "work done later in the same flow is counted on its meter");
+
+  // database failures: a 5xx answer or no answer at all counts; a 4xx (a bad request, a duplicate) does not
+  let answer: number | "throw" = 200;
+  globalThis.fetch = (async () => {
+    if (answer === "throw") throw new TypeError("fetch failed");
+    return new Response("{}", { status: answer });
+  }) as typeof fetch;
+  const f = newMeter();
+  let thrown = false;
+  await metered(f, async () => {
+    answer = 409;
+    await meteredFetch("https://x/dup");
+    ok(!databaseFailed(), "a 409 (duplicate) is not a database failure");
+    answer = 522;
+    await meteredFetch("https://x/down");
+    answer = "throw";
+    try {
+      await meteredFetch("https://x/gone");
+    } catch {
+      thrown = true;
+    }
+    ok(databaseFailed(), "a 522 or no answer is a database failure");
+  });
+  ok(f.failures === 2 && f.calls === 3 && thrown, "failures counted (2 of 3 calls), and the error still reaches the caller");
+  ok(!databaseFailed(), "outside a meter: never a failure");
 
   globalThis.fetch = realFetch;
   console.log(`\n${passes} passed, ${fails} failed`);

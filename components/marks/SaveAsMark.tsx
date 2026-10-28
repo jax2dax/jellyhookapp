@@ -26,7 +26,7 @@ export function SaveAsMark({ spec }: { spec: HookSpec }) {
     const r = await saveMark({ name, color, description: notes, active: true, visibility: team ? "team" : "private", spec });
     setBusy(false);
     if (!r.ok) return setMsg({ ok: false, text: r.error });
-    setMsg({ ok: true, text: `Saved. ${r.mark.matchCount ?? 0} lead${r.mark.matchCount === 1 ? "" : "s"} have it.` + (r.warning ? " " + r.warning : "") });
+    setMsg({ ok: true, text: (r.checking ? `Saved. Checking ${r.checking} past lead${r.checking === 1 ? "" : "s"} in the background.` : `Saved. ${r.mark.matchCount ?? 0} lead${r.mark.matchCount === 1 ? "" : "s"} have it.`) + (r.warning ? " " + r.warning : "") });
   };
 
   return (

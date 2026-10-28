@@ -19,7 +19,7 @@ import { meteredAdmin } from "@/lib/db/admin";
 import { metered, newMeter } from "@/lib/metrics/meter";
 import { normalizeHeaders, pageHeightOf, fingerprint, deviceClassFromWidth, canCreateVersion } from "@/lib/tracking/structure";
 import { emptyUsage, bump } from "@/lib/tracking/usage";
-import { CORS, MAX_BODY_BYTES, cleanId, cleanStr, cleanNum, authorizeRequest, applySiteEffects, flushUsage } from "@/lib/tracking/server";
+import { CORS, MAX_BODY_BYTES, cleanId, cleanStr, cleanNum, authorizeRequest, applySiteEffects, flushUsage, tryAgain } from "@/lib/tracking/server";
 
 const supabaseAdmin = meteredAdmin();
 
@@ -55,6 +55,7 @@ async function handlePost(req) {
     if (!apiKey) return ok();
 
     const auth = await authorizeRequest(supabase, { apiKey, event: payload, headers: req.headers, now });
+    if (auth.unavailable) return tryAgain();
     if (!auth.site || !auth.key.ok) return ok();
     const { site, key, decision, host } = auth;
 

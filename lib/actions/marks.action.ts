@@ -7,6 +7,7 @@
 "use server";
 
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { describeSpec } from "@/jh-hook/describe";
 import { migrateSpec } from "@/jh-hook/migrate";
@@ -21,6 +22,9 @@ import { checkQuota, recordRequest } from "@/lib/ai/ledger";
 import { listSitePages } from "@/lib/actions/hook.action";
 import { siteOrThrow } from "@/lib/hook/site";
 import { evaluateMark, type MarkToRun } from "@/lib/marks/evaluate";
+import { CHECK_COLS, checkOf, clearResults, continueBackfills, countLeadsSince, runBackfill, startBackfill, stopChecks, v3Missing, V3MissingError } from "@/lib/marks/backfill";
+import { DEFAULT_PAST, PAST_CHOICES, pastFrom, type MarkCheck, type PastChoice } from "@/lib/marks/coverage";
+import { matchV2 } from "@/lib/marks/journey";
 import { getSiteStats } from "@/lib/stats/siteStats";
 import { createSupabaseClient } from "@/lib/supabase";
 
@@ -56,6 +60,9 @@ export interface MarkView {
   updatedAt: string;
   matchCount: number | null;
   evaluatedAt: string | null;
+  /** which leads it has checked, and the background check of past leads (lib/marks/coverage.ts); null or absent before
+   *  migration 33 (every lead checked) and in the home page demo */
+  check?: MarkCheck | null;
 }
 
 export interface LeadMark {
@@ -78,6 +85,17 @@ const COLS = "id, name, description, color, active, visibility, shared_with, rul
 /** with the library columns (19-marks-library.sql); every read falls back to COLS when they do not exist yet */
 const COLS_LIB: string = COLS + ", source, source_key, source_version, var_values, locked";
 const libMissing = (msg: string | undefined) => !!msg && /source|var_values|locked/.test(msg);
+/** with the checks of v3 (33-marks-v3.sql): what each mark has checked; reads fall back to COLS_LIB without them */
+const COLS_V3: string = COLS_LIB + ", " + CHECK_COLS;
+
+/** A select of marks with the newest columns this database has (v3, then the library, then the first ones). */
+async function selectMarks<T extends { error: { message: string } | null }>(run: (cols: string) => PromiseLike<T>): Promise<T> {
+  const v3 = await run(COLS_V3);
+  if (!v3.error || !(v3Missing(v3.error.message) || libMissing(v3.error.message))) return v3;
+  const lib = await run(COLS_LIB);
+  if (!lib.error || !libMissing(lib.error.message)) return lib;
+  return run(COLS);
+}
 /** At most this many marks per person per site: built by them (MARK_LIMIT) and in all, with copies and connected ones. */
 const TOTAL_LIMIT = 15;
 
@@ -109,6 +127,7 @@ const toView = (r: Row, me: string): MarkView => ({
   updatedAt: r.updated_at as string,
   matchCount: (r.match_count as number) ?? null,
   evaluatedAt: (r.evaluated_at as string) ?? null,
+  check: checkOf(r),
   source: ((r.source as MarkView["source"]) ?? "own"),
   sourceKey: (r.source_key as string) ?? null,
   vars: [],
@@ -120,10 +139,9 @@ const toView = (r: Row, me: string): MarkView => ({
 });
 
 /** One mark row the person can see, with the library columns when they exist. */
-async function markRow(supabase: ReturnType<typeof createSupabaseClient>, siteId: string, id: string, cols = COLS_LIB): Promise<Row | null> {
-  const first = await supabase.from("marks").select(cols).eq("id", id).eq("site_id", siteId).maybeSingle();
-  if (first.error && libMissing(first.error.message)) return ((await supabase.from("marks").select(COLS).eq("id", id).eq("site_id", siteId).maybeSingle()).data as unknown as Row) ?? null;
-  return (first.data as unknown as Row) ?? null;
+async function markRow(supabase: ReturnType<typeof createSupabaseClient>, siteId: string, id: string): Promise<Row | null> {
+  const res = await selectMarks((cols) => supabase.from("marks").select(cols).eq("id", id).eq("site_id", siteId).maybeSingle());
+  return (res.data as unknown as Row) ?? null;
 }
 
 const toRun = (r: Row): MarkToRun => ({ id: r.id as string, rule: (r.rule as MarkRule | MarkRuleV2) ?? null, spec: (r.spec as HookSpec) ?? null, reads: (r.reads as string) ?? null, source: (r.source as MarkToRun["source"]) ?? "own", source_key: (r.source_key as string) ?? null, var_values: (r.var_values as Record<string, string>) ?? {} });
@@ -147,23 +165,29 @@ export async function loadMarks(opts: { leadIds?: string[]; withLeadMarks?: bool
   try {
     const { userId, siteId } = await who();
     const supabase = createSupabaseClient();
-    type Res = { data: unknown[] | null; error: { message: string } | null };
-    let res: Res = await supabase.from("marks").select(COLS_LIB).eq("site_id", siteId).order("created_at", { ascending: true });
-    if (res.error && libMissing(res.error.message)) res = await supabase.from("marks").select(COLS).eq("site_id", siteId).order("created_at", { ascending: true });
-    const { data, error } = res;
+    const { data, error } = await selectMarks((cols) => supabase.from("marks").select(cols).eq("site_id", siteId).order("created_at", { ascending: true }));
     if (error) {
       if (missingTable(error.message)) return { ok: true, ready: false, me: userId, marks: [], leadMarks: [], team: [], pages: [], limit: MARK_LIMIT, totalLimit: TOTAL_LIMIT };
       throw new Error(error.message);
     }
-    const rows = (data ?? []) as Row[];
+    const rows = (data ?? []) as unknown as Row[];
     // a connected mark whose published version changed: take the new name and purpose, and check the leads again
     for (const r of rows) {
       if (r.source !== "connected" || r.created_by !== userId) continue;
       const c = catalogMark(r.source_key as string);
       if (!c || r.source_version === catalogVersion(c)) continue;
       try {
-        r.match_count = await evaluateMark(siteId, toRun(r));
-        r.evaluated_at = new Date().toISOString();
+        // v3: a new version, its leads checked again in the background (the same past leads as before); before
+        // migration 33, every lead inside this load, as before
+        if ("rule_version" in r && r.active) {
+          await startBackfill(siteId, r.id as string, (r.checked_from as string) ?? null, true);
+          after(() => runBackfill(r.id as string, RUN_MS));
+          Object.assign(r, { match_count: 0, backfill_state: "running", backfill_done: 0, backfill_cursor_at: null, backfill_until: new Date().toISOString() });
+        } else if ("rule_version" in r) await clearResults(r.id as string);
+        else {
+          r.match_count = await evaluateMark(siteId, toRun(r));
+          r.evaluated_at = new Date().toISOString();
+        }
         r.source_version = catalogVersion(c);
         r.name = c.name;
         r.description = c.purpose;
@@ -201,11 +225,46 @@ export interface SaveMarkInput {
   /** from Hook ("Save as mark"): a query on leads */
   spec?: unknown;
   templateKey?: string | null;
+  /** v3: which past leads to check when the rule is new or changed, or the mark is turned on (default: last 30 days
+   *  for a new mark, the same as before for an edit) */
+  past?: PastChoice;
 }
 
-export type SaveMarkResult = { ok: true; mark: MarkView; warning?: string } | { ok: false; error: string };
+/** `checking`: past leads being checked in the background (v3); the screens show the progress. */
+export type SaveMarkResult = { ok: true; mark: MarkView; warning?: string; checking?: number } | { ok: false; error: string };
 
-/** Creates or edits a mark (only your own), then checks it against every lead when it is on. */
+/** How long a runner started by a save keeps going before the drainer (or the open leads page) takes over. */
+const RUN_MS = 40_000;
+
+/**
+ * After a mark changed (v3): decides what to check and starts it in the background. Returns how many past leads will be
+ * checked. Before migration 33 it checks every lead now, inside the request, as before v3.
+ *   - off: nothing is checked; a changed rule clears the old results; turned off: new leads stop being checked;
+ *   - on, and the rule is new or changed, or it was just turned on: the chosen past leads, in the background.
+ */
+async function checkAfterChange(siteId: string, row: Row, o: { ruleChanged: boolean; turnedOn: boolean; turnedOff: boolean; past?: PastChoice; isNew?: boolean }): Promise<{ checking?: number; matchCount?: number }> {
+  const id = row.id as string;
+  try {
+    if (!row.active) {
+      if (o.turnedOff) await stopChecks(id);
+      if (o.ruleChanged) await clearResults(id);
+      return {};
+    }
+    if (!o.ruleChanged && !o.turnedOn) return {};
+    const past = o.past && PAST_CHOICES.includes(o.past) ? o.past : null;
+    // no choice sent: a new mark gets the default, an edited one keeps the past leads it had
+    const from = past ? pastFrom(past) : o.isNew ? pastFrom(DEFAULT_PAST) : ((row.checked_from as string) ?? null);
+    const checking = await startBackfill(siteId, id, from, o.ruleChanged);
+    if (checking) after(() => runBackfill(id, RUN_MS));
+    return { checking };
+  } catch (e) {
+    if (!(e instanceof V3MissingError)) throw e;
+    // before migration 33: every lead, now (the old way)
+    return { matchCount: await evaluateMark(siteId, toRun(row)) };
+  }
+}
+
+/** Creates or edits a mark (only your own); its leads are checked in the background (checkAfterChange). */
 export async function saveMark(input: SaveMarkInput): Promise<SaveMarkResult> {
   try {
     const { userId, siteId } = await who();
@@ -240,8 +299,9 @@ export async function saveMark(input: SaveMarkInput): Promise<SaveMarkResult> {
     const supabase = createSupabaseClient();
     const row = { name, description, color: input.color, active: !!input.active, visibility, shared_with: sharedWith, rule, spec, reads, updated_at: new Date().toISOString() };
     let saved: Row | null = null;
+    let existing: Row | null = null;
     if (input.id) {
-      const existing = await markRow(supabase, siteId, input.id);
+      existing = await markRow(supabase, siteId, input.id);
       if (existing?.source === "connected") return { ok: false, error: "This mark is connected to a published mark: only its values can be changed." };
       const { data, error } = await supabase.from("marks").update(existing?.source === "copy" ? { ...row, source_version: "edited" } : row).eq("id", input.id).eq("site_id", siteId).eq("created_by", userId).select(COLS).maybeSingle();
       if (error) throw new Error(error.message);
@@ -260,16 +320,23 @@ export async function saveMark(input: SaveMarkInput): Promise<SaveMarkResult> {
       saved = data;
     }
     let warning: string | undefined;
-    if (saved) {
-      try {
-        saved.match_count = await evaluateMark(siteId, { id: saved.id as string, rule, spec, reads, source: (saved.source as MarkToRun["source"]) ?? "own" });
-        saved.evaluated_at = new Date().toISOString();
-      } catch (e) {
-        console.error("[marks] check failed", { site: siteId.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
-        warning = "Saved, but the leads could not be checked right now. Use Re-check in a minute.";
-      }
+    let checking: number | undefined;
+    // the database (jsonb) does not keep the order of keys: compare with sorted keys
+    const stable = (v: unknown): string =>
+      Array.isArray(v) ? "[" + v.map(stable).join(",") + "]" : v && typeof v === "object" ? "{" + Object.keys(v).sort().filter((k) => (v as Row)[k] !== undefined).map((k) => JSON.stringify(k) + ":" + stable((v as Row)[k])).join(",") + "}" : JSON.stringify(v ?? null);
+    const same = (a: unknown, b: unknown) => stable(a) === stable(b);
+    const ruleChanged = !existing || !same(existing.rule, rule) || !same(existing.spec, spec);
+    try {
+      const fresh = (await markRow(supabase, siteId, saved!.id as string)) ?? saved!;
+      const r = await checkAfterChange(siteId, fresh, { ruleChanged, turnedOn: !!fresh.active && !!existing && !existing.active, turnedOff: !fresh.active && !!existing?.active, past: input.past, isNew: !existing });
+      checking = r.checking;
+      saved = (await markRow(supabase, siteId, saved!.id as string)) ?? fresh;
+      if (r.matchCount !== undefined) Object.assign(saved, { match_count: r.matchCount, evaluated_at: new Date().toISOString() });
+    } catch (e) {
+      console.error("[marks] check failed", { site: siteId.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
+      warning = "Saved, but the leads could not be checked right now. Use Re-check in a minute.";
     }
-    return { ok: true, mark: toView(saved!, userId), warning };
+    return { ok: true, mark: toView(saved!, userId), warning, checking };
   } catch (e) {
     if (e instanceof RuleError || e instanceof RuleV2Error) return { ok: false, error: e.message };
     if (e instanceof Error && /spec/.test(e.message) && /null/.test(e.message)) return { ok: false, error: "The new marks are not set up on this database yet (migration 22)." };
@@ -322,14 +389,18 @@ export async function addFromLibrary(key: string, mode: "copy" | "use", vars: Re
       if (libMissing(error.message) || missingTable(error.message)) return { ok: false, error: "The marks library is not set up yet (migration 19)." };
       throw new Error(error.message);
     }
-    const saved = data as unknown as Row;
+    // v3: it arrives off, and "off" means not checked: its leads are checked when it is turned on. Before migration 33,
+    // every lead at once, as before.
+    const saved = ((await markRow(supabase, siteId, (data as unknown as Row).id as string)) ?? (data as unknown as Row)) as Row;
     let warning: string | undefined;
-    try {
-      saved.match_count = await evaluateMark(siteId, toRun(saved));
-      saved.evaluated_at = new Date().toISOString();
-    } catch (e) {
-      console.error("[marks] library check failed", { site: siteId.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
-      warning = "Added, but the leads could not be checked right now. Use Re-check in a minute.";
+    if (!("rule_version" in saved)) {
+      try {
+        saved.match_count = await evaluateMark(siteId, toRun(saved));
+        saved.evaluated_at = new Date().toISOString();
+      } catch (e) {
+        console.error("[marks] library check failed", { site: siteId.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
+        warning = "Added, but the leads could not be checked right now. Use Re-check in a minute.";
+      }
     }
     return { ok: true, mark: toView(saved, userId), warning };
   } catch (e) {
@@ -369,14 +440,18 @@ export async function copySharedMark(id: string): Promise<SaveMarkResult> {
       if (/mark_limit/.test(ins.error.message)) return { ok: false, error: `Your library is full (${TOTAL_LIMIT} marks). Remove one to add another.` };
       throw new Error(ins.error.message);
     }
-    const saved = ins.data as unknown as Row;
+    let saved = ins.data as unknown as Row;
+    let checking: number | undefined;
     try {
-      saved.match_count = await evaluateMark(siteId, toRun(saved));
-      saved.evaluated_at = new Date().toISOString();
+      const fresh = (await markRow(supabase, siteId, saved.id as string)) ?? saved;
+      const r = await checkAfterChange(siteId, fresh, { ruleChanged: true, turnedOn: false, turnedOff: false, isNew: true });
+      checking = r.checking;
+      saved = (await markRow(supabase, siteId, saved.id as string)) ?? fresh;
+      if (r.matchCount !== undefined) Object.assign(saved, { match_count: r.matchCount, evaluated_at: new Date().toISOString() });
     } catch (e) {
       console.error("[marks] copy check failed", { site: siteId.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
     }
-    return { ok: true, mark: toView(saved, userId) };
+    return { ok: true, mark: toView(saved, userId), checking };
   } catch (e) {
     if (e instanceof RuleError) return { ok: false, error: e.message };
     console.error("[marks] copy failed", e instanceof Error ? e.message : e);
@@ -423,12 +498,14 @@ export async function setMarkVars(id: string, vars: Record<string, string>): Pro
       const spec = "rule" in made ? compileRule(made.rule) : made.spec;
       Object.assign(patch, { rule, spec, reads: rule ? describeRule(rule) : c.reads ?? describeSpec(spec) });
     }
-    const { data, error } = await supabase.from("marks").update(patch).eq("id", id).eq("created_by", userId).select(COLS_LIB).single();
+    const { error } = await supabase.from("marks").update(patch).eq("id", id).eq("created_by", userId);
     if (error) throw new Error(error.message);
-    const saved = data as unknown as Row;
-    saved.match_count = await evaluateMark(siteId, toRun(saved));
-    saved.evaluated_at = new Date().toISOString();
-    return { ok: true, mark: toView(saved, userId) };
+    // new values are a new rule: checked again in the background, the same past leads as before (v3)
+    const fresh = (await markRow(supabase, siteId, id))!;
+    const r = await checkAfterChange(siteId, fresh, { ruleChanged: true, turnedOn: false, turnedOff: false });
+    const saved = (await markRow(supabase, siteId, id)) ?? fresh;
+    if (r.matchCount !== undefined) Object.assign(saved, { match_count: r.matchCount, evaluated_at: new Date().toISOString() });
+    return { ok: true, mark: toView(saved, userId), checking: r.checking };
   } catch (e) {
     if (e instanceof RuleError) return { ok: false, error: e.message };
     console.error("[marks] variables failed", e instanceof Error ? e.message : e);
@@ -436,37 +513,115 @@ export async function setMarkVars(id: string, vars: Record<string, string>): Pro
   }
 }
 
-/** Turns a mark on or off (only your own): one small update. Results are kept up to date either way (evaluate.ts), so
- *  nothing is re-checked, unless the mark was never checked at all. */
-export async function setMarkActive(id: string, active: boolean): Promise<{ ok: true; matchCount: number | null; evaluatedAt: string | null } | { ok: false; error: string }> {
+/** What a change of checks returns to the screens: the mark's count, stamp and checks, and how many past leads are
+ *  being checked in the background (v3). */
+export type CheckResult = { ok: true; matchCount: number | null; evaluatedAt: string | null; check?: MarkCheck | null; checking?: number } | { ok: false; error: string };
+
+const checkResult = (r: Row, checking?: number): CheckResult => ({ ok: true, matchCount: (r.match_count as number) ?? null, evaluatedAt: (r.evaluated_at as string) ?? null, check: checkOf(r), checking });
+
+/**
+ * Turns a mark on or off (only your own). v3: "off" means its new leads are not checked; turning it on checks the
+ * chosen past leads (`past`, default the last 30 days) in the background. Before migration 33: off only hid the badges,
+ * and turning on checked every lead if it had never been checked.
+ */
+export async function setMarkActive(id: string, active: boolean, past?: PastChoice): Promise<CheckResult> {
   try {
     const { userId, siteId } = await who();
     const supabase = createSupabaseClient();
-    const { data, error } = await supabase.from("marks").update({ active, updated_at: new Date().toISOString() }).eq("id", id).eq("site_id", siteId).eq("created_by", userId).select("id, match_count, evaluated_at").maybeSingle();
+    const { data, error } = await supabase.from("marks").update({ active, updated_at: new Date().toISOString() }).eq("id", id).eq("site_id", siteId).eq("created_by", userId).select("id").maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return { ok: false, error: "Only the person who made this mark can turn it on or off." };
-    if (!active || data.evaluated_at) return { ok: true, matchCount: (data.match_count as number) ?? null, evaluatedAt: (data.evaluated_at as string) ?? null };
-    const row = await markRow(supabase, siteId, id);
-    const n = await evaluateMark(siteId, toRun(row!));
-    return { ok: true, matchCount: n, evaluatedAt: new Date().toISOString() };
+    let row = (await markRow(supabase, siteId, id))!;
+    if (!("rule_version" in row) && (!active || row.evaluated_at)) return checkResult(row);
+    const r = await checkAfterChange(siteId, row, { ruleChanged: false, turnedOn: active, turnedOff: !active, past: past ?? DEFAULT_PAST });
+    row = (await markRow(supabase, siteId, id)) ?? row;
+    if (r.matchCount !== undefined) Object.assign(row, { match_count: r.matchCount, evaluated_at: new Date().toISOString() });
+    return checkResult(row, r.checking);
   } catch (e) {
     console.error("[marks] on/off failed", e instanceof Error ? e.message : e);
     return { ok: false, error: "That didn't work. Try again." };
   }
 }
 
-/** Checks a mark against every lead again (any mark you can see). */
-export async function recheckMark(id: string): Promise<{ ok: true; matchCount: number; evaluatedAt: string } | { ok: false; error: string }> {
+/** Checks a mark's leads again (any mark you can see that is on): v3, the same past leads as before, in the background. */
+export async function recheckMark(id: string): Promise<CheckResult> {
   try {
     const { siteId } = await who();
     const supabase = createSupabaseClient();
     const data = await markRow(supabase, siteId, id);
     if (!data) return { ok: false, error: "That mark is not available." };
-    const n = await evaluateMark(siteId, toRun(data));
-    return { ok: true, matchCount: n, evaluatedAt: new Date().toISOString() };
+    if (!("rule_version" in data)) {
+      const n = await evaluateMark(siteId, toRun(data));
+      return { ok: true, matchCount: n, evaluatedAt: new Date().toISOString(), check: null };
+    }
+    if (!data.active) return { ok: false, error: "This mark is off, so it checks no leads. Turn it on first." };
+    const checking = await startBackfill(siteId, id, (data.checked_from as string) ?? null, false);
+    if (checking) after(() => runBackfill(id, RUN_MS));
+    return checkResult((await markRow(supabase, siteId, id)) ?? data, checking);
   } catch (e) {
     console.error("[marks] re-check failed", e instanceof Error ? e.message : e);
     return { ok: false, error: "The leads could not be checked right now. Try again in a minute." };
+  }
+}
+
+/** Progress of the marks' checks of past leads, for the leads page while one runs. A check nobody is running (its runner
+ *  ran out of time) is continued after this answer. */
+export async function markProgress(ids: string[]): Promise<{ ok: true; marks: { id: string; matchCount: number | null; evaluatedAt: string | null; check: MarkCheck | null }[] } | { ok: false; error: string }> {
+  try {
+    const { siteId } = await who();
+    const list = ids.filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 50);
+    if (!list.length) return { ok: true, marks: [] };
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase.from("marks").select("id, match_count, evaluated_at, " + CHECK_COLS).eq("site_id", siteId).in("id", list);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as unknown as Row[];
+    const now = Date.now();
+    if (rows.some((r) => r.backfill_state === "running" && (!r.backfill_lease || Date.parse(r.backfill_lease as string) < now))) after(() => continueBackfills(RUN_MS, siteId));
+    return { ok: true, marks: rows.map((r) => ({ id: r.id as string, matchCount: (r.match_count as number) ?? null, evaluatedAt: (r.evaluated_at as string) ?? null, check: checkOf(r) })) };
+  } catch (e) {
+    console.error("[marks] progress failed", e instanceof Error ? e.message : e);
+    return { ok: false, error: "Progress could not be read." };
+  }
+}
+
+/** How many leads each past-leads choice covers, for the choice at save and when turning a mark on. */
+export async function pastLeadCounts(): Promise<{ ok: true; counts: Record<PastChoice, number> } | { ok: false; error: string }> {
+  try {
+    const { siteId } = await who();
+    const [d30, d90, all] = await Promise.all([countLeadsSince(siteId, pastFrom("30d")), countLeadsSince(siteId, pastFrom("90d")), countLeadsSince(siteId, null)]);
+    return { ok: true, counts: { "30d": d30, "90d": d90, all, none: 0 } };
+  } catch (e) {
+    console.error("[marks] counts failed", e instanceof Error ? e.message : e);
+    return { ok: false, error: "Counts could not be read." };
+  }
+}
+
+/** How many leads the preview checks while a mark is built: the site's newest. */
+const PREVIEW_LEADS = 100;
+
+/** A rule being built (v2), checked on the site's last 100 leads: how many match, and the first few with their evidence.
+ *  Nothing is saved. */
+export async function previewMark(rule: unknown): Promise<{ ok: true; checked: number; count: number; leads: { id: string; label: string; at: string | null; parts: string[] }[] } | { ok: false; error: string }> {
+  try {
+    const { siteId } = await who();
+    if (!isRuleV2(rule)) return { ok: false, error: "Only the new builder has a preview." };
+    const valid = validateRuleV2(rule);
+    const { data, error } = await admin.from("form_submissions").select("id, name, email, submitted_at").eq("site_id", siteId).order("submitted_at", { ascending: false }).limit(PREVIEW_LEADS);
+    if (error) throw new Error(error.message);
+    const leads = data ?? [];
+    if (!leads.length) return { ok: true, checked: 0, count: 0, leads: [] };
+    const hits = await matchV2(siteId, valid, leads.map((l) => l.id as string));
+    const found = leads.filter((l) => hits.has(l.id as string));
+    return {
+      ok: true,
+      checked: leads.length,
+      count: found.length,
+      leads: found.slice(0, 8).map((l) => ({ id: l.id as string, label: (l.name as string) || (l.email as string) || "Unnamed lead", at: (l.submitted_at as string) ?? null, parts: (hits.get(l.id as string) ?? []).slice(0, 3) })),
+    };
+  } catch (e) {
+    if (e instanceof RuleV2Error) return { ok: false, error: e.message };
+    console.error("[marks] preview failed", e instanceof Error ? e.message : e);
+    return { ok: false, error: "The preview is not available right now." };
   }
 }
 

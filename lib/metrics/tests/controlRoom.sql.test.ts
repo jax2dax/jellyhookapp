@@ -16,6 +16,8 @@ const ok = (c: boolean, m: string) => {
 const root = path.resolve(__dirname, "../../..");
 const migration = fs.readFileSync(path.join(root, "mds/migrations/29-control-room.sql"), "utf8");
 
+const migration30 = fs.readFileSync(path.join(root, "mds/migrations/30-control-room-stages.sql"), "utf8");
+
 const BASE = `
 create role anon; create role authenticated; create role service_role;
 create table public.sites (id uuid primary key, domain text, name text, created_at timestamptz default now(), verified boolean, is_active boolean default true, last_event_at timestamptz, deleted_at timestamptz);
@@ -103,6 +105,34 @@ async function main() {
   const lat = (await db.query(`select * from jh_admin_latency(now() - interval '30 days')`)).rows[0] as any;
   ok(Number(lat.sent) === 4 && Math.abs(lat.slack_p50_ms - 7000) < 1 && Number(lat.over_30s) === 1, "all sites: 4 sent, median 7 s, one over the 30 s promise");
   ok(Number(lat.runs) === 4 && Number(lat.run_max_ms) === 1600, "all sites: batch times");
+
+  // migration 30: form to Slack split into stages. Own columns and rows, so the data above does not matter
+  await db.exec(`alter table form_submissions add column created_at timestamptz; alter table notification_events add column created_at timestamptz;`);
+  await db.exec(migration30);
+  ok(true, "migration 30 runs");
+  const L = "30000000-0000-0000-0000-000000000001", E = "40000000-0000-0000-0000-000000000001";
+  await db.exec(`
+    insert into form_submissions (id, site_id, submitted_at, created_at) values ('${L}', '${A}', now() - interval '20 seconds', now() - interval '19 seconds');
+    insert into notification_events (id, site_id, lead_id, created_at) values ('${E}', '${A}', '${L}', now() - interval '16 seconds');
+    insert into notification_deliveries (site_id, event_id, status, sent_at) values ('${A}', '${E}', 'sent', now() - interval '11 seconds');
+  `);
+  const st = (await db.query(`select * from jh_admin_stages(now() - interval '1 minute')`)).rows[0] as any;
+  ok(Number(st.sent) === 1, "stages: one message in the last minute");
+  ok(Math.abs(st.saved_p50_ms - 1000) < 5 && Math.abs(st.hook_p50_ms - 3000) < 5 && Math.abs(st.send_p50_ms - 5000) < 5 && Math.abs(st.total_p50_ms - 9000) < 5, "stages: 1 s saved, 3 s to the hook, 5 s to send, 9 s in all");
+  ok(Math.abs(st.saved_max_ms + st.hook_max_ms + st.send_max_ms - st.total_max_ms) < 5, "stages add up to the whole way");
+
+  // migration 32: the 'other_marks' kind is allowed, an unknown kind still is not, and the batch report ignores it
+  await db.exec(fs.readFileSync(path.join(root, "mds/migrations/32-other-marks-runs.sql"), "utf8"));
+  await db.exec(`insert into pipeline_runs (site_id, kind, leads, marks, total_ms) values ('${A}', 'other_marks', 3, 4, 999999)`);
+  let refused = false;
+  try {
+    await db.exec(`insert into pipeline_runs (site_id, kind, leads, total_ms) values ('${A}', 'nonsense', 1, 1)`);
+  } catch {
+    refused = true;
+  }
+  ok(refused, "migration 32: other_marks is allowed, an unknown kind is refused");
+  const lat2 = (await db.query(`select * from jh_admin_latency(now() - interval '30 days')`)).rows[0] as any;
+  ok(Number(lat2.runs) === 4 && Number(lat2.run_max_ms) === 1600, "other_marks runs do not count as batches of leads");
 
   console.log(`\n${passes} passed, ${fails} failed`);
   process.exit(fails ? 1 : 0);

@@ -23,7 +23,7 @@ const SLACK_RESULT: Record<string, { tone: "ok" | "error"; text: string }> = {
   missing: { tone: "error", text: "Slack sent you back without the connection details. Press Connect again." },
   tampered: { tone: "error", text: "The connection details from Slack could not be verified. Press Connect again." },
   "not-allowed": { tone: "error", text: "Only an owner or admin of the site can connect Slack." },
-  "not-configured": { tone: "error", text: "Slack sign-in is not set up on this server yet. Use a webhook URL instead." },
+  "not-configured": { tone: "error", text: "Slack sign-in is not set up on this server yet. Connect with a webhook URL instead." },
   "no-site": { tone: "error", text: "Create or select a site first." },
   error: { tone: "error", text: "Slack did not complete the connection. Try again." },
 };
@@ -33,11 +33,9 @@ export function Channels({ channels: initial, canManage, slackOAuth = false, sla
   const [adding, setAdding] = React.useState<"slack" | "webhook" | null>(null);
   const [secret, setSecret] = React.useState<string | null>(null);
   const result = slackResult ? SLACK_RESULT[slackResult] ?? null : null;
-  // Slack: through Slack's own install screen when the server has a Slack app, else paste a webhook URL
-  const connect = (kind: "slack" | "webhook") => {
-    if (kind === "slack" && slackOAuth) window.location.assign("/api/integrations/slack/start");
-    else setAdding(kind);
-  };
+  // One button per card. Slack opens a panel: "Add to Slack" (Slack's own install screen, when the server has a Slack app)
+  // and, under it, pasting an incoming webhook URL.
+  const connect = (kind: "slack" | "webhook") => setAdding(kind);
 
   const remove = async (c: ChannelView) => {
     if (!window.confirm(`Disconnect ${c.name}? Rules stop sending there.`)) return;
@@ -64,27 +62,13 @@ export function Channels({ channels: initial, canManage, slackOAuth = false, sla
                 <KindLogo kind={it.kind} className="size-6" />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-sm font-semibold text-foreground">{it.name}</span>
-                  {count > 0 && <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">{count} connected</span>}
+                  {count > 0 && <span className="whitespace-nowrap rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium leading-none text-emerald-700 dark:text-emerald-400">{count} connected</span>}
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">{it.text}</p>
-                {canManage && it.kind === "slack" && slackOAuth && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setAdding("slack");
-                    }}
-                    className="mt-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                  >
-                    Use a webhook URL instead
-                  </button>
-                )}
               </div>
-              {canManage && (
-                <span className="flex h-8 shrink-0 items-center rounded-md border px-3 text-xs font-medium">{count ? "Add" : "Connect"}</span>
-              )}
+              {canManage && <span className="flex h-7 shrink-0 items-center rounded-md border px-2.5 text-xs font-medium">{count ? "Add" : "Connect"}</span>}
             </div>
           );
         })}
@@ -92,6 +76,7 @@ export function Channels({ channels: initial, canManage, slackOAuth = false, sla
       {adding && (
         <AddChannel
           kind={adding}
+          slackOAuth={slackOAuth}
           onCancel={() => setAdding(null)}
           onAdded={(c, s) => {
             setChannels((list) => [...list, c]);
@@ -130,7 +115,7 @@ export function Channels({ channels: initial, canManage, slackOAuth = false, sla
   );
 }
 
-function AddChannel({ kind, onCancel, onAdded }: { kind: "slack" | "webhook"; onCancel: () => void; onAdded: (c: ChannelView, secret?: string) => void }) {
+function AddChannel({ kind, slackOAuth, onCancel, onAdded }: { kind: "slack" | "webhook"; slackOAuth: boolean; onCancel: () => void; onAdded: (c: ChannelView, secret?: string) => void }) {
   const [name, setName] = React.useState("");
   const [url, setUrl] = React.useState("");
   const [busy, setBusy] = React.useState<"test" | "save" | null>(null);
@@ -158,6 +143,18 @@ function AddChannel({ kind, onCancel, onAdded }: { kind: "slack" | "webhook"; on
           <X className="size-4" />
         </button>
       </div>
+      {kind === "slack" && slackOAuth && (
+        <>
+          <a href="/api/integrations/slack/start" className="flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground">
+            <KindLogo kind="slack" className="size-4" /> Add to Slack
+          </a>
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />
+            or paste an incoming webhook URL
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        </>
+      )}
       {kind === "slack" ? (
         <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
           <li>

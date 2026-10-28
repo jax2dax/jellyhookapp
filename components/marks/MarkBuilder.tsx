@@ -110,7 +110,7 @@ function Key({ children, onClick, disabled, hint, accent }: { children: ReactNod
   );
 }
 
-type BuilderProps = { initial: BuilderInitial; pages: string[]; team: TeamMember[]; me: string; onSaved: (m: MarkView, warning?: string) => void; onCancel: () => void };
+type BuilderProps = { initial: BuilderInitial; pages: string[]; team: TeamMember[]; me: string; onSaved: (m: MarkView, warning?: string, checking?: number) => void; onCancel: () => void };
 
 /**
  * New marks, and marks made with the new builder, open in the new builder (./v2/MarkBuilderV2.tsx: visits, pages,
@@ -237,7 +237,7 @@ function MarkBuilderV1({ initial, pages, team, me, onSaved, onCancel }: BuilderP
     const res = await saveAction({ id: initial.id ?? null, name, description, color, active, visibility, sharedWith, rule, templateKey: initial.templateKey ?? null });
     setSaving(false);
     if (!res.ok) return setError(res.error);
-    onSaved(res.mark, res.warning);
+    onSaved(res.mark, res.warning, res.checking);
   };
   const hookHref = check.valid ? "/platform/hook?q=" + encodeSpecParam(compileRule(check.valid)) : null;
   const others = team.filter((m) => m.userId !== me);
@@ -609,7 +609,7 @@ function MarkBuilderV1({ initial, pages, team, me, onSaved, onCancel }: BuilderP
           )}
           <label className="flex cursor-pointer items-center gap-2">
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="size-3" />
-            On: mark leads now and every new lead
+            On: check new leads as they arrive
           </label>
         </div>
       </div>

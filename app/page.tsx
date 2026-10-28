@@ -267,7 +267,7 @@ const LandingPage = () => {
               </h2>
               <p className="mt-5 max-w-2xl ff-body text-[15px] leading-[1.75] text-[#8b8980]">
                 A mark is a set of conditions about what a lead did before sending your form: the pages they read, the time on
-                each, their answers. Every lead that matches gets a badge. A hook watches new leads and tells your team, in
+                each, their answers. Every new lead that matches gets a badge, and you choose which past leads to check. A hook watches new leads and tells your team, in
                 Jellyhook and in Slack, when one has your marks. Try both below on the real screens, with sample data.
               </p>
             </div>

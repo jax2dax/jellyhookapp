@@ -17,7 +17,7 @@
 // check in step 2 is the authorization, before any write.
 import { NextResponse, after } from "next/server";
 import { meteredAdmin } from "@/lib/db/admin";
-import { metered, newMeter } from "@/lib/metrics/meter";
+import { databaseFailed, metered, newMeter } from "@/lib/metrics/meter";
 import { resolvePendingCountries } from "@/lib/resolvePendingCountries";
 import { leadsOfSession } from "@/lib/marks/evaluate";
 import { checkNewLeads } from "@/lib/notifications/check";
@@ -30,7 +30,7 @@ import { emptyUsage, bump } from "@/lib/tracking/usage";
 import {
   CORS, MAX_BODY_BYTES, MAX_EVENTS_PER_REQUEST,
   cleanId, cleanStr, cleanNum, cleanTime,
-  authorizeRequest, applySiteEffects, flushUsage, clientIp, markHealthEvent,
+  authorizeRequest, applySiteEffects, flushUsage, clientIp, markHealthEvent, tryAgain,
 } from "@/lib/tracking/server";
 
 const supabaseAdmin = meteredAdmin();
@@ -82,6 +82,7 @@ async function handlePost(req) {
     if (!apiKey) return NextResponse.json({ error: "No API key" }, { status: 400, headers: CORS });
 
     const auth = await authorizeRequest(supabase, { apiKey, event: events[0], headers: req.headers, now });
+    if (auth.unavailable) return tryAgain(); // the database did not answer: not a wrong key
     if (!auth.site || !auth.key.ok) return NextResponse.json({ error: "Invalid site" }, { status: 403, headers: CORS });
     const { site, key, decision, host } = auth;
     siteId = site.id;
@@ -489,10 +490,14 @@ async function handlePost(req) {
     after(() => resolvePendingCountries(supabase));
     after(() => sweepIfDue(supabase));
 
+    // A write the database could not answer (overloaded, timed out): ask the browser to send the batch again. Every event
+    // here is safe to repeat: the session and page view ids are unique, the ends and heartbeats set values.
+    if (databaseFailed()) return tryAgain();
     return ok();
   } catch (err) {
     console.error("[track] error:", err);
     if (siteId) after(() => flushUsage(supabase, siteId, { ...usage, dropped: usage.dropped + 1 }, now));
+    if (databaseFailed()) return tryAgain();
     return NextResponse.json({ error: "Server error" }, { status: 500, headers: CORS });
   }
 }

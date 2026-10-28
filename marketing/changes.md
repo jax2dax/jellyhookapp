@@ -143,3 +143,25 @@ To revert a change, put the "before" text back.
 - app/docs/page.tsx: "Where to go next" adds Marks and Hooks; points to the home page's interactive demo; "Words to know first".
 - Labels synced with the screens: "Session history", "Path to conversion", "Whole journey summary", "Conversion rate"; story highlighting described as it is now; Settings paths say "Settings → Tracker → ..." (the tab is Tracker). "The most powerful part of Hook" → "The deepest part of Hook".
 - Checks: npm run docs:check in sync; tsc clean.
+
+
+## 2026-10-27 founder-requested privacy update (not an agent edit; the founder asked for it)
+- Why: the tracker now keeps unsent data, including a submitted form's values, in the tab's session storage and retries for up to 30 minutes (`public/tracker.js` OUTBOX, `mds/local_cache_schema.md` `jh_outbox`).
+- app/privacy/page.tsx, visitor data list: new row "Waiting to be sent".
+  - Before: none.
+  - After: `If our servers do not answer, the tracker keeps what it was sending (including a submitted form's values, without the fields that are always left out) in that browser tab's session storage and tries again for up to 30 minutes. Each item is deleted as soon as our servers accept it, and in any case when the tab is closed.`
+- app/privacy/page.tsx, consent section.
+  - Before: `The tracker stores a random visitor ID and session details in the visitor's browser (local storage) and sends the data above to Jellyhook.` and `...and erases what it stored if the visitor says no.`
+  - After: `The tracker stores a random visitor ID and session details in the visitor's browser (local storage), keeps anything still waiting to be sent in that tab's session storage, and sends the data above to Jellyhook.` and `...and erases what it stored, including anything waiting to be sent, if the visitor says no.` (true: `eraseStoredData` removes every `jh_` session storage key.)
+- app/docs/concepts/privacy-consent/page.tsx: one sentence after "...to Jellyhook.": `If Jellyhook's servers do not answer, what was being sent (a submitted form's values too) waits in that tab's session storage and is sent again for up to 30 minutes; it is deleted once accepted, and in any case when the tab closes. (Not "after 30 minutes": if the visitor moves to a page without the tracker, an unsent item stays until the tab closes.)`
+- No marketing claim added. Checks: npx tsc --noEmit clean, npm run docs:check in sync.
+
+## 2026-10-27 founder-requested build: marks v3 (not an agent edit)
+- Why: marks v3 (mds/build/marks/when-marks-run.md) checks new leads while a mark is on, plus the past leads chosen at save (default last 30 days). "Every lead that matches" was no longer exact.
+- app/page.tsx, `#try-it` text.
+  - Before: `Every lead that matches gets a badge.`
+  - After: `Every new lead that matches gets a badge, and you choose which past leads to check.`
+- marketing/claims-ledger.md row 23: claim reworded the same way; condition added (do not say "every lead" without the past-leads choice; an off mark checks nothing).
+- app/docs/reference/marks/page.tsx: new section "Preview, and which leads are checked" (preview on the last 100 leads, the four past-leads choices, background check with progress, off means not checked, a changed rule clears old results, "not checked", Re-check its leads); "How it is checked" now says the order of checks and that the first failed condition ends a lead's check (the old line "Saving a mark checks every lead" is gone).
+- mds/documentation/doc_source_map.md: marks row lists the v3 sources.
+- Checks: npx tsc --noEmit clean, npm run docs:check in sync.

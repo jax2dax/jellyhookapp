@@ -2,6 +2,7 @@
 // One row per piece of background work, for the control room (pipeline_runs, migration 29):
 //   kind "leads"       a batch of new leads checked by the site's lane (lib/notifications/check.ts): marks, then hooks
 //   kind "mark_apply"  a mark applied to every lead of the site after it was saved (lib/marks/evaluate.ts evaluateMark)
+//   kind "other_marks" v2: the marks no live hook uses, checked for a lane's leads after the lane is released (migration 32)
 // with how long each step took and the database work it did (lib/metrics/meter.ts). Writing never throws and is not
 // itself counted; before migration 29 it does nothing.
 import "server-only";
@@ -13,7 +14,7 @@ const db = () => (client ??= createClient(process.env.SUPABASE_URL!, process.env
 
 export interface Run {
   site_id: string;
-  kind: "leads" | "mark_apply";
+  kind: "leads" | "mark_apply" | "other_marks";
   /** leads in the batch (leads), or leads that have the mark after applying it (mark_apply) */
   leads: number;
   /** marks checked (leads), or 1 (mark_apply) */

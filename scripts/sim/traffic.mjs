@@ -9,7 +9,7 @@
 //
 //   npm run sim -- --key <site api key> --domain sim.jellyhook.test        (--base defaults to http://localhost:3100)
 //        [--visitors 100] [--over 60] [--pages /,/pricing,/blogs,/contact] [--form-page /contact]
-//        [--form-rate 0.3] [--returning 0.2] [--ads 0.3] [--dwell 2-12] [--burst 30] [--allow-production]
+//        [--form-rate 0.3] [--returning 0.2] [--ads 0.3] [--dwell 2-12] [--burst 30] [--end-visits 1] [--allow-production]
 //
 //   --visitors   how many visitors arrive              --over    spread over this many seconds
 //   --dwell      seconds on each page, min-max         --burst   ALSO send this many forms, one per second (a rush)
@@ -19,7 +19,7 @@
 // The domain must be the test site's domain in Jellyhook (its events are matched to it); the key is its API key.
 // Prints progress, then totals: events sent, refused, forms, and the server's answers.
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((acc, a, i, all) => {
@@ -61,6 +61,10 @@ const RETURNING = Number(args.returning ?? 0.2);
 const ADS = Number(args.ads ?? 0.3);
 const [DWELL_MIN, DWELL_MAX] = String(args.dwell ?? "2-12").split("-").map(Number);
 const BURST = Number(args.burst ?? 0);
+// --end-visits 1: each visit ends with a session_end, as a real tracker sends when the visit is over. The server then checks the
+// leads of that visit a SECOND time (marks and hooks), so this doubles the checking work. Real visits end minutes later (idle),
+// not right after the form, so it makes the test harder than the real day: use it for the heaviest variants.
+const END_VISITS = String(args["end-visits"] ?? "0") === "1";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36 JellyhookSim/1";
 const ORIGIN = "https://" + DOMAIN;
@@ -68,23 +72,62 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (xs) => xs[Math.floor(Math.random() * xs.length)];
 
-const stats = { visits: 0, pageViews: 0, events: 0, requests: 0, refused: 0, errors: 0, forms: 0, formsRefused: 0, statuses: {} };
+const stats = { visits: 0, pageViews: 0, events: 0, requests: 0, refused: 0, errors: 0, forms: 0, formsRefused: 0, statuses: {}, retried: 0, recovered: 0, lost: 0, formsLost: 0 };
 
-async function post(path, body) {
-  stats.requests++;
+// --retry 1 (the default since v2): like the real tracker's outbox (public/tracker.js), a send answered 5xx or 429, or
+// with no answer, is sent again in the background with growing pauses, while the visitor goes on. A send that still fails
+// after the last pause is LOST: the number that matters most (a lost visit or form cannot be rebuilt). --retry 0 sends
+// once, as the tracker did before v2. Sends carrying form field timings are never repeated (the server adds them up).
+const RETRY = String(args.retry ?? "1") === "1";
+const PAUSES = [2000, 5000, 15000, 30000, 60000, 120000, 300000, 600000];
+const retrying = new Set();
+const failed = (s) => s === 0 || s >= 500 || s === 429;
+
+/** A stable fake person from a visitor id: its own network address and browser build. Without this every simulated visitor
+ *  shares one IP and one browser, and the app (correctly) merges them into a handful of people (jh_resolve_visitor). */
+function identity(visitorId) {
+  const h = createHash("sha256").update(String(visitorId)).digest();
+  return { ip: `203.0.${h[0]}.${h[1] || 1}`, ua: UA.replace("Chrome/131.0", `Chrome/131.0.${h[2] * 256 + h[3]}`) };
+}
+
+async function send(path, body, who) {
   try {
     const res = await fetch(BASE + path, {
       method: "POST",
-      headers: { "Content-Type": "text/plain;charset=UTF-8", "x-api-key": KEY, Origin: ORIGIN, Referer: ORIGIN + "/", "User-Agent": UA },
+      headers: { "Content-Type": "text/plain;charset=UTF-8", "x-api-key": KEY, Origin: ORIGIN, Referer: ORIGIN + "/", "User-Agent": who.ua, "x-forwarded-for": who.ip },
       body: JSON.stringify(body),
     });
     stats.statuses[res.status] = (stats.statuses[res.status] ?? 0) + 1;
-    if (res.status >= 400) stats.refused++;
     return res.status;
   } catch (e) {
     stats.errors++;
     return 0;
   }
+}
+
+async function post(path, body) {
+  stats.requests++;
+  const who = identity((Array.isArray(body) ? body[0] : body)?.visitor_id);
+  const status = await send(path, body, who);
+  if (status >= 400) stats.refused++;
+  if (RETRY && failed(status) && !body?.field_timings_delta) {
+    stats.retried++;
+    const isForm = path === "/api/track-form";
+    const job = (async () => {
+      for (const pause of PAUSES) {
+        await sleep(pause);
+        if (!failed(await send(path, body, who))) {
+          stats.recovered++;
+          return;
+        }
+      }
+      stats.lost++;
+      if (isForm) stats.formsLost++;
+    })();
+    retrying.add(job);
+    job.finally(() => retrying.delete(job));
+  }
+  return status;
 }
 
 const track = (events) => {
@@ -125,10 +168,47 @@ async function visit(visitorId, first, sendsForm) {
     }
     await track([{ type: "page_view_end", ...pv, duration: Math.round(stayMs), scroll_depth: scroll * 0.8, max_scroll_depth: scroll, viewport_height: 900, page_height: 3200 }]);
   }
+  if (END_VISITS) await track([{ type: "session_end", ...base, ended_ago_ms: 0 }]);
+}
+
+// The form's field list, as the tracker reports it when the form is seen (keys, types, labels, choices; never values).
+// The mark builder's "answers" list is built from this, so without it a site has no fields to pick.
+const FORM_FIELDS = [
+  { key: "custom:firstname", type: "text", required: true, label: "First name" },
+  { key: "custom:lastname", type: "text", required: true, label: "Last name" },
+  { key: "email", type: "email", required: true, label: "Email" },
+  { key: "custom:budget", type: "select", required: false, label: "Budget", options: [{ v: "Under $1k", l: "Under $1k" }, { v: "$1k-$5k", l: "$1k-$5k" }, { v: "$5k+", l: "$5k+" }] },
+  { key: "custom:message", type: "textarea", required: false, label: "Message" },
+];
+
+/** What the tracker sends about a form besides the lead itself: seen, started (with field timing), submitted. */
+async function engagement(status, visitorId, sessionId, pageViewId, path, extra = {}) {
+  stats.events++;
+  return post("/api/track-form-engagement", {
+    api_key: KEY,
+    visitor_id: visitorId,
+    session_id: sessionId,
+    page_view_id: pageViewId,
+    page_path: path,
+    form_index: 0,
+    form_key_hint: { id: "contact", name: null },
+    status,
+    last_activity_at: new Date().toISOString(),
+    ...extra,
+  });
 }
 
 async function form(visitorId, sessionId, pageViewId, path, soFarMs, scroll) {
   const n = ++stats.forms;
+  const t = Date.now();
+  const iso = (ms) => new Date(t + ms).toISOString();
+  await engagement("viewed", visitorId, sessionId, pageViewId, path, { form_fields: FORM_FIELDS, form_top_y: 600, form_bottom_y: 1300 });
+  await engagement("started", visitorId, sessionId, pageViewId, path, {
+    onscreen_before_start_ms: Math.round(rand(1000, 4000)),
+    field_timings_delta: Object.fromEntries(
+      FORM_FIELDS.map((f, i) => [f.key, { firstFocusAt: iso(i * 1500), firstKeydownAt: iso(i * 1500 + rand(300, 2500)), lastUnfocusAt: iso(i * 1500 + 3000), totalFocusedMsDelta: Math.round(rand(1500, 6000)), filled: true, edited: Math.random() < 0.2 }]),
+    ),
+  });
   const status = await post("/api/track-form", {
     api_key: KEY,
     visitor_id: visitorId,
@@ -145,8 +225,10 @@ async function form(visitorId, sessionId, pageViewId, path, soFarMs, scroll) {
     form_key_hint: { id: "contact", name: null },
     form_index: 0,
     page_snapshot: { page_view_id: pageViewId, duration: Math.round(soFarMs), scroll_depth: scroll * 0.8, max_scroll_depth: scroll, max_scroll_reached_at: new Date().toISOString(), revisit_start_scroll: null, viewport_height: 900 },
+    submission_id: randomUUID(), // like the real tracker: a repeat of this form is never a second lead
   });
-  if (status >= 400 || status === 0) stats.formsRefused++;
+  if (status >= 400 || status === 0) stats.formsRefused++; // the FIRST try failed (with --retry 1 it is sent again)
+  await engagement("submitted", visitorId, sessionId, pageViewId, path);
 }
 
 async function visitor(i) {
@@ -193,9 +275,13 @@ for (let i = 0; i < VISITORS; i++) {
 if (BURST) jobs.push(burst(BURST));
 await Promise.all(jobs);
 clearInterval(progress);
-console.log(`\nDone in ${Math.round((Date.now() - t0) / 1000)}s.`);
+const sent = Date.now();
+if (retrying.size) console.log(`\nAll visitors done; ${retrying.size} send(s) still being retried (pauses up to 10 minutes) ...`);
+while (retrying.size) await Promise.race([...retrying]);
+console.log(`\nDone in ${Math.round((Date.now() - t0) / 1000)}s${Date.now() - sent > 2000 ? ` (${Math.round((Date.now() - sent) / 1000)}s of it waiting for retries)` : ""}.`);
 console.log(`  visits ${stats.visits}, page views ${stats.pageViews}, events ${stats.events}, requests ${stats.requests}`);
 console.log(`  forms sent ${stats.forms} (${stats.formsRefused} refused)`);
 console.log(`  server answers: ${JSON.stringify(stats.statuses)}${stats.errors ? `, ${stats.errors} network errors` : ""}`);
+if (RETRY) console.log(`  failed on the first try ${stats.retried}: recovered by retrying ${stats.recovered}, LOST ${stats.lost} (forms lost: ${stats.formsLost})`);
 console.log(`Open ${BASE}/admin to see it in the control room.`);
-process.exit(stats.refused || stats.errors ? 1 : 0);
+process.exit(stats.lost || (!RETRY && (stats.refused || stats.errors)) ? 1 : 0);

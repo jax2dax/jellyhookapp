@@ -5,6 +5,7 @@
 // real page and the fake-data demo render the same thing. Design: mds/build/control-room.md.
 import Link from "next/link";
 import { Live } from "./Live";
+import { CopyReport } from "./CopyReport";
 import { SitesTable, type SiteLine } from "./SitesTable";
 import { DailyChart } from "./DailyChart";
 import { bytes, count, dur, promiseTone, usd, PROMISE_MS } from "@/lib/admin/format";
@@ -92,6 +93,7 @@ export function ControlRoomView({ data, days, prices, base = "/admin", siteHref 
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-8 p-6">
+      <div id="control-room-report" className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Control room</h1>
@@ -122,6 +124,40 @@ export function ControlRoomView({ data, days, prices, base = "/admin", siteHref 
           <Stat label="Over 30 s" value={latency.over_30s} sub={`of ${count(latency.sent)} sent`} tone={latency.over_30s ? "bad" : "ok"} />
           <Stat label="Batch of new leads" value={dur(latency.run_p95_ms)} sub={`95% within; median ${dur(latency.run_p50_ms)}, slowest ${dur(latency.run_max_ms)}`} />
         </div>
+      </Section>
+
+      <Section title="Where the time goes, form to Slack" note={data.stages ? "Each message's way, stage by stage (median, 95% within, slowest)." : "Needs mds/migrations/30-control-room-stages.sql. Run it in Supabase, then reload."}>
+        {data.stages && (
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-1.5 text-left font-normal">Stage</th>
+                  <th className="px-3 py-1.5 text-right font-normal">Median</th>
+                  <th className="px-3 py-1.5 text-right font-normal">95% within</th>
+                  <th className="px-3 py-1.5 text-right font-normal">Slowest</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {(
+                  [
+                    ["Form submitted to lead saved (the tracker request)", "saved"],
+                    ["Lead saved to hook fired (queue, mark check, hook rules)", "hook"],
+                    ["Hook fired to Slack accepted (message and send)", "send"],
+                    ["Whole way", "total"],
+                  ] as const
+                ).map(([label, k]) => (
+                  <tr key={k} className={k === "total" ? "font-medium" : ""}>
+                    <td className="px-3 py-1.5">{label}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{dur(data.stages![`${k}_p50_ms` as const])}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{dur(data.stages![`${k}_p95_ms` as const])}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{dur(data.stages![`${k}_max_ms` as const])}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Section>
 
       <Section title="Who uses Jellyhook">
@@ -180,6 +216,8 @@ export function ControlRoomView({ data, days, prices, base = "/admin", siteHref 
           </div>
         </div>
       </Section>
+      </div>
+      <CopyReport targetId="control-room-report" />
     </div>
   );
 }

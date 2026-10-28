@@ -42,6 +42,7 @@ via the address also work).
 | `jh_hr` | localStorage | map path to `{ sig, t }`: last health report | bounded to 100 paths |
 | `jh_ph_<path>` | sessionStorage | last page height sent and when (the throttle) | tab |
 | `jh_debug` | localStorage | `"1"` enables logging | until cleared |
+| `jh_outbox` | sessionStorage | sends not yet answered by the server (2026-10-28): `[{ id, url, body, at, tries }]`, at most 100; see "Retries" below and mds/local_cache_schema.md | tab; each item at most 8 tries or 30 min |
 
 ## Sessions
 
@@ -129,12 +130,22 @@ an app that swaps in the next route before changing the URL (old tracker reporte
 | Endpoint | When | Sent |
 |---|---|---|
 | `GET /api/site-config?key=` | once per load | reads `specify_form` |
-| `POST /api/track-form` | a form submission is captured | `visitor_id, session_id, page_url, page_path, name, email, phone, confidence, raw_data, is_labelled_conversion` |
+| `POST /api/track-form` | a form submission is captured | `visitor_id, session_id, page_url, page_path, name, email, phone, confidence, raw_data, is_labelled_conversion`; since 2026-10-28 `submission_id` (a UUID per submission: a repeat is never a second lead, migration 31) |
 | `POST /api/track-form-engagement` | form viewed / started / a field blurs / submitted / abandoned / a submit blocked by validation | `form_index, status, last_field_type/key, form_top_y/bottom_y, field_timings_delta (now with filled, edited), last_activity_at, has_marked_fields`; since 2026-10-14 also `form_fields` (with viewed), `onscreen_before_start_ms` (with the first started), `field_errors_delta` (blocked submit). See mds/build/form-study/tracker-changes.md |
 | `POST /api/track-structure` | a page view opened and the structure changed (or 24 h passed) | `page_view_id, page_path, page_height, viewport_width, structures[{header_index, header_text, header_tag, position_y}]` |
 
 All use `_originalFetch` (never the patched `window.fetch`), `credentials: "omit"`,
 `keepalive: true`, and `text/plain`.
+
+## Retries (since 2026-10-28)
+Every send to `/api/track`, `/api/track-form` and status-only `/api/track-form-engagement` goes through an outbox: it is
+written to `jh_outbox` before it is sent and removed when the server answers 2xx or 4xx. A 5xx, a 429 or no answer keeps
+it and it is sent again after 2 s, 5 s, 15 s, 30 s, 1 min, 2 min, 5 min, 10 min (8 tries, 30 minutes at most). The next page
+of the same tab sends what the page before could not. The server answers 503 when the database did not answer (the key
+check, or any write of the request), so nothing is dropped during an overload. Repeats are safe: unique page view and
+session ids, `submission_id` on forms, form status only moves forward. Sends with form field timings are sent once (the
+server adds the timings up). Why: mds/crowd-test/v1/summary.md (an overloaded test database answered 403 and dropped
+every event). Browser test: scripts/tracker-e2e/outbox.js.
 
 ## Forms
 

@@ -18,11 +18,14 @@ export interface Meter {
   ms: number;
   /** rows returned (Content-Range), a measure of how much was read */
   rows: number;
+  /** calls the database could not answer: no response at all, or a 5xx (overloaded, timed out, unreachable). A tracker
+   *  request with any of these answers 503 so the browser keeps its events and sends them again (public/tracker.js outbox). */
+  failures: number;
 }
 
 const store = new AsyncLocalStorage<Meter>();
 
-export const newMeter = (): Meter => ({ started: Date.now(), calls: 0, ms: 0, rows: 0 });
+export const newMeter = (): Meter => ({ started: Date.now(), calls: 0, ms: 0, rows: 0, failures: 0 });
 
 /** Runs `fn` with `m` as the current meter (for everything it awaits, including after() callbacks it schedules). */
 export function metered<T>(m: Meter, fn: () => T): T {
@@ -43,9 +46,21 @@ export const meteredFetch: typeof fetch = async (input, init) => {
   const m = store.getStore();
   if (!m) return fetch(input, init);
   const t0 = performance.now();
-  const res = await fetch(input, init);
+  let res: Response;
+  try {
+    res = await fetch(input, init);
+  } catch (e) {
+    m.calls += 1;
+    m.ms += performance.now() - t0;
+    m.failures += 1;
+    throw e;
+  }
   m.calls += 1;
   m.ms += performance.now() - t0;
   m.rows += rowsOf(res.headers.get("content-range"));
+  if (res.status >= 500) m.failures += 1;
   return res;
 };
+
+/** Did the database fail to answer during the current piece of work? False outside a meter. */
+export const databaseFailed = (): boolean => (store.getStore()?.failures ?? 0) > 0;

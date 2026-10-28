@@ -1,9 +1,13 @@
 // lib/notifications/check.ts
 // What happens on the server after a form is submitted (mds/build/notifications/data-flow.md):
 //   1. the new lead joins its site's lane (check_jobs);
-//   2. whoever holds the site's lease checks the lane's leads in batches of up to 50: their marks (lib/marks/evaluate.ts),
-//      then the notification rules (lib/notifications/decide.ts): events, in-app notifications, group adds, deliveries;
-//   3. pending deliveries are sent (Slack, webhooks).
+//   2. whoever holds the site's lease checks the lane's leads in batches of up to 50: the marks live hooks use
+//      (lib/marks/evaluate.ts, all v2 marks in one read of the leads' history), then the notification rules
+//      (lib/notifications/decide.ts): events, in-app notifications, group adds, deliveries;
+//   3. that batch's deliveries are sent at once (Slack, webhooks);
+//   4. after the lease is released, the site's other marks (the ones no live hook uses) are checked for those leads.
+// Steps 2 to 4 were reordered in v2 of the crowd tests (mds/crowd-test/roadmap.md): before, every mark was checked
+// first, one by one, and messages were sent only when the lane was empty.
 // One lease per site (jh_take_site_lease): a flood on one site waits in that site's lane only, and other sites never
 // wait for it. A lease ends by itself after 60 seconds, so a crash cannot block a site. Leads left in a lane are picked up
 // by the next submission on that site or by the drainer (app/api/jobs/drain, every few seconds with Supabase Cron).
@@ -12,6 +16,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { meteredAdmin } from "@/lib/db/admin";
 import { evaluateLeads } from "@/lib/marks/evaluate";
+import { continueBackfills } from "@/lib/marks/backfill";
 import { decide, type LeadIn, type RuleIn } from "./decide";
 import { openSecret } from "./secret";
 import { messageOptions, post, type DeliveryPayload } from "./send";
@@ -60,14 +65,27 @@ export async function checkNewLeads(siteId: string, leadIds: string[]): Promise<
  * Check the site's waiting leads while holding its lease, batch after batch, for at most `budgetMs`. Returns false when
  * another run holds the site (it will pick these leads up).
  */
+/**
+ * The marks that live hooks use. They are checked first, so a hook never waits for marks no hook uses. Null when the
+ * hooks cannot be read: then every mark is checked first, as before v2.
+ */
+async function liveHookMarks(siteId: string): Promise<string[] | null> {
+  const { data, error } = await admin.from("notification_rules").select("mark_ids").eq("site_id", siteId).eq("active", true);
+  if (error) return null;
+  return [...new Set((data ?? []).flatMap((r) => (r.mark_ids as string[] | null) ?? []))];
+}
+
 export async function runSiteLane(siteId: string, budgetMs: number): Promise<boolean> {
   const holder = randomUUID();
   const take = () => admin.rpc("jh_take_site_lease", { p_site: siteId, p_holder: holder, p_seconds: LEASE_SECONDS });
   const first = await take();
   if (first.error || first.data !== true) return false;
   const started = Date.now();
-  const deliveries: string[] = [];
+  // leads whose other marks (the ones no live hook uses) are checked after the lane is released
+  const rest: string[] = [];
+  let hookMarks: string[] | null = null;
   try {
+    hookMarks = await liveHookMarks(siteId);
     while (Date.now() - started < budgetMs) {
       const { data: jobs, error } = await admin.from("check_jobs").select("lead_id, attempts, created_at").eq("site_id", siteId).lte("run_after", new Date().toISOString()).order("created_at").limit(BATCH);
       if (error || !jobs?.length) break;
@@ -82,16 +100,21 @@ export async function runSiteLane(siteId: string, budgetMs: number): Promise<boo
       let made: string[] = [];
       try {
         await metered(meter, async () => {
-          stats.marks = await evaluateLeads(siteId, ids);
+          // v2: first only the marks live hooks use (all marks when the hooks could not be read), strictly: a mark that
+          // cannot be checked fails the batch, which is tried again later, so a hook is delayed, never skipped
+          stats.marks = await evaluateLeads(siteId, ids, hookMarks ? { only: hookMarks, strict: true } : { strict: true });
           t1 = Date.now();
           made = await fireRules(siteId, ids, stats);
           t2 = Date.now();
         });
-        deliveries.push(...made);
         await admin.from("check_jobs").delete().in("lead_id", ids);
+        if (hookMarks) rest.push(...ids);
         // timing, for finding what is slow: queue wait (oldest lead), marks, rules + notifications, cleanup
         console.log(`[notifications] batch leads=${ids.length} waited=${waited}ms marks=${t1 - t0}ms rules=${t2 - t1}ms cleanup=${Date.now() - t2}ms db=${meter.calls} calls`);
         await recordRun({ site_id: siteId, kind: "leads", leads: ids.length, marks: stats.marks, hooks: stats.rules, fires: stats.fires, deliveries: made.length, wait_ms: waited, marks_ms: t1 - t0, hooks_ms: t2 - t1, total_ms: Date.now() - t0 }, meter);
+        // v2: this batch's messages go now, not after the whole lane is empty (an early message no longer waits for
+        // later batches)
+        if (made.length) await sendDeliveries(made).catch((e) => log("send failed", { site: siteId.slice(0, 8), error: e instanceof Error ? e.message : String(e) }));
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         await recordRun({ site_id: siteId, kind: "leads", leads: ids.length, marks: stats.marks, hooks: stats.rules, wait_ms: waited, total_ms: Date.now() - t0, error: msg }, meter);
@@ -109,7 +132,16 @@ export async function runSiteLane(siteId: string, budgetMs: number): Promise<boo
   } finally {
     await admin.rpc("jh_release_site_lease", { p_site: siteId, p_holder: holder });
   }
-  if (deliveries.length) await sendDeliveries(deliveries);
+  // v2: the marks no live hook uses, for the leads just checked, after the lane is released: the next leads' hooks do not
+  // wait for them. Not strict: a failure is logged and the badge is filled at the next check of that lead (its visit's
+  // end, or a re-check). Measured and recorded apart (pipeline_runs kind 'other_marks', migration 32).
+  if (rest.length) {
+    const meter = newMeter();
+    const t0 = Date.now();
+    const n = await metered(meter, () => evaluateLeads(siteId, rest, { except: hookMarks ?? [] }));
+    console.log(`[notifications] other marks leads=${rest.length} marks=${n} ms=${Date.now() - t0} db=${meter.calls} calls`);
+    if (n) await recordRun({ site_id: siteId, kind: "other_marks", leads: rest.length, marks: n, total_ms: Date.now() - t0 }, meter);
+  }
   return true;
 }
 
@@ -306,13 +338,16 @@ export async function sendDeliveries(ids?: string[]): Promise<number> {
   return sent;
 }
 
-/** The drainer: sites with waiting leads, a few at a time, then the due deliveries. */
-export async function drain(maxSites = 4): Promise<{ sites: number; sent: number }> {
+/** The drainer: sites with waiting leads, a few at a time, then the due deliveries, then (v3) checks of past leads that
+ *  nobody is running (lib/marks/backfill.ts), with what is left of the time. */
+export async function drain(maxSites = 4): Promise<{ sites: number; sent: number; backfills: number }> {
+  const t0 = Date.now();
   const { data } = await admin.from("check_jobs").select("site_id").lte("run_after", new Date().toISOString()).order("created_at").limit(500);
   const sites = [...new Set((data ?? []).map((r) => r.site_id as string))].slice(0, maxSites);
   await Promise.all(sites.map((s) => runSiteLane(s, 20_000)));
   const sent = await sendDeliveries();
-  return { sites: sites.length, sent };
+  const backfills = await continueBackfills(Math.min(30_000, 50_000 - (Date.now() - t0))).catch(() => 0);
+  return { sites: sites.length, sent, backfills };
 }
 
 /** The channel a person's bell listens on (components/notifications/UnreadBadge.tsx). */

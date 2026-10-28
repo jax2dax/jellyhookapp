@@ -16,6 +16,7 @@ import { describeSpec } from "@/jh-hook/describe";
 import { CATALOG, CATEGORIES, type CatalogMark } from "@/jh-marks/catalog";
 import { describeRule } from "@/jh-marks/rule";
 import { addFromLibrary, deleteMark, setMarkActive, type MarksState, type MarkView } from "@/lib/actions/marks.action";
+import { markStatus } from "@/lib/marks/coverage";
 import { MarkBuilder, type BuilderInitial } from "./MarkBuilder";
 import { MarkVarsEditor } from "./MarkVarsEditor";
 
@@ -88,7 +89,9 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
     setBusy(null);
     if (!r.ok) return setNote({ tone: "error", text: r.error });
     upsert(r.mark);
-    setNote({ tone: r.warning ? "error" : "ok", text: r.warning ?? `${c.name} ${mode === "use" ? "connected" : "added"}, off. ${r.mark.matchCount ?? 0} of your leads match.` });
+    // v3: it arrives off, and off means not checked (before migration 33 it was checked at once)
+    const what = `${c.name} ${mode === "use" ? "connected" : "added"}, off.`;
+    setNote({ tone: r.warning ? "error" : "ok", text: r.warning ?? (r.mark.check ? `${what} Turn it on to check your leads.` : `${what} ${r.mark.matchCount ?? 0} of your leads match.`) });
   };
 
   const toggle = async (m: MarkView) => {
@@ -96,7 +99,9 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
     const r = await setMarkActive(m.id, !m.active);
     setBusy(null);
     if (!r.ok) return setNote({ tone: "error", text: r.error });
-    upsert({ ...m, active: !m.active, matchCount: r.matchCount, evaluatedAt: r.evaluatedAt });
+    upsert({ ...m, active: !m.active, matchCount: r.matchCount, evaluatedAt: r.evaluatedAt, check: r.check });
+    // v3: turned on here, the last 30 days of leads are checked in the background (the leads page offers the other choices)
+    if (r.checking) setNote({ tone: "ok", text: `${m.name} is on. Checking ${r.checking} leads from the last 30 days in the background.` });
   };
 
   /** One mark in the sidebar: a compact row, its menu, and its inline editors. */
@@ -111,7 +116,7 @@ export function MarksLibrary({ state: initial }: { state: MarksState }) {
             {m.locked && <Lock className="size-3 shrink-0 text-muted-foreground" aria-label="formula hidden" />}
           </span>
           <span className="block truncate text-[11px] text-muted-foreground">
-            {m.active ? (m.matchCount ?? 0) + (m.matchCount === 1 ? " lead" : " leads") : "off"}
+            {markStatus(m)}
             {!m.mine && m.createdByEmail ? " · " + m.createdByEmail : ""}
           </span>
         </span>
