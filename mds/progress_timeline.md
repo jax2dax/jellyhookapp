@@ -2073,3 +2073,7 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
   erase a person by email, where data is stored (US, no DPA). Install screen: one line on banner and EU.
 - Migration 35 (retention + erasure). Tests: lib/privacy/tests/privacy.sql.test.ts (15 passed).
 - Founder must: run migrations 29 to 35 in production (mds/bench/WHICH-SQL-WHERE.md), then push.
+
+## 2026-10-28: onboarding without the sidebar
+- /platform/create-site (create a site, pending verification) shows only the logo: no sidebar, no top bar. components/nav/PlatformShell.tsx, app/platform/layout.jsx.
+

@@ -1,8 +1,8 @@
 // app/platform/layout.jsx
 import { getAuthUser, getUserSite, getAllUserSites, getPlanLabel } from "@/lib/actions/permission.actions";
 import { getMyProfile } from "@/lib/actions/profile.actions";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { PlatformShell } from "@/components/nav/PlatformShell";
 import { FeedbackAutoPrompt } from "@/components/feedback/FeedbackAutoPrompt";
 import { Suspense } from "react";
 import { TopBar } from "@/components/nav/TopBar";
@@ -41,31 +41,23 @@ export default async function PlatformLayout({ children }) {
     );
   }
 
+  // the sidebar and top bar are hidden during onboarding (create a site, wait for verification): components/nav/PlatformShell.tsx
   return (
-    <SidebarProvider>
-      <AppSidebar
-        userPlan={userPlan}
-        sites={allSites ?? []}
-        currentSiteId={site?.id ?? null}
-        userProfile={profile}
-      />
-      <SidebarInset>
-        {/* only pages with secondary tabs get a bar; the rest start at the top (components/nav/TopBar.tsx) */}
-        <Suspense fallback={null}>
-          <TopBar flags={{ mcp: process.env.MCP_ENABLED === "1" }} />
-        </Suspense>
-        {/* min-w-0: this is a flex column, and flex items don't shrink below
-            their content's intrinsic width by default — a page that renders
-            something wide (e.g. FramePlateChart's session strip) would grow
-            THIS box to match instead of letting that content scroll inside
-            its own bounded card, dragging the whole platform shell into
-            horizontal scroll. min-w-0 removes that floor. */}
-        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
-      </SidebarInset>
-      {/* Invisible until its own returning-user heuristic decides to show
-          itself — see the component for the exact rule. Mounted once here
-          so it watches activity across every /platform/* page. */}
+    <>
+      <PlatformShell
+        sidebar={<AppSidebar userPlan={userPlan} sites={allSites ?? []} currentSiteId={site?.id ?? null} userProfile={profile} />}
+        topBar={
+          // only pages with secondary tabs get a bar; the rest start at the top (components/nav/TopBar.tsx)
+          <Suspense fallback={null}>
+            <TopBar flags={{ mcp: process.env.MCP_ENABLED === "1" }} />
+          </Suspense>
+        }
+      >
+        {children}
+      </PlatformShell>
+      {/* Invisible until its own returning-user heuristic decides to show itself (see the component). Mounted once here so
+          it watches activity across every /platform/* page. */}
       <FeedbackAutoPrompt />
-    </SidebarProvider>
+    </>
   );
 }
