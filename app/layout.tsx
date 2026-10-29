@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 const DESCRIPTION =
-  "Add one script to your site. For every form lead, see the pages they read, how long they stayed, how far they scrolled and how long they spent on each form field. Free during early access.";
+  "See what each lead read, how long and where they hesitated before they sent your form, and get told when a high-intent lead arrives. One script, free during early access.";
 
 // Root defaults. Every marketing page under app/ sets its own title and
 // description, which override these via Next's metadata merging; the title
@@ -27,7 +27,7 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME}: See what each lead did before they contacted you`,
+    default: `${SITE_NAME}: Stop treating every lead like a stranger`,
     template: `%s | ${SITE_NAME}`,
   },
   description: DESCRIPTION,
@@ -40,9 +40,6 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  alternates: {
-    canonical: "/",
-  },
   icons: {
     icon: "/favicon.ico",
     apple: "/jellyhookMark.png",
@@ -51,15 +48,15 @@ export const metadata: Metadata = {
     type: "website",
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: `${SITE_NAME}: See what each lead did before they contacted you`,
+    title: `${SITE_NAME}: Stop treating every lead like a stranger`,
     description: DESCRIPTION,
-    images: [{ url: "/mainLogo.png", width: 1024, height: 1024, alt: SITE_NAME }],
+    // the share picture is app/opengraph-image.tsx (1200 x 630)
   },
   twitter: {
-    card: "summary",
-    title: `${SITE_NAME}: See what each lead did before they contacted you`,
+    card: "summary_large_image",
+    title: `${SITE_NAME}: Stop treating every lead like a stranger`,
     description: DESCRIPTION,
-    images: ["/mainLogo.png"],
+    // the picture is app/twitter-image.tsx
   },
   verification: {
     google: "fijlxhgxBZmHouzyiGo4NwfsBWsrWr_c9QcOHGeftoo",

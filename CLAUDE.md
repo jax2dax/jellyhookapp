@@ -93,6 +93,7 @@ Keep this list current: add a line when you create a .md file, change it when a 
 - `marks/review-2026-10-27.md`: marks and hooks review: how a lead goes through them, what cannot be changed later, production readiness, capacity on Nano.
 - `acquisition/plan.md`: where leads come from (platform, campaign, ad), credit model, radars, "came from an ad" in marks.
 - `marks/marks.md`: marks on leads, library, site statistics (v1, the chip builder). `marks/marks-v2-plan.md`: the new builder (visit blocks, page sequences, headings, form answers and activity): plan, founder decisions, build status. `marks/when-marks-run.md`: when marks run (before v3, what other products do, the v3 plan, built 2026-10-27; section 8: does a check stop at the first failed condition).
+- `seo.md`: sitemap, robots, share image, structured data, and how to ask Google and IndexNow for a recrawl.
 - `privacy/privacy.md`: the tracker following the site's cookie banner, the "no banner" warning, retention (migration 35), erasing a person, the EU/no-DPA notice, tests.
 - `heading-time/plan.md`: time per heading (tracker, storage, heat map).
 - `forms/lead-forms.md`: which form submissions are leads (per-form switches, data-conversion as an override, form_key on every lead, skipped counts), the rule, the flow, tests, docs still to rewrite.

@@ -306,3 +306,9 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
 - Home: the question alternates "Which lead should you reach out to first?" / "Prioritize the high-intent leads." (the
   "just checking" line removed). The explanation video is public/assets/Scene.mp4.
 - Home demo's phone note no longer links to /demo (it now needs a computer too).
+
+## 2026-10-28 CRM line and SEO
+- Home CRM section: added "Jellyhook gives you the context your CRM is missing." above the HubSpot line.
+- SEO: share image (app/opengraph-image.tsx, twitter-image.tsx), root title/description to the new positioning
+  ("Stop treating every lead like a stranger"), root canonical removed, SoftwareApplication JSON-LD on the home page,
+  sitemap dates, robots disallows for internal pages, IndexNow key and `npm run seo:indexnow`. Notes: mds/build/seo.md.

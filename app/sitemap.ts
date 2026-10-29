@@ -7,14 +7,17 @@ import { SITE_URL } from "@/lib/seo";
 import { DOCS_NAV } from "./docs/docsNav";
 import { DOCS_REVIEWED } from "./docs/docsSync";
 
+/** When the public pages last changed meaningfully. Update it with a redesign or a copy change, so crawlers come back. */
+const MARKETING_UPDATED = "2026-10-28";
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const marketing: MetadataRoute.Sitemap = [
-    { url: `${SITE_URL}/`, changeFrequency: "weekly", priority: 1 },
-    { url: `${SITE_URL}/demo`, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${SITE_URL}/pricing`, changeFrequency: "weekly", priority: 0.9 },
-    { url: `${SITE_URL}/about`, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${SITE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${SITE_URL}/terms`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/`, lastModified: MARKETING_UPDATED, changeFrequency: "weekly", priority: 1 },
+    { url: `${SITE_URL}/demo`, lastModified: MARKETING_UPDATED, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE_URL}/pricing`, lastModified: MARKETING_UPDATED, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${SITE_URL}/about`, lastModified: MARKETING_UPDATED, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${SITE_URL}/privacy`, lastModified: MARKETING_UPDATED, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/terms`, lastModified: MARKETING_UPDATED, changeFrequency: "yearly", priority: 0.3 },
   ];
 
   const seen = new Set<string>();

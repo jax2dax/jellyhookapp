@@ -25,6 +25,7 @@
     "docs:check": "jiti scripts/docs-sync.ts",
     "dev:bench": "node scripts/sim/dev-bench.mjs",
     "start:bench": "node scripts/sim/dev-bench.mjs --prod",
+    "seo:indexnow": "node scripts/seo/indexnow.mjs",
     "drain:bench": "node scripts/sim/drain.mjs",
     "sim": "node scripts/sim/traffic.mjs",
     "docs:stamp": "jiti scripts/docs-sync.ts --stamp"

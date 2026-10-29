@@ -357,6 +357,7 @@ export default function Home() {
               <span className="inline-flex items-center gap-2 rounded-full border-2 border-[#ff5c35] px-3 py-1 text-[13px] font-bold text-[#c93700]">
                 <HubSpotLogo className="h-4 w-4" color="#ff5c35" /> Works with HubSpot
               </span>
+              <p className="v2-serif text-[1.35rem] leading-snug text-[var(--ink)]">Jellyhook gives you the context your CRM is missing.</p>
               <p>Already using HubSpot? We love HubSpot. Keep your existing CRM workflow.</p>
               <p className="font-semibold text-[var(--ink)]">
                 Every form&apos;s footprint shows up in a Jellyhook card on the HubSpot contact. Read it and call, without leaving HubSpot.
@@ -437,6 +438,20 @@ export default function Home() {
           </span>
         </div>
       </footer>
+
+      {/* what search engines read about the product: only facts the page itself states (no ratings, no reviews) */}
+      <Script id="ld-software" type="application/ld+json" strategy="afterInteractive">
+        {JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "Jellyhook",
+          url: "https://jellyhook.com/",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web",
+          description: DESCRIPTION,
+          offers: { "@type": "Offer", price: "0", priceCurrency: "USD", description: "Free during early access" },
+        })}
+      </Script>
 
       {/* Jellyhook tracking its own public pages (same key as components/marketing/MarketingPage.tsx) */}
       <Script src="https://jellyhook.com/tracker.js" data-key="0b4ba5bf-b233-48d2-ad22-4fcbef07018c" strategy="afterInteractive" />
