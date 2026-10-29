@@ -121,6 +121,8 @@ export interface PageVisitRaw {
   formFields?: { slots: number; touched: { slot: number; state: "typed" | "focused" }[] } | null;
   /** a form on this page was engaged with but never submitted (form_engagement.status = 'abandoned') */
   abandonedForm?: boolean;
+  /** the field they were on when they left a form unsent (form_engagement.last_field_key); null when unknown or sent */
+  formLastField?: string | null;
 }
 
 export interface SessionRaw {
@@ -189,6 +191,8 @@ export interface VisitGeometry {
   formStatus?: string | null;
   formFieldCount?: number | null;
   formFields?: { slots: number; touched: { slot: number; state: "typed" | "focused" }[] } | null;
+  /** passed through from PageVisitRaw.formLastField: the field a form was left at, unsent */
+  formLastField?: string | null;
 }
 
 export interface GapGeometry {

@@ -483,6 +483,9 @@ function SlackMessageOptions({ d, state, set }: { d: Draft; state: RulesState; s
     options: o,
     summary: o.summary === "off" ? null : sampleSummary(o.summary),
     pages: o.pages.length ? samplePages(o.pages, o.pageScope) : null,
+    previous: o.previous
+      ? ["First saw the site on Oct 7. 2 earlier visits, 9m on the site in total.", 'Oct 7: 3m 10s, mostly /pricing.', 'Oct 9: 5m 50s, mostly /pricing. Spent 2m 40s on "Enterprise" on /pricing. Started the form on /contact and left it at the "phone" field.']
+      : null,
   }) as unknown as { blocks: Parameters<typeof SlackPreview>[0]["blocks"] };
   const test = async () => {
     setTesting(true);
@@ -529,7 +532,7 @@ function SlackMessageOptions({ d, state, set }: { d: Draft; state: RulesState; s
               </button>
               {note && <p className={"text-[11px] " + (note.tone === "error" ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400")}>{note.text}</p>}
               {!ad && <p className="text-[11px] text-muted-foreground">The preview uses an example ad. Add your ads in Acquisition → Ads to see yours.</p>}
-              {(o.summary !== "off" || o.pages.length > 0) && <p className="text-[11px] text-muted-foreground">The preview summarizes an example visit. The test uses your newest lead.</p>}
+              {(o.summary !== "off" || o.pages.length > 0 || o.previous) && <p className="text-[11px] text-muted-foreground">The preview summarizes an example visit. The test uses your newest lead.</p>}
             </div>
             <div className="min-w-0" data-tour="slack-preview">
               <SlackPreview blocks={preview.blocks} />
@@ -583,7 +586,16 @@ function SummaryOptions({ o, set }: { o: MessageOptions; set: (patch: Partial<Me
             </option>
           ))}
         </select>
-        <span className="block text-[11px] text-muted-foreground">What they did in the visit with the form, before sending it.</span>
+        <span className="block text-[11px] text-muted-foreground">What they did in the visit with the form, before sending it. A form they started and left is always said.</span>
+      </label>
+      <label className="flex cursor-pointer items-start gap-2 text-xs">
+        <input type="checkbox" className="mt-0.5" checked={o.previous} onChange={(e) => set({ previous: e.target.checked })} />
+        <span>
+          <span className="block text-foreground">Earlier visits</span>
+          <span className="block text-[11px] text-muted-foreground">
+            When they first saw the site and how long each earlier visit lasted, with key events: a form left unsent, a long time on one heading.
+          </span>
+        </span>
       </label>
       <div className="space-y-1 text-xs">
         <span className="block text-foreground">

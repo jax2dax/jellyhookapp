@@ -62,7 +62,8 @@ export default function NotificationsReferencePage() {
             [<B key="d">Open the lead button</B>, <span key="d2">Opens the lead in Jellyhook, or its HubSpot contact when <Link href="/docs/reference/hubspot" className="text-[var(--lime)] hover:underline">HubSpot</Link> is connected (Open the lead in: HubSpot, Jellyhook or both)</span>, "Always"],
             [<B key="e">Hook, site and time</B>, "A small line under the message", "Always"],
             [<B key="h">Sent late</B>, <span key="h2">&quot;Sent 54 minutes late. Jellyhook was busy when this form came in. The form was sent ...&quot;, right under the message, so nobody calls a lead believing the form was just sent</span>, "The message goes out more than 2 minutes after the form. Always on"],
-            [<B key="f">Visit summary</B>, "What they did in the visit with the form, before sending it: Short, Moderate (the default) or Long, as on the lead page", "Set to anything but Off"],
+            [<B key="f">Visit summary</B>, "What they did in the visit with the form, before sending it: Short, Moderate (the default) or Long, as on the lead page. A form they started and left unsent is always said, with the field they left it at", "Set to anything but Off"],
+            [<B key="i">Earlier visits</B>, <span key="i2">The visits before the one with the form: when they first saw the site, how many visits and how long, then one line per visit (the last 4) with its key events: a form left unsent and the field, or a long time on one heading. &quot;Oct 9: 5m 50s, mostly /pricing. Spent 2m 40s on &quot;Enterprise&quot; on /pricing. Started the form on /contact and left it at the &quot;phone&quot; field.&quot;</span>, "Ticked (off by default), and the lead had earlier visits"],
             [<B key="g">Page summaries</B>, <span key="g2">Up to 3 pages you pick, one line each: &quot;/pricing: 3m 10s over 2 views in 2 visits; read up to 72% of the page ...&quot;, or &quot;Page not visited&quot;</span>, "At least one page is picked"],
           ]}
         />
@@ -79,7 +80,10 @@ export default function NotificationsReferencePage() {
             <B>Send a test to Slack</B> sends the message, as the hook would send it now, to the Slack channels picked in it. The message says &quot;a new
             lead&quot; and the summaries are made from your site&apos;s newest lead. It works before the hook is saved.
           </li>
-          <li>Webhooks always receive every field that was made for the hook, whatever is shown in Slack.</li>
+          <li>
+            Webhooks always receive every field that was made for the hook, whatever is shown in Slack, including <C>previous_visits</C> when Earlier visits is ticked.
+            Every lead a hook catches is sent to each webhook picked in that hook, so a webhook can start an automation in Zapier, Make, n8n or your CRM.
+          </li>
         </UL>
         <H3>Visit summary and page summaries</H3>
         <UL>

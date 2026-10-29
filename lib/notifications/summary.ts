@@ -9,7 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { meteredAdmin } from "@/lib/db/admin";
 import { buildSessionsRaw, truncateSessionToSubmission } from "@/lib/leadSessions/transform";
 import { fetchStructureRows } from "@/lib/leadSessions/structureRows";
-import { pageSummary, sessionStoryVersion } from "@/lib/leadSessions/story";
+import { pageSummary, previousVisitsSummary, sessionStoryVersion } from "@/lib/leadSessions/story";
 import { resolveViewportHeightPx } from "@/framePlate/theme/deviceThemes";
 import type { SessionRaw } from "@/framePlate/types";
 import type { MessageOptions, PageSummaryLine, SummaryVersion } from "./message";
@@ -33,13 +33,13 @@ export interface SummaryWant {
   leadId: string;
   options: MessageOptions;
 }
-export type LeadSummary = { summary: { version: SummaryVersion; lines: string[] } | null; pages: PageSummaryLine[] | null };
+export type LeadSummary = { summary: { version: SummaryVersion; lines: string[] } | null; pages: PageSummaryLine[] | null; previous: string[] | null };
 
 /** Whether a hook's options need the lead's visits at all. */
-export const wantsSummary = (o: MessageOptions) => o.summary !== "off" || o.pages.length > 0;
+export const wantsSummary = (o: MessageOptions) => o.summary !== "off" || o.pages.length > 0 || o.previous;
 
 /** Newest first in pages of PAGE, then oldest first; at most MAX_PAGES requests. */
-async function rows(db: SupabaseClient, table: "sessions" | "page_views", siteId: string, visitors: string[], timeCol: string, until: string): Promise<Record<string, unknown>[]> {
+async function rows(db: SupabaseClient, table: "sessions" | "page_views" | "form_engagement", siteId: string, visitors: string[], timeCol: string, until: string): Promise<Record<string, unknown>[]> {
   const out: Record<string, unknown>[] = [];
   for (let i = 0; i < MAX_PAGES; i++) {
     const { data, error } = await db.from(table).select("*").eq("site_id", siteId).in("visitor_id", visitors).lte(timeCol, until).order(timeCol, { ascending: false }).range(i * PAGE, i * PAGE + PAGE - 1);
@@ -79,7 +79,8 @@ export async function buildSummaries(siteId: string, leads: SummaryLead[], wants
   const visitors = [...new Set(wanted.map((l) => l.visitor_id as string))];
   const until = new Date(Math.max(...wanted.map((l) => Date.parse(l.submitted_at)).filter(Number.isFinite)) + 1000).toISOString();
 
-  const [sessions, pageViews] = await Promise.all([rows(db, "sessions", siteId, visitors, "started_at", until), rows(db, "page_views", siteId, visitors, "entered_at", until)]);
+  // form activity too, so a form they started and left unsent is said (a key event, lib/leadSessions/story.ts leftForm)
+  const [sessions, pageViews, engagement] = await Promise.all([rows(db, "sessions", siteId, visitors, "started_at", until), rows(db, "page_views", siteId, visitors, "entered_at", until), rows(db, "form_engagement", siteId, visitors, "created_at", until).catch(() => [])]);
   const paths = [...new Set(pageViews.map((v) => v.page_path as string).filter(Boolean))];
   const structure = await fetchStructureRows(db, siteId, paths);
 
@@ -88,7 +89,7 @@ export async function buildSummaries(siteId: string, leads: SummaryLead[], wants
   for (const visitor of visitors) {
     const mine = (r: Record<string, unknown>) => r.visitor_id === visitor;
     const subs = wanted.filter((l) => l.visitor_id === visitor).map((l) => ({ session_id: l.session_id, submitted_at: l.submitted_at }));
-    visitsOf.set(visitor, buildSessionsRaw({ sessions: sessions.filter(mine), pageViews: pageViews.filter(mine), submissions: subs, pageStructure: structure }) as SessionRaw[]);
+    visitsOf.set(visitor, buildSessionsRaw({ sessions: sessions.filter(mine), pageViews: pageViews.filter(mine), submissions: subs, pageStructure: structure, formEngagement: engagement.filter(mine) }) as SessionRaw[]);
   }
 
   for (const w of need) {
@@ -108,7 +109,9 @@ export async function buildSummaries(siteId: string, leads: SummaryLead[], wants
       const summary = w.options.summary === "off" ? null : { version: w.options.summary, lines: sessionStoryVersion(formVisit, i + 1, w.options.summary, vh).map((s) => s.text) };
       const scopeVisits = w.options.pageScope === "converting" ? [formVisit] : [...all.slice(0, i), formVisit];
       const pages = w.options.pages.length ? w.options.pages.map((path) => ({ path, scope: w.options.pageScope, text: pageSummary(path, scopeVisits, vh) })) : null;
-      out.set(w.key, { summary, pages });
+      // the visits before this one (option "Earlier visits"): first seen, time, key events
+      const previous = w.options.previous && i > 0 ? previousVisitsSummary(all.slice(0, i), vh) : null;
+      out.set(w.key, { summary, pages, previous: previous?.length ? previous : null });
     } catch (e) {
       console.error("[notifications] summary failed for one lead", { lead: w.leadId.slice(0, 8), error: e instanceof Error ? e.message : String(e) });
     }

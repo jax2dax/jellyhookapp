@@ -18,12 +18,12 @@ export function CoverArt() {
       <path className="v2-wave-back" d={wave(196, 16, 260)} fill="#cfe2d5" />
       <path className="v2-wave-front" d={wave(214, 12, 200)} fill="var(--ink)" />
 
-      {/* the fish waiting under the hook */}
+      {/* the fish: it swims in from the left, head first, only when a catch is coming */}
       <g className="v2-fish">
-        <g transform="translate(902 280)">
+        <g transform="translate(884 282)">
           <ellipse cx="0" cy="0" rx="30" ry="14" fill="var(--spot)" />
-          <path d="M 26 0 L 48 -14 L 44 0 L 48 14 Z" fill="var(--spot)" />
-          <circle cx="-16" cy="-3" r="3" fill="var(--ink)" />
+          <path d="M -26 0 L -48 -14 L -44 0 L -48 14 Z" fill="var(--spot)" />
+          <circle cx="16" cy="-3" r="3" fill="var(--ink)" />
         </g>
       </g>
 

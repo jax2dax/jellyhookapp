@@ -291,3 +291,11 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
   the sign-in/up card.
 - CRM section: "CRM" in HubSpot orange, a "Works with HubSpot" badge (ledger 11, 28), and a line on starting automation
   from a hook's webhook (Zapier, Make, n8n, your CRM; ledger 24).
+
+## 2026-10-28 founder review 5
+- Band (CoverArt.tsx, landing.css): the hook rests under the water most of the time; every 22 s the fish (now facing the
+  way it swims) appears, swims to the hook and is pulled out.
+- Hero question alternates every 11 s (was 5 s).
+- Hero hook box: third variant "Start an automation when..." (webhook, ledger 24).
+- Docs: reference/notifications (Earlier visits row, the form left unsent in the visit summary, previous_visits and
+  automation via webhooks), reference/lead-profile (key events).

@@ -70,6 +70,29 @@ export function whereRead(v: VisitGeometry): string {
 
 const quote = (t: string | null) => (t ? '"' + (t.length > 60 ? t.slice(0, 57).trimEnd() + "..." : t) + '"' : "a heading no longer on the page");
 
+/** A form on this page view started and left unsent: abandoned, or still "started" on a page they have left. */
+export const leftForm = (v: VisitGeometry) => v.outcome === "abandoned" || (v.formStatus === "started" && v.outcome !== "converted" && v.outcome !== "live");
+/** "your-phone" / "your_phone" -> "your phone" */
+const fieldName = (key: string) => key.replace(/[_-]+/g, " ").trim().slice(0, 40);
+/**
+ * A key event, always said: 'Started the form on /contact and left it at the "phone" field.' The field is the one they
+ * were on (form_engagement.last_field_key); without it, "left it unsent".
+ */
+export function leftFormSentence(v: VisitGeometry, withPage: boolean): string {
+  return "Started the form" + (withPage ? " on " + v.pagePath : "") + " and left it" + (v.formLastField ? " at the " + quote(fieldName(v.formLastField)) + " field" : " unsent") + ".";
+}
+/** One sentence per page whose form was left unsent in these page views (a page counted once). */
+function leftForms(visits: VisitGeometry[]): StorySentence[] {
+  const seen = new Set<string>();
+  const out: StorySentence[] = [];
+  for (const v of visits) {
+    if (!leftForm(v) || seen.has(v.pagePath)) continue;
+    seen.add(v.pagePath);
+    out.push({ text: leftFormSentence(v, true) });
+  }
+  return out;
+}
+
 /**
  * A story as sentences, so the page can show it as one paragraph or one sentence per line. `more` is the detail a
  * sentence can open on demand (the smaller headings of a section): shown as "…" after `text`, the sentence ends with ".".
@@ -145,6 +168,7 @@ export function pageStorySentences(v: VisitGeometry, nextPath?: string | null): 
     // a glance: what was on screen, nothing about reading
     out.push({ text: "Spent only " + shortDuration(v.durationMs) + " on the " + (v.pagePath || "this") + " page and left almost immediately." });
     if (seen.length) out.push({ text: andList(seen.slice(0, 3).map((h) => quote(h.text))) + (seen.length > 3 ? " and " + (seen.length - 3) + " more" : "") + (seen.length === 1 ? " was" : " were") + " on screen." });
+    if (leftForm(v)) out.push({ text: leftFormSentence(v, false) });
     out.push(ending());
     return out;
   }
@@ -160,6 +184,7 @@ export function pageStorySentences(v: VisitGeometry, nextPath?: string | null): 
     else if (!seen.length) out.push({ text: "Did not reach any heading." });
     else out.push({ text: "Reached " + seen.length + " of " + headers.length + " headings." });
   }
+  if (leftForm(v)) out.push({ text: leftFormSentence(v, false) });
   out.push(ending());
   return out;
 }
@@ -255,6 +280,7 @@ export function sessionStorySentences(session: SessionRaw, n: number, fallbackVi
     if (repeated.length) out.push({ text: "Opened " + repeated.slice(0, 2).map(([p, c]) => p + " " + times(c)).join(" and ") + "." });
   }
   out.push(...headingsAcross(visits));
+  out.push(...leftForms(visits));
   if (awayCount > 0) out.push({ text: "Left the site and came back " + times(awayCount) + " (" + shortDuration(awayMs) + " away" + (awayCount > 1 ? " in total" : "") + ")." });
   if (sentOn) out.push({ text: "Sent the form on " + sentOn.pagePath + "." });
   return out;
@@ -357,7 +383,8 @@ export function sessionStoryVersion(session: SessionRaw, n: number, version: Sto
   const visits = items.filter((i): i is Visit => i.kind === "visit");
   if (!visits.length) return [{ text: "Opened the site but no page was recorded." }];
   const out: StorySentence[] = [{ text: (n === 1 ? "Their first visit" : "Their " + ordinal(n) + " visit") + ": " + pathSequence(items) + "." }];
-  if (version === "short") return out;
+  // key events are said in every version, Short included: a form they started and left unsent
+  if (version === "short") return [...out, ...leftForms(visits)];
   const byPage = new Map<string, number>();
   for (const v of visits) byPage.set(v.pagePath, (byPage.get(v.pagePath) ?? 0) + v.durationMs);
   if (byPage.size > 1) {
@@ -371,9 +398,44 @@ export function sessionStoryVersion(session: SessionRaw, n: number, version: Sto
     if (!(f.dominant && f.dominant.text === most.text && f.dominant.page === most.page)) out.push({ text: "The most on " + headingWhere(most) + "." });
     if (f.list.length > 1) out.push({ text: "The least on " + headingWhere(f.list[f.list.length - 1]) + "." });
   }
+  out.push(...leftForms(visits));
   const awayCount = items.filter((i) => i.kind === "gap").length;
   if (awayCount > 0) out.push({ text: "Left the site and came back " + times(awayCount) + "." });
   return out;
+}
+
+/** Earlier visits with more than this share of their time on one heading name it ("abnormally long" on one part). */
+const PREVIOUS_HEADING_SHARE = 0.4;
+const PREVIOUS_HEADING_MS = 20_000;
+const PREVIOUS_MAX = 4;
+
+/**
+ * The visits BEFORE the one with the form, in a few lines (hook messages' "Earlier visits" option):
+ *   'First saw the site on Oct 7. 3 earlier visits, 12m on the site in total.'
+ *   'Oct 9: 4m, mostly /pricing. Spent 2m 10s on "Enterprise" on /pricing. Started the form on /contact and left it at the "phone" field.'
+ * One line per earlier visit, newest last, at most PREVIOUS_MAX (the older ones are counted). Key events in each line: a
+ * form left unsent, and one heading that took a large share of that visit. Empty when there are no earlier visits.
+ */
+export function previousVisitsSummary(earlier: SessionRaw[], fallbackViewportHeightPx = 0): string[] {
+  const all = earlier.map((s) => ({ s, visits: visitsOf(s, fallbackViewportHeightPx).visits })).filter((x) => x.visits.length);
+  if (!all.length) return [];
+  const total = all.reduce((n, x) => n + x.visits.reduce((m, v) => m + v.durationMs, 0), 0);
+  const lines = ["First saw the site on " + day(all[0].s.startedAt) + ". " + (all.length === 1 ? "1 earlier visit" : all.length + " earlier visits") + ", " + shortDuration(total) + " on the site in total."];
+  const shown = all.slice(-PREVIOUS_MAX);
+  if (all.length > shown.length) lines.push(all.length - shown.length + " older " + (all.length - shown.length === 1 ? "visit" : "visits") + " not listed.");
+  for (const x of shown) {
+    const ms = x.visits.reduce((n, v) => n + v.durationMs, 0);
+    const byPage = new Map<string, number>();
+    for (const v of x.visits) byPage.set(v.pagePath, (byPage.get(v.pagePath) ?? 0) + v.durationMs);
+    const [page] = [...byPage].sort((a, b) => b[1] - a[1])[0];
+    const parts = [day(x.s.startedAt) + ": " + shortDuration(ms) + (byPage.size > 1 ? ", mostly " + page : " on " + page) + "."];
+    const f = headingFacts(x.visits);
+    const top = f?.list[0];
+    if (top && top.ms >= PREVIOUS_HEADING_MS && top.ms >= PREVIOUS_HEADING_SHARE * ms) parts.push("Spent " + shortDuration(top.ms) + " on " + quote(top.text) + " on " + top.page + ".");
+    parts.push(...leftForms(x.visits).map((t) => t.text));
+    lines.push(parts.join(" "));
+  }
+  return lines;
 }
 
 /** "/pricing/" and "/pricing" are one page. */
@@ -405,5 +467,9 @@ export function pageSummary(path: string, sessions: SessionRaw[], fallbackViewpo
   const top = [...byHeading].sort((a, b) => b[1] - a[1])[0];
   if (top) parts.push("most on " + quote(top[0]) + " (" + shortDuration(top[1]) + ")");
   if (views.some((v) => v.outcome === "converted")) parts.push("sent the form here");
+  else {
+    const left = views.filter(leftForm).pop();
+    if (left) parts.push(leftFormSentence(left, false).replace(/^Started/, "started").replace(/\.$/, ""));
+  }
   return parts.join("; ");
 }

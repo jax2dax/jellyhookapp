@@ -8,7 +8,8 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
-export const PREFIXES = ["Notify me when", "Notify me on Slack when"];
+// what a hook does: tell you in Jellyhook, in Slack, or start an automation through a webhook (claims ledger row 24)
+export const PREFIXES = ["Notify me when", "Notify me on Slack when", "Start an automation when"];
 
 export const EXAMPLES = [
   "their budget is between $20k and $30k, and they stayed on the site for at least 2 minutes",

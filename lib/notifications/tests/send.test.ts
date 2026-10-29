@@ -21,7 +21,9 @@ const slack = JSON.stringify(slackMessage(p));
 const hook = JSON.stringify(webhookBody(p));
 ok(slackMessage(p).text === "Hot Lead new: A new lead fulfills Pricing reader, Came back requirements", "Slack fallback text = title + body");
 ok(slack.includes("Open the lead") && slack.includes("https://jellyhook.com/platform/leads/L1"), "Slack has the Open the lead button");
-ok(!/anna|@|phone|reason|minSeconds|pricing\b.*30/i.test(slack + hook), "no personal data and no mark conditions in either message");
+// timestamps are taken out first: "...:30..." in a clock time is not a mark condition (the check failed on the clock before)
+const noTimes = (slack + hook).replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, "").replace(/<!date\^\d+\^[^>]*>/g, "");
+ok(!/anna|@|phone|reason|minSeconds|pricing\b.*30/i.test(noTimes), "no personal data and no mark conditions in either message");
 ok(webhookBody(p).event === "rule.fired" && webhookBody(p).marks.length === 2 && !("name" in webhookBody(p).lead), "webhook body: event, marks by name, lead without contact details");
 
 const sig = signature("secret", hook, 1761123600);
@@ -67,7 +69,12 @@ for (const bad of ["http://example.com/x", "https://localhost/x", "https://127.0
   const onlyWatch = slackMessage({ ...full, options: { openButton: false } }) as unknown as { blocks: { type: string; elements?: { text?: { text: string } }[] }[] };
   ok(onlyWatch.blocks[onlyWatch.blocks.length - 1].elements?.length === 1 && onlyWatch.blocks[onlyWatch.blocks.length - 1].elements?.[0].text?.text === "Watch the ad", "Open the lead hidden, Watch the ad kept");
   ok(!(slackMessage({ ...full, options: { source: false } }) as { text: string }).text.includes("came from"), "a hidden Came from is not in the fallback text either");
-  ok(JSON.stringify(messageOptions({ source: false, adImage: "no", junk: 1 })) === JSON.stringify({ source: false, adImage: true, watchButton: true, openButton: true, details: true, summary: "moderate", pages: [], pageScope: "all", leadLink: "hubspot", repeat: "daily" }), "stored options are cleaned (non-booleans take the default)");
+  ok(JSON.stringify(messageOptions({ source: false, adImage: "no", junk: 1 })) === JSON.stringify({ source: false, adImage: true, watchButton: true, openButton: true, details: true, summary: "moderate", pages: [], pageScope: "all", leadLink: "hubspot", repeat: "daily", previous: false }), "stored options are cleaned (non-booleans take the default)");
+  ok(messageOptions({ previous: true }).previous === true && messageOptions({ previous: "yes" }).previous === false, "earlier visits: on only when true");
+  const withPrev = slackMessage({ ...p, previous: ["First saw the site on Oct 7. 1 earlier visit, 3m on the site in total.", "Oct 7: 3m on /pricing. Started the form on /contact and left it at the \"<!channel>\" field."] }) as unknown as { blocks: { text?: { text: string } }[] };
+  const prevText = withPrev.blocks.map((b) => b.text?.text ?? "").find((t) => t.startsWith("*Earlier visits*")) ?? "";
+  ok(prevText.split("\n").length === 3 && !prevText.includes("<!channel>"), "earlier visits: their own section, one line each, escaped");
+  ok(JSON.stringify(webhookBody({ ...p, previous: ["x"] }).previous_visits) === JSON.stringify(["x"]) && webhookBody(p).previous_visits === null, "webhooks get previous_visits");
   ok(webhookBody({ ...full, options: { source: false } }).source?.line === "Meta · Ads · Spring sale · Core Demo", "webhooks always get every field");
 }
 

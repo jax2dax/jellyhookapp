@@ -5,7 +5,7 @@
 import * as React from "react";
 
 const LINES = ["Which new lead should you call first?", "Filter out the “just checking” visitors. Call the leads who are ready."];
-const EVERY_MS = 5000;
+const EVERY_MS = 11000;
 
 export function QuestionFlip({ className = "" }: { className?: string }) {
   const [i, setI] = React.useState(0);

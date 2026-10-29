@@ -291,6 +291,7 @@ export async function fireRules(siteId: string, leadIds: string[], stats?: { rul
         form: formOf.get(f.leadId) ?? null,
         summary: summaries.get(f.ruleId + "|" + f.leadId)?.summary ?? null,
         pages: summaries.get(f.ruleId + "|" + f.leadId)?.pages ?? null,
+        previous: summaries.get(f.ruleId + "|" + f.leadId)?.previous ?? null,
       };
       rows.push({ site_id: siteId, event_id: ev.id, channel_id, payload });
     }

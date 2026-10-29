@@ -43,9 +43,9 @@
   /* the water (components/showcase/v2/CoverArt.tsx): two waves drifting opposite ways, one period per loop */
   .v2-wave-back { animation: v2-wave-back 9s linear infinite; }
   .v2-wave-front { animation: v2-wave-front 6s linear infinite; }
-  /* every 7 seconds: the hook drops, waits for the bite, and pulls the fish out; the fish swims up to it first */
-  .v2-hook-drop { animation: v2-hook-drop 7s cubic-bezier(0.45, 0, 0.25, 1) infinite; }
-  .v2-fish { animation: v2-fish 7s cubic-bezier(0.45, 0, 0.25, 1) infinite; transform-box: fill-box; transform-origin: center; }
+  /* every 22 seconds: the hook rests under the water; near the end the fish swims to it and is pulled out */
+  .v2-hook-drop { animation: v2-hook-drop 22s cubic-bezier(0.45, 0, 0.25, 1) infinite; transform-box: view-box; transform-origin: 940px 0; }
+  .v2-fish { animation: v2-fish 22s cubic-bezier(0.45, 0, 0.25, 1) infinite; transform-box: fill-box; transform-origin: center; }
 
   /* the hero question taking turns (components/showcase/v2/QuestionFlip.tsx) */
   .v2-flip { animation: v2-flip 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
@@ -53,19 +53,27 @@
 @keyframes v2-wave-back { from { transform: translateX(0); } to { transform: translateX(260px); } }
 @keyframes v2-wave-front { from { transform: translateX(0); } to { transform: translateX(-200px); } }
 @keyframes v2-hook-drop {
-  0%, 22% { transform: translateY(0); }
-  40%, 52% { transform: translateY(80px); }
-  74% { transform: translateY(-14px); }
-  88%, 100% { transform: translateY(0); }
+  /* resting under the water most of the time, swaying a little */
+  0% { transform: translateY(80px) rotate(0deg); }
+  20% { transform: translateY(80px) rotate(1.5deg); }
+  40% { transform: translateY(80px) rotate(-1.5deg); }
+  60% { transform: translateY(80px) rotate(1deg); }
+  76%, 80% { transform: translateY(80px) rotate(0deg); }
+  /* the bite, then out of the water with the fish */
+  82% { transform: translateY(88px); }
+  90% { transform: translateY(-14px); }
+  94% { transform: translateY(-14px); }
+  /* back down */
+  100% { transform: translateY(80px); }
 }
 @keyframes v2-fish {
-  0% { transform: translate(-90px, 6px); opacity: 0; }
-  8% { opacity: 1; }
-  40% { transform: translate(0, 0); }
-  52% { transform: translate(0, 0) rotate(-8deg); }
-  74% { transform: translate(0, -94px) rotate(-14deg); opacity: 1; }
-  84% { transform: translate(0, -94px) rotate(-14deg); opacity: 0; }
-  100% { transform: translate(-90px, 6px); opacity: 0; }
+  0%, 70% { transform: translate(-150px, 6px); opacity: 0; }
+  73% { transform: translate(-110px, 4px); opacity: 1; }
+  80% { transform: translate(0, 0); opacity: 1; }
+  82% { transform: translate(0, 8px) rotate(6deg); }
+  90% { transform: translate(0, -94px) rotate(-14deg); opacity: 1; }
+  95% { transform: translate(0, -94px) rotate(-14deg); opacity: 0; }
+  100% { transform: translate(-150px, 6px); opacity: 0; }
 }
 @keyframes v2-flip { from { opacity: 0; transform: rotateX(-80deg); } to { opacity: 1; transform: none; } }
 @keyframes v2-settle { from { opacity: 0.001; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: none; } }

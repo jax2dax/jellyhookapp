@@ -1,6 +1,6 @@
 // lib/leadSessions/tests/story.test.ts - the session summary's versions and the page summary (lib/leadSessions/story.ts,
 // mds/build/notifications/session-summary.md). Run: npm run test:marks
-import { pageSummary, pathSequence, samePage, sessionStorySentences, sessionStoryVersion, type StoryVersion } from "../story";
+import { leftFormSentence, pageStorySentences, pageSummary, pathSequence, previousVisitsSummary, samePage, sessionStorySentences, sessionStoryVersion, type StoryVersion } from "../story";
 import { buildTimeline } from "../../../framePlate/geometry/buildTimeline";
 import type { PageVisitRaw, SectionTime, SessionRaw } from "../../../framePlate/types";
 
@@ -89,6 +89,23 @@ const other: SessionRaw = { ...session, id: "s0", visits: [view("o1", "/pricing"
 ok((pageSummary("/pricing", [other, session]) ?? "").startsWith("1m 14s over 2 views in 2 visits"), "page summary across visits");
 ok(pageSummary("/careers", [session]) === null, "a page not opened: null");
 ok(samePage("/", "") && samePage("/a/", "/a") && !samePage("/a", "/b"), "trailing slashes do not matter");
+
+// ── a form started and left unsent is a key event, said everywhere (2026-10-28) ──
+const leftAt = (id: string, path: string, from: number, to: number, field: string | null): PageVisitRaw => ({ ...view(id, path, from, to, [sec("Plans", 30)]), abandonedForm: true, formStatus: "abandoned", formLastField: field });
+const abandoned: SessionRaw = { id: "s2", visitorId: "v1", startedAt: at(0), endedAt: at(300), visits: [view("a1", "/pricing", 0, 240, [sec("Plans", 200)]), leftAt("a2", "/contact", 241, 300, "your-phone")] };
+const pageLines = buildTimeline(abandoned).filter((i) => i.kind === "visit");
+const contact = pageLines[1] as Parameters<typeof leftFormSentence>[0];
+ok(pageStorySentences(contact).some((s) => s.text === 'Started the form and left it at the "your phone" field.'), "page summary: the form left unsent and the field");
+for (const v of ["short", "moderate", "long"] as StoryVersion[])
+  ok(sessionStoryVersion(abandoned, 2, v).some((s) => s.text === 'Started the form on /contact and left it at the "your phone" field.'), "visit summary (" + v + ") says the form left unsent");
+ok((pageSummary("/contact", [abandoned]) ?? "").endsWith('started the form and left it at the "your phone" field'), "one-line page summary says it too");
+ok(leftFormSentence({ ...contact, formLastField: null }, true) === "Started the form on /contact and left it unsent.", "no field known: left it unsent");
+
+// ── earlier visits (hook option "Earlier visits") ──
+const prev = previousVisitsSummary([abandoned, other]);
+ok(prev[0].startsWith("First saw the site on ") && prev[0].includes("2 earlier visits"), "earlier visits: first seen and how many: " + prev[0]);
+ok(prev.some((l) => l.includes('Spent 3m 20s on "Plans" on /pricing') && l.includes("left it at the")), "earlier visits: a long time on one heading and the form left unsent: " + prev[1]);
+ok(previousVisitsSummary([]).length === 0, "no earlier visits: nothing");
 
 console.log(`\n${passes} passed, ${fails} failed`);
 if (fails) process.exit(1);

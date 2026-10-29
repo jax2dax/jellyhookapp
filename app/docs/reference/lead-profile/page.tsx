@@ -134,8 +134,13 @@ export default function LeadProfileReferencePage() {
             one); the heading with half of the visit or more; the headings with the most and the least time; and how often
             they left and came back. Visits are numbered from the visitor&apos;s first visit ever. Two views of one page in a
             row with no time away between them are one step, and a path of more than 10 steps keeps the first 5 and the
-            last 4. <strong>Short</strong> is the first line only. The choice is remembered in this browser. Hooks can send
+            last 4. <strong>Short</strong> is the first line and the key events. The choice is remembered in this browser. Hooks can send
             the same summary to Slack (see Hooks and notifications).
+          </p>
+          <p className="mt-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            <strong>Key events.</strong> A form they started and left unsent is said in every version and in the Page summary of that page, with
+            the field they were on: Started the form on /contact and left it at the &quot;phone&quot; field. When the field is not known, it says
+            they left it unsent.
           </p>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             The <strong>Seen / By section</strong> switch above the chart changes what each page shows. Seen is the

@@ -24,6 +24,8 @@ export interface DeliveryPayload {
   summary?: { version: SummaryVersion; lines: string[] } | null;
   /** the pages the hook asked about: their one-line summary, or text null when not opened */
   pages?: PageSummaryLine[] | null;
+  /** the visits before the one with the form, in a few lines (option `previous`; lib/leadSessions/story.ts previousVisitsSummary) */
+  previous?: string[] | null;
 }
 
 export type SummaryVersion = "short" | "moderate" | "long";
@@ -75,6 +77,8 @@ export interface MessageOptions {
    * message itself; kept with the hook's options so it needs no migration. Read by lib/notifications/decide.ts.
    */
   repeat: RepeatMode;
+  /** also summarize the visits BEFORE the one with the form: first seen, time per visit, key events (off by default) */
+  previous: boolean;
 }
 
 export type RepeatMode = "daily" | "every";
@@ -85,7 +89,7 @@ export type LeadLink = "hubspot" | "jellyhook" | "both";
 export type MessageToggle = "source" | "adImage" | "watchButton" | "openButton" | "details";
 export const MAX_SUMMARY_PAGES = 3;
 
-export const DEFAULT_MESSAGE_OPTIONS: MessageOptions = { source: true, adImage: true, watchButton: true, openButton: true, details: true, summary: "moderate", pages: [], pageScope: "all", leadLink: "hubspot", repeat: "daily" };
+export const DEFAULT_MESSAGE_OPTIONS: MessageOptions = { source: true, adImage: true, watchButton: true, openButton: true, details: true, summary: "moderate", pages: [], pageScope: "all", leadLink: "hubspot", repeat: "daily", previous: false };
 
 /** Cleans stored or submitted options: anything missing or invalid takes its default. */
 export function messageOptions(raw: unknown): MessageOptions {
@@ -98,7 +102,8 @@ export function messageOptions(raw: unknown): MessageOptions {
   const pageScope = o.pageScope === "converting" ? "converting" : "all";
   const leadLink = o.leadLink === "jellyhook" || o.leadLink === "both" ? o.leadLink : "hubspot";
   const repeat = o.repeat === "every" ? "every" : "daily";
-  return { source: pick("source"), adImage: pick("adImage"), watchButton: pick("watchButton"), openButton: pick("openButton"), details: pick("details"), summary, pages, pageScope, leadLink, repeat };
+  const previous = o.previous === true;
+  return { source: pick("source"), adImage: pick("adImage"), watchButton: pick("watchButton"), openButton: pick("openButton"), details: pick("details"), summary, pages, pageScope, leadLink, repeat, previous };
 }
 
 /**
@@ -125,6 +130,7 @@ const clip = (t: string, max: number) => (t.length > max ? t.slice(0, max - 3).t
 export const notVisited = (scope: PageScope) => (scope === "converting" ? "Page not visited in this visit" : "Page not visited");
 
 const summaryText = (sum: NonNullable<DeliveryPayload["summary"]>) => clip("*Visit summary*\n" + sum.lines.map((l) => slackEscape(clip(l, LINE_MAX))).join("\n"), SECTION_MAX);
+const previousText = (lines: string[]) => clip("*Earlier visits*\n" + lines.map((l) => slackEscape(clip(l, LINE_MAX))).join("\n"), SECTION_MAX);
 const pagesText = (pages: PageSummaryLine[]) =>
   clip("*Page summaries*\n" + pages.map((x) => "*" + slackEscape(clip(x.path, 200)) + ":* " + slackEscape(clip(x.text ?? notVisited(x.scope), LINE_MAX))).join("\n"), SECTION_MAX);
 
@@ -167,6 +173,7 @@ export function slackMessage(p: DeliveryPayload, now = Date.now()) {
   if (thumb) blocks.push({ type: "image", image_url: thumb, alt_text: (ad?.title ?? "The ad").slice(0, 200), title: { type: "plain_text", text: (ad?.title ?? "The ad").slice(0, 150) } });
   // what they did before sending the form, and the pages the hook asked about (computed when the hook fired)
   if (p.summary?.lines.length) blocks.push({ type: "section", text: { type: "mrkdwn", text: summaryText(p.summary) } });
+  if (p.previous?.length) blocks.push({ type: "section", text: { type: "mrkdwn", text: previousText(p.previous) } });
   if (p.pages?.length) blocks.push({ type: "section", text: { type: "mrkdwn", text: pagesText(p.pages) } });
   if (show.details) blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Hook: ${p.rule.name}${p.form ? " · Form: " + slackEscape(p.form.label.slice(0, 80)) : ""}${p.site.domain ? " · " + p.site.domain : ""} · <!date^${when}^{date_short} {time}|${new Date(when * 1000).toISOString()}>` }] });
   const buttons: Record<string, unknown>[] = [];
@@ -209,6 +216,7 @@ export function webhookBody(p: DeliveryPayload) {
       ? { line: p.source.line, ad: p.source.ad ? { platform: p.source.ad.platform, ad_id: p.source.ad.adId, title: p.source.ad.title, thumbnail_url: p.source.ad.thumbnailUrl, video_url: p.source.ad.videoUrl } : null }
       : null,
     session_summary: p.summary ? { version: p.summary.version, lines: p.summary.lines } : null,
+    previous_visits: p.previous?.length ? p.previous : null,
     page_summaries: p.pages?.length ? p.pages.map((x) => ({ path: x.path, scope: x.scope, visited: x.text !== null, text: x.text ?? notVisited(x.scope) })) : null,
   };
 }
