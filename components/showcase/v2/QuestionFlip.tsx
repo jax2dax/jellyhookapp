@@ -4,7 +4,7 @@
 // Reduced motion: the first one stays.
 import * as React from "react";
 
-const LINES = ["Which new lead should you call first?", "Filter out the “just checking” visitors. Call the leads who are ready."];
+const LINES = ["Which lead should you reach out to first?", "Prioritize the high-intent leads."];
 const EVERY_MS = 11000;
 
 export function QuestionFlip({ className = "" }: { className?: string }) {

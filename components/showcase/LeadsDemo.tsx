@@ -21,6 +21,7 @@ import { Sandbox, type SandboxValue } from "@/components/sandbox/sandbox";
 import { Tour } from "@/components/tour/Tour";
 import { DemoStore } from "./demoStore";
 import { leadsTour } from "./leadsTour";
+import { DemoLeadPage } from "./DemoLeadPage";
 
 const DESIGN_W = 1240;
 const DESIGN_H = 760;
@@ -159,14 +160,24 @@ function Screen({ store, pathname, search, visit, onGo }: { store: DemoStore; pa
       </div>
     );
   }
+  // a lead's own page: its visits on the real chart, in words, its form (./DemoLeadPage.tsx)
+  if (pathname.startsWith("/platform/leads/")) {
+    const id = decodeURIComponent(pathname.slice("/platform/leads/".length).split("/")[0]);
+    return <DemoLeadPage key={id} lead={store.leads.find((l) => l.id === id)} journey={store.journeys.get(id)} onBack={() => onGo("/platform/leads")} />;
+  }
   return <Elsewhere path={pathname} onBack={() => onGo("/platform/leads")} />;
 }
 
 export default function LeadsDemo() {
   const [store, setStore] = React.useState(() => new DemoStore());
-  const [loc, setLoc] = React.useState({ pathname: "/platform/leads", search: "" });
+  // a link straight into a demo page (/demo#/platform/leads/sample-5) opens it, without the intro card
+  const [linked] = React.useState(() => {
+    const h = decodeURIComponent(window.location.hash.slice(1));
+    return h.startsWith("/platform/") ? h : null;
+  });
+  const [loc, setLoc] = React.useState({ pathname: linked ?? "/platform/leads", search: "" });
   const [visit, setVisit] = React.useState(0);
-  const [mode, setMode] = React.useState<Mode>("intro");
+  const [mode, setMode] = React.useState<Mode>(linked ? "free" : "intro");
   const [run, setRun] = React.useState(0);
   const [unread, setUnread] = React.useState(store.hooked.length);
   const box = React.useRef<HTMLDivElement>(null);
@@ -260,7 +271,9 @@ export default function LeadsDemo() {
               <div className="w-[420px] rounded-2xl border border-white/10 bg-[#121211] p-6 text-center shadow-2xl" style={{ animation: "jh-card-in 260ms ease-out both" }}>
                 <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#8f8d84]">Interactive demo · about 2 minutes</div>
                 <h3 className="mt-3 text-xl font-semibold leading-snug text-white">Mark the leads who studied your pricing page. Then get told when the next one arrives.</h3>
-                <p className="mt-3 text-sm leading-relaxed text-[#b4b2aa]">These are the real Leads and Hooks screens, running on a sample site. Nothing you do here is saved or sent.</p>
+                <p className="mt-3 text-sm leading-relaxed text-[#b4b2aa]">
+                  The real Leads, lead and Hooks screens on a sample site. Open any lead to see every visit before the form. Nothing you do here is saved or sent.
+                </p>
                 <div className="mt-6 flex flex-col gap-2">
                   <button type="button" onClick={() => setMode("tour")} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#c5ff3d] text-sm font-semibold text-black transition hover:bg-[#d6ff73]">
                     <Play className="size-4" /> Start the guided tour

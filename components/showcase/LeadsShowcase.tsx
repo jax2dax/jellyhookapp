@@ -6,8 +6,7 @@
 // made narrower later only scales it down), so nobody loses their progress.
 import * as React from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import { ArrowRight, Monitor } from "lucide-react";
+import { Monitor } from "lucide-react";
 
 const LeadsDemo = dynamic(() => import("./LeadsDemo"), { ssr: false, loading: () => <Placeholder /> });
 
@@ -64,10 +63,7 @@ export function LeadsShowcase() {
         <div className="border border-[#1b1b18] bg-[#0a0a09] p-6">
           <Monitor className="h-5 w-5 text-[var(--lime)]" strokeWidth={1.5} />
           <p className="mt-4 ff-display text-2xl leading-snug text-[#f4f2ea]">The interactive demo needs a wider screen.</p>
-          <p className="mt-2 ff-body text-[14px] leading-relaxed text-[#8b8980]">Open this page on a computer to build a mark and a hook on sample leads. On your phone, you can open a sample lead page instead.</p>
-          <Link href="/demo" className="mt-5 inline-flex items-center gap-1.5 ff-mono text-[11px] uppercase tracking-[0.2em] text-[var(--lime)] hover:underline">
-            See a sample lead page <ArrowRight className="h-3 w-3" />
-          </Link>
+          <p className="mt-2 ff-body text-[14px] leading-relaxed text-[#8b8980]">Open this page on a computer to open sample leads, build a mark and turn it into a hook.</p>
         </div>
       ) : (
         <Placeholder />

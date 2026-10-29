@@ -8,7 +8,8 @@ import * as React from "react";
 import { ArrowRight, Play } from "lucide-react";
 import { ExampleFramePlate } from "@/app/docs/concepts/session-replay/ExampleFramePlate";
 
-const VIDEO = "/frameplatedemo.mp4";
+// the explanation video (public/assets/Scene.mp4; the address is case-sensitive once deployed)
+const VIDEO = "/assets/Scene.mp4";
 
 export function JourneyChart() {
   const [side, setSide] = React.useState<"video" | "chart">("video");

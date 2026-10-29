@@ -299,3 +299,10 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
 - Hero hook box: third variant "Start an automation when..." (webhook, ledger 24).
 - Docs: reference/notifications (Earlier visits row, the form left unsent in the visit summary, previous_visits and
   automation via webhooks), reference/lead-profile (key events).
+
+## 2026-10-28 founder review 6
+- /demo (app/demo/page.tsx): the static sample lead page replaced by the interactive demo at full width, with the tour;
+  lead pages work inside the demo (components/showcase/DemoLeadPage.tsx). Ledger row 21 rewritten.
+- Home: the question alternates "Which lead should you reach out to first?" / "Prioritize the high-intent leads." (the
+  "just checking" line removed). The explanation video is public/assets/Scene.mp4.
+- Home demo's phone note no longer links to /demo (it now needs a computer too).
