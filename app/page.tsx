@@ -406,6 +406,42 @@ export default function Home() {
           </ol>
         </section>
 
+        {/* the gap: suites that can do this lock it behind their top tier (founder's idea, 2026-10-28). No competitor is named
+            and no price is quoted (marketing rules); what Jellyhook offers is ledger rows 1, 16, 23, 24. */}
+        <Rule />
+        <section className="py-20">
+          <h2 data-reveal="rise" className={H2 + " max-w-[22ch]"}>
+            The big marketing suites can do this. <span className="text-[var(--spot)]">At a price a lean sales team never pays.</span>
+          </h2>
+          <div className="mt-12 grid border-t-4 border-[var(--ink)] lg:grid-cols-2">
+            <div data-reveal="rise" className="py-8 lg:pr-12">
+              <h3 className="v2-caps text-[13px] text-[var(--ink-soft)]">An enterprise marketing suite</h3>
+              <ul className="mt-5 space-y-4 text-[17px] leading-[1.6]">
+                <li>
+                  <span className="font-semibold">Locked behind the top tier.</span> Watching page paths, filtering by form answers and sending
+                  conditional Slack alerts usually means the most expensive plan, often billed a year upfront.
+                </li>
+                <li>
+                  <span className="font-semibold">Onboarding before anything works.</span> Setup fees, hours of configuration, and hundreds of
+                  features a small high-ticket team will never touch.
+                </li>
+              </ul>
+            </div>
+            <div data-reveal="rise" style={{ "--d": "140ms" } as React.CSSProperties} className="border-t border-[var(--ink)] py-8 lg:border-l lg:border-t-0 lg:pl-12">
+              <h3 className="v2-caps text-[13px] text-[var(--spot)]">Jellyhook</h3>
+              <ul className="mt-5 space-y-4 text-[17px] leading-[1.6]">
+                <li>
+                  <span className="font-semibold">One script, free during early access.</span> Every feature, for your whole team, no card.
+                </li>
+                <li>
+                  <span className="font-semibold">Only what a sales team uses.</span> Marks for the behavior you care about, and a hook that sends a
+                  summary card to your team&apos;s Slack seconds after a matching lead sends the form, so they reach out while the lead is warm.
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
         {/* 10 close */}
         <Rule />
         <section className="grid py-20 lg:grid-cols-[7fr_5fr]">

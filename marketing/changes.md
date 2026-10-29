@@ -312,3 +312,10 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
 - SEO: share image (app/opengraph-image.tsx, twitter-image.tsx), root title/description to the new positioning
   ("Stop treating every lead like a stranger"), root canonical removed, SoftwareApplication JSON-LD on the home page,
   sitemap dates, robots disallows for internal pages, IndexNow key and `npm run seo:indexnow`. Notes: mds/build/seo.md.
+
+## 2026-10-28 the enterprise-suite gap (home, before the closing call to action)
+- New section: "The big marketing suites can do this. At a price a lean sales team never pays." Two columns: an
+  enterprise marketing suite (top-tier lock, onboarding, unused features) vs Jellyhook (one script, free during early
+  access, only what a sales team uses, a Slack summary card seconds after a matching lead sends the form).
+- From the founder's note. HubSpot and the $890/month figure were left out on purpose: the rules forbid naming
+  competitors on the site, the page praises HubSpot elsewhere, and the price was not verified. Ledger rows 1, 16, 23, 24.
