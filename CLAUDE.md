@@ -117,7 +117,7 @@ Keep this list current: add a line when you create a .md file, change it when a 
 - `report/`: `numbers.md` (numbers ledger), `interview-cheatsheet.md`.
 
 **Marketing (`marketing/`)**
-- `strategy.md` (the plan to follow), `claims-ledger.md` (allowed claims), `banned-claims.md`, `changes.md` (every landing/docs edit, before/after), `docs-audit.md`, `experiments.md`, `learnings.md`, `metrics.md`, `ads/google-ads.md` (the Google Ads setup, next steps, how to pause), `social/plan.md` (short-video scripts and posting plan), `calendar/2026-W41.md`, `calendar/2026-W44.md` (week plans; W44: search ads, marketplaces, directories, no posting or DMs).
+- `strategy.md` (the plan to follow), `claims-ledger.md` (allowed claims), `banned-claims.md`, `changes.md` (every landing/docs edit, before/after), `docs-audit.md`, `experiments.md`, `learnings.md`, `metrics.md`, `ads/google-ads.md` (the Google Ads setup, next steps, how to pause), `social/plan.md` (posting plan), `social/voiceover-scripts.md` (six voiceover scripts with the demo clicks to record), `calendar/2026-W41.md`, `calendar/2026-W44.md` (week plans; W44: search ads, marketplaces, directories, no posting or DMs).
 - `landing/`: landing page research. `synthesis.md`, `agent-a-marketing.md`, `agent-b-design.md`, `draft-v1.md`, `final.md`, `page-v1-text.md`, `alternatives.md`, `pain-points.md`, `personas.md` (14 persona cards), `phase3-results.md`, `variants.md` (variant log).
 - `landing/persona-results/P01.md` to `P14.md`: each persona's reaction to page v1.
 - `landing/variants/V1-V4.md`, `R2A-R2C.md`, `R3A-R3C.md`: landing page variant texts. `variants/round1/`, `round2/`, `round3/` (`D.md`, `P01`, `P04`, `P06`, `P07`, `P10`, `P11`): persona and outsider reviews per round.
