@@ -7,7 +7,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Show, SignOutButton } from "@clerk/nextjs";
 import { ArrowRight, Menu, X } from "lucide-react";
-import { HookMark } from "@/components/showcase/v2/HookMark";
+import Image from "next/image";
 
 const NAV = [
   { label: "How it works", href: "/#journey" },
@@ -24,7 +24,7 @@ export function Wordmark({ className = "text-[30px]" }: { className?: string }) 
       <span>
         Jelly<span className="text-[var(--lime)]">hook</span>
       </span>
-      <HookMark className="mb-[0.08em] h-[0.7em] w-[0.46em] text-[var(--lime)]" strokeWidth={3.6} />
+      <Image src="/jellyhook-nobg.png" alt="" width={56} height={56} className="mb-[0.04em] h-[0.95em] w-auto" />
     </Link>
   );
 }

@@ -11,7 +11,11 @@ import { Reveal } from "@/components/showcase/v2/Reveal";
 import { HubSpotCardShowcase } from "@/components/showcase/v2/HubSpotCardShowcase";
 import { SlackDesktopShowcase } from "@/components/showcase/SlackDesktopShowcase";
 import { LeadsShowcase } from "@/components/showcase/LeadsShowcase";
-import { ExampleFramePlate } from "@/app/docs/concepts/session-replay/ExampleFramePlate";
+import { JourneyChart } from "@/components/showcase/v2/JourneyChart";
+import { QuestionFlip } from "@/components/showcase/v2/QuestionFlip";
+import { CoverArt } from "@/components/showcase/v2/CoverArt";
+import Image from "next/image";
+import { HubSpotLogo } from "@/components/notifications/Brand";
 import { MarketingThemeStyles } from "@/components/marketing/MarketingTheme";
 import { marketingFontVariables, v2FontVariables } from "@/components/marketing/fonts";
 import "./landing.css";
@@ -30,26 +34,6 @@ const WRAP = "mx-auto max-w-[1440px] px-5 md:px-12 lg:px-[72px]";
 const H2 = "v2-serif text-[clamp(2.2rem,4.2vw,3.8rem)] leading-[1.02] tracking-[-0.02em]";
 const BODY = "text-[17px] leading-[1.7] text-[var(--ink-soft)]";
 const RULE_COL = "lg:border-l lg:border-[var(--ink)] lg:pl-12";
-
-/** The issue's cover art: a jelly dome, a whale's back and a hook on its line, as flat shapes. */
-function CoverArt() {
-  return (
-    <svg viewBox="0 0 1300 340" className="h-full w-full" aria-hidden preserveAspectRatio="xMinYMid slice">
-      <rect width="1300" height="340" fill="var(--paper-2)" />
-      <path className="v2-shape" d="M120 340 A230 230 0 0 1 580 340 Z" fill="var(--spot)" />
-      <circle className="v2-shape" cx="700" cy="250" r="44" fill="var(--ink)" />
-      <path className="v2-shape" d="M1300 0 V340 H820 C 900 300, 1010 290, 980 200 C 950 110, 1080 60, 1180 0 Z" fill="var(--ink)" />
-      <g className="v2-shape">
-        <g className="v2-sway" fill="none" stroke="var(--spot)" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1110 0 V64" strokeWidth="4" />
-          <circle cx="1110" cy="80" r="15" strokeWidth="11" />
-          <path d="M1110 95 V226 A42 42 0 0 1 1026 226 V182" strokeWidth="14" />
-          <path d="M1026 182 L1052 210" strokeWidth="14" />
-        </g>
-      </g>
-    </svg>
-  );
-}
 
 function Cta({ href = "/sign-up", children }: { href?: string; children: React.ReactNode }) {
   return (
@@ -129,7 +113,7 @@ export default function Home() {
             <span>
               Jelly<span className="text-[var(--spot)]">hook</span>
             </span>
-            <HookMark className="mb-1 h-[0.7em] w-[0.46em] text-[var(--spot)]" strokeWidth={3.6} />
+            <Image src="/jellyhook-nobg.png" alt="" width={56} height={56} priority className="mb-0.5 h-[0.95em] w-auto" />
           </Link>
           <nav className="flex flex-wrap items-center gap-x-7 gap-y-2 pb-1 v2-caps text-[12px]">
             <Link href="#journey" className="transition-colors hover:text-[var(--spot)]">How it works</Link>
@@ -163,7 +147,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-[var(--ink)] py-12 lg:border-l lg:border-t-0 lg:py-16 lg:pl-12">
-            <p className="v2-serif mb-8 text-[clamp(1.6rem,2.4vw,2.2rem)] leading-[1.2]">Which new lead should you call first?</p>
+            <QuestionFlip className="v2-serif mb-8 text-[clamp(1.6rem,2.4vw,2.2rem)] leading-[1.2]" />
             <IssueHookBox />
           </div>
         </section>
@@ -221,16 +205,14 @@ export default function Home() {
                 Session replays make you watch what happened. Traditional analytics show you aggregate numbers. Jellyhook helps you
                 investigate the structural footprint of a lead&apos;s journey.
               </p>
-              <p data-reveal="rise" className="v2-serif mt-6 text-[1.5rem]">See the journey, not just the numbers.</p>
+              <p data-reveal="rise" className="v2-serif mt-6 text-[1.5rem] leading-snug">
+                No more sitting through session videos to piece together one visit.
+              </p>
             </div>
             <div className={RULE_COL}>
-              <div className="mb-4 flex items-baseline justify-between border-t-4 border-[var(--ink)] pt-3 v2-caps text-[11px]">
-                <span>One lead&apos;s visit chart</span>
-                <span className="text-[var(--ink-soft)]">Example data</span>
-              </div>
-              {/* the real visit chart (framePlate) on a made-up visit, with click-to-inspect: claims ledger rows 2, 4, 21 */}
+              {/* the explanation video, then the real visit chart on a made-up visit with click-to-inspect: ledger rows 2, 4, 21 */}
               <div data-reveal="fade">
-                <ExampleFramePlate />
+                <JourneyChart />
               </div>
             </div>
           </div>
@@ -368,9 +350,13 @@ export default function Home() {
         <section className="py-20">
           <div className="grid gap-8 lg:grid-cols-[7fr_5fr]">
             <h2 data-reveal="rise" className={H2}>
-              Your CRM tells you who your leads are. <span className="text-[var(--spot)]">Jellyhook helps you understand their journey.</span>
+              Your <span className="text-[#ff5c35]">CRM</span> tells you who your leads are.{" "}
+              <span className="text-[var(--spot)]">Jellyhook helps you understand their journey.</span>
             </h2>
             <div data-reveal="rise" className={"space-y-4 self-end " + BODY + " " + RULE_COL}>
+              <span className="inline-flex items-center gap-2 rounded-full border-2 border-[#ff5c35] px-3 py-1 text-[13px] font-bold text-[#c93700]">
+                <HubSpotLogo className="h-4 w-4" color="#ff5c35" /> Works with HubSpot
+              </span>
               <p>Already using HubSpot? We love HubSpot. Keep your existing CRM workflow.</p>
               <p className="font-semibold text-[var(--ink)]">
                 Every form&apos;s footprint shows up in a Jellyhook card on the HubSpot contact. Read it and call, without leaving HubSpot.
@@ -380,6 +366,14 @@ export default function Home() {
           <div data-reveal="fade" className="mt-12">
             <HubSpotCardShowcase />
           </div>
+          {/* hooks also send to a webhook: ledger row 24, docs reference/notifications */}
+          <p data-reveal="rise" className="mt-10 flex max-w-[46rem] items-start gap-4 text-[17px] leading-[1.7]">
+            <HookMark className="mt-1 h-7 w-5 shrink-0 text-[var(--spot)]" />
+            <span>
+              <span className="font-semibold">Start your own automation too.</span> A hook can send each matching lead to a webhook, so the right
+              lead can kick off a Zapier, Make or n8n flow, or a step in your CRM, the moment they send your form.
+            </span>
+          </p>
           <div className="mt-14">
             <Columns items={CRM} />
           </div>

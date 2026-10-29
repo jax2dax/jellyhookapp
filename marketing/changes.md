@@ -277,3 +277,17 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
   setup step 1 shows the tracker snippet.
 - Pricing FAQ "Is this actually free": adds the limits (5 sites per account, 10 hooks per person per site, 500 Slack and
   webhook messages per site per day; app/docs/reference/notifications Limits, pricing FAQ).
+
+## 2026-10-28 founder review 4 (home)
+- Journey: components/showcase/v2/JourneyChart.tsx plays public/frameplatedemo.mp4 (muted, looping) first, with an
+  "Explanation" / "Interactive chart" button by "One lead's visit chart" and a "See the interactive chart" button over the
+  video's bottom-right corner (it hides the recorder's watermark); the area turns over to the real visit chart. No video
+  file yet: the chart shows straight away.
+- "See the journey, not just the numbers." became "No more sitting through session videos to piece together one visit."
+- Hero question takes turns (QuestionFlip.tsx): "Which new lead should you call first?" / "Filter out the "just checking"
+  visitors. Call the leads who are ready."
+- Band: CoverArt.tsx, water drifting in two waves; every 7 s the hook drops, the green fish swims to it and is pulled out.
+- Logo: the real Jellyhook mark (public/jellyhook-nobg.png) next to the wordmark on the home page, the shared header and
+  the sign-in/up card.
+- CRM section: "CRM" in HubSpot orange, a "Works with HubSpot" badge (ledger 11, 28), and a line on starting automation
+  from a hook's webhook (Zapier, Make, n8n, your CRM; ledger 24).

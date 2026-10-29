@@ -6,7 +6,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { HookMark } from "@/components/showcase/v2/HookMark";
+import Image from "next/image";
 
 export function AuthCardFrame({ eyebrow, children }: { eyebrow: string; children: React.ReactNode }) {
   return (
@@ -15,7 +15,7 @@ export function AuthCardFrame({ eyebrow, children }: { eyebrow: string; children
         <span>
           Jelly<span className="text-[var(--lime)]">hook</span>
         </span>
-        <HookMark className="mb-[0.08em] h-[0.7em] w-[0.46em] text-[var(--lime)]" strokeWidth={3.6} />
+        <Image src="/jellyhook-nobg.png" alt="" width={56} height={56} className="mb-[0.04em] h-[0.95em] w-auto" />
       </Link>
       <div className="h-[6px] bg-[var(--ink)]" />
       <div className="relative border-2 border-t-0 border-[var(--ink)] bg-[var(--paper)] p-7 shadow-[0_24px_48px_-28px_rgba(0,0,0,0.35)]">

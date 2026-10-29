@@ -40,8 +40,33 @@
   .v2-shape:nth-child(3) { animation-delay: 0.12s; }
   .v2-shape:nth-child(4) { animation-delay: 0.24s; }
   .v2-shape:nth-child(5) { animation-delay: 0.36s; }
-  /* the hook on its line sways a little, like it is in water */
-  .v2-sway { animation: v2-sway 5s ease-in-out infinite; transform-box: view-box; transform-origin: 1110px 0; }
+  /* the water (components/showcase/v2/CoverArt.tsx): two waves drifting opposite ways, one period per loop */
+  .v2-wave-back { animation: v2-wave-back 9s linear infinite; }
+  .v2-wave-front { animation: v2-wave-front 6s linear infinite; }
+  /* every 7 seconds: the hook drops, waits for the bite, and pulls the fish out; the fish swims up to it first */
+  .v2-hook-drop { animation: v2-hook-drop 7s cubic-bezier(0.45, 0, 0.25, 1) infinite; }
+  .v2-fish { animation: v2-fish 7s cubic-bezier(0.45, 0, 0.25, 1) infinite; transform-box: fill-box; transform-origin: center; }
+
+  /* the hero question taking turns (components/showcase/v2/QuestionFlip.tsx) */
+  .v2-flip { animation: v2-flip 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
 }
+@keyframes v2-wave-back { from { transform: translateX(0); } to { transform: translateX(260px); } }
+@keyframes v2-wave-front { from { transform: translateX(0); } to { transform: translateX(-200px); } }
+@keyframes v2-hook-drop {
+  0%, 22% { transform: translateY(0); }
+  40%, 52% { transform: translateY(80px); }
+  74% { transform: translateY(-14px); }
+  88%, 100% { transform: translateY(0); }
+}
+@keyframes v2-fish {
+  0% { transform: translate(-90px, 6px); opacity: 0; }
+  8% { opacity: 1; }
+  40% { transform: translate(0, 0); }
+  52% { transform: translate(0, 0) rotate(-8deg); }
+  74% { transform: translate(0, -94px) rotate(-14deg); opacity: 1; }
+  84% { transform: translate(0, -94px) rotate(-14deg); opacity: 0; }
+  100% { transform: translate(-90px, 6px); opacity: 0; }
+}
+@keyframes v2-flip { from { opacity: 0; transform: rotateX(-80deg); } to { opacity: 1; transform: none; } }
 @keyframes v2-settle { from { opacity: 0.001; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes v2-sway { 0%, 100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.6deg); } }
