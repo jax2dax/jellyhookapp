@@ -319,3 +319,7 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
   access, only what a sales team uses, a Slack summary card seconds after a matching lead sends the form).
 - From the founder's note. HubSpot and the $890/month figure were left out on purpose: the rules forbid naming
   competitors on the site, the page praises HubSpot elsewhere, and the price was not verified. Ledger rows 1, 16, 23, 24.
+
+## 2026-10-28 CRM line
+- Home: 'Every form's footprint shows up right inside your CRM, in a Jellyhook card on the HubSpot contact.' (ledger 28)
+

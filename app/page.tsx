@@ -360,7 +360,8 @@ export default function Home() {
               <p className="v2-serif text-[1.35rem] leading-snug text-[var(--ink)]">Jellyhook gives you the context your CRM is missing.</p>
               <p>Already using HubSpot? We love HubSpot. Keep your existing CRM workflow.</p>
               <p className="font-semibold text-[var(--ink)]">
-                Every form&apos;s footprint shows up in a Jellyhook card on the HubSpot contact. Read it and call, without leaving HubSpot.
+                Every form&apos;s footprint shows up right inside your CRM, in a Jellyhook card on the HubSpot contact. Read it and call, without
+                leaving HubSpot.
               </p>
             </div>
           </div>
