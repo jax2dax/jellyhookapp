@@ -22,7 +22,7 @@ export default function AdTrackingGuidePage() {
       <DocHeader
         eyebrow="Guide"
         title="Set up ad tracking"
-        intro="How do I see which exact ad brought a lead? Paste one line of parameters into each ad platform once. The platform then fills in the campaign and the ad on every click, and Jellyhook shows that ad on the lead, in Acquisition and in hook messages in Slack."
+        intro="To see which ad brought each lead, paste one line of parameters into each ad platform once. The platform then fills in the campaign and the ad on every click, and Jellyhook shows that ad on the lead, in Acquisition and in hook messages in Slack."
       />
 
       <Section title="What it gives you">

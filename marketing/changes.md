@@ -327,3 +327,13 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
 ## 2026-10-28 hero: See the demo
 - Home hero: a 'See the demo' button (to /demo) beside 'Try Jellyhook for free'. Ads land on / (marketing/calendar/2026-W44.md).
 
+
+## 2026-10-28 docs tone and structure pass
+- Removed 28 filler uses of "actually" across the docs.
+- Intros that opened with a rhetorical question rewritten as statements: reference/marks, notifications, dashboard,
+  acquisition, form-fields, guides/ad-tracking. reference/marks: "notification rule" became "hook" (2 places).
+- reference/groups: 7 sections to 4 (Using groups, How it works, Limits and troubleshooting, Related); "notification
+  rule" became "hook"; the intro no longer opens with a question.
+- reference/settings: 10 sections to 6, in the order of the Settings sidebar (General with pause, team and leaving;
+  Installation; Connection with allowed hosts; Attribute check; Forms; Privacy).
+- Checked: no casual phrasing (let's, you'll, don't worry, exclamation marks) left. `npm run docs:check` passed.

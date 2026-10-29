@@ -63,7 +63,7 @@ export default function SessionReplayPage() {
             Visits of similar length land at a similar width; one unusually long outlier grows past the rest rather
             than squeezing everything else down to a sliver. Its{" "}
             <span className="text-[var(--ink)]">color represents the outcome</span> of that visit: what
-            &quot;gray,&quot; &quot;yellow,&quot; &quot;orange&quot; below actually mean.
+            &quot;gray,&quot; &quot;yellow,&quot; &quot;orange&quot; below mean.
           </li>
           <li>
             <span className="text-[var(--ink)]">Plate:</span> the smaller rectangle inside the frame.{" "}
@@ -83,7 +83,7 @@ export default function SessionReplayPage() {
           <li>
             <span className="text-[var(--ink)]">Form mini-plate:</span> an inset box drawn <em>inside</em> the plate,
             not on its edge like a bulb. <span className="text-[var(--ink)]">Represents the form&apos;s own real
-            measured position and span on the page</span>: where it actually sits, top to bottom, not a single
+            measured position and span on the page</span>: where it sits, top to bottom, not a single
             point. Narrower than the plate itself, so the seen/seen-twice shading stays visible either side of it.
             See below for exactly when it appears and what the stripes inside it mean.
           </li>
@@ -108,11 +108,11 @@ export default function SessionReplayPage() {
           <ColorRow
             color="#fde047"
             label="Bright yellow"
-            desc="the form was actually submitted on this visit."
+            desc="the form was submitted on this visit."
           />
         </ul>
         <p className="mt-4 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-          The white stripes inside it are fields, but specifically fields that were actually clicked into at least
+          The white stripes inside it are fields, but specifically fields that were clicked into at least
           once. A field nobody ever focused leaves no trace at all, so the stripe count is a floor on the form&apos;s
           real field count, never the true total. However many there are, they always stay inside the mini-plate:
           each stripe&apos;s thickness is the mini-plate&apos;s own height divided by the field count, so more
@@ -144,7 +144,7 @@ export default function SessionReplayPage() {
           <p className="mt-3 max-w-2xl ff-body text-[13px] leading-relaxed text-[var(--ink-mute)]">
             Two more outcomes exist behind the scenes: a plain green for &quot;still active&quot; and a dark red
             for &quot;expired.&quot; Nothing in the product assigns either of them to a real page visit today,
-            so they are never something you will actually see on a chart.
+            so they are never something you will see on a chart.
           </p>
         </div>
 

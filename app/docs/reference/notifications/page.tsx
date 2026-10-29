@@ -14,7 +14,7 @@ export default function NotificationsReferencePage() {
       <DocHeader
         eyebrow="Feature reference"
         title="Hooks and notifications"
-        intro="Which new leads should someone call right now? A hook answers that. It watches every new lead, and when one has all of the hook's marks, the lead is hooked: your team is told in Jellyhook, and in Slack or a webhook if you choose."
+        intro="A hook tells your team which new leads to call first. It watches every new lead, and when one has all of the hook's marks, the lead is hooked: your team is told in Jellyhook, and in Slack or a webhook if you choose."
       />
 
       <Section title="When you would use it">

@@ -14,7 +14,7 @@ export default function AcquisitionReferencePage() {
       <DocHeader
         eyebrow="Feature reference"
         title="Acquisition"
-        intro="Which platforms, campaigns and ads bring your leads, and your best ones? Acquisition groups every visit by where it came from and credits each lead to one source, so you can compare ordinary traffic, leads and hooked leads side by side."
+        intro="Acquisition shows which platforms, campaigns and ads bring your leads and your best ones. It groups every visit by where it came from and credits each lead to one source, so you can compare ordinary traffic, leads and hooked leads side by side."
       />
 
       <Section title="When you would use it">

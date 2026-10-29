@@ -55,7 +55,7 @@ export default function LeadsReferencePage() {
             <a href="/docs/concepts/leads-qualification" className="text-[var(--lime)] hover:underline">
               Leads and qualification
             </a>{" "}
-            for what qualified and junk actually mean.
+            for what qualified and junk mean.
           </p>
         </div>
 

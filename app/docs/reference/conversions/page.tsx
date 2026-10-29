@@ -14,7 +14,7 @@ export default function ConversionsReferencePage() {
       <h1 className="mt-3 ff-display text-3xl text-[var(--ink)]">Conversions page</h1>
       <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
         Where marketing-side questions get answered: how many new people showed up, how many converted, and where
-        they actually came from.
+        they came from.
       </p>
 
       <div className="mt-12 space-y-10">
@@ -68,7 +68,7 @@ export default function ConversionsReferencePage() {
         <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Referrers</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            Where every new unique visitor actually came from, counted once each under their first-ever visit&apos;s
+            Where every new unique visitor came from, counted once each under their first-ever visit&apos;s
             source, not every return visit. This ring only appears once there are more than eight different sources, which is
             more than the Leads Origin radar below can show as spokes; up to eight sources the radar already shows them
             all. Small sources are grouped as Other. See{" "}

@@ -36,7 +36,7 @@ export default function VisitorsSessionsPage() {
             Closing a tab, reloading, or moving between pages does not end it.
           </p>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            Someone who comes back after an hour starts a new session, and the old one is closed at the moment they actually stopped, not when they
+            Someone who comes back after an hour starts a new session, and the old one is closed at the moment they stopped, not when they
             returned. A visit that is still going sends a quiet heartbeat every 5 minutes so a long read is not mistaken for someone who left.
           </p>
         </div>

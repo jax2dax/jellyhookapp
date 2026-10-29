@@ -48,7 +48,7 @@ export default function LeadProfileReferencePage() {
         <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Form Engagement</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            How long the form sat on screen before they typed anything, how long they spent actually filling it
+            How long the form sat on screen before they typed anything, how long they spent filling it
             in, and how many other forms this same visitor started elsewhere but never submitted. Only shown when
             there is a real fact to display, not for every lead.
           </p>
@@ -57,7 +57,7 @@ export default function LeadProfileReferencePage() {
         <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Field Timing</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            One bar per field on the form they submitted, in the order they actually filled them in, longest one
+            One bar per field on the form they submitted, in the order they filled them in, longest one
             highlighted. See{" "}
             <Link href="/docs/concepts/form-engagement" className="text-[var(--lime)] hover:underline">
               Form engagement

@@ -18,7 +18,7 @@ export default function ReferrersAttributionPage() {
 
       <div className="mt-12 space-y-12">
         <div>
-          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">What a plain referrer actually tells you</h2>
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">What a plain referrer tells you</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             The browser hands over the address of whatever page someone was on the instant they clicked through to
             yours. Nothing more. If they clicked an ad directly, it correctly shows the ad platform. If they saw

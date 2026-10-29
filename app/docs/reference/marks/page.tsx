@@ -14,7 +14,7 @@ export default function MarksReferencePage() {
       <DocHeader
         eyebrow="Feature reference"
         title="Marks"
-        intro="Which new leads are worth a call first? A mark is a set of conditions on what a lead did before sending your form. Every lead that meets them gets the mark's coloured badge on the Leads page, and a notification rule can tell your team the moment one arrives."
+        intro="A mark is a set of conditions on what a lead did before sending your form. Every lead that meets them gets the mark's coloured badge on the Leads page, and a hook can tell your team the moment one arrives."
       />
 
       <Section title="When you would use it">
@@ -78,7 +78,7 @@ export default function MarksReferencePage() {
         <UL>
           <li><B>Preview.</B> While you build a mark, it is tried on your last 100 leads: &quot;9 of your last 100 leads match&quot;, with the first few and why. Nothing is saved.</li>
           <li>
-            <B>New leads.</B> While a mark is on, every new lead is checked, and again when that visit ends. A mark used by a notification rule is checked
+            <B>New leads.</B> While a mark is on, every new lead is checked, and again when that visit ends. A mark used by a hook is checked
             first, the moment the form is sent, so the notification never waits. Other marks are checked right after, in the background. When many forms
             arrive at once they can take a few minutes, so a badge may appear a little later.
           </li>

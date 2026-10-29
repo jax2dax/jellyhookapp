@@ -39,7 +39,7 @@ export default function TroubleshootingPage() {
             <Link href="/docs/installation" className="text-[var(--lime)] hover:underline">
               Installation and setup
             </Link>
-            . In short: confirm the script is actually deployed and live, on the exact domain you registered, with
+            . In short: confirm the script is deployed and live, on the exact domain you registered, with
             the right API key, and that nothing on the page is blocking it from loading at all.
           </p>
         </div>
@@ -91,7 +91,7 @@ script on the wrong website, move it. Only allow the host under Settings → Tra
             <Link href="/docs/concepts/referrers-attribution" className="text-[var(--lime)] hover:underline">
               Referrers and attribution
             </Link>{" "}
-            for exactly which situations cause this and what actually fixes it.
+            for exactly which situations cause this and what fixes it.
           </p>
         </div>
       </div>

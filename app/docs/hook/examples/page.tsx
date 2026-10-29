@@ -33,7 +33,7 @@ export default function ExamplesPage() {
       </Section>
 
       <Section title="Content and engagement">
-        <Example title="How much of /pricing people actually see" build={<><B>Show</B> <B>a calculation:</B> average share of page seen, of page views where page is /pricing.</>} why="A page nobody scrolls through is not doing its job." />
+        <Example title="How much of /pricing people see" build={<><B>Show</B> <B>a calculation:</B> average share of page seen, of page views where page is /pricing.</>} why="A page nobody scrolls through is not doing its job." />
         <Example title="Readers who went back over the content" build={<><B>Show</B> <B>the number of</B> page views where page is /blogs and share of page seen 2x+ is at least 20%.</>} />
         <Example title="Visits that bounced fast" build={<><B>Show</B> <B>the number of</B> sessions where <B>+ Look at its...</B> page views, <B>count or total</B>: number of page views is 1, and session length is less than 10 sec.</>} />
         <Example title="Where long sessions end" build={<><B>Show</B> <B>a breakdown:</B> number of sessions, for each exit page, where session length is more than 3 min.</>} why="The pages that close a long visit, converting or not." />

@@ -14,7 +14,7 @@ export default function FormFieldsReferencePage() {
       <DocHeader
         eyebrow="Feature reference"
         title="Form fields"
-        intro="Can I find leads by what they answered, like their budget? Yes, once Jellyhook knows which field is the budget. It reads each field's name from your page. When your page gives a field no name, you name it once in Settings."
+        intro="Marks can find leads by their form answers, such as a budget, once Jellyhook knows which field holds it. Jellyhook reads each field's name from your page. When your page gives a field no name, you name it once in Settings."
       />
 
       <Section title="When you would use it">

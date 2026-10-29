@@ -143,7 +143,7 @@ Everything recorded goes into this site&apos;s real analytics. Do not install th
           </p>
           <p className="mb-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">If it stays on this screen, check, in order:</p>
           <ul className="mb-3 list-disc space-y-1.5 pl-5 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            <li>The script is actually deployed and live, not just saved locally or sitting in a preview build.</li>
+            <li>The script is deployed and live, not just saved locally or sitting in a preview build.</li>
             <li>
               The page you are viewing is the domain you registered. If the screen says &quot;We received data from another-site.com&quot;, the
               script is on a different website than the one you registered: move it, or allow that host if it is a test copy.

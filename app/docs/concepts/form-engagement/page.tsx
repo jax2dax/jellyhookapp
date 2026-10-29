@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Form engagement",
-  description: "What Jellyhook tracks about a form before it is ever submitted, and when it actually gets marked abandoned.",
+  description: "What Jellyhook tracks about a form before it is ever submitted, and when it gets marked abandoned.",
   alternates: { canonical: "/docs/concepts/form-engagement" },
 };
 
@@ -13,7 +13,7 @@ export default function FormEngagementPage() {
       <h1 className="mt-3 ff-display text-3xl text-[var(--ink)]">Form engagement</h1>
       <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
         A form submission is one moment. Everything that happened before it, or instead of it, is form engagement.
-        It answers a question a plain submission count cannot: how far did someone actually get before they gave up.
+        It answers a question a plain submission count cannot: how far did someone get before they gave up.
       </p>
 
       <div className="mt-12 space-y-12">
@@ -30,7 +30,7 @@ export default function FormEngagementPage() {
         <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Per-field timing</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            For every field the visitor touches, Jellyhook records how long they spent actually focused on it, in
+            For every field the visitor touches, Jellyhook records how long they spent focused on it, in
             the order they filled the fields in. If someone fills the email field, moves on, then comes back later
             to fix it, both visits count toward its total, and each visit is kept on its own, so the pause between
             fields and the return to a field can be shown exactly. This is what the Form activity drawing on a
@@ -74,7 +74,7 @@ export default function FormEngagementPage() {
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             Switching tabs, or briefly visiting another page on the same site, does not mark a form abandoned. The
             visitor might come straight back and keep typing. A form only gets marked abandoned once the whole
-            visit is actually over, not just the current page. When that happens, the abandoned time recorded is
+            visit is over, not just the current page. When that happens, the abandoned time recorded is
             the real last moment they were doing something in the form, never the moment the system happened to
             notice they were gone.
           </p>
@@ -83,7 +83,7 @@ export default function FormEngagementPage() {
         <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">A limitation worth knowing</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            This only sees fields a person actually focuses. A field filled by browser autofill without ever
+            This only sees fields a person focuses. A field filled by browser autofill without ever
             receiving a focus event, which happens in some browsers, will not show timing data, even though it was
             filled in. Validation errors are only the browser&apos;s own checks (required fields, email format); a
             site&apos;s own error messages are not seen. Forms filled before 14 October 2026 have totals only, so a

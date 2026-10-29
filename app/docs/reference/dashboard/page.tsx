@@ -14,7 +14,7 @@ export default function DashboardReferencePage() {
       <DocHeader
         eyebrow="Analytics"
         title="Dashboard overview"
-        intro="What happened on the site, and which leads need you first? The dashboard is the screen you land on: five key numbers, the leads your hooks caught, your marks, the newest leads, then the traffic charts."
+        intro="The dashboard is the screen you land on. It shows what happened on the site and which leads need you first: five key numbers, the leads your hooks caught, your marks, the newest leads, then the traffic charts."
       />
 
       <Section title="When you would use it">
@@ -80,7 +80,7 @@ export default function DashboardReferencePage() {
         <P>
           One live chart; its title is a menu that switches what it counts. <B>Sessions online</B> (the default) counts visits that are open: it goes up when a visit
           starts and down when the visitor was last seen, so someone who leaves and comes back within the same visit stays counted. <B>Pages online</B> counts
-          visitors with a page actually open: when someone leaves, the line dips at once; when they come back, it rises again.
+          visitors with a page open: when someone leaves, the line dips at once; when they come back, it rises again.
         </P>
         <P>
           The right edge is always now, and the chart moves forward every second while you watch. Each point covers an interval from 5 seconds to 1 day. Three ways
