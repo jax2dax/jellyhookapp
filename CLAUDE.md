@@ -93,6 +93,7 @@ Keep this list current: add a line when you create a .md file, change it when a 
 - `marks/review-2026-10-27.md`: marks and hooks review: how a lead goes through them, what cannot be changed later, production readiness, capacity on Nano.
 - `acquisition/plan.md`: where leads come from (platform, campaign, ad), credit model, radars, "came from an ad" in marks.
 - `marks/marks.md`: marks on leads, library, site statistics (v1, the chip builder). `marks/marks-v2-plan.md`: the new builder (visit blocks, page sequences, headings, form answers and activity): plan, founder decisions, build status. `marks/when-marks-run.md`: when marks run (before v3, what other products do, the v3 plan, built 2026-10-27; section 8: does a check stop at the first failed condition).
+- `limits/plan.md`: next work, not built: monthly event limit per plan (with abuse guard) and fair share of mark work between sites.
 - `seo.md`: sitemap, robots, share image, structured data, and how to ask Google and IndexNow for a recrawl.
 - `privacy/privacy.md`: the tracker following the site's cookie banner, the "no banner" warning, retention (migration 35), erasing a person, the EU/no-DPA notice, tests.
 - `heading-time/plan.md`: time per heading (tracker, storage, heat map).
@@ -116,7 +117,7 @@ Keep this list current: add a line when you create a .md file, change it when a 
 - `report/`: `numbers.md` (numbers ledger), `interview-cheatsheet.md`.
 
 **Marketing (`marketing/`)**
-- `strategy.md` (the plan to follow), `claims-ledger.md` (allowed claims), `banned-claims.md`, `changes.md` (every landing/docs edit, before/after), `docs-audit.md`, `experiments.md`, `learnings.md`, `metrics.md`, `calendar/2026-W41.md`, `calendar/2026-W44.md` (week plans; W44: search ads, marketplaces, directories, no posting or DMs).
+- `strategy.md` (the plan to follow), `claims-ledger.md` (allowed claims), `banned-claims.md`, `changes.md` (every landing/docs edit, before/after), `docs-audit.md`, `experiments.md`, `learnings.md`, `metrics.md`, `ads/google-ads.md` (the Google Ads setup, next steps, how to pause), `social/plan.md` (short-video scripts and posting plan), `calendar/2026-W41.md`, `calendar/2026-W44.md` (week plans; W44: search ads, marketplaces, directories, no posting or DMs).
 - `landing/`: landing page research. `synthesis.md`, `agent-a-marketing.md`, `agent-b-design.md`, `draft-v1.md`, `final.md`, `page-v1-text.md`, `alternatives.md`, `pain-points.md`, `personas.md` (14 persona cards), `phase3-results.md`, `variants.md` (variant log).
 - `landing/persona-results/P01.md` to `P14.md`: each persona's reaction to page v1.
 - `landing/variants/V1-V4.md`, `R2A-R2C.md`, `R3A-R3C.md`: landing page variant texts. `variants/round1/`, `round2/`, `round3/` (`D.md`, `P01`, `P04`, `P06`, `P07`, `P10`, `P11`): persona and outsider reviews per round.
