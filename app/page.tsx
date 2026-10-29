@@ -142,7 +142,14 @@ export default function Home() {
               hesitated, and what brought them to your website.
             </p>
             <div className="mt-9 flex flex-col gap-3">
-              <Cta>Try Jellyhook for free</Cta>
+              <div className="flex flex-wrap items-center gap-3">
+                <Cta>Try Jellyhook for free</Cta>
+                {/* the full demo, no sign-up: for visitors (and ad clicks) who want to see it work first */}
+                <Link href="/demo" className="group inline-flex h-14 items-center gap-3 border-2 border-[var(--ink)] px-7 v2-caps text-[13px] transition-colors hover:border-[var(--spot)] hover:text-[var(--spot)]">
+                  See the demo
+                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
+              </div>
               <span className="text-[15px] text-[var(--ink-soft)]">One simple script to install. Too technical? Use Google Tag Manager.</span>
             </div>
           </div>

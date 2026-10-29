@@ -323,3 +323,7 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
 ## 2026-10-28 CRM line
 - Home: 'Every form's footprint shows up right inside your CRM, in a Jellyhook card on the HubSpot contact.' (ledger 28)
 
+
+## 2026-10-28 hero: See the demo
+- Home hero: a 'See the demo' button (to /demo) beside 'Try Jellyhook for free'. Ads land on / (marketing/calendar/2026-W44.md).
+
