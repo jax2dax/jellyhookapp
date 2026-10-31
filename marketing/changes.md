@@ -337,3 +337,16 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
 - reference/settings: 10 sections to 6, in the order of the Settings sidebar (General with pause, team and leaving;
   Installation; Connection with allowed hosts; Attribute check; Forms; Privacy).
 - Checked: no casual phrasing (let's, you'll, don't worry, exclamation marks) left. `npm run docs:check` passed.
+
+## 2026-10-29 home: qualify from the visit, and one concrete rule
+- New section after the three hero lines: "Long forms scare off big buyers. Chatbots annoy them." Body: Jellyhook
+  qualifies a lead from what they already did on the site (pages, time, scroll, how they filled in the form); keep the
+  form short. Three columns: fifteen qualifying questions (they leave halfway), a chatbot (they close it), Jellyhook
+  (nothing extra to answer; an example visit: pricing read twice, 3 min on Enterprise services, longest pause on the
+  budget field). Ledger rows 2, 3, 4, 23. From the founder's "silent context filtering" note; the word "silent" was
+  left out (reads as covert next to a tracking script).
+- "Define your ideal lead": the closing line became "Apply a mark and its leads come first. Less guesswork, a clearer
+  way to prioritize." (ledger 23). Added a rule card under it: example mark "Whale" (budget form answer over $4,000,
+  at least 3 minutes on /enterprise-services, before the form is sent) feeding a hook that messages #sales in Slack
+  (ledger 23, 24). Same rule as the "set the rules" video.
+- Not used, on purpose: "top 5%" (invented number), "lead scoring", "watches", ad-creative previews (not built).

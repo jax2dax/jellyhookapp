@@ -1,0 +1,18 @@
+Subject: What your inquiries don't write in the message box
+
+Hi [Name],
+
+I looked at your Connect form. People pick an inquiry type and explain what they want in the message. That tells you what they're asking for.
+
+What it usually doesn't tell you is what they care about while deciding. Before they wrote, they read your site. One person spent minutes on Registered Private Markets, then went back to Customized Solutions. Another went straight to Legacy Operations Solutions and read it to the end. Those visits show what each one is weighing: the structure, the operational load, how they'd reach investors. Most people won't put that in a message.
+
+Jellyhook shows you each lead's visit before they filled in the form: which pages they read, how long they spent on each, how far they scrolled, and which sections they reached. So your first reply can speak to what they care about, not only to what they typed.
+
+You can also set a rule in plain words and get a Slack message when a lead matches. For example: "Notify me when someone sends the form after reading Customized Solutions and Legacy Operations Solutions."
+
+A warmer, more specific first email may be what turns an inquiry into a mandate.
+
+It's free during early access, and it's one script tag. Want me to show you on your own site?
+
+Jash
+jellyhook.com

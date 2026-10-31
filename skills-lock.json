@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "skills": {
+    "animated-chart": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/animated-chart/SKILL.md",
+      "computedHash": "45f7b1f03af115f4c14980bd950258b6df889821e03756b531a0af39fc7fd7ab"
+    },
+    "apple-launch-film": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/apple-launch-film/SKILL.md",
+      "computedHash": "f889f44a6168e8778a20dbe3b9613b9ff0c7691cdccff94d355345d71b9cceca"
+    },
+    "brand-intake": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/brand-intake/SKILL.md",
+      "computedHash": "49d3a5c020cd1125365653cf6febf88dc2e3547feecf0880bfe8dd12dcd6d385"
+    },
+    "explainer-default": {
+      "source": "Barty-Bart/motion-graphics",
+      "sourceType": "github",
+      "skillPath": "skills/explainer-default/SKILL.md",
+      "computedHash": "9a51b28f5c16c66d87ec9bca3acbf0fa394c3ee35f66c611505f50ddc770596a"
+    },
+    "explainer-engaging": {
+      "source": "Barty-Bart/motion-graphics",
+      "sourceType": "github",
+      "skillPath": "skills/explainer-engaging/SKILL.md",
+      "computedHash": "f2ebddc8574418d48a3b46f7dcd734535c2db37e5f3691815aba86b9335c8119"
+    },
+    "explainer-high-energy": {
+      "source": "Barty-Bart/motion-graphics",
+      "sourceType": "github",
+      "skillPath": "skills/explainer-high-energy/SKILL.md",
+      "computedHash": "17a848d4f72bfa6f598f72185734a971933ff7d0ea58b3c2f1e6d67a91c71781"
+    },
+    "launch-video": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/launch-video/SKILL.md",
+      "computedHash": "c5255140e0819c4a1b9c7f088de6711a175ff6e8cc6cb4317166122045585c6d"
+    },
+    "loop-cover": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/loop-cover/SKILL.md",
+      "computedHash": "2bea01b8d43b6c33b6af40eaae3aede6be0d7f1fcdca38acb839375ec1cc8558"
+    },
+    "milestone-reveal": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/milestone-reveal/SKILL.md",
+      "computedHash": "c9c8b0d32220f5fbafb53286a412f2e164407b49bf4d2a32904467e6ec459545"
+    },
+    "model-showdown": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/model-showdown/SKILL.md",
+      "computedHash": "0ef73daa45b59884c758deef330dc2b4159523c8be1be6fa40165dc0512eef44"
+    },
+    "motion-brief-writer": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/motion-brief-writer/SKILL.md",
+      "computedHash": "bee2888da6609beedf07361af10564b080b8402a734674e864cdb4c95015e121"
+    },
+    "motion-broll": {
+      "source": "Barty-Bart/motion-graphics",
+      "sourceType": "github",
+      "skillPath": "skills/motion-broll/SKILL.md",
+      "computedHash": "73781a458082cd125c37d5e5855412d6f398f72016301d0afd0b352a23191698"
+    },
+    "motion-effects": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/motion-effects/SKILL.md",
+      "computedHash": "36eba0c42d83ecf1252072997c655bc9a98b6c8ccfebde574cf3a8ed2e059fb3"
+    },
+    "motion-prompt-writer": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/motion-prompt-writer/SKILL.md",
+      "computedHash": "39e75e867c3f68deaa01d4e06316a9ab7c41d481284beb5c5ce0b56e7ddd630e"
+    },
+    "newsletter-promo": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/newsletter-promo/SKILL.md",
+      "computedHash": "3410518120aec9d9cca706a5a3f3535564aab138d620b86a2af935fd1ee5983f"
+    },
+    "object-separation": {
+      "source": "Barty-Bart/motion-graphics",
+      "sourceType": "github",
+      "skillPath": "skills/object-separation/SKILL.md",
+      "computedHash": "2e1f8ade7d93c1b805a8f5e2f0a4bed3a2a79464f9fa0a844f4b5d84a135f58c"
+    },
+    "reel-export": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/reel-export/SKILL.md",
+      "computedHash": "e5d04f7690a58bff862c44d4e4b2d3d5b7ba08435c7a7826ecaec5b25ec0544d"
+    },
+    "reference-to-motion": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/reference-to-motion/SKILL.md",
+      "computedHash": "3aa5b22c5a9b6698eb2d4b760977931ea8e98715a975578eb1fc506414da4caf"
+    },
+    "session-story": {
+      "source": "heygen-com/hyperframes-community-skills",
+      "sourceType": "github",
+      "skillPath": "skills/session-story/SKILL.md",
+      "computedHash": "f2d13ab216f116ee68ca23aacc91c88a1f67c6ed6747241774d3cdfa9c72a886"
+    },
+    "sound-effects": {
+      "source": "Barty-Bart/motion-graphics",
+      "sourceType": "github",
+      "skillPath": "skills/sound-effects/SKILL.md",
+      "computedHash": "2aab69bb456940b6522c1b4e335e9110d0316a7975f2f1bac84e0e1227201a05"
+    },
+    "title-sequence-3d": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/title-sequence-3d/SKILL.md",
+      "computedHash": "52e9e1d8bdc9cdc2e1a666a227378c190761eb30111411c103704e130f00a0d2"
+    },
+    "vox-explainer": {
+      "source": "charlie947/motion-graphics-skills",
+      "sourceType": "github",
+      "skillPath": "skills/vox-explainer/SKILL.md",
+      "computedHash": "39a139f3922aa40afdc357c82bb815a62272d148f5f6bd1ff65bfc1b4f18be75"
+    }
+  }
+}

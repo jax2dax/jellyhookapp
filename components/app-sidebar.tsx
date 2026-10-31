@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { Lock, PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { Lock, PanelLeftClose, PanelLeftOpen, ScanEye } from "lucide-react"
 import { SIDEBAR_ITEMS } from "@/components/nav/sidebarItems"
 import { SiteSwitcher } from "@/components/siteSwitcher"
 
@@ -21,7 +21,12 @@ import {
 const TIER: Record<string, number> = { free: 0, pro: 1, elite: 2 }
 
 // The pages, in order, live in components/nav/sidebarItems.ts (shared with the home page demo).
-const NAV_ITEMS = SIDEBAR_ITEMS
+// "Visitors" (anonymous visitors) is only in the real app, not in the demo's copy of the sidebar.
+const NAV_ITEMS = [
+  ...SIDEBAR_ITEMS.slice(0, 2),
+  { title: "Visitors", url: "/platform/visitors", icon: ScanEye, plan: "free" },
+  ...SIDEBAR_ITEMS.slice(2),
+]
 
 // jellyhookMark.png / jellyhookMarkLight.png are chroma-keyed, transparent
 // versions of public/darkMainLogo.png / public/mainLogo.png (those two have

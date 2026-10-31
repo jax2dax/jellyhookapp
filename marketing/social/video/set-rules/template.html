@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Set the rules</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+/*@FONTS@*/
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+#stage{position:absolute;left:0;top:0;width:1080px;height:1920px;overflow:hidden;transform-origin:0 0;font-family:'Space Grotesk',system-ui,sans-serif;color:#eef2ff;font-variant-numeric:tabular-nums}
+#stage *{box-sizing:border-box;white-space:nowrap}
+#stage .abs{position:absolute}
+.b{font-weight:700}
+#ctl{position:fixed;left:0;right:0;bottom:0;display:flex;gap:12px;align-items:center;padding:10px 14px;background:#000a;color:#fff;font:14px system-ui;z-index:9}
+#ctl input{flex:1}
+</style></head><body>
+<div id="stage"></div>
+<script>
+/* ============================================================================================================
+   SET THE RULES. 1080x1920, a pure function of time, locked to set-rules.mp3 by word timings.
+   Palette: deep sea. Navy ground, cyan and violet light, pink for noise and loss, mint for the win. No orange.
+   Every line gets a picture, not a caption:
+   0.2   "50 inbound submissions"  fifty cards rain into a pile, a comb drags through, a search light finds nothing
+   5.14  "you set the exact rules" the pile blows away, the logo lands, three dials are set
+   7.6   "what high intent looks like" the ideal lead draws itself and checks off
+   9.32  "pings you ... a whale"    radar ping, a whale breaches and dives into the inbox
+   12.32 "for example, tell ..."   voice bar, a $4,000 meter, a timer ring on the enterprise page, a submit click: the rule builds itself
+   22.94 "alert hits your phone"   phone rises, buzzes, the alert drops
+   24.44 "skip the 50 tire kickers" the pile comes back and is swiped away, a tyre kicks it out
+   26.3  "dial ... within 90 sec"   the call button, a lock-on, a 90 second ring
+   29.04 "close ... while your competitor" a contract signs while their spam folder loads
+   33.42 "stop digging through noise" a funnel lets only the best buyer through
+   36.98 jellyhook.com, free on early access
+   ============================================================================================================ */
+const W = 1080, H = 1920, DUR = 42.6;
+window.VIDEO = { w: W, h: H, duration: DUR };
+const WORDS = /*@WORDS@*/null;
+const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+const A = (w, after = 0) => { for (const x of WORDS) if (x.s >= after - 0.001 && norm(x.w) === norm(w)) return x.s; throw new Error('word not found: ' + w); };
+const E = (w, after = 0) => { for (const x of WORDS) if (x.s >= after - 0.001 && norm(x.w) === norm(w)) return x.e; throw new Error('word not found: ' + w); };
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = x => (x = clamp(x), x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const outC = x => 1 - Math.pow(1 - clamp(x), 3);
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const win = (t, a, b, fi = .25, fo = .25) => clamp((t - a) / fi) * clamp((b - t) / fo);
+function spring(t, w = 14, z = .62) { if (t <= 0) return 0; if (z >= 1) return 1 - Math.exp(-w * t) * (1 + w * t); const wd = w * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t)); }
+const rng = s => () => (s = (s + 0x6D2B79F5) | 0, s = Math.imul(s ^ (s >>> 15), 1 | s), s ^= s + Math.imul(s ^ (s >>> 7), 61 | s), ((s ^ (s >>> 14)) >>> 0) / 4294967296);
+
+/* ---- anchors from the voice ---- */
+const T = {
+  n50: A('50'), comb: A('comb'), hoping: A('hoping'), bigdeal: A('big'),
+  with_: A('With'), set: A('set'), exact: A('exact'), rules: A('rules'), high: A('high'), intent: A('intent'), looks: A('looks'),
+  pings: A('pings'), whale: A('whale'), inbox: A('inbox'),
+  example: A('For', 12), tell: A('tell'), only: A('only'), immediately: A('immediately'), if_: A('if'), budget: A('budget'), over: A('over'), n4: A('4'), k000: A('000'),
+  and2: A('and', 17.5), spent: A('spent'), least: A('least'), three: A('three'), minutes: A('minutes'), enterprise: A('enterprise'), services: A('services'), page: A('page', 21), before: A('before'), submitting: A('submitting'), submittingEnd: E('submitting'),
+  when: A('When'), alert2: A('alert', 23), hits2: A('hits', 23), phone: A('phone'),
+  skip: A('skip'), n50b: A('50', 24), tire: A('tire'), kickers: A('kickers'),
+  dial: A('dial'), exact2: A('exact', 26), right: A('right'), buyer: A('buyer'), n90: A('90'), seconds: A('seconds'),
+  close: A('close'), contract: A('contract'), competitor: A('competitor'), spam: A('spam'), folder: A('folder'),
+  stop: A('Stop'), digging: A('digging'), low: A('low'), noise: A('noise'), find: A('find', 35), best: A('best'), buyers: A('buyers'),
+  find2: A('Find', 36), jh: A('jellyhook', 36), free: A('free'), early: A('Early'),
+};
+
+/* ---- palette ---- */
+const BG0 = '#050816', BG1 = '#0b1537', WHITE = '#eef2ff', MUTE = '#8b97c9', CYAN = '#22d3ee', VIOLET = '#8b5cf6', PINK = '#f472b6', MINT = '#34d399', SLATE = '#64748b';
+const GLASS = 'background:linear-gradient(160deg,rgba(255,255,255,.11),rgba(255,255,255,.04));border:2px solid rgba(255,255,255,.18);backdrop-filter:none;';
+
+/* ---- dom helpers ---- */
+const stage = document.getElementById('stage');
+function mk(parent, css, html = '', cls = '') { const d = document.createElement('div'); d.className = 'abs ' + cls; d.style.cssText = css; d.innerHTML = html; parent.appendChild(d); return d; }
+function X(el, o = 1, x = 0, y = 0, s = 1, r = 0) { el.style.opacity = o; el.style.display = o > .005 ? 'block' : 'none'; el.style.transform = `translate(${x}px,${y}px) rotate(${r}deg) scale(${s})`; }
+const svg = (w, h, inner, vb) => `<svg width="${w}" height="${h}" viewBox="${vb || `0 0 ${w} ${h}`}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible">${inner}</svg>`;
+
+/* ---- layers ---- */
+const bg = mk(stage, `left:0;top:0;width:${W}px;height:${H}px`);
+const rays = mk(stage, `left:0;top:0;width:${W}px;height:${H}px;opacity:.5;mix-blend-mode:screen`);
+const rr = rng(7);
+const RAYS = Array.from({ length: 6 }, (_, i) => mk(rays, `left:${60 + i * 190}px;top:-200px;width:120px;height:1500px;background:linear-gradient(180deg,rgba(34,211,238,.22),rgba(34,211,238,0));transform-origin:50% 0;filter:blur(8px)`));
+const BUB = Array.from({ length: 36 }, () => ({ x: rr() * W, sp: 40 + rr() * 90, r: 4 + rr() * 14, ph: rr() * 9, el: null }));
+BUB.forEach(b => b.el = mk(stage, `left:0;top:0;width:${b.r * 2}px;height:${b.r * 2}px;border-radius:50%;border:2px solid rgba(160,230,255,.35);background:rgba(160,230,255,.06)`));
+const art = mk(stage, `left:0;top:0;width:${W}px;height:${H}px`);
+const scrim = mk(stage, `left:0;top:1380px;width:${W}px;height:540px;background:linear-gradient(180deg,rgba(5,8,22,0),rgba(5,8,22,.92) 38%)`);
+const flash = mk(stage, `left:0;top:0;width:${W}px;height:${H}px;background:#fff;opacity:0;pointer-events:none`);
+const tag = mk(stage, `left:0;top:1868px;width:${W}px;text-align:center;font-size:22px;color:${MUTE};letter-spacing:.14em;text-transform:uppercase`, 'Example leads, not real people');
+
+/* ============ scene 1: fifty submissions ============ */
+const NAMES = ['Dana K.', 'Marcus R.', 'Priya S.', 'Tom B.', 'Elena V.', 'Chris L.', 'Aisha M.', 'Jordan P.', 'Sofia G.', 'Ben H.', 'Mei W.', 'Luis F.', 'Hannah T.', 'Omar D.', 'Nina C.', 'Paul E.', 'Grace O.', 'Ivan Z.', 'Kara N.', 'Sam Y.'];
+const LOW = ['$80', '$150', '$200', '$300', '$120', '$500', '$60', '$250', '$90', '$400', '$180', '$350'];
+const rc = rng(21);
+const cards = Array.from({ length: 50 }, (_, i) => {
+  const col = i % 5, row = Math.floor(i / 5);
+  const x = 60 + col * 195, y = 150 + row * 124;
+  const el = mk(art, `left:${x}px;top:${y}px;width:180px;height:110px;${GLASS}border-radius:20px`);
+  mk(el, `left:16px;top:16px;width:34px;height:34px;border-radius:50%;background:rgba(139,151,201,.35)`);
+  mk(el, `left:60px;top:18px;font-size:22px;color:${WHITE}`, NAMES[i % 20], 'b');
+  mk(el, `left:16px;top:62px;font-size:26px;color:${MUTE}`, 'Budget ' + LOW[Math.floor(rc() * LOW.length)], 'b');
+  return { el, x, y, i, col, row, t0: 0.18 + i * 0.054, rot: (rc() - .5) * 8, jx: rc() * 6.28 };
+});
+const BIGCARD = 23;
+const comb = mk(art, `left:0;top:110px;width:170px;height:1280px`, svg(170, 1280, `<rect x="60" y="0" width="50" height="1280" rx="25" fill="${VIOLET}"/>` + Array.from({ length: 34 }, (_, k) => `<rect x="${k % 2 ? 108 : 0}" y="${14 + k * 37}" width="62" height="14" rx="7" fill="${k % 2 ? '#a78bfa' : '#c4b5fd'}"/>`).join('')));
+const spot = mk(art, `left:0;top:0;width:${W}px;height:1400px;`);
+const inboxHud = mk(art, `left:60px;top:60px;width:960px;height:70px`);
+const inboxNum = mk(inboxHud, `left:0;top:0;height:70px;border-radius:35px;padding:0 30px;${GLASS}font-size:34px;line-height:66px`, '', 'b');
+
+/* ============ logo + rules panel (scenes 2 and 3) ============ */
+const logoWrap = mk(art, `left:0;top:0;width:${W}px;height:300px`);
+const logoImg = mk(logoWrap, `left:410px;top:20px;width:260px;height:260px;filter:drop-shadow(0 0 40px rgba(34,211,238,.55))`, '<img src="@LOGO@" style="width:260px;height:260px">');
+const logoWord = mk(logoWrap, `left:0;top:230px;width:${W}px;text-align:center;font-size:104px;font-weight:700;letter-spacing:-.02em;text-shadow:0 0 50px rgba(34,211,238,.45)`, 'Jelly<span style="color:' + CYAN + '">Hook</span>');
+const panel = mk(art, `left:90px;top:520px;width:900px;height:640px;${GLASS}border-radius:36px;transform-origin:50% 0`);
+mk(panel, `left:40px;top:28px;font-size:44px`, 'Your rules', 'b');
+mk(panel, `right:40px;top:30px;height:50px;border-radius:25px;padding:0 20px;background:rgba(139,92,246,.3);color:#c4b5fd;font-size:26px;line-height:50px`, 'Whale alert', 'b');
+const RULES = [['Budget', 'dollar'], ['Time on page', 'clock'], ['Page', 'page']];
+const ICON = {
+  dollar: c => svg(54, 54, `<circle cx="27" cy="27" r="24" fill="none" stroke="${c}" stroke-width="4"/><text x="27" y="37" text-anchor="middle" font-size="30" font-weight="700" fill="${c}" font-family="Space Grotesk">$</text>`),
+  clock: c => svg(54, 54, `<circle cx="27" cy="27" r="24" fill="none" stroke="${c}" stroke-width="4"/><path d="M27 12v16l10 6" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round"/>`),
+  page: c => svg(54, 54, `<rect x="8" y="4" width="38" height="46" rx="6" fill="none" stroke="${c}" stroke-width="4"/><path d="M16 18h22M16 28h22M16 38h12" stroke="${c}" stroke-width="4" stroke-linecap="round"/>`),
+  bell: c => svg(54, 54, `<path d="M27 6c-9 0-14 7-14 16v10l-5 7h38l-5-7V22c0-9-5-16-14-16zM21 44a6 6 0 0 0 12 0" fill="none" stroke="${c}" stroke-width="4" stroke-linejoin="round"/>`),
+  send: c => svg(54, 54, `<path d="M6 26 48 8 38 46 26 32zM26 32l22-24" fill="none" stroke="${c}" stroke-width="4" stroke-linejoin="round"/>`),
+};
+const dials = RULES.map(([lab, ic], i) => {
+  const y = 130 + i * 160;
+  const row = mk(panel, `left:30px;top:${y}px;width:840px;height:136px;border-radius:26px;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.1)`);
+  const icon = mk(row, `left:30px;top:41px`, ICON[ic](MUTE));
+  mk(row, `left:106px;top:22px;font-size:40px`, lab, 'b');
+  const track = mk(row, `left:106px;top:90px;width:520px;height:12px;border-radius:6px;background:rgba(255,255,255,.14)`);
+  const fill = mk(track, `left:0;top:0;height:12px;border-radius:6px;background:linear-gradient(90deg,${VIOLET},${CYAN})`);
+  const knob = mk(track, `left:-16px;top:-10px;width:32px;height:32px;border-radius:50%;background:#fff;box-shadow:0 0 18px rgba(34,211,238,.8)`);
+  const tog = mk(row, `right:32px;top:38px;width:104px;height:56px;border-radius:28px;background:rgba(255,255,255,.18)`);
+  const dot = mk(tog, `left:6px;top:6px;width:44px;height:44px;border-radius:50%;background:#fff`);
+  return { row, icon, fill, knob, tog, dot, t: [T.set, T.exact, T.rules][i], to: [.62, .38, .8][i], lab: ic };
+});
+const cross = mk(art, `left:0;top:0;width:200px;height:200px`, svg(200, 200, `<circle cx="100" cy="100" r="70" fill="none" stroke="${CYAN}" stroke-width="5"/><circle cx="100" cy="100" r="12" fill="${CYAN}"/><path d="M100 4v50M100 146v50M4 100h50M146 100h50" stroke="${CYAN}" stroke-width="5" stroke-linecap="round"/>`));
+// the ideal lead (scene 3)
+const ideal = mk(art, `left:90px;top:1190px;width:900px;height:180px;${GLASS}border-radius:34px`);
+const ghost = mk(ideal, `left:34px;top:30px;width:120px;height:120px;border-radius:50%;border:4px dashed rgba(139,151,201,.7)`);
+const ghostFill = mk(ghost, `left:0;top:0;width:112px;height:112px;border-radius:50%;background:linear-gradient(160deg,${CYAN},${VIOLET});opacity:0`);
+mk(ideal, `left:182px;top:26px;font-size:42px`, 'The lead you want', 'b');
+const CHK = ['Budget', 'Time', 'Page'].map((l, i) => mk(ideal, `left:${182 + i * 235}px;top:96px;height:52px;border-radius:26px;padding:0 22px;background:rgba(52,211,153,.18);color:${MINT};font-size:28px;line-height:48px;border:2px solid rgba(52,211,153,.5)`, '✓ ' + l, 'b'));
+
+/* ============ scene 4: the whale ============ */
+const water = mk(art, `left:0;top:900px;width:${W}px;height:700px;background:linear-gradient(180deg,rgba(34,211,238,.22),rgba(11,21,55,0))`);
+const waves = mk(art, `left:0;top:880px;width:${W * 2}px;height:60px`, svg(W * 2, 60, `<path d="${Array.from({ length: 108 }, (_, k) => `${k ? 'L' : 'M'} ${k * 20} ${30 + 9 * Math.sin(k * .5)}`).join(' ')}" fill="none" stroke="rgba(160,230,255,.6)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>`));
+const stream = Array.from({ length: 9 }, (_, i) => mk(art, `left:0;top:1020px;width:130px;height:84px;${GLASS}border-radius:16px;font-size:24px;line-height:80px;text-align:center;color:${MUTE}`, LOW[i % 12], 'b'));
+const WHALE_SVG = svg(560, 280, `<defs><linearGradient id="wg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c8cff"/><stop offset="1" stop-color="${CYAN}"/></linearGradient></defs>
+ <path d="M520 150 C520 70 400 22 270 30 C170 36 100 66 62 116 L8 70 C16 112 14 150 4 188 L62 156 C102 214 180 248 290 248 C420 248 520 214 520 150Z" fill="url(#wg)"/>
+ <path d="M520 150 C500 196 410 226 300 226 C210 226 130 204 96 170 C150 190 240 198 330 188 C420 178 490 168 520 150Z" fill="rgba(255,255,255,.35)"/>
+ <path d="M300 198 C320 240 360 262 400 270 C390 240 372 214 352 196Z" fill="#5b6bff"/>
+ <circle cx="438" cy="118" r="11" fill="#0b1537"/><circle cx="441" cy="115" r="4" fill="#fff"/>
+ <path d="M410 168c24 8 50 6 72-6" fill="none" stroke="#0b1537" stroke-width="5" stroke-linecap="round"/>`);
+const whale = mk(art, `left:-280px;top:-140px;width:560px;height:280px`, `<div style="position:absolute;left:0;top:0;transform:scaleX(-1)">${WHALE_SVG}</div>`);
+const spout = mk(art, `left:0;top:0;width:100px;height:120px`, svg(100, 120, `<path d="M50 120C50 70 30 50 8 36M50 120C50 70 70 50 92 36M50 120V20" fill="none" stroke="rgba(190,240,255,.8)" stroke-width="7" stroke-linecap="round"/>`));
+const rings = Array.from({ length: 5 }, () => mk(art, `left:0;top:0;width:200px;height:60px;border-radius:50%;border:5px solid rgba(190,240,255,.8)`));
+const pingR = Array.from({ length: 3 }, () => mk(art, `left:0;top:0;width:200px;height:200px;border-radius:50%;border:6px solid ${CYAN}`));
+const tray = mk(art, `left:340px;top:1090px;width:400px;height:230px`, svg(400, 230, `<path d="M20 90 90 20H310L380 90V200a12 12 0 0 1-12 12H32a12 12 0 0 1-12-12Z" fill="rgba(255,255,255,.1)" stroke="rgba(255,255,255,.4)" stroke-width="5"/><path d="M20 100H130C136 140 164 156 200 156S264 140 270 100H380" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="5"/>`));
+const trayBadge = mk(art, `left:0;top:0;width:100px;height:100px;border-radius:50%;background:${MINT};color:#04130c;font-size:60px;line-height:100px;text-align:center;box-shadow:0 0 50px rgba(52,211,153,.8)`, '1', 'b');
+const phoneIcon = mk(art, `left:70px;top:1180px;width:110px;height:110px;border-radius:30px;${GLASS}`, svg(110, 110, `<rect x="34" y="22" width="42" height="66" rx="9" fill="none" stroke="${WHITE}" stroke-width="5"/><circle cx="55" cy="76" r="4" fill="${WHITE}"/>`));
+
+/* ============ scene 5: the rule, built from the voice ============ */
+const logo2 = mk(art, `left:390px;top:150px;width:300px;height:300px;filter:drop-shadow(0 0 40px rgba(34,211,238,.55))`, '<img src="@LOGO@" style="width:300px;height:300px">');
+const mic = mk(art, `left:90px;top:170px;width:900px;height:140px;${GLASS}border-radius:70px`);
+const micDot = mk(mic, `left:24px;top:24px;width:92px;height:92px;border-radius:50%;background:linear-gradient(160deg,${VIOLET},${CYAN})`, svg(92, 92, `<rect x="34" y="18" width="24" height="40" rx="12" fill="#fff"/><path d="M24 46a22 22 0 0 0 44 0M46 68v10" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>`));
+const bars = Array.from({ length: 22 }, (_, i) => mk(mic, `left:${150 + i * 13}px;top:70px;width:8px;height:8px;border-radius:4px;background:${CYAN}`));
+const micText = mk(mic, `left:150px;top:40px;font-size:56px`, '', 'b');
+// the budget meter
+const meter = mk(art, `left:90px;top:330px;width:900px;height:430px;${GLASS}border-radius:36px`);
+mk(meter, `left:40px;top:28px;font-size:34px;color:${MUTE}`, 'Budget on the form', 'b');
+const mNum = mk(meter, `left:40px;top:80px;font-size:128px;line-height:1;letter-spacing:-.03em`, '$0', 'b');
+const mTrack = mk(meter, `left:40px;top:290px;width:820px;height:46px;border-radius:23px;background:rgba(255,255,255,.12)`);
+const mFill = mk(mTrack, `left:0;top:0;height:46px;border-radius:23px`);
+const mLine = mk(meter, `left:${40 + 820 * .62}px;top:262px;width:6px;height:112px;border-radius:3px;background:#fff`);
+const mLab = mk(meter, `left:${40 + 820 * .62 - 90}px;top:372px;width:186px;text-align:center;font-size:32px;color:#fff`, '$4,000', 'b');
+// the enterprise page + timer ring
+const brow = mk(art, `left:90px;top:330px;width:900px;height:440px;${GLASS}border-radius:30px;overflow:hidden`);
+mk(brow, `left:0;top:0;width:900px;height:68px;background:rgba(255,255,255,.08)`);
+['#f472b6', '#facc15', '#34d399'].forEach((c, i) => mk(brow, `left:${26 + i * 30}px;top:24px;width:20px;height:20px;border-radius:50%;background:${c}`));
+const url = mk(brow, `left:150px;top:12px;width:560px;height:44px;border-radius:22px;background:rgba(5,8,22,.6);font-size:26px;line-height:44px;padding-left:22px;color:${MUTE}`, 'yoursite.com/enterprise-services', 'b');
+const hero = mk(brow, `left:40px;top:100px;width:500px;font-size:56px;line-height:1.08`, 'Enterprise<br>services', 'b');
+const tiles = [0, 1, 2].map(i => mk(brow, `left:${40 + i * 170}px;top:300px;width:156px;height:110px;border-radius:18px;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.12)`));
+const ring = mk(brow, `left:590px;top:96px;width:280px;height:280px`, svg(280, 280, `<circle cx="140" cy="140" r="118" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="20"/><circle id="ringArc" cx="140" cy="140" r="118" fill="none" stroke="url(#rg)" stroke-width="20" stroke-linecap="round" stroke-dasharray="741.4" stroke-dashoffset="741.4" transform="rotate(-90 140 140)"/><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${CYAN}"/><stop offset="1" stop-color="${MINT}"/></linearGradient></defs>`));
+const ringTxt = mk(brow, `left:590px;top:176px;width:280px;text-align:center;font-size:76px;line-height:1`, '0:00', 'b');
+mk(brow, `left:590px;top:262px;width:280px;text-align:center;font-size:26px;color:${MUTE}`, 'time on page');
+// the submit
+const form = mk(art, `left:90px;top:330px;width:900px;height:440px;${GLASS}border-radius:30px`);
+mk(form, `left:40px;top:34px;font-size:34px;color:${MUTE}`, 'Contact us', 'b');
+['Name', 'Work email', 'Budget'].forEach((l, i) => { mk(form, `left:40px;top:${96 + i * 84}px;width:560px;height:62px;border-radius:16px;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.12);font-size:26px;line-height:58px;padding-left:20px;color:${MUTE}`, l); });
+const submit = mk(form, `left:640px;top:270px;width:220px;height:80px;border-radius:40px;background:linear-gradient(160deg,${VIOLET},${CYAN});font-size:34px;line-height:80px;text-align:center`, 'Submit', 'b');
+const cursor = mk(form, `left:0;top:0;width:44px;height:44px`, svg(44, 44, `<path d="M6 4 38 20 24 24 18 38z" fill="#fff" stroke="#0b1537" stroke-width="3" stroke-linejoin="round"/>`));
+const ripple = mk(form, `left:0;top:0;width:120px;height:120px;border-radius:50%;border:6px solid ${CYAN}`);
+// the rule being built (bottom)
+const rule = mk(art, `left:90px;top:810px;width:900px;height:580px;${GLASS}border-radius:34px`);
+const RR = [['bell', 'Alert me immediately', '', VIOLET], ['dollar', 'Budget', 'over $4,000', CYAN], ['clock', 'Time on page', '3+ minutes', CYAN], ['page', 'Page', 'Enterprise services', CYAN], ['send', 'When', 'before the form is sent', CYAN]];
+const rrows = RR.map(([ic, lab, val, col], i) => {
+  const row = mk(rule, `left:26px;top:${24 + i * 108}px;width:848px;height:94px;border-radius:22px;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.1)`);
+  const icon = mk(row, `left:22px;top:19px;transform:scale(.9)`, ICON[ic](MUTE));
+  mk(row, `left:94px;top:${val ? 12 : 24}px;font-size:${val ? 26 : 40}px;color:${val ? MUTE : WHITE}`, lab, 'b');
+  const v = mk(row, `left:94px;top:44px;font-size:38px;color:${WHITE}`, val, 'b');
+  const ok = mk(row, `right:24px;top:21px;width:52px;height:52px;border-radius:50%;background:${MINT};color:#04130c;font-size:34px;line-height:52px;text-align:center`, '✓', 'b');
+  return { row, icon, v, ok, ic, col };
+});
+
+/* ============ scene 6: the phone ============ */
+const phone = mk(art, `left:300px;top:200px;width:480px;height:960px;border-radius:70px;border:12px solid #12183a;background:linear-gradient(170deg,#1b2570,#0b1537 60%,#050816);box-shadow:0 0 0 3px rgba(255,255,255,.2),0 40px 120px rgba(0,0,0,.6);overflow:hidden;transform-origin:50% 50%`);
+mk(phone, `left:150px;top:18px;width:150px;height:36px;border-radius:18px;background:#050816`);
+const lockTime = mk(phone, `left:0;top:110px;width:456px;text-align:center;font-size:150px;font-weight:500;letter-spacing:-.04em;line-height:1`, '9:02');
+mk(phone, `left:0;top:270px;width:456px;text-align:center;font-size:30px;color:${MUTE}`, 'Thursday', 'b');
+const notif = mk(phone, `left:24px;top:360px;width:408px;height:250px;border-radius:34px;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.28)`);
+mk(notif, `left:22px;top:22px;width:62px;height:62px;border-radius:16px;background:#0b1537;overflow:hidden`, '<img src="@LOGO@" style="position:absolute;left:-4px;top:-6px;width:72px;height:72px">');
+mk(notif, `left:100px;top:22px;font-size:26px;color:${MUTE}`, 'Jellyhook  ·  now', 'b');
+mk(notif, `left:100px;top:54px;font-size:40px`, 'Whale alert', 'b');
+mk(notif, `left:22px;top:122px;height:50px;border-radius:25px;padding:0 20px;background:rgba(52,211,153,.2);color:${MINT};font-size:28px;line-height:48px`, 'Budget $12,000', 'b');
+mk(notif, `left:22px;top:182px;height:50px;border-radius:25px;padding:0 20px;background:rgba(34,211,238,.2);color:${CYAN};font-size:28px;line-height:48px`, '3 min on Enterprise', 'b');
+const buzzR = Array.from({ length: 3 }, () => mk(art, `left:0;top:0;width:560px;height:1040px;border-radius:90px;border:5px solid ${CYAN}`));
+
+/* ============ scene 8: the call (re-uses the phone) ============ */
+const callScr = mk(phone, `left:0;top:0;width:456px;height:936px;background:linear-gradient(170deg,#1b2570,#0b1537 60%,#050816)`);
+const cAv = mk(callScr, `left:158px;top:150px;width:140px;height:140px;border-radius:50%;background:linear-gradient(160deg,${VIOLET},${CYAN});font-size:56px;line-height:140px;text-align:center`, 'DO', 'b');
+mk(callScr, `left:0;top:316px;width:456px;text-align:center;font-size:44px`, 'Daniel Okafor', 'b');
+const cSub = mk(callScr, `left:0;top:376px;width:456px;text-align:center;font-size:28px;color:${MUTE}`, 'Enterprise services · $12,000', 'b');
+const cState = mk(callScr, `left:0;top:430px;width:456px;text-align:center;font-size:32px;color:${CYAN}`, '', 'b');
+const wave = Array.from({ length: 17 }, (_, i) => mk(callScr, `left:${60 + i * 21}px;top:560px;width:12px;height:12px;border-radius:6px;background:${MINT}`));
+const callBtn = mk(callScr, `left:168px;top:690px;width:120px;height:120px;border-radius:50%;background:${MINT}`, svg(120, 120, `<path d="M38 34c4-6 10-4 14 2l5 9c2 4 0 7-4 10-3 2-3 5 1 11 5 8 11 13 18 16 4 2 7 0 9-3 3-4 6-5 10-3l9 5c6 4 7 10 2 15-10 10-28 6-46-10C40 70 28 50 38 34z" fill="#04130c" transform="scale(.78) translate(16 14)"/>`));
+const callRip = mk(callScr, `left:168px;top:690px;width:120px;height:120px;border-radius:50%;border:6px solid ${MINT}`);
+const lock = mk(art, `left:0;top:0;width:200px;height:200px`, svg(200, 200, `<circle cx="100" cy="100" r="70" fill="none" stroke="${PINK}" stroke-width="6"/><circle cx="100" cy="100" r="12" fill="${PINK}"/><path d="M100 4v50M100 146v50M4 100h50M146 100h50" stroke="${PINK}" stroke-width="6" stroke-linecap="round"/>`));
+const clk = mk(art, `left:340px;top:150px;width:400px;height:400px`, svg(400, 400, `<circle cx="200" cy="200" r="170" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.14)" stroke-width="26"/><circle id="clkArc" cx="200" cy="200" r="170" fill="none" stroke="url(#cg)" stroke-width="26" stroke-linecap="round" stroke-dasharray="1068" stroke-dashoffset="0" transform="rotate(-90 200 200)"/><defs><linearGradient id="cg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${VIOLET}"/><stop offset="1" stop-color="${CYAN}"/></linearGradient></defs>`));
+const clkTxt = mk(art, `left:340px;top:292px;width:400px;text-align:center;font-size:120px;line-height:1`, '90', 'b');
+const clkSub = mk(art, `left:340px;top:420px;width:400px;text-align:center;font-size:34px;color:${MUTE};letter-spacing:.14em`, 'SECONDS', 'b');
+
+/* ============ scene 7: tyre ============ */
+const tyre = mk(art, `left:-400px;top:900px;width:360px;height:360px`, svg(360, 360, `<circle cx="180" cy="180" r="170" fill="#0a0f26" stroke="#e5e9ff" stroke-width="8"/>` + Array.from({ length: 16 }, (_, k) => `<rect x="172" y="8" width="16" height="30" rx="6" fill="#64748b" transform="rotate(${k * 22.5} 180 180)"/>`).join('') + `<circle cx="180" cy="180" r="92" fill="none" stroke="#64748b" stroke-width="8"/><circle cx="180" cy="180" r="30" fill="#8b97c9"/>` + Array.from({ length: 5 }, (_, k) => `<rect x="174" y="92" width="12" height="62" rx="6" fill="#8b97c9" transform="rotate(${k * 72} 180 180)"/>`).join('')));
+const skipLab = mk(art, `left:0;top:0;height:92px;border-radius:46px;padding:0 44px;background:${PINK};color:#2a0618;font-size:56px;line-height:92px;transform-origin:50% 50%`, 'SKIPPED', 'b');
+
+/* ============ scene 9: contract vs spam ============ */
+const topP = mk(art, `left:60px;top:140px;width:960px;height:600px;${GLASS}border-radius:36px;overflow:hidden`);
+mk(topP, `left:34px;top:26px;height:50px;border-radius:25px;padding:0 24px;background:rgba(52,211,153,.2);color:${MINT};font-size:28px;line-height:48px`, 'YOU', 'b');
+const paper = mk(topP, `left:170px;top:100px;width:620px;height:470px;border-radius:14px;background:#f4f6ff;box-shadow:0 20px 60px rgba(0,0,0,.4)`);
+mk(paper, `left:44px;top:34px;font-size:40px;color:#0b1537`, 'Service contract', 'b');
+[0, 1, 2, 3, 4].forEach(i => mk(paper, `left:44px;top:${110 + i * 40}px;width:${i === 4 ? 300 : 530}px;height:12px;border-radius:6px;background:#c9d0f0`));
+mk(paper, `left:44px;top:380px;width:260px;height:3px;background:#0b1537`);
+const sig = mk(paper, `left:44px;top:322px;width:300px;height:80px`, svg(300, 80, `<path id="sigPath" d="M6 56 C26 10, 44 6, 54 46 S80 70, 92 30 C98 8, 110 12, 114 40 S140 60, 168 24 C178 12, 188 30, 196 44 S226 56, 292 30" fill="none" stroke="#2f3fe0" stroke-width="6" stroke-linecap="round" stroke-dasharray="520" stroke-dashoffset="520"/>`));
+const stamp = mk(paper, `left:330px;top:300px;width:240px;height:96px;border:7px solid ${MINT};color:${MINT};border-radius:14px;font-size:62px;line-height:80px;text-align:center;letter-spacing:.05em;background:rgba(255,255,255,.6)`, 'SIGNED', 'b');
+const botP = mk(art, `left:60px;top:770px;width:960px;height:610px;${GLASS}border-radius:36px;overflow:hidden`);
+mk(botP, `left:34px;top:26px;height:50px;border-radius:25px;padding:0 24px;background:rgba(100,116,139,.3);color:#cbd5e1;font-size:28px;line-height:48px`, 'YOUR COMPETITOR', 'b');
+const mail = mk(botP, `left:60px;top:100px;width:840px;height:470px;border-radius:16px;background:#1a2040;overflow:hidden`);
+mk(mail, `left:0;top:0;width:840px;height:46px;background:#232b5a`);
+const side = ['Inbox', 'Sent', 'Drafts', 'Spam (47)'].map((l, i) => mk(mail, `left:14px;top:${64 + i * 62}px;width:190px;height:52px;border-radius:12px;font-size:26px;line-height:52px;padding-left:16px;color:${MUTE}`, l, 'b'));
+const junk = ['You won a free cruise!', 'Cheap watches, 90% off', 'Verify your account now', 'Hot singles near you', 'Your parcel is waiting', 'Claim your reward'].map((l, i) => mk(mail, `left:224px;top:${64 + i * 62}px;width:590px;height:52px;border-radius:12px;background:rgba(255,255,255,.06);font-size:26px;line-height:52px;padding-left:18px;color:#a9b3df`, l));
+const spin = mk(mail, `left:710px;top:2px;width:42px;height:42px;border-radius:50%;border:5px solid rgba(255,255,255,.25);border-top-color:#fff`);
+const mcursor = mk(mail, `left:0;top:0;width:40px;height:40px`, svg(40, 40, `<path d="M5 3 35 18 22 22 16 35z" fill="#fff" stroke="#0b1537" stroke-width="3" stroke-linejoin="round"/>`));
+const zz = ['Z', 'z', 'z'].map((z, i) => mk(botP, `left:${760 + i * 40}px;top:${120 - i * 36}px;font-size:${60 - i * 12}px;color:#94a3b8`, z, 'b'));
+
+/* ============ scene 10: the funnel ============ */
+const funnel = mk(art, `left:190px;top:330px;width:700px;height:640px`, svg(700, 640, `<defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(139,92,246,.45)"/><stop offset="1" stop-color="rgba(34,211,238,.5)"/></linearGradient></defs><path d="M10 20H690L420 400V620H280V400Z" fill="url(#fg)" stroke="rgba(255,255,255,.5)" stroke-width="6" stroke-linejoin="round"/>`));
+const noiseCards = Array.from({ length: 16 }, (_, i) => ({ el: mk(art, `left:0;top:0;width:150px;height:84px;${GLASS}border-radius:16px;font-size:30px;line-height:80px;text-align:center;color:${MUTE}`, LOW[i % 12], 'b'), i, side: i % 2 ? 1 : -1, t0: 0 }));
+const bigCard = mk(art, `left:0;top:0;width:210px;height:112px;border-radius:20px;background:linear-gradient(160deg,${MINT},#10b981);color:#04130c;font-size:44px;line-height:108px;text-align:center;box-shadow:0 0 70px rgba(52,211,153,.7)`, '$12,000', 'b');
+const trayB = mk(art, `left:250px;top:1080px;width:580px;height:290px;border-radius:34px;background:rgba(52,211,153,.12);border:3px solid rgba(52,211,153,.6)`);
+mk(trayB, `left:0;top:210px;width:580px;text-align:center;font-size:44px;color:${MINT}`, 'Best buyers', 'b');
+const stopSign = mk(art, `left:310px;top:480px;width:460px;height:460px`, svg(460, 460, `<path d="M135 8h190l127 127v190L325 452H135L8 325V135Z" fill="${PINK}" stroke="#fff" stroke-width="14" stroke-linejoin="round"/><text x="230" y="270" text-anchor="middle" font-size="130" font-weight="700" fill="#fff" font-family="Space Grotesk">STOP</text>`));
+const dust = Array.from({ length: 24 }, (_, i) => ({ el: mk(art, `left:0;top:0;width:10px;height:10px;border-radius:50%;background:rgba(139,151,201,.55)`), i }));
+
+/* ============ scene 11: the close ============ */
+const endL = mk(art, `left:0;top:0;width:${W}px;height:${H}px`);
+const endGlow = mk(endL, `left:140px;top:300px;width:800px;height:800px;border-radius:50%;background:radial-gradient(circle,rgba(34,211,238,.4),rgba(139,92,246,.16) 45%,rgba(0,0,0,0) 70%)`);
+const endLogo = mk(endL, `left:380px;top:380px;width:320px;height:320px;filter:drop-shadow(0 0 50px rgba(34,211,238,.6))`, '<img src="@LOGO@" style="width:320px;height:320px">');
+const endWord = mk(endL, `left:0;top:700px;width:${W}px;text-align:center;font-size:130px;font-weight:700;letter-spacing:-.02em`, 'Jelly<span style="color:' + CYAN + '">Hook</span>');
+const endUrl = mk(endL, `left:190px;top:900px;width:700px;height:140px;border-radius:70px;background:linear-gradient(160deg,${VIOLET},${CYAN});font-size:74px;line-height:140px;text-align:center;box-shadow:0 0 70px rgba(34,211,238,.45)`, 'jellyhook.com', 'b');
+const endFree = mk(endL, `left:190px;top:1090px;width:700px;height:104px;border-radius:52px;border:3px solid ${MINT};color:${MINT};font-size:44px;line-height:98px;text-align:center`, 'Free during early access', 'b');
+
+/* ---- captions: 1 to 3 words, the spoken word pops on a pill ---- */
+const isNum = w => /^\$?\d+[,.]?\d*$/.test(w);
+const CHUNKS = [];
+WORDS.forEach((w, i) => {
+  const prev = WORDS[i - 1], cur = CHUNKS[CHUNKS.length - 1], num = isNum(w.w);
+  if (!cur || cur.ids.length >= 3 || /[,.!?]$/.test(prev.w) || w.s - prev.e > .3 || num || cur.num) CHUNKS.push({ ids: [], num });
+  CHUNKS[CHUNKS.length - 1].ids.push(i);
+});
+const capWrap = mk(stage, `left:30px;top:1500px;width:1020px;height:300px`);
+CHUNKS.forEach(c => {
+  c.el = mk(capWrap, `left:0;top:0;width:1020px;text-align:center;white-space:normal;transform-origin:50% 40%;display:none`);
+  c.spans = c.ids.map(i => { const sp = document.createElement('span'); sp.textContent = WORDS[i].w.replace(/[,.]$/, '').replace(/^JellyHook$/i, 'JellyHook'); sp.style.cssText = `display:inline-block;white-space:nowrap;margin:4px 6px;padding:2px 20px 8px;border-radius:22px;font-size:${c.num ? 160 : 92}px;line-height:1.1;font-weight:700;letter-spacing:-.01em;transform-origin:50% 60%;text-shadow:0 4px 24px rgba(0,0,0,.6)`; c.el.appendChild(sp); return sp; });
+  c.a = WORDS[c.ids[0]].s; c.b = WORDS[c.ids[c.ids.length - 1]].e;
+});
+// the pill colour follows the scene
+const accAt = t => t < T.with_ ? PINK : t < T.pings ? VIOLET : t < T.example ? CYAN : t < T.when ? VIOLET : t < T.skip ? CYAN : t < T.dial ? PINK : t < T.close ? CYAN : t < T.stop ? MINT : t < T.stop ? PINK : t < T.find2 ? PINK : CYAN;
+
+/* ---- sound cues, declared by the film ---- */
+const CUES = [];
+const cue = (t, type, desc, gain = 0, dur = 0) => CUES.push({ t: +t.toFixed(3), type, desc, gain, dur });
+for (let i = 0; i < 50; i += 3) cue(cards[i].t0 + .08, 'tick', 'card lands ' + i, -11);
+cue(T.n50 - 0.05, 'riser', 'the pile builds', -6);
+cue(T.n50, 'impact', '50', -3);
+cue(T.comb - .08, 'whoosh', 'comb', -2);
+for (let i = 0; i < 6; i++) cue(lerp(T.hoping, T.bigdeal + .5, i / 5), 'tick', 'searching', -10);
+cue(T.with_ - .2, 'whoosh', 'the pile blows away', -2);
+cue(T.with_ + .2, 'impact', 'logo lands', -5);
+cue(T.with_ + .22, 'pop', 'logo');
+[T.set, T.exact, T.rules].forEach((t, i) => cue(t, 'click', 'dial ' + i));
+cue(T.high, 'pop', 'ideal lead 1'); cue(T.intent, 'pop', 'ideal lead 2'); cue(T.looks, 'pop', 'ideal lead 3'); cue(T.looks + .35, 'ding', 'ideal lead done', -3);
+cue(T.pings, 'ding', 'ping');
+cue(T.whale - .45, 'splash', 'whale breaches', -2);
+cue(T.whale - .2, 'whoosh', 'whale arc', -4);
+cue(T.inbox - .06, 'splash', 'whale lands', -3);
+cue(T.inbox, 'impact', 'inbox hit', -5);
+cue(T.inbox + .12, 'pop', 'badge');
+cue(T.example - .1, 'click', 'mic on');
+for (let i = 0; i < 10; i++) cue(lerp(T.only, E('immediately'), i / 9), 'tick', 'typing', -10);
+cue(T.n4 - .35, 'riser', 'the meter climbs', -8);
+cue(T.n4, 'pop', 'over $4,000', 0);
+cue(T.and2 - .05, 'whoosh', 'chip to the rule', -7);
+cue(T.and2 + .2, 'click', 'rule row 1');
+for (let i = 0; i < 9; i++) cue(lerp(T.three - .5, T.minutes, i / 8), 'tick', 'timer', -9);
+cue(T.minutes, 'pop', '3 minutes');
+cue(T.minutes + .05, 'whoosh', 'chip to the rule', -7);
+cue(T.page + .05, 'click', 'rule row 3');
+cue(T.submitting - .02, 'click', 'submit');
+cue(T.submitting + .1, 'whoosh', 'sent', -6);
+cue(T.submittingEnd, 'ding', 'rule complete', -2);
+cue(T.when - .02, 'whoosh', 'phone rises', -3);
+cue(T.hits2, 'buzz', 'phone buzz', -3);
+cue(T.hits2 + .02, 'ding', 'alert', -2);
+cue(T.skip - .05, 'whoosh', 'swipe', -3);
+for (let i = 0; i < 8; i++) cue(lerp(T.skip, T.tire + .6, i / 7), 'tick', 'cards fly', -11);
+cue(T.tire, 'whoosh', 'tyre kicks', -4);
+cue(T.kickers + .35, 'impact', 'none left', -6);
+cue(T.dial - .05, 'click', 'call');
+cue(T.dial + .05, 'ring', 'ringing', -4, T.buyer - T.dial - .05);
+cue(T.exact2 - .02, 'pop', 'lock', -2);
+cue(T.buyer, 'click', 'answered');
+cue(T.n90, 'impact', '90 seconds', -7);
+cue(T.seconds, 'ding', 'connected', -3);
+cue(T.close - .1, 'whoosh', 'paper', -5);
+for (let i = 0; i < 8; i++) cue(lerp(T.close + .05, E('contract') - .1, i / 7), 'tick', 'pen', -10);
+cue(E('contract') - .05, 'impact', 'signed', -4);
+cue(T.competitor - .1, 'whoosh', 'their panel', -5);
+for (let i = 0; i < 5; i++) cue(lerp(T.competitor + .6, T.spam, i / 4), 'tick', 'loading', -12);
+cue(T.spam, 'click', 'spam');
+cue(T.folder, 'pop', 'folder', -6);
+cue(T.stop - .02, 'impact', 'stop', -2);
+for (let i = 0; i < 12; i++) cue(lerp(T.digging, T.best - .3, i / 11), 'tick', 'noise falls', -13);
+cue(T.best - .28, 'riser', 'the best one', -8);
+cue(T.buyers, 'ding', 'best buyer', -2);
+cue(T.buyers + .02, 'pop', 'tray');
+cue(T.find2 - .1, 'whoosh', 'end', -3);
+cue(T.find2 + .1, 'impact', 'end', -5);
+cue(T.jh, 'click', 'jellyhook.com');
+cue(T.free, 'pop', 'free');
+window.CUES = CUES; window.T = T;
+
+/* ---- the frame ---- */
+function seek(t) {
+  /* ground: always the same deep sea; the light gets richer once the rules are set */
+  const rich = seg(t, T.with_ - .1, T.with_ + .6);
+  const dark = t < T.with_ ? 1 : 0;
+  bg.style.background = `radial-gradient(120% 70% at 50% 0%,rgba(${Math.round(lerp(30, 40, rich))},${Math.round(lerp(40, 70, rich))},${Math.round(lerp(90, 160, rich))},1) 0%,${BG1} 45%,${BG0} 100%)`;
+  RAYS.forEach((r, i) => { r.style.opacity = lerp(.25, 1, rich); r.style.transform = `rotate(${Math.sin(t * .4 + i) * 6 - 6 + i * 2}deg)`; });
+  BUB.forEach(b => { const y = ((H + 40) - ((t * b.sp + b.ph * 200) % (H + 80))); b.el.style.transform = `translate(${b.x + Math.sin(t * 1.3 + b.ph) * 20}px,${y}px)`; b.el.style.opacity = .35 + .4 * rich; });
+  flash.style.opacity = 0;
+  const A_ = accAt(t);
+
+  /* scene 1 ---------------------------------------------------------------- */
+  const s1 = win(t, 0, T.with_ + .5, .1, .1);
+  const combX = lerp(-220, 1160, ease(seg(t, T.comb - .1, T.comb + 1.05)));
+  cards.forEach(c => {
+    // scene 1 pile, the scene 7 return, then the flight out
+    const drop = spring(t - c.t0, 15, .55);
+    let o = clamp(drop * 2), x = 0, y = (1 - clamp(drop, 0, 1)) * -900, s = 1, r = c.rot * (1 - clamp(drop, 0, 1)) * 3;
+    const cx = c.x + 90;
+    if (t >= T.comb - .1 && t < T.comb + 1.3) { const d = Math.abs(cx - combX); if (d < 150) { const k = 1 - d / 150; y += Math.sin(c.jx + t * 40) * 18 * k; x += Math.sign(cx - combX) * 16 * k; r += Math.sin(c.jx + t * 30) * 7 * k; } }
+    if (t >= T.hoping) { o *= lerp(1, .32, seg(t, T.hoping, T.hoping + .5)); }
+    if (c.i === BIGCARD) { const g = seg(t, T.hoping + .6, T.bigdeal + .1); o = Math.max(o, 0) ; }
+    if (t > T.with_ - .35) { const k = ease(seg(t, T.with_ - .3 + c.i * .006, T.with_ + .45)); x += (c.col - 2) * 520 * k; y += -1400 * k; r += (c.col - 2) * 30 * k; o *= 1 - k; }
+    // scene 7: back as a pile, then swiped to the right
+    if (t >= T.when + .5) {
+      const back = ease(seg(t, T.skip - .5, T.skip - .15));
+      const fly = ease(seg(t, T.skip + c.row * .045 + c.col * .02, T.skip + .8 + c.row * .045 + c.col * .02));
+      o = back * (1 - clamp(fly * 1.2)) * (t < T.dial - .3 ? 1 : 0); x = fly * 1500; y = 0; r = 0; s = 1;
+    }
+    X(c.el, o * (t < T.with_ + .6 || t >= T.when + .5 ? 1 : 0), x, y, s, r);
+  });
+  X(comb, t >= T.comb - .1 && t < T.comb + 1.3 ? 1 : 0, combX - 85, 0, 1, 0);
+  // the search light that finds nothing
+  const sp = seg(t, T.hoping - .1, T.hoping + .3) * (1 - seg(t, T.with_ - .5, T.with_ - .15));
+  const lx = 540 + Math.sin(t * 2.4) * 380, ly = 760 + Math.sin(t * 1.7 + 1) * 480;
+  spot.style.background = `radial-gradient(circle 250px at ${lx}px ${ly}px,rgba(255,255,255,0),rgba(5,8,22,.78) 100%)`;
+  X(spot, sp * (t < T.with_ ? 1 : 0), 0, 0, 1, 0);
+  // the inbox counter
+  const n = Math.min(50, Math.floor(seg(t, .15, T.n50) * 50 + .5));
+  inboxNum.innerHTML = `<span style="color:${PINK}">${n}</span> new submissions`;
+  X(inboxHud, clamp((t - .05) / .2) * (t < T.with_ - .3 ? 1 : 0), 0, 0, 1, 0);
+
+  /* scenes 2 and 3 ---------------------------------------------------------- */
+  const lg = spring(t - T.with_, 13, .6), lgOut = ease(seg(t, T.set - .25, T.set + .25));
+  X(logoWrap, clamp(lg * 2) * (t < T.pings - .4 ? 1 : 0), 0, lerp(-80, 0, clamp(lg, 0, 1.05)) + (1 - lgOut) * 470 - lgOut * 90, lerp(.9, 1, clamp(lg, 0, 1.05)) * lerp(1.12, .55, lgOut), 0);
+  logoWrap.style.transformOrigin = '50% 0';
+  const pIn = spring(t - (T.set - .55), 12, .72), pOut = ease(seg(t, T.pings - .2, T.pings + .4));
+  X(panel, clamp(pIn * 2) * (1 - pOut), 0, (1 - clamp(pIn, 0, 1)) * 400 + pOut * 700, lerp(.92, 1, clamp(pIn, 0, 1.04)), 0);
+  dials.forEach(d => {
+    const k = ease(seg(t, d.t - .05, d.t + .5));
+    d.fill.style.width = (520 * d.to * k) + 'px'; d.knob.style.left = (520 * d.to * k - 16) + 'px';
+    d.tog.style.background = k > .5 ? MINT : 'rgba(255,255,255,.18)'; d.dot.style.left = lerp(6, 54, ease(seg(t, d.t, d.t + .2))) + 'px'; d.dot.style.background = '#fff';
+    d.icon.innerHTML = ICON[d.lab](k > .5 ? CYAN : MUTE);
+    d.row.style.borderColor = k > .5 ? 'rgba(34,211,238,.55)' : 'rgba(255,255,255,.1)';
+  });
+  const cx2 = spring(t - T.exact, 18, .6);
+  X(cross, (t >= T.exact - .05 && t < T.exact + .8 ? 1 : 0) * (1 - seg(t, T.exact + .45, T.exact + .8)), 330, 790, lerp(2.4, .9, clamp(cx2, 0, 1.1)), 0);
+  const idl = spring(t - (T.high - .25), 14, .75), idlOut = ease(seg(t, T.pings - .2, T.pings + .3));
+  X(ideal, clamp(idl * 2) * (1 - idlOut), 0, (1 - clamp(idl, 0, 1)) * 300 + idlOut * 500, 1, 0);
+  CHK.forEach((c, i) => { const k = spring(t - [T.high, T.intent, T.looks][i], 18, .6); c.style.opacity = clamp(k * 2); c.style.transform = `scale(${lerp(.6, 1, clamp(k, 0, 1.15))})`; });
+  ghostFill.style.opacity = ease(seg(t, T.looks - .2, T.looks + .35)); ghost.style.borderStyle = t > T.looks + .1 ? 'solid' : 'dashed'; ghost.style.borderColor = t > T.looks + .1 ? CYAN : 'rgba(139,151,201,.7)';
+
+  /* scene 4: the whale -------------------------------------------------------- */
+  const w4 = win(t, T.pings - .35, T.example - .2, .35, .45);
+  X(water, w4, 0, 0, 1, 0); X(waves, w4, -((t * 126) % (Math.PI * 2 / .5 * 20)), 0, 1, 0);
+  stream.forEach((c, i) => X(c.constructor === Object ? c : c, w4 * .9, ((t * 220 + i * 150) % 1300) - 150, Math.sin(t * 3 + i) * 8, 1, 0));
+  X(phoneIcon, w4, 0, 0, 1 + .06 * Math.max(0, Math.sin((t - T.pings) * 10)) * (t < T.pings + .6 ? 1 : 0), 0);
+  pingR.forEach((p, i) => { const k = seg(t, T.pings + i * .22, T.pings + .9 + i * .22); p.style.left = (125 - 100) + 'px'; p.style.top = (1235 - 100) + 'px'; X(p, (k > 0 && k < 1 ? 1 - k : 0) * .8, 0, 0, lerp(.4, 6, k), 0); });
+  X(tray, w4, 0, (t >= T.inbox - .06 ? Math.sin((t - T.inbox) * 22) * 10 * (1 - seg(t, T.inbox, T.inbox + .5)) : 0), 1, 0);
+  const wu = seg(t, T.whale - .55, T.inbox + .02);
+  const wx = lerp(-300, 560, wu), wy = 1130 - 840 * Math.sin(Math.PI * Math.pow(wu, .92));
+  const wx2 = lerp(-300, 560, Math.min(1, wu + .01)), wy2 = 1130 - 840 * Math.sin(Math.PI * Math.pow(Math.min(1, wu + .01), .92));
+  const ang = Math.atan2(wy2 - wy, wx2 - wx) * 180 / Math.PI;
+  const whaleOn = t >= T.whale - .55 && t < T.inbox + .15 ? 1 : 0;
+  X(whale, whaleOn * w4, wx, wy, lerp(1, .62, ease(seg(t, T.whale + .2, T.inbox))), ang * .8);
+  X(spout, whaleOn * w4 * seg(t, T.whale - .2, T.whale) * (1 - seg(t, T.whale + .3, T.whale + .6)), wx + 150, wy - 150, 1, 0);
+  rings.forEach((r, i) => { const t0 = i < 2 ? T.whale - .5 + i * .15 : T.inbox - .06 + (i - 2) * .15; const px = i < 2 ? 80 : 540, py = i < 2 ? 1130 : 1160; const k = seg(t, t0, t0 + .8); r.style.left = (px - 100) + 'px'; r.style.top = (py - 30) + 'px'; X(r, (k > 0 && k < 1 ? 1 - k : 0) * w4, 0, 0, lerp(.3, 3.6, k), 0); });
+  const bd = spring(t - (T.inbox + .1), 16, .55);
+  X(trayBadge, clamp(bd * 2) * w4, 640, 1050, lerp(.3, 1, clamp(bd, 0, 1.2)), 0);
+
+  /* scene 5: the rule builds itself ------------------------------------------- */
+  const ex = win(t, T.example - .1, T.when - .15, .3, .3);
+  // the voice bar
+  const micOn = win(t, T.example - .1, T.and2 + .3, .3, .4);
+  const mk_ = ease(seg(t, T.if_ + .3, T.if_ + 1.1));
+  X(mic, micOn, 0, (1 - mk_) * 480, lerp(1.14, 1, mk_), 0);
+  { const lo = win(t, T.example - .15, T.if_ + .15, .3, .3); X(logo2, lo, 0, lerp(0, -60, mk_), lerp(1, .7, mk_), 0); }
+  bars.forEach((b, i) => { const amp = (Math.sin(t * 13 + i * 1.1) * .5 + .5) * (Math.sin(t * 5 + i * .3) * .5 + .5); const h = 10 + amp * 64 * (t < T.only ? 1 : .0); b.style.height = h + 'px'; b.style.top = (70 - h / 2) + 'px'; b.style.opacity = t < T.only ? 1 : 0; });
+  const typed = 'Alert me immediately'; const tn = Math.floor(typed.length * seg(t, T.only, E('immediately') - .1));
+  micText.textContent = typed.slice(0, tn);
+  // the meter
+  const met = win(t, T.if_ + .85, T.and2 + .3, .3, .35);
+  const mv = ease(seg(t, T.budget, T.n4 + .2));
+  const budget = Math.round(mv * 5400 / 100) * 100;
+  mNum.textContent = '$' + budget.toLocaleString('en-US');
+  mNum.style.color = budget >= 4000 ? MINT : WHITE;
+  mFill.style.width = (820 * clamp(budget / 6500)) + 'px'; mFill.style.background = budget >= 4000 ? `linear-gradient(90deg,${CYAN},${MINT})` : `linear-gradient(90deg,${VIOLET},${CYAN})`;
+  mLine.style.opacity = seg(t, T.over - .1, T.over + .2); mLab.style.opacity = seg(t, T.over - .1, T.over + .2);
+  X(meter, met, 0, (1 - met) * 60 - ease(seg(t, T.and2, T.and2 + .35)) * 20, 1, 0);
+  // the enterprise page
+  const pg = win(t, T.spent - .2, T.before - .15, .3, .3);
+  X(brow, pg, 0, (1 - pg) * 60, 1, 0);
+  const tm = ease(seg(t, T.three - .35, T.minutes + .1));
+  document.getElementById('ringArc').setAttribute('stroke-dashoffset', 741.4 * (1 - tm));
+  ringTxt.textContent = '0:' + String(Math.round(tm * 180 / 60) * 0).padStart(2, '0');
+  { const secs = Math.round(tm * 180); ringTxt.textContent = Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0'); }
+  hero.style.color = t >= T.enterprise ? CYAN : WHITE;
+  tiles.forEach((tl, i) => { tl.style.background = t >= T.services + i * .08 ? 'rgba(34,211,238,.22)' : 'rgba(255,255,255,.08)'; tl.style.borderColor = t >= T.services + i * .08 ? CYAN : 'rgba(255,255,255,.12)'; });
+  url.style.color = t >= T.page ? WHITE : MUTE; url.style.background = t >= T.page ? 'rgba(34,211,238,.25)' : 'rgba(5,8,22,.6)';
+  // the submit
+  const fm = win(t, T.before - .15, T.when - .1, .3, .3);
+  X(form, fm, 0, (1 - fm) * 60, 1, 0);
+  const cu = ease(seg(t, T.before, T.submitting - .1));
+  X(cursor, fm, lerp(300, 740, cu), lerp(420, 296, cu), 1, 0);
+  const rp = seg(t, T.submitting - .02, T.submitting + .6);
+  ripple.style.left = '700px'; ripple.style.top = '250px'; X(ripple, (rp > 0 && rp < 1 ? 1 - rp : 0) * fm, 0, 0, lerp(.3, 2.4, rp), 0);
+  submit.style.transform = `scale(${t >= T.submitting - .02 && t < T.submitting + .2 ? .92 : 1})`;
+  // the rule at the bottom
+  const rl = win(t, T.only - .2, T.when - .05, .4, .35);
+  X(rule, rl, 0, (1 - rl) * 120, 1, 0);
+  const rowT = [T.only, T.and2 - .1, T.minutes, T.page, T.submitting];
+  rrows.forEach((r, i) => {
+    const k = spring(t - rowT[i], 15, .7), ok = t >= rowT[i] + .1;
+    r.row.style.opacity = clamp(k * 2); r.row.style.transform = `translateX(${(1 - clamp(k, 0, 1)) * 80}px)`;
+    r.row.style.borderColor = ok ? (i === 0 ? 'rgba(139,92,246,.7)' : 'rgba(34,211,238,.55)') : 'rgba(255,255,255,.1)';
+    r.icon.innerHTML = ICON[r.ic](ok ? r.col : MUTE);
+    r.ok.style.opacity = i === 0 ? 0 : (ok ? 1 : 0);
+    r.row.style.background = i === 0 && ok ? 'rgba(139,92,246,.22)' : 'rgba(255,255,255,.06)';
+  });
+  rrows[0].icon.style.transform = `scale(.9) rotate(${t >= T.submittingEnd ? Math.sin((t - T.submittingEnd) * 40) * 14 * (1 - seg(t, T.submittingEnd, T.submittingEnd + .5)) : 0}deg)`;
+
+  /* scene 6: the phone --------------------------------------------------------- */
+  const ph = spring(t - (T.when - .1), 11, .78), phOut = ease(seg(t, T.skip - .55, T.skip - .05));
+  const buzz = t >= T.hits2 && t < T.hits2 + .55 ? Math.sin(t * 90) * 9 * (1 - seg(t, T.hits2, T.hits2 + .55)) : 0;
+  const callPh = ease(seg(t, T.dial - .45, T.dial + .1)), callPhOut = ease(seg(t, T.close - .15, T.close + .35));
+  const phoneOn = (t >= T.when - .15 && t < T.skip - .02) || (t >= T.dial - .45 && t < T.close + .4);
+  let px = 0, py = 0, psc = 1;
+  if (t < T.skip) { py = (1 - clamp(ph, 0, 1)) * 1100 + phOut * 1200; psc = lerp(.85, 1, clamp(ph, 0, 1.03)); }
+  else { py = (1 - callPh) * 1100 + callPhOut * 1300 + 290; psc = lerp(.85, .82, callPh); }
+  X(phone, phoneOn ? 1 : 0, px + buzz, py, psc, buzz * .15);
+  const nt = spring(t - T.hits2, 15, .62);
+  X(notif, t < T.skip ? clamp(nt * 2) : 0, 0, (1 - clamp(nt, 0, 1)) * -240, lerp(.9, 1, clamp(nt, 0, 1.06)), 0);
+  lockTime.style.opacity = t < T.skip ? 1 : 0;
+  buzzR.forEach((b, i) => { const k = seg(t, T.hits2 + i * .12, T.hits2 + .7 + i * .12); b.style.left = '260px'; b.style.top = '160px'; X(b, (k > 0 && k < 1 ? 1 - k : 0) * .7, 0, 0, lerp(1, 1.5, k), 0); });
+
+  /* scene 8: the call ------------------------------------------------------------ */
+  callScr.style.display = t >= T.skip - .1 ? 'block' : 'none';
+  const calling = t >= T.dial && t < T.buyer, on = t >= T.buyer;
+  cState.textContent = t < T.dial ? '' : (on ? 'Connected' : 'Calling…'); cState.style.color = on ? MINT : CYAN;
+  wave.forEach((b, i) => { const h = on ? 12 + (Math.sin(t * 14 + i * 1.3) * .5 + .5) * 70 : 12; b.style.height = h + 'px'; b.style.top = (590 - h / 2) + 'px'; b.style.opacity = on ? 1 : .2; });
+  callBtn.style.transform = `scale(${t >= T.dial && t < T.dial + .2 ? .88 : 1})`;
+  const rr2 = seg(t, T.dial, T.dial + .7); callRip.style.opacity = rr2 > 0 && rr2 < 1 ? 1 - rr2 : 0; callRip.style.transform = `scale(${lerp(1, 2.4, rr2)})`;
+  const lk = spring(t - T.exact2, 18, .6);
+  X(lock, (t >= T.exact2 - .05 && t < T.right + .9 ? 1 : 0) * (1 - seg(t, T.buyer + .2, T.buyer + .5)), 440, 667, lerp(3, .85, clamp(lk, 0, 1.1)), seg(t, T.exact2, T.exact2 + .5) * 90);
+  const ck = win(t, T.n90 - .2, T.close - .1, .25, .3);
+  X(clk, ck, 0, -40, lerp(.8, 1, spring(t - T.n90, 14, .6)), 0); X(clkTxt, ck, 0, -40, 1, 0); X(clkSub, ck, 0, -40, 1, 0);
+  const cl = seg(t, T.n90 + .3, T.seconds + 1.6);
+  document.getElementById('clkArc').setAttribute('stroke-dashoffset', 1068 * cl * .12);
+  clkTxt.textContent = String(Math.round(90 - cl * 9)); clkTxt.style.color = t >= T.seconds ? MINT : WHITE;
+
+  /* scene 7: the tyre and SKIPPED --------------------------------------------------- */
+  const tr = seg(t, T.tire - .25, T.kickers + .5);
+  X(tyre, t >= T.tire - .25 && t < T.kickers + .9 ? 1 : 0, lerp(-420, 1500, tr), -40 + Math.sin(tr * 40) * 8, 1, tr * 900);
+  const sk = spring(t - (T.kickers + .1), 16, .55);
+  X(skipLab, clamp(sk * 2) * (t < T.dial - .1 ? 1 : 0), 360, 640 - 0, lerp(2, 1, clamp(sk, 0, 1.1)), -6);
+
+  /* scene 9: contract vs spam ---------------------------------------------------------- */
+  const c9 = win(t, T.close - .1, T.stop - .25, .35, .35);
+  const tp = spring(t - (T.close - .05), 13, .75), bp = spring(t - (T.competitor - .1), 12, .78);
+  X(topP, clamp(tp * 2) * c9, 0, (1 - clamp(tp, 0, 1)) * -700, 1, 0);
+  X(botP, clamp(bp * 2) * c9, 0, (1 - clamp(bp, 0, 1)) * 900, 1, 0);
+  document.getElementById('sigPath').setAttribute('stroke-dashoffset', 520 * (1 - ease(seg(t, T.close + .05, E('contract') - .05))));
+  const st = spring(t - (E('contract') - .05), 17, .5);
+  stamp.style.opacity = clamp(st * 2); stamp.style.transform = `rotate(-8deg) scale(${lerp(2.2, 1, clamp(st, 0, 1.1))})`;
+  const sp2 = t >= T.spam;
+  side.forEach((s, i) => { const hot = i === 3 && sp2; s.style.background = hot ? 'rgba(244,114,182,.3)' : 'transparent'; s.style.color = hot ? '#fff' : MUTE; });
+  junk.forEach((j, i) => { const k = seg(t, T.spam + .1 + i * .06, T.spam + .4 + i * .06); j.style.opacity = k; j.style.transform = `translateY(${(1 - k) * 18}px)`; });
+  spin.style.opacity = sp2 ? 0 : seg(t, T.competitor + .3, T.competitor + .6); spin.style.transform = `rotate(${t * 420}deg)`;
+  const mc = ease(seg(t, T.competitor + .8, T.spam));
+  X(mcursor, c9, lerp(520, 84, mc), lerp(300, 64 + 3 * 62 + 14, mc), 1, 0);
+  zz.forEach((z, i) => { z.style.opacity = seg(t, T.spam + i * .15, T.spam + .3 + i * .15) * (.5 + .5 * Math.sin(t * 3 + i)); });
+
+  /* scene 10: the funnel ------------------------------------------------------------------ */
+  const f10 = win(t, T.stop - .05, T.find2 - .2, .3, .35);
+  const stp = spring(t - T.stop, 14, .55), stOut = ease(seg(t, T.stop + .55, T.stop + 1.0));
+  X(stopSign, (clamp(stp * 2) * (1 - stOut)) * (t < T.digging + .4 ? 1 : 0), 0, 0, lerp(.3, 1, clamp(stp, 0, 1.15)) * lerp(1, .5, stOut), 0);
+  X(funnel, f10 * ease(seg(t, T.stop + .4, T.stop + .9)), 0, 0, 1, 0);
+  X(trayB, f10 * ease(seg(t, T.stop + .5, T.stop + 1.0)), 0, 0, 1, 0);
+  noiseCards.forEach(n => {
+    const t0 = T.digging + .12 + n.i * ((T.best - .5 - T.digging) / 16), u = (t - t0);
+    const fall = clamp(u / 1.0);
+    const sx = 540 + (n.i % 5 - 2) * 80; let x = sx - 75, y = 300 + fall * 330;
+    // lands on the slope, then slides off to its side
+    const slide = clamp((u - .7) / .7);
+    x += n.side * slide * 360; y += slide * slide * 700;
+    X(n.el, (u > 0 && u < 2.0 ? 1 : 0) * f10 * (1 - clamp((u - 1.4) / .5)), x, y - 0, 1, n.side * slide * 40);
+    n.el.style.left = '0px'; n.el.style.top = '0px';
+  });
+  dust.forEach(d => { const k = seg(t, T.digging + d.i * .06, T.digging + 1.6 + d.i * .06); const sd = d.i % 2 ? 1 : -1; X(d.el, (k > 0 && k < 1 ? .7 * (1 - k) : 0) * f10, 540 + sd * (80 + k * 300 + (d.i % 5) * 20), 900 + k * 220 + (d.i % 7) * 12, 1, 0); d.el.style.left = '0px'; d.el.style.top = '0px'; });
+  const bc = seg(t, T.best - .25, T.buyers + .1);
+  const bcy = bc < .45 ? lerp(240, 700, ease(bc / .45)) : lerp(700, 1130, ease((bc - .45) / .55));
+  X(bigCard, f10 * (t >= T.best - .3 ? 1 : 0), 540 - 105, bcy, lerp(1, .95, bc), 0);
+  bigCard.style.left = '0px'; bigCard.style.top = '0px';
+
+  /* scene 11 ------------------------------------------------------------------------------------- */
+  const e = ease(seg(t, T.find2 - .2, T.find2 + .35));
+  X(endL, e, 0, 0, 1, 0);
+  const el_ = spring(t - T.find2, 12, .65);
+  endLogo.style.transform = `scale(${lerp(.5, 1, clamp(el_, 0, 1.08))})`; endWord.style.transform = `translateY(${(1 - clamp(spring(t - T.find2 - .1, 13, .7), 0, 1)) * 60}px)`;
+  const us = clamp(spring(t - T.jh, 14, .6), 0, 1.1); endUrl.style.opacity = clamp(us * 2); endUrl.style.transform = `scale(${lerp(.8, 1, us)})`;
+  const fs = clamp(spring(t - T.free, 14, .6), 0, 1.1); endFree.style.opacity = clamp(fs * 2); endFree.style.transform = `scale(${lerp(.8, 1, fs)})`;
+  endGlow.style.transform = `scale(${1 + .06 * Math.sin(t * 2)})`;
+
+  /* captions ------------------------------------------------------------------------------------- */
+  const showCap = t < T.find2 - .3 || t > T.free - .1 ? t < DUR : (t < T.find2 + .2 ? 0 : 1);
+  const capOn = t < T.find2 - .35 ? 1 : (t >= T.find2 - .2 ? (t < T.free - .15 ? 1 : 1) : 0);
+  scrim.style.opacity = 1;
+  CHUNKS.forEach((c, ci) => {
+    const next = CHUNKS[ci + 1], endT = Math.min(c.b + .5, next ? next.a - .05 : 99);
+    const on = t >= c.a - .07 && t < endT && (t < T.find2 - .1 || t >= T.find2 - .1) && c.a < 41.9;
+    c.el.style.display = on ? 'block' : 'none';
+    if (!on) return;
+    const k = clamp(spring(t - (c.a - .07), 24, .55), 0, 1.15);
+    c.el.style.opacity = clamp(k * 2.5);
+    c.el.style.transform = `translateY(${(1 - clamp(k)) * 50}px) scale(${lerp(.7, 1, k)})`;
+    const acc = accAt(c.a);
+    c.ids.forEach((i, j) => {
+      const w = WORDS[i], sp = c.spans[j], said = t >= w.s - .03, cur = said && t < Math.max(w.e, w.s + .12) + .06;
+      const pk = clamp(spring(t - (w.s - .03), 28, .45), 0, 1.25);
+      sp.style.background = cur ? acc : 'transparent';
+      sp.style.color = cur ? '#0b1537' : (said ? WHITE : 'rgba(238,242,255,.32)');
+      sp.style.transform = cur ? `scale(${lerp(.86, 1.1, pk)}) rotate(${(j % 2 ? 1 : -1) * 1.5}deg)` : 'none';
+    });
+  });
+  tag.style.opacity = t < T.find2 - .3 ? .7 : 0;
+}
+window.seek = seek;
+seek(0);
+
+/* ---- live preview (not used by the renderer) ---- */
+if (!location.search.includes('render')) {
+  const fit = () => { const k = Math.min(innerWidth / W, (innerHeight - 52) / H); stage.style.transform = `scale(${k})`; stage.style.left = Math.max(0, (innerWidth - W * k) / 2) + 'px'; };
+  fit(); addEventListener('resize', fit);
+  const ctl = document.createElement('div'); ctl.id = 'ctl';
+  ctl.innerHTML = '<button id="pp">Play</button><input id="sc" type="range" min="0" max="' + DUR + '" step="0.01" value="0"><span id="tt">0.00</span>';
+  document.body.appendChild(ctl);
+  const au = new Audio('../../../../public/assets/set-rules.mp3');
+  const sc = document.getElementById('sc'), tt = document.getElementById('tt'), pp = document.getElementById('pp');
+  let playing = false;
+  pp.onclick = () => { playing = !playing; pp.textContent = playing ? 'Pause' : 'Play'; if (playing) { au.currentTime = +sc.value; au.play(); } else au.pause(); };
+  sc.oninput = () => { au.currentTime = +sc.value; seek(+sc.value); tt.textContent = (+sc.value).toFixed(2); };
+  (function loop() { if (playing) { sc.value = au.currentTime; if (au.currentTime >= DUR) { playing = false; pp.textContent = 'Play'; } } seek(+sc.value); tt.textContent = (+sc.value).toFixed(2); requestAnimationFrame(loop); })();
+} else { stage.style.transform = 'none'; }
+</script></body></html>

@@ -7,6 +7,11 @@ with real changes, not every micro-edit.
 
 ---
 
+## 2026-10-28 — Visitors pages in the platform
+- `/platform/visitors` (table like Leads, anonymous or everyone) and `/platform/visitors/<id>` (country, device, source,
+  every visit as the lead-page chart, forms started, clicks, picker of recent ids). Any site member may open them.
+  Sidebar entry in the real app only. No migration. Details: `mds/build/visitors.md`.
+
 ## 2026-09-28 — Live Ticker scalability + tracker capacity analysis
 
 - Diagnosed and fixed the Live Ticker's polling cost: tightened bounds

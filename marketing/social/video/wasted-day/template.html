@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>The wasted day</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+/*@FONTS@*/
+html,body{margin:0;height:100%;background:#0b0b0a;overflow:hidden}
+#stage{position:absolute;left:0;top:0;width:1080px;height:1920px;overflow:hidden;transform-origin:0 0;font-family:'Albert Sans',system-ui,sans-serif;color:#111;font-variant-numeric:tabular-nums}
+#stage *{box-sizing:border-box;white-space:nowrap}
+#stage .abs{position:absolute}
+.serif{font-family:'Young Serif',Georgia,serif;font-weight:400}
+.b{font-weight:700}
+#ctl{position:fixed;left:0;right:0;bottom:0;display:flex;gap:12px;align-items:center;padding:10px 14px;background:#000a;color:#fff;font:14px system-ui;z-index:9}
+#ctl input{flex:1}
+</style></head><body>
+<div id="stage"></div>
+<script>
+/* ============================================================================================================
+   THE WASTED DAY. 1080x1920, a pure function of time, locked to 11labs-wasted-day.mp3 by word timings.
+   Beat sheet (every time below is looked up from the words, so a re-recorded voice re-times the film):
+   0.34  "4pm"            clock lands 4:00 PM, queue starts, stress starts to rise      tick
+   4.44  "one by one"     rows tick one at a time                                       tick x3
+   6.10  "20"             the number slams, rows flip to "Let me think about it"        impact
+   9.58  "4 buy ..."      four rows turn "Starter plan"                                 pop x4
+   12.06 "then you hit"   push in on row 22, phone rings                                riser -> impact on "22"
+   14.54 "generic opener" call opens, your script types, then gets cut off               typing ticks, glitch, impact
+   20.82 the quote        Daniel's words light up one by one                              whoosh, riser, impact on "competitor"
+   27.14 "just like that" the call collapses, LOST stamps on "gone"                      impact
+   30.48 "because ..."    the morning fills with tire kickers                             tick per block
+   35.74 "If you had"     the world flushes clean, the clock rolls back to 9:00 AM        whoosh, impact on "Jelly Hook"
+   38.56 "this lead"      the SAME row opens into the lead: 3 visits, 5 minutes           pop x3, ticks
+   44.84 "instant"        Slack card drops in, "Whale of the week"                        ding, ding
+   49.06 "called him"     queue re-sorts, call connects, deal signs, the day is saved     whoosh, click, ding, impact
+   54.26 "Stop dialing"   end card                                                        impact, pop
+   ============================================================================================================ */
+const W = 1080, H = 1920, DUR = 63.0;
+window.VIDEO = { w: W, h: H, duration: DUR };
+const WORDS = /*@WORDS@*/null;
+const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+const A = (w, after = 0) => { for (const x of WORDS) if (x.s >= after - 0.001 && norm(x.w) === norm(w)) return x.s; throw new Error('word not found: ' + w); };
+const E = (w, after = 0) => { for (const x of WORDS) if (x.s >= after - 0.001 && norm(x.w) === norm(w)) return x.e; throw new Error('word not found: ' + w); };
+
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = x => (x = clamp(x), x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const outCubic = x => 1 - Math.pow(1 - clamp(x), 3);
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const kf = keys => t => { if (t <= keys[0][0]) return keys[0][1]; for (let i = 1; i < keys.length; i++) { const [a, va] = keys[i - 1], [b, vb, e = ease] = keys[i]; if (t <= b) return lerp(va, vb, e((t - a) / (b - a))); } return keys[keys.length - 1][1]; };
+function spring(t, w = 14, z = 0.62) { if (t <= 0) return 0; if (z >= 1) return 1 - Math.exp(-w * t) * (1 + w * t); const wd = w * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t)); }
+const hex = c => c[0] === '#' ? [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)) : c.match(/\d+/g).map(Number);
+const mix = (a, b, k) => { const x = hex(a), y = hex(b); return `rgb(${x.map((v, i) => Math.round(lerp(v, y[i], k))).join(',')})`; };
+const win = (t, a, b, fi = 0.25, fo = 0.25) => clamp((t - a) / fi) * clamp((b - t) / fo);
+
+/* ---- anchors from the voice ---- */
+const T = {
+  clock: A('4pm'), one: A('one', 4), n20: A('20'), think: A('let'), n4: A('4', 9), buy: A('buy'), cheapest: A('cheapest'), tier: A('tier'),
+  hit: A('hit'), n22: A('22'), grind: A('grind'), generic: A('generic'), pitch: A('pitch'), premium: A('premium', 17), cuts: A('cuts'), off: A('off'),
+  q0: A('I', 20), q_premium: A('premium', 21), nobody: A('nobody'), competitor: A('competitor'), competitorEnd: E('competitor'),
+  just: A('Just'), biggest: A('biggest'), gone: A('gone'), because: A('because'), tire: A('tire'), kickers: A('kickers'), never: A('never'), buy2: A('buy', 34),
+  if_: A('If'), jelly: A('Jelly'), hook: A('Hook'), nine: A('9am'), three: A('3'), times: A('times'), five: A('5'), minutes: A('minutes'),
+  enterprise: A('enterprise'), features: A('features'), instant: A('instant'), whale: A('whale'), called: A('called', 49), first: A('first', 49),
+  closed: A('closed'), deal: A('deal', 51), saved: A('saved'), day: A('day', 52), stop: A('Stop'), blind: A('blind'), see: A('See'), jh: A('jellyhook'), free: A('free'),
+  end: 62.04,
+};
+
+/* ---- state ---- */
+const INK = '#111111', PAPER_T = '#ece6da', PAPER_R = '#f7f9f4', RED = '#c2410c', GREEN = '#0f7a3d', MUTE = '#6a655a';
+const mood = kf([[0, 0], [T.if_ + 0.5, 0], [T.jelly + 0.25, 1]]);      // 0 tense, 1 relief
+const stress = kf([[0, .08], [12, .35], [19.7, .8], [T.gone, 1], [T.because, .65], [T.if_, .9], [T.jelly, 0]]);
+const lostK = t => seg(t, T.gone, T.gone + .7) * (1 - seg(t, T.if_, T.jelly));
+
+/* ---- dom helpers ---- */
+const stage = document.getElementById('stage');
+function mk(parent, css, html = '', cls = '') { const d = document.createElement('div'); d.className = 'abs ' + cls; d.style.cssText = css; d.innerHTML = html; parent.appendChild(d); return d; }
+const bg = mk(stage, `left:0;top:0;width:${W}px;height:${H}px`);
+const world = mk(stage, `left:0;top:0;width:${W}px;height:${H}px;transform-origin:540px 760px`);
+const hud = mk(stage, `left:0;top:0;width:${W}px;height:240px`);
+const vig = mk(stage, `left:0;top:0;width:${W}px;height:${H}px;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,rgba(120,30,0,0) 45%,rgba(120,30,0,.55) 100%)`);
+const flush = mk(stage, `left:0;top:0;width:${W}px;height:${H}px;background:#f7f9f4;clip-path:circle(0px at 540px 880px)`);
+const turn = mk(stage, `left:0;top:0;width:${W}px;height:${H}px;pointer-events:none`);
+const tLogo = mk(turn, `left:400px;top:520px;width:280px;height:280px;transform-origin:50% 60%`, '<img src="@LOGO@" style="width:280px;height:280px">');
+const tJelly = mk(turn, `left:0;top:840px;width:540px;text-align:right;font-size:124px;line-height:1.1;transform-origin:100% 50%`, 'Jelly', 'serif');
+const tHook = mk(turn, `left:540px;top:840px;width:540px;text-align:left;font-size:124px;line-height:1.1;color:#0f7a3d;transform-origin:0 50%`, 'hook', 'serif');
+const endLayer = mk(stage, `left:0;top:0;width:${W}px;height:${H}px`);
+const slack = mk(stage, `left:60px;top:-420px;width:960px;height:380px;background:#fff;border:3px solid ${INK};border-radius:28px;box-shadow:0 18px 0 rgba(0,0,0,.12)`);
+const tag = mk(stage, `left:0;top:1868px;width:${W}px;text-align:center;font-size:22px;color:${MUTE};letter-spacing:.14em;text-transform:uppercase`, 'Example leads, not real people');
+
+const hook = mk(stage, `left:60px;top:64px;width:960px;height:128px;border-radius:30px;background:${INK};color:#fff;font-size:56px;line-height:128px;text-align:center`, '22 calls. 1 big deal lost.', 'b');
+
+/* HUD */
+const hudRule = mk(hud, `left:60px;top:214px;width:960px;height:4px;background:${INK}`);
+const clockBox = mk(hud, `left:60px;top:70px;width:380px;height:112px;background:#fff;border:3px solid ${INK};border-radius:26px`);
+mk(clockBox, `left:26px;top:14px;font-size:22px;letter-spacing:.16em;color:${MUTE}`, 'RIGHT NOW', 'b');
+const clockTxt = mk(clockBox, `left:26px;top:38px;font-size:60px;line-height:1`, '', 'b');
+const callBox = mk(hud, `left:560px;top:70px;width:460px;height:112px;background:#fff;border:3px solid ${INK};border-radius:26px`);
+const callLbl = mk(callBox, `left:26px;top:14px;font-size:22px;letter-spacing:.16em;color:${MUTE}`, 'CALLS MADE', 'b');
+const callNum = mk(callBox, `left:26px;top:38px;font-size:60px;line-height:1`, '0', 'b');
+const callSub = mk(callBox, `right:26px;top:44px;font-size:26px;color:${MUTE}`, '', 'b');
+
+/* the queue (the same list, before and after the turn) */
+const NAMES = ['Dana K.', 'Marcus R.', 'Priya S.', 'Tom B.', 'Elena V.', 'Chris L.', 'Aisha M.', 'Jordan P.', 'Sofia G.', 'Ben H.', 'Mei W.', 'Luis F.', 'Hannah T.', 'Omar D.', 'Nina C.', 'Paul E.', 'Grace O.', 'Ivan Z.', 'Kara N.', 'Sam Y.', 'Lucy A.', 'Daniel Okafor', 'Rita J.', 'Theo B.', 'Mona K.', 'Jay P.'];
+const SUBS = ['Pricing form', 'Contact form', 'Demo request', 'Quote request'];
+const WHALE = 21, STARTER = [3, 8, 13, 17];
+const listClip = mk(world, `left:0;top:250px;width:${W}px;height:1130px;overflow:hidden`);
+const ROW = 146;
+// each row is called in turn: slow at first (one by one), then faster
+const tcs = NAMES.map((_, i) => i < 8 ? 0.8 + i * 0.62 : i < 21 ? 6.1 + (i - 8) * 0.27 : 14.4 + (i - 21) * 99);
+const rows = NAMES.map((n, i) => {
+  const r = mk(listClip, `left:60px;top:0;width:960px;height:128px;background:#fff;border:3px solid ${INK};border-radius:22px`);
+  const ini = n.split(' ').map(s => s[0]).join('');
+  const av = mk(r, `left:22px;top:24px;width:76px;height:76px;border-radius:50%;background:#ddd7c8;font-size:30px;text-align:center;line-height:76px;color:${MUTE}`, ini, 'b');
+  const nm = mk(r, `left:120px;top:22px;font-size:38px;line-height:1.1`, n, 'b');
+  const sb = mk(r, `left:120px;top:72px;font-size:27px;color:${MUTE}`, i === WHALE ? 'Enterprise inquiry' : SUBS[i % 4], '');
+  const ch = mk(r, `right:22px;top:32px;height:60px;border-radius:30px;padding:0 24px;font-size:28px;line-height:56px`, '', 'b');
+  return { r, av, nm, sb, ch, i };
+});
+const callFrac = t => tcs.reduce((s, tc, i) => s + (i <= WHALE - 1 ? clamp((t - tc) / 0.3) : 0), 0);   // rows 0..20 only
+const scrollP = t => {
+  if (t < T.hit) return Math.max(0, callFrac(t) - 3.5);
+  const base = Math.max(0, callFrac(T.hit) - 3.5);
+  const toWhale = lerp(base, 18.3, ease(seg(t, T.hit, T.n22)));
+  if (t < 48.9) return toWhale;
+  return lerp(18.3, 0, ease(seg(t, 48.9, 49.8)));
+};
+const whaleShift = t => ease(seg(t, T.called - 0.2, T.called + 0.5));
+
+/* the call card (row 22 opened) */
+const card = mk(world, `left:60px;top:300px;width:960px;height:900px;background:#fff;border:3px solid ${INK};border-radius:30px;box-shadow:0 18px 0 rgba(0,0,0,.10);transform-origin:50% 8%`);
+const cAv = mk(card, `left:34px;top:30px;width:96px;height:96px;border-radius:50%;background:#ddd7c8;font-size:38px;text-align:center;line-height:96px;color:${MUTE}`, 'DO', 'b');
+mk(card, `left:156px;top:30px;font-size:46px;line-height:1.1`, 'Daniel Okafor', 'b');
+const cSub = mk(card, `left:156px;top:90px;font-size:28px;color:${RED}`, '', 'b');
+const live = mk(card, `right:34px;top:48px;height:56px;border-radius:28px;padding:0 24px;background:${RED};color:#fff;font-size:26px;line-height:56px;letter-spacing:.08em`, 'LIVE', 'b');
+const bubbleYou1 = mk(card, `right:34px;top:190px;width:700px;white-space:normal;background:${INK};color:#fff;border-radius:28px 28px 6px 28px;padding:26px 30px;font-size:35px;line-height:1.3;min-height:120px`);
+const bubbleYou2 = mk(card, `right:34px;top:430px;width:700px;white-space:normal;background:${INK};color:#fff;border-radius:28px 28px 6px 28px;padding:26px 30px;font-size:35px;line-height:1.3;min-height:120px`);
+const youTag = mk(card, `right:44px;top:150px;font-size:22px;letter-spacing:.14em;color:${MUTE}`, 'YOU', 'b');
+const hold = mk(card, `left:34px;top:660px;background:#fff;border:3px solid ${RED};color:${RED};border-radius:28px 28px 28px 6px;padding:20px 34px;font-size:46px`, 'Hold on.', 'b');
+const quote = mk(card, `left:34px;top:190px;width:892px;white-space:normal;background:#fff;border:3px solid ${INK};border-radius:30px 30px 30px 8px;padding:34px 38px;font-size:72px;line-height:1.16`, '', 'serif');
+const qWords = [];
+{ let on = false; for (const x of WORDS) { if (x.s >= T.q0 - .001 && x.s <= T.competitor + .001) { const s = document.createElement('span'); s.textContent = x.w + ' '; s.style.cssText = 'white-space:normal'; quote.appendChild(s); qWords.push({ s, w: x }); } } }
+const QHOT = new Set(['premium', 'plan', 'nobody', 'called', 'back', 'competitor']);
+
+const YOU1 = "Hi Daniel, thanks so much for your interest! We have three plans, so let me walk you through all of them.";
+const YOU2 = "Our Premium service is a great fit for growing teams, and if you would like to hear a bit more about";
+
+/* the lost row's stamp */
+const stamp = mk(world, `left:300px;top:0;width:480px;height:130px;border:8px solid ${RED};color:${RED};border-radius:18px;font-size:92px;line-height:112px;text-align:center;letter-spacing:.06em;transform-origin:50% 50%;background:rgba(255,255,255,.55)`, 'LOST', 'b');
+const dealTag = mk(world, `left:0;top:0;height:46px;border-radius:23px;padding:0 20px;background:#f2d98a;color:#6a4b00;font-size:25px;line-height:46px`, 'Biggest deal of the week', 'b');
+
+const won = mk(world, `left:260px;top:0;width:560px;height:130px;border:8px solid ${GREEN};color:${GREEN};border-radius:18px;font-size:92px;line-height:112px;text-align:center;letter-spacing:.06em;transform-origin:50% 50%;background:rgba(255,255,255,.7)`, 'SIGNED', 'b');
+/* the morning (tire kickers) */
+const cal = mk(world, `left:60px;top:270px;width:960px;height:1090px`);
+mk(cal, `left:0;top:0;font-size:60px`, 'Your morning', 'serif');
+['9 AM', '10 AM', '11 AM', '12 PM'].forEach((l, i) => { mk(cal, `left:0;top:${140 + i * 240}px;width:960px;height:2px;background:#bdb6a4`); mk(cal, `left:0;top:${150 + i * 240}px;font-size:26px;color:${MUTE}`, l, 'b'); });
+const KICK = ['Quick question', 'Just browsing', 'Pricing? Maybe later', 'Is there a free plan?', 'Send me a PDF', 'Call me next month', 'Who is this?', 'Just looking around', 'What do you do?', 'Any discount?'];
+const kicks = KICK.map((k, i) => {
+  const y = 150 + i * 92;
+  const b = mk(cal, `left:150px;top:${y}px;width:790px;height:78px;border:3px solid ${INK};border-radius:18px;background:#e8e2d3;font-size:34px;line-height:72px;padding-left:28px`, k, 'b');
+  const x = mk(b, `right:22px;top:0;font-size:44px;color:${RED}`, '×', 'b');
+  return { b, x, t: lerp(T.because + .1, T.never - .3, i / 9) };
+});
+
+const winBlock = mk(cal, `left:150px;top:150px;width:790px;height:78px;border:3px solid ${GREEN};border-radius:18px;background:${GREEN};color:#fff;font-size:34px;line-height:72px;padding-left:28px`, 'Daniel Okafor · Premium signed', 'b');
+
+/* the lead profile */
+const prof = mk(world, `left:60px;top:300px;width:960px;height:1010px;background:#fff;border:3px solid ${GREEN};border-radius:30px;box-shadow:0 18px 0 rgba(15,122,61,.14)`);
+mk(prof, `left:34px;top:30px;width:96px;height:96px;border-radius:50%;background:${GREEN};color:#fff;font-size:38px;text-align:center;line-height:96px`, 'DO', 'b');
+mk(prof, `left:156px;top:28px;font-size:46px;line-height:1.1`, 'Daniel Okafor', 'b');
+mk(prof, `left:156px;top:90px;font-size:27px;color:${MUTE}`, 'Enterprise inquiry · came from a search', '');
+const whalePill = mk(prof, `right:34px;top:44px;height:60px;border-radius:30px;padding:0 26px;background:${GREEN};color:#fff;font-size:29px;line-height:60px`, 'Whale of the week', 'b');
+const stats = [['Visits', '3', T.three], ['Pricing page', '3 times', T.times], ['On Enterprise', '', T.five]].map(([lab, val, tt], i) => {
+  const b = mk(prof, `left:${34 + i * 300}px;top:164px;width:276px;height:132px;background:#eef2ec;border-radius:22px`);
+  mk(b, `left:22px;top:16px;font-size:23px;letter-spacing:.12em;color:${MUTE}`, lab.toUpperCase(), 'b');
+  const v = mk(b, `left:22px;top:52px;font-size:58px;line-height:1.1;color:${GREEN}`, val, 'b');
+  return { b, v, tt };
+});
+const VIS = [['Visit 1 · Sunday', 0.55, '1 min'], ['Visit 2 · Monday', 0.82, '2 min'], ['Visit 3 · today 8:41', 1, '2 min']];
+const BANDS = [['Hero', 90], ['Pricing', 150], ['Plans', 110], ['Enterprise', 150], ['FAQ', 70]];
+const plates = VIS.map(([lab, reach, tm], i) => {
+  const x = 34 + i * 300;
+  const pl = mk(prof, `left:${x}px;top:330px;width:276px;height:600px;transform-origin:50% 100%`);
+  mk(pl, `left:0;top:0;font-size:24px;color:${MUTE}`, lab, 'b');
+  const frame = mk(pl, `left:0;top:40px;width:276px;height:500px;border:3px solid ${INK};border-radius:18px;overflow:hidden;background:#fff`);
+  let y = 0; const bands = [];
+  BANDS.forEach(([n, h], bi) => {
+    const hh = h * 500 / 570;
+    const b = mk(frame, `left:0;top:${y}px;width:276px;height:${hh}px;border-bottom:2px solid #e4e0d4;font-size:24px;padding:10px 16px;color:${MUTE}`, n, 'b');
+    const fill = mk(b, `left:0;top:0;width:276px;height:${hh}px;background:${bi === 3 ? GREEN : '#9fd2b2'};opacity:0`);
+    bands.push({ fill, start: y, h: hh, bi }); y += hh;
+  });
+  const entm = mk(pl, `left:0;top:552px;font-size:26px;color:${GREEN}`, 'Enterprise ' + tm, 'b');
+  return { pl, bands, entm, reach, t0: [T.three, T.times, T.times + 0.42][i] };
+});
+const profNote = mk(prof, `left:34px;top:944px;font-size:26px;color:${MUTE}`, 'Pages, time, scroll and headings reached, for every visit.', '');
+
+/* Slack card */
+mk(slack, `left:0;top:0;width:960px;height:62px;background:#e8590c;border-radius:25px 25px 0 0`);
+mk(slack, `left:26px;top:11px;color:#fff;font-size:28px;letter-spacing:.06em`, 'SLACK  ·  #hot-leads', 'b');
+mk(slack, `left:26px;top:96px;width:84px;height:84px;border-radius:20px;background:${GREEN};overflow:hidden`, '<img src="@LOGO@" style="position:absolute;left:-6px;top:-8px;width:96px;height:96px">');
+mk(slack, `left:130px;top:92px;font-size:34px`, 'Jellyhook <span style="font-weight:500;color:#6a655a;font-size:26px">APP  9:02 AM</span>', 'b');
+mk(slack, `left:130px;top:140px;font-size:42px`, 'New lead: Daniel Okafor', 'b');
+const slackPill = mk(slack, `left:130px;top:208px;height:54px;border-radius:27px;padding:0 22px;background:${GREEN};color:#fff;font-size:28px;line-height:54px`, 'Whale of the week', 'b');
+mk(slack, `left:26px;top:286px;font-size:30px;color:${INK}`, '3 visits  ·  Pricing 3 times  ·  5 min on Enterprise', '');
+mk(slack, `left:26px;top:328px;font-size:24px;color:${MUTE}`, 'Open lead  ·  Call now', 'b');
+
+/* closing */
+const logoEl = mk(endLayer, `left:420px;top:330px;width:240px;height:240px`, '<img src="@LOGO@" style="width:240px;height:240px">');
+const endHead = mk(endLayer, `left:0;top:620px;width:${W}px;text-align:center;font-size:132px;line-height:1.05`, 'Stop dialing<br><span id="blindw" style="position:relative;display:inline-block">blind.<span id="blindbar" style="position:absolute;left:0;bottom:6px;height:22px;width:0;background:#9fd2b2;z-index:-1;white-space:normal"></span></span>', 'serif');
+const endSub = mk(endLayer, `left:0;top:1090px;width:${W}px;text-align:center;font-size:48px;color:${MUTE}`, 'See how it works on sample leads.', 'b');
+const endUrl = mk(endLayer, `left:210px;top:1200px;width:660px;height:128px;border-radius:64px;background:${GREEN};color:#fff;font-size:68px;line-height:128px;text-align:center`, 'jellyhook.com', 'b');
+const endFree = mk(endLayer, `left:210px;top:1390px;width:660px;height:96px;border-radius:48px;border:3px solid ${GREEN};color:${GREEN};font-size:40px;line-height:90px;text-align:center`, 'Free during early access', 'b');
+
+/* TikTok captions: 1 to 3 words at a time, the spoken word pops on a coloured pill, numbers get a beat of their own */
+const isNum = w => /^\d+\.?$/.test(w);
+const CHUNKS = [];
+WORDS.forEach((w, i) => {
+  const prev = WORDS[i - 1], cur = CHUNKS[CHUNKS.length - 1], num = isNum(w.w);
+  if (!cur || cur.ids.length >= 3 || /[,.!?]$/.test(prev.w) || w.s - prev.e > .3 || num || cur.num) CHUNKS.push({ ids: [], num });
+  CHUNKS[CHUNKS.length - 1].ids.push(i);
+});
+const capWrap = mk(stage, `left:30px;top:1440px;width:1020px;height:330px`);
+CHUNKS.forEach(c => {
+  c.el = mk(capWrap, `left:0;top:0;width:1020px;text-align:center;white-space:normal;transform-origin:50% 40%;display:none`);
+  c.spans = c.ids.map(i => { const sp = document.createElement('span'); sp.textContent = WORDS[i].w.replace(/[,.]$/, '').replace(/^Hook$/, 'hook'); sp.style.cssText = `display:inline-block;white-space:nowrap;margin:4px 6px;padding:2px 18px 8px;border-radius:20px;font-size:${c.num ? 170 : 94}px;line-height:1.1;font-weight:700;letter-spacing:-.01em;transform-origin:50% 60%`; c.el.appendChild(sp); return sp; });
+  c.a = WORDS[c.ids[0]].s; c.b = WORDS[c.ids[c.ids.length - 1]].e;
+});
+
+/* ---- the clock: minutes since midnight ---- */
+const clockMin = t => {
+  if (t < T.if_) return 960 + t * 0.34;                                   // 4:00 PM, creeping
+  if (t < T.nine) return lerp(972, 540, ease(seg(t, T.if_, T.nine)));      // rolls back to 9:00 AM
+  if (t < T.saved) return 540 + (t - T.nine) * 0.9;                        // 9:00 AM, creeping
+  return lerp(540 + (T.saved - T.nine) * 0.9, 960, ease(seg(t, T.saved, T.day)));  // the day, saved
+};
+const fmt = m => { m = Math.round(m); const h = Math.floor(m / 60), mm = m % 60; const h12 = ((h + 11) % 12) + 1; return `${h12}:${String(mm).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`; };
+
+/* ---- sound cues (the single source of truth for the mix) ---- */
+const CUES = [];
+const cue = (t, type, desc, gain = 0, dur = 0) => CUES.push({ t: +t.toFixed(3), type, desc, gain, dur });
+cue(T.clock, 'click', 'clock lands');
+[T.one, A('by', 4), E('one', 4) - 0.05].forEach((t, i) => cue(t, 'tick', 'one by one ' + i));
+for (let i = 0; i < 8; i++) cue(tcs[i], 'tick', 'call ' + (i + 1), -6);
+cue(T.n20, 'impact', '20 slams');
+[T.think, A('me', 8), A('think'), A('about', 8)].forEach((t, i) => cue(t, 'pop', 'let me think about it ' + i, -4));
+[T.n4, T.buy, T.cheapest, T.tier].forEach((t, i) => cue(t, 'pop', 'starter plan ' + i));
+cue(T.hit - 0.1, 'riser', 'ringing builds', -5);
+cue(T.hit, 'ring', 'the phone rings', 0, T.n22 + 1.1 - T.hit);
+cue(T.n22, 'impact', 'call 22');
+cue(T.n22 + 1.1, 'click', 'pick up');
+for (let i = 0; i < 9; i++) cue(lerp(T.generic - 0.9, T.generic + 0.9, i / 8), 'tick', 'typing opener ' + i, -9);
+for (let i = 0; i < 12; i++) cue(lerp(T.pitch - 0.7, T.cuts - 0.15, i / 11), 'tick', 'typing pitch ' + i, -9);
+cue(T.cuts, 'glitch', 'cut off');
+cue(T.off, 'impact', 'cut off lands');
+cue(T.q0 - 0.1, 'whoosh', 'his bubble');
+cue(T.nobody - 0.3, 'riser', 'tension under the quote');
+cue(T.q0 - 0.3, 'heart', 'heartbeat under his words', 0, T.just - T.q0 + .3);
+cue(T.competitor, 'impact', 'competitor');
+cue(T.just, 'whoosh', 'call collapses');
+cue(T.gone, 'impact', 'LOST', 3);
+for (const k of kicks) cue(k.t, 'tick', 'tire kicker', -4);
+cue(T.never, 'click', 'never going to buy');
+cue(T.if_ - 0.05, 'whoosh', 'the flush');
+cue(T.jelly, 'impact', 'Jelly Hook', -2);
+cue(T.jelly + 0.05, 'pop', 'logo');
+for (let i = 0; i < 6; i++) cue(lerp(T.if_ + 0.3, T.nine, i / 5), 'tick', 'clock rolls back', -9);
+cue(T.three, 'pop', 'visit 1'); cue(T.times, 'pop', 'visit 2'); cue(T.times + 0.42, 'pop', 'visit 3');
+for (let i = 0; i < 8; i++) cue(lerp(T.five, T.minutes + 0.6, i / 7), 'tick', 'minutes count', -7);
+cue(T.enterprise, 'impact', 'enterprise band', -4);
+cue(T.instant, 'ding', 'Slack ping');
+cue(T.whale, 'pop', 'whale pill'); cue(T.whale + 0.05, 'ding', 'whale', -4);
+cue(T.called - 0.1, 'whoosh', 'queue re-sorts');
+cue(T.first, 'click', 'connected');
+cue(T.deal, 'ding', 'deal signed'); cue(T.deal, 'impact', 'deal signed', -2);
+cue(T.saved, 'whoosh', 'the day is saved');
+for (let i = 0; i < 10; i++) cue(T.saved + .15 + i * .07, 'tick', 'tire kicker falls', -8);
+cue(T.stop, 'impact', 'Stop dialing blind', -1);
+cue(T.blind, 'pop', 'blind');
+cue(T.jh, 'click', 'jellyhook.com');
+cue(T.free, 'pop', 'free');
+window.CUES = CUES; window.T = T;
+
+/* ---- the frame ---- */
+function seek(t) {
+  const rel = t >= T.jelly - 0.35, st = stress(t), md = mood(t);
+  bg.style.background = mix(mix(PAPER_T, '#d6d1c6', lostK(t)), PAPER_R, md);
+  const acc = mix(RED, GREEN, md);
+  // camera: handheld while it hurts, steady once it works
+  const shake = st * (1 - md) * 4.5;
+  const zoom = 1 + .13 * ease(seg(t, T.hit, T.n22)) * (1 - seg(t, T.n22 + 0.2, T.n22 + 1)) + .07 * ease(seg(t, T.just, T.gone)) * (1 - seg(t, T.gone + .2, T.gone + 1.2)) + .035 * seg(t, T.jelly + 2, T.instant) * (1 - seg(t, T.instant, T.instant + .8));
+  world.style.transform = `translate(${Math.sin(t * 13) * shake}px,${Math.sin(t * 17 + 2) * shake}px) scale(${zoom})`;
+  vig.style.opacity = st * (1 - md) * .9;
+
+  const hk = 1 - ease(seg(t, 2.3, 2.75));
+  hook.style.opacity = hk; hook.style.transform = `translateY(${(1 - hk) * -180}px) scale(${1 + .04 * Math.max(0, Math.sin(t * 9)) * (t < 2.3 ? 1 : 0)})`;
+
+  // HUD
+  const hudOn = t < T.stop - 0.2;
+  hud.style.opacity = hudOn ? Math.min(1, t / .25) * (1 - seg(t, T.stop - .4, T.stop - .1)) : 0;
+  clockTxt.textContent = fmt(clockMin(t));
+  const saved = t >= T.saved;
+  clockTxt.style.color = saved ? GREEN : (md > .5 ? INK : RED);
+  hudRule.style.background = md > .5 ? GREEN : INK;
+  const calls = t < T.n22 ? Math.min(21, Math.floor(callFrac(t))) : 22;
+  const closed = t >= T.deal;
+  callLbl.textContent = closed ? 'DEALS CLOSED' : 'CALLS MADE';
+  callNum.textContent = closed ? '1' : (t < T.if_ ? String(calls) : '22');
+  callNum.style.color = closed ? GREEN : (md > .5 ? MUTE : INK);
+  callSub.textContent = t > T.n22 && t < T.if_ ? '1 big deal lost' : '';
+  callSub.style.color = RED;
+
+  // the queue
+  const p = scrollP(t), shift = whaleShift(t);
+  const listOn = (t < T.n22 + 0.8 ? 1 : 0) * 1;
+  let listOp;
+  if (t < T.n22 + .6) listOp = 1;
+  else if (t < T.just) listOp = .16;
+  else if (t < T.because) listOp = lerp(.16, 1, seg(t, T.just, T.just + .5)) * (1 - seg(t, T.because - .1, T.because + .35));
+  else if (t < T.jelly + 1.35) listOp = 0;
+  else if (t < T.three) listOp = seg(t, T.jelly + 1.35, T.jelly + 2.0);
+  else if (t < T.called - .6) listOp = .12;
+  else if (t < T.stop - .3) listOp = lerp(.12, 1, seg(t, T.called - .6, T.called - .1));
+  else listOp = 0;
+  listOp *= (1 - seg(t, T.stop - .4, T.stop - .05)) * (1 - seg(t, T.saved - .15, T.saved + .12));
+  listClip.style.opacity = listOp;
+  listClip.style.display = listOp > .01 ? 'block' : 'none';
+  if (listOp > .01) rows.forEach(({ r, av, nm, sb, ch, i }) => {
+    let pos = i;
+    if (t >= T.called - .2) pos = i === WHALE ? lerp(WHALE, 0, shift) : (i < WHALE ? i + shift : i);
+    const y = 20 + (pos - p) * ROW;
+    const tc = tcs[i], called = t >= tc, calling = t >= tc && t < tc + 0.38;
+    let txt = '', bgc = 'transparent', col = MUTE, bd = '2px solid #b8b2a2';
+    const sweep = T.think - 0.8 + i * 0.07, thinkOn = t >= Math.max(sweep, tc + .4) && t >= T.think - .8;
+    const starterOn = STARTER.includes(i) && t >= T.n4 + STARTER.indexOf(i) * 0.4 && t >= tc;
+    if (!rel) {
+      if (i === WHALE) { txt = t < T.hit ? 'In queue' : (t < T.n22 + 1.0 ? 'Calling…' : 'On the call'); if (t >= T.hit) { bgc = INK; col = '#fff'; bd = 'none'; } }
+      else if (!called) txt = 'In queue';
+      else if (calling) { txt = 'Calling…'; bgc = INK; col = '#fff'; bd = 'none'; }
+      else if (starterOn) { txt = 'Starter plan'; bgc = '#f2d98a'; col = '#6a4b00'; bd = 'none'; }
+      else if (thinkOn) { txt = 'Let me think about it'; bgc = '#ddd7c8'; col = '#6b6556'; bd = 'none'; }
+      else { txt = 'Called'; bgc = '#e8e4da'; col = '#555'; bd = 'none'; }
+      if (i === WHALE && t >= T.gone) { txt = 'Lost'; bgc = RED; col = '#fff'; bd = 'none'; }
+    } else {
+      txt = i === WHALE ? '3 visits' : (i % 5 === 0 ? '2 visits' : '1 visit');
+      bgc = i === WHALE ? '#dff0e5' : '#eef2ec'; col = i === WHALE ? GREEN : MUTE; bd = 'none';
+      if (i === WHALE && t >= T.first && t < T.deal) { txt = 'On the call'; bgc = GREEN; col = '#fff'; }
+      if (i === WHALE && t >= T.deal) { txt = 'Premium signed'; bgc = GREEN; col = '#fff'; }
+    }
+    ch.textContent = txt; ch.style.background = bgc; ch.style.color = col; ch.style.border = bd; ch.style.lineHeight = bd === 'none' ? '60px' : '56px';
+    const hot = i === WHALE && ((t >= T.hit && t < T.if_) || t >= T.jelly + 1.2);
+    r.style.top = y + 'px';
+    r.style.borderColor = hot ? acc : INK;
+    r.style.borderWidth = hot ? '5px' : '3px';
+    r.style.transform = i === WHALE && t >= T.hit && t < T.n22 + 1 ? `scale(${1 + .03 * Math.sin((t - T.hit) * 14)})` : (calling ? 'translateX(10px)' : 'none');
+    r.style.background = i === WHALE && t >= T.gone && !rel ? '#e9e4d8' : '#fff';
+    r.style.opacity = (i === WHALE && t >= T.gone && !rel) ? .7 : 1;
+    r.style.boxShadow = i === WHALE && rel && t >= T.jelly + 1.2 ? `0 0 0 8px rgba(15,122,61,${.12 + .08 * Math.sin(t * 6)})` : 'none';
+    av.style.background = i === WHALE && rel ? GREEN : '#ddd7c8'; av.style.color = i === WHALE && rel ? '#fff' : MUTE;
+    sb.textContent = i === WHALE && t >= T.biggest && t < T.if_ ? '' : (i === WHALE ? 'Enterprise inquiry' : SUBS[i % 4]);
+  });
+
+  // LOST stamp and the "biggest deal" tag sit on the lost row
+  const wy = 250 + 20 + (WHALE - p) * ROW;
+  const sp = spring(t - T.gone, 16, .5);
+  stamp.style.display = t >= T.gone && t < T.because + .2 ? 'block' : 'none';
+  stamp.style.top = (wy - 4) + 'px';
+  stamp.style.opacity = t >= T.gone ? 1 - seg(t, T.because - .1, T.because + .2) : 0;
+  stamp.style.transform = `rotate(-7deg) scale(${lerp(2.4, 1, clamp(sp))})`;
+  dealTag.style.display = t >= T.biggest && t < T.because + .2 ? 'block' : 'none';
+  dealTag.style.left = '176px'; dealTag.style.top = (wy + 76) + 'px';
+  dealTag.style.opacity = (t >= T.biggest ? 1 : 0) * (1 - seg(t, T.because - .1, T.because + .2));
+
+  const wsp = spring(t - T.deal, 16, .5), wop = t >= T.deal ? 1 - seg(t, Math.min(T.deal + 1.5, T.saved - .35), T.saved - .05) : 0;
+  won.style.display = wop > .01 ? 'block' : 'none'; won.style.opacity = wop; won.style.top = (250 + 20 + (0 - p) * ROW - 4) + 'px';
+  won.style.transform = `rotate(-6deg) scale(${lerp(2.4, 1, clamp(wsp))})`;
+
+  // the call card
+  const cIn = seg(t, T.hit + 0.9, T.n22 + 1.0), cOut = seg(t, T.just, T.just + .55);
+  const cOp = ease(cIn) * (1 - ease(cOut));
+  card.style.opacity = cOp; card.style.display = cOp > .01 ? 'block' : 'none';
+  card.style.transform = `scale(${lerp(.9, 1, ease(cIn)) * lerp(1, .94, ease(cOut))})`;
+  if (cOp > .01) {
+    const secs = Math.max(0, t - (T.n22 + 1.1));
+    cSub.textContent = t < T.n22 + 1.1 ? 'Ringing…' : `On the call · 0:${String(Math.floor(secs)).padStart(2, '0')}`;
+    live.style.opacity = Math.sin(t * 7) > -.3 ? 1 : .55;
+    const t1 = clamp((t - (T.generic - .85)) / 1.85), t2 = clamp((t - (T.pitch - .7)) / (T.cuts - .15 - (T.pitch - .7)));
+    const n1 = Math.floor(YOU1.length * t1), n2 = Math.floor(YOU2.length * t2);
+    bubbleYou1.textContent = YOU1.slice(0, n1);
+    bubbleYou2.textContent = YOU2.slice(0, n2) + (t >= T.cuts ? '…' : '');
+    bubbleYou1.style.display = n1 > 0 ? 'block' : 'none'; bubbleYou2.style.display = n2 > 0 ? 'block' : 'none'; youTag.style.display = n1 > 0 ? 'block' : 'none';
+    const fade = lerp(1, .12, seg(t, T.q0 - .1, T.q0 + .35));
+    bubbleYou1.style.opacity = fade; bubbleYou2.style.opacity = fade; youTag.style.opacity = fade;
+    const hp = spring(t - T.cuts, 18, .55);
+    hold.style.display = t >= T.cuts && t < T.q0 - .05 ? 'block' : 'none';
+    hold.style.transform = `translateX(${lerp(-500, 0, clamp(hp, 0, 1.1))}px) rotate(-2deg)`;
+    const gl = t >= T.cuts && t < T.cuts + .25 ? Math.sin(t * 90) * 12 : 0;
+    bubbleYou2.style.transform = `translateX(${gl}px)`;
+    const qp = spring(t - (T.q0 - .05), 14, .7);
+    quote.style.display = t >= T.q0 - .05 ? 'block' : 'none';
+    quote.style.transform = `scale(${lerp(.85, 1, clamp(qp, 0, 1.06))})`;
+    qWords.forEach(({ s, w }) => { const on = t >= w.s - 0.02; s.style.opacity = on ? 1 : .16; s.style.color = on && QHOT.has(norm(w.w)) ? acc : INK; });
+  }
+
+  // the morning
+  const savedPhase = t >= T.saved - .1;
+  const calOp = Math.max(win(t, T.because - .05, T.if_ + .55, .35, .45), win(t, T.saved + .1, T.stop - .15, .3, .3));
+  cal.style.opacity = calOp; cal.style.display = calOp > .01 ? 'block' : 'none';
+  kicks.forEach(({ b, x, t: kt }) => {
+    const a = spring(t - kt, 20, .75);
+    const dead = seg(t, T.never, T.never + .8);
+    b.style.opacity = clamp(a) * lerp(1, .38, dead);
+    b.style.transform = `translateX(${(1 - clamp(a, 0, 1)) * 140}px)`;
+    x.style.opacity = dead;
+  });
+  if (savedPhase) kicks.forEach(({ b }, i) => {
+    const f = ease(seg(t, T.saved + .15 + i * .07, T.saved + .8 + i * .07));
+    b.style.opacity = .38 * Math.pow(1 - f, 2); b.style.transform = `translateY(${f * 520}px) rotate(${f * (i % 2 ? 16 : -13)}deg)`;
+  });
+  const wb = clamp(spring(t - (T.saved + .3), 15, .6), 0, 1.08);
+  winBlock.style.display = savedPhase ? 'block' : 'none';
+  winBlock.style.opacity = clamp(wb * 2); winBlock.style.transform = `scale(${lerp(.8, 1, wb)})`;
+
+  // the turn: a clean circle of light, the logo, then the same list in Jellyhook's colours
+  const fr = ease(seg(t, T.if_ - .05, T.if_ + .85));
+  flush.style.clipPath = `circle(${fr * 1500}px at 540px 880px)`;
+  flush.style.opacity = 1 - seg(t, T.jelly + .6, T.jelly + 1.6);
+  flush.style.display = t >= T.if_ - .06 && flush.style.opacity > .01 ? 'block' : 'none';
+  // the logo and its name land on "Jelly Hook", then give way to the list
+  const lg = spring(t - T.jelly, 14, .6), lo = (1 - seg(t, T.jelly + 1.25, T.jelly + 1.75)) * (t >= T.jelly - .05 ? 1 : 0);
+  turn.style.opacity = lo; turn.style.display = lo > .01 ? 'block' : 'none';
+  tLogo.style.transform = `scale(${lerp(.4, 1, clamp(lg, 0, 1.1))})`;
+  tJelly.style.opacity = clamp(spring(t - T.jelly, 16, .7) * 1.4); tJelly.style.transform = `translateY(${(1 - clamp(spring(t - T.jelly, 14, .7), 0, 1)) * 40}px)`;
+  tHook.style.opacity = clamp(spring(t - T.hook, 16, .7) * 1.4); tHook.style.transform = `translateY(${(1 - clamp(spring(t - T.hook, 14, .7), 0, 1)) * 40}px)`;
+
+  // the lead profile (the same row, opened)
+  const pIn = ease(seg(t, T.three - 1.15, T.three - .7)), pOut = ease(seg(t, T.called - .7, T.called - .15));
+  const pOp = pIn * (1 - pOut);
+  prof.style.opacity = pOp; prof.style.display = pOp > .01 ? 'block' : 'none';
+  prof.style.transform = `translateY(${(1 - pIn) * 120}px)`;
+  if (pOp > .01) {
+    stats.forEach((s, i) => {
+      const a = spring(t - s.tt, 18, .7);
+      s.b.style.opacity = clamp(a); s.b.style.transform = `scale(${lerp(.85, 1, clamp(a, 0, 1.08))})`;
+      if (i === 2) { const m = clamp((t - T.five) / (T.minutes + .7 - T.five)) * 5; s.v.textContent = `${Math.floor(m)}:${String(Math.floor((m % 1) * 60)).padStart(2, '0')} min`.replace(/^(\d):/, '$1:'); }
+    });
+    plates.forEach(({ pl, bands, entm, reach, t0 }) => {
+      const a = spring(t - t0, 16, .72);
+      pl.style.opacity = clamp(a * 1.5); pl.style.transform = `translateY(${(1 - clamp(a, 0, 1)) * 90}px)`;
+      const fillK = ease(seg(t, t0 + .1, t0 + 1.0));
+      bands.forEach(({ fill, start, h, bi }) => { const seen = clamp((reach * 500 - start) / h); fill.style.opacity = (bi === 3 ? .95 : .55) * fillK * (seen > 0 ? 1 : 0); fill.style.height = (h * (seen > 0 ? clamp(seen, 0, 1) : 0)) + 'px'; });
+      entm.style.opacity = seg(t, T.minutes, T.minutes + .5) * (reach >= .8 ? 1 : 0);
+    });
+    const glow = Math.max(0, Math.sin(clamp((t - T.enterprise) / 1.3) * Math.PI)) * seg(t, T.enterprise - .05, T.enterprise);
+    prof.style.boxShadow = `0 18px 0 rgba(15,122,61,.14), 0 0 ${60 * glow}px rgba(15,122,61,${.55 * glow})`;
+    whalePill.style.opacity = clamp(spring(t - T.whale, 16, .6)); whalePill.style.transform = `scale(${lerp(1.7, 1, clamp(spring(t - T.whale, 16, .6), 0, 1.06))}) rotate(${lerp(-8, 0, clamp(spring(t - T.whale, 12, .8)))}deg)`;
+    profNote.style.opacity = seg(t, T.features, T.features + .5);
+  }
+
+  // Slack
+  const sIn = spring(t - T.instant, 15, .72), sOut = ease(seg(t, T.first - .9, T.first - .35));
+  slack.style.top = lerp(-440, 78, clamp(sIn, 0, 1.08)) - sOut * 560 + 'px';
+  const buzz = t >= T.instant && t < T.instant + .5 ? Math.sin(t * 80) * 5 * (1 - seg(t, T.instant, T.instant + .5)) : 0;
+  slack.style.transform = `translateX(${buzz}px)`;
+  slackPill.style.opacity = clamp(spring(t - T.whale, 16, .7)); slackPill.style.transform = `scale(${lerp(1.5, 1, clamp(spring(t - T.whale, 16, .7), 0, 1.06))})`;
+
+  // captions
+  const showCap = !(t > T.q0 - .15 && t < T.competitorEnd + .35) && t < T.stop - .1;
+  CHUNKS.forEach((c, ci) => {
+    const next = CHUNKS[ci + 1], endT = Math.min(c.b + .5, next ? next.a - .05 : 99);
+    const on = showCap && t >= c.a - .07 && t < endT;
+    c.el.style.display = on ? 'block' : 'none';
+    if (!on) return;
+    const k = clamp(spring(t - (c.a - .07), 24, .55), 0, 1.15);
+    c.el.style.opacity = clamp(k * 2.5);
+    c.el.style.transform = `translateY(${(1 - clamp(k)) * 50}px) scale(${lerp(.7, 1, k)})`;
+    c.ids.forEach((i, j) => {
+      const w = WORDS[i], sp = c.spans[j], said = t >= w.s - .03, cur = said && t < Math.max(w.e, w.s + .12) + .06;
+      const pk = clamp(spring(t - (w.s - .03), 28, .45), 0, 1.25);
+      sp.style.background = cur ? acc : 'transparent';
+      sp.style.color = cur ? '#fff' : (said ? INK : 'rgba(17,17,17,.3)');
+      sp.style.transform = cur ? `scale(${lerp(.86, 1.1, pk)}) rotate(${(j % 2 ? 1 : -1) * 1.5}deg)` : 'none';
+    });
+  });
+
+  // closing
+  const eOp = ease(seg(t, T.stop - .35, T.stop + .25));
+  endLayer.style.opacity = eOp; endLayer.style.display = eOp > .01 ? 'block' : 'none';
+  if (t >= T.stop - .4) {
+    logoEl.style.transform = `scale(${lerp(.7, 1, clamp(spring(t - T.stop, 14, .7), 0, 1.06))})`;
+    const hs = clamp(spring(t - T.stop, 13, .75), 0, 1.04);
+    endHead.style.transform = `translateY(${(1 - hs) * 60}px)`;
+    const bar = document.getElementById('blindbar'); bar.style.width = (ease(seg(t, T.blind, T.blind + .7)) * 100) + '%';
+    endSub.style.opacity = seg(t, T.see - .1, T.see + .35); endSub.style.transform = `translateY(${(1 - seg(t, T.see - .1, T.see + .35)) * 24}px)`;
+    const us = clamp(spring(t - T.jh, 15, .62), 0, 1.1); endUrl.style.opacity = clamp(us * 2); endUrl.style.transform = `scale(${lerp(.8, 1, us)})`;
+    const fs = clamp(spring(t - T.free, 15, .62), 0, 1.1); endFree.style.opacity = clamp(fs * 2); endFree.style.transform = `scale(${lerp(.8, 1, fs)})`;
+  }
+  tag.style.opacity = t < T.stop - .2 ? .8 : 0;
+}
+window.seek = seek;
+seek(0);
+
+/* ---- live preview (not used by the renderer) ---- */
+if (!location.search.includes('render')) {
+  const fit = () => { const k = Math.min(innerWidth / W, (innerHeight - 52) / H); stage.style.transform = `scale(${k})`; stage.style.left = Math.max(0, (innerWidth - W * k) / 2) + 'px'; };
+  fit(); addEventListener('resize', fit);
+  const ctl = document.createElement('div'); ctl.id = 'ctl';
+  ctl.innerHTML = '<button id="pp">Play</button><input id="sc" type="range" min="0" max="' + DUR + '" step="0.01" value="0"><span id="tt">0.00</span>';
+  document.body.appendChild(ctl);
+  const au = new Audio('../../../../public/assets/11labs-wasted-day.mp3');
+  const sc = document.getElementById('sc'), tt = document.getElementById('tt'), pp = document.getElementById('pp');
+  let playing = false;
+  pp.onclick = () => { playing = !playing; pp.textContent = playing ? 'Pause' : 'Play'; if (playing) { au.currentTime = +sc.value; au.play(); } else au.pause(); };
+  sc.oninput = () => { au.currentTime = +sc.value; seek(+sc.value); tt.textContent = (+sc.value).toFixed(2); };
+  (function loop() { if (playing) { sc.value = au.currentTime; if (au.currentTime >= DUR) { playing = false; pp.textContent = 'Play'; } } seek(+sc.value); tt.textContent = (+sc.value).toFixed(2); requestAnimationFrame(loop); })();
+} else { stage.style.transform = 'none'; }
+</script></body></html>

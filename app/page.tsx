@@ -169,7 +169,51 @@ export default function Home() {
           ))}
         </section>
 
-        {/* 02 sales intelligence */}
+        {/* 02 no extra questions: qualify from the visit, not from more form fields (ledger 2, 3, 4, 23) */}
+        <section className="py-20">
+          <div className="grid gap-8 lg:grid-cols-2">
+            <h2 data-reveal="rise" className={H2}>
+              Long forms scare off big buyers. <span className="text-[var(--spot)]">Chatbots annoy them.</span>
+            </h2>
+            <p data-reveal="rise" className={"self-end " + BODY + " " + RULE_COL}>
+              Jellyhook qualifies a lead from what they already did on your site: the pages they read, how long they stayed, how far
+              they scrolled, how they filled in your form. Keep your form short. Let their visit tell you the rest.
+            </p>
+          </div>
+          <div className="mt-14 grid border-t-4 border-[var(--ink)] lg:grid-cols-3">
+            <div data-reveal="rise" className="py-8 lg:pr-10">
+              <h3 className="v2-caps text-[12px] text-[var(--ink-soft)]">Fifteen qualifying questions</h3>
+              <p className="v2-serif mt-3 text-[1.7rem] leading-tight">They leave halfway.</p>
+              <div aria-hidden className="mt-6 space-y-2">
+                {[1, 0.8, 0.55, 0.35, 0.18].map((o, i) => (
+                  <div key={i} className="h-7 border-2 border-[var(--ink)] bg-[var(--paper-2)]" style={{ opacity: o }} />
+                ))}
+              </div>
+            </div>
+            <div data-reveal="rise" style={{ "--d": "120ms" } as React.CSSProperties} className="border-t border-[var(--ink)] py-8 lg:border-l lg:border-t-0 lg:px-10">
+              <h3 className="v2-caps text-[12px] text-[var(--ink-soft)]">A chatbot pops up</h3>
+              <p className="v2-serif mt-3 text-[1.7rem] leading-tight">They close it.</p>
+              <div aria-hidden className="relative mt-6 max-w-[17rem] border-2 border-[var(--ink)] bg-[var(--paper-2)] px-4 py-3 pr-10 text-[15px] leading-snug">
+                Hi! Can I ask you a few quick questions first?
+                <span className="absolute right-3 top-2 text-[18px] font-bold">×</span>
+              </div>
+            </div>
+            <div data-reveal="rise" style={{ "--d": "240ms" } as React.CSSProperties} className="border-t border-[var(--ink)] py-8 lg:border-l lg:border-t-0 lg:pl-10">
+              <h3 className="v2-caps text-[12px] text-[var(--spot)]">Jellyhook</h3>
+              <p className="v2-serif mt-3 text-[1.7rem] leading-tight">Nothing extra to answer.</p>
+              <ul aria-label="What one example visit shows" className="mt-6 space-y-2 text-[15px] leading-snug">
+                {["Read your pricing page twice", "3 min on Enterprise services", "Longest pause: the budget field"].map((t) => (
+                  <li key={t} className="flex items-center gap-3 border-2 border-[var(--spot)] px-3 py-1.5">
+                    <HookMark className="h-4 w-3 shrink-0 text-[var(--spot)]" />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* 03 sales intelligence */}
         <section className="py-20">
           <h2 data-reveal="rise" className={H2 + " max-w-[18ch]"}>Be one step ahead on your next call.</h2>
           <div className="mt-12 grid gap-10 lg:grid-cols-2 lg:gap-0">
@@ -344,7 +388,34 @@ export default function Home() {
                 pricing page, explores a specific service, or returns for another session.
               </p>
               <p>Configure the conditions that matter to you. Jellyhook flags matching leads, so you can prioritize the ones that deserve a closer look.</p>
-              <p className="font-semibold text-[var(--ink)]">Less guesswork. More context. A clearer way to prioritize.</p>
+              <p className="font-semibold text-[var(--ink)]">Apply a mark and its leads come first. Less guesswork, a clearer way to prioritize.</p>
+            </div>
+          </div>
+          {/* one rule, drawn as a rule: a mark's conditions, then the hook that sends it to Slack (ledger 23, 24) */}
+          <div data-reveal="rise" className="mt-12 grid border-4 border-[var(--ink)] lg:grid-cols-[1fr_auto_18rem]">
+            <div className="p-6 md:p-8">
+              <p className="v2-caps text-[12px] text-[var(--ink-soft)]">
+                Example mark: <span className="text-[var(--ink)]">Whale</span>
+              </p>
+              <ul className="mt-5 divide-y divide-[var(--ink)] border-y border-[var(--ink)]">
+                {[
+                  ["Budget (their form answer)", "over $4,000"],
+                  ["Time on /enterprise-services", "at least 3 minutes"],
+                  ["When", "before the form is sent"],
+                ].map(([k, v]) => (
+                  <li key={k} className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3">
+                    <span className="text-[15px] text-[var(--ink-soft)]">{k}</span>
+                    <span className="v2-serif text-[1.35rem] leading-tight">{v}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div aria-hidden className="hidden items-center border-l-4 border-[var(--ink)] px-6 lg:flex">
+              <ArrowRight className="h-8 w-8 text-[var(--spot)]" />
+            </div>
+            <div className="flex flex-col justify-center border-t-4 border-[var(--ink)] bg-[var(--spot)] p-6 text-white md:p-8 lg:border-t-0">
+              <p className="v2-caps text-[12px] text-white/80">Hook</p>
+              <p className="v2-serif mt-2 text-[1.6rem] leading-tight">Message #sales in Slack the moment one sends the form.</p>
             </div>
           </div>
           <div data-reveal="fade" className="mt-12 overflow-x-clip">

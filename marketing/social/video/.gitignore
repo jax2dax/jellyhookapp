@@ -1,0 +1,5 @@
+# renders and downloaded audio (Mixkit music must never be committed)
+*.mp4
+*.png
+*/audio-cache/
+*/cues.json
