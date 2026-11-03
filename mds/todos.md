@@ -419,6 +419,7 @@ Oct 14, 2026
 58m · 6"
 and dive in deep on explaining certain pages when they are relevant, look at this irrelevant session table, it should be able to say, that the person opened the page and stayed less than 0s on 6 visits, so that perosn must have had glitching pc, or unusual session histry between oct 15-oct17:
 
+09
 # Strictly make the Markers field about what is the marker designed to detect:
 what the error amrgin is : and edge cases.
 
@@ -491,3 +492,11 @@ Knowing that over 70% of teams pay $890/mo just to get that workflow engine, do 
 -----
 pitch
 " behavioral qualification and instant notification speed."
+------------------
+
+Later feature
+. Jellyhook helps you investigate what your successful journeys have in common.
+(i want to let peopl select conversion paths, and list intersections, an what the converting sessions have in common);
+
+--------------------------------------------
+Text them a messag(phone integration)
