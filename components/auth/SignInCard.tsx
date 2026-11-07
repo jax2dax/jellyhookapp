@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useAuth, useSignIn } from "@clerk/nextjs";
 import Link from "next/link";
 import { AuthCardFrame } from "./AuthCardFrame";
+import { AFTER_AUTH_URL as DASHBOARD, isAlreadySignedInError } from "./redirects";
 
 const inputClass =
   "w-full border-2 border-[var(--ink)] bg-[var(--paper)] px-3.5 py-2.5 ff-body text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-mute)] outline-none transition-[border-color,box-shadow] duration-200 focus:border-[var(--lime)] focus:shadow-[0_8px_20px_-12px_rgba(15,122,61,0.5)]";
@@ -34,7 +35,6 @@ export function SignInCard() {
   const { signIn } = useSignIn();
   const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
-  const DASHBOARD = "/platform/dashboard";
 
   // Already signed in (opened this page again, or a second tab): go to the dashboard. Nothing to sign in to.
   React.useEffect(() => {
@@ -52,10 +52,10 @@ export function SignInCard() {
     const { error: ssoError } = await signIn.sso({
       strategy: "oauth_google",
       redirectCallbackUrl: "/sign-in/sso-callback",
-      redirectUrl: "/",
+      redirectUrl: DASHBOARD,
     });
     if (ssoError) {
-      if (/already signed in|session_exists/i.test(ssoError.message + " " + (ssoError.code ?? ""))) return router.replace(DASHBOARD);
+      if (isAlreadySignedInError(ssoError)) return router.replace(DASHBOARD);
       setError(ssoError.message);
     }
   }
@@ -72,14 +72,14 @@ export function SignInCard() {
     });
     if (passwordError) {
       // Clerk says a session already exists (signed in in another tab): that is not a failure, go to the dashboard
-      if (/already signed in|session_exists/i.test(passwordError.message + " " + (passwordError.code ?? ""))) return router.replace(DASHBOARD);
+      if (isAlreadySignedInError(passwordError)) return router.replace(DASHBOARD);
       setError(passwordError.message);
       setSubmitting(false);
       return;
     }
 
     if (signIn.status === "complete") {
-      await signIn.finalize({ navigate: () => router.push("/") });
+      await signIn.finalize({ navigate: () => router.push(DASHBOARD) });
     } else {
       setError("Sign in incomplete, this account may need an extra verification step");
     }

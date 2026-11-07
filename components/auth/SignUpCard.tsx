@@ -9,9 +9,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { useSignUp } from "@clerk/nextjs";
+import { useAuth, useSignUp } from "@clerk/nextjs";
 import Link from "next/link";
 import { AuthCardFrame } from "./AuthCardFrame";
+import { AFTER_AUTH_URL, isAlreadySignedInError } from "./redirects";
 
 const inputClass =
   "w-full border-2 border-[var(--ink)] bg-[var(--paper)] px-3.5 py-2.5 ff-body text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-mute)] outline-none transition-[border-color,box-shadow] duration-200 focus:border-[var(--lime)] focus:shadow-[0_8px_20px_-12px_rgba(15,122,61,0.5)]";
@@ -34,7 +35,14 @@ function GoogleIcon() {
 
 export function SignUpCard() {
   const { signUp } = useSignUp();
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
+
+  // Already signed in (clicked "Try it free" again, or a second tab): there is nothing to sign up for, go to the app.
+  // middleware.ts does the same on the server; this covers a session that starts while the page is open.
+  React.useEffect(() => {
+    if (isLoaded && isSignedIn) router.replace(AFTER_AUTH_URL);
+  }, [isLoaded, isSignedIn, router]);
 
   const [step, setStep] = React.useState<"form" | "verify">("form");
   const [firstName, setFirstName] = React.useState("");
@@ -46,17 +54,22 @@ export function SignUpCard() {
   const [submitting, setSubmitting] = React.useState(false);
 
   async function handleGoogle() {
+    if (isSignedIn) return router.replace(AFTER_AUTH_URL);
     setError(null);
     const { error: ssoError } = await signUp.sso({
       strategy: "oauth_google",
       redirectCallbackUrl: "/sign-up/sso-callback",
-      redirectUrl: "/",
+      redirectUrl: AFTER_AUTH_URL,
     });
-    if (ssoError) setError(ssoError.message);
+    if (ssoError) {
+      if (isAlreadySignedInError(ssoError)) return router.replace(AFTER_AUTH_URL);
+      setError(ssoError.message);
+    }
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (isSignedIn) return router.replace(AFTER_AUTH_URL);
     setSubmitting(true);
     setError(null);
 
@@ -67,13 +80,14 @@ export function SignUpCard() {
       lastName: lastName.trim(),
     });
     if (passwordError) {
+      if (isAlreadySignedInError(passwordError)) return router.replace(AFTER_AUTH_URL);
       setError(passwordError.message);
       setSubmitting(false);
       return;
     }
 
     if (signUp.status === "complete") {
-      await signUp.finalize({ navigate: () => router.push("/") });
+      await signUp.finalize({ navigate: () => router.push(AFTER_AUTH_URL) });
       setSubmitting(false);
       return;
     }
@@ -101,7 +115,7 @@ export function SignUpCard() {
     }
 
     if (signUp.status === "complete") {
-      await signUp.finalize({ navigate: () => router.push("/") });
+      await signUp.finalize({ navigate: () => router.push(AFTER_AUTH_URL) });
     } else {
       setError("Verification incomplete, double-check the code");
     }

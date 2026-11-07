@@ -2082,3 +2082,10 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
 ## 2026-10-28: onboarding without the sidebar
 - /platform/create-site (create a site, pending verification) shows only the logo: no sidebar, no top bar. components/nav/PlatformShell.tsx, app/platform/layout.jsx.
 
+
+## 2026-11-06: sign-in and sign-up go to the app
+- After sign-in or sign-up (email or Google) you land on /platform/dashboard, not the home page. A signed-in person who
+  opens /sign-in or /sign-up (for example "Try it free") is sent to the app by middleware.ts instead of seeing
+  "You're already signed in". One destination: components/auth/redirects.ts. Details: mds/issues/prod-issues.md.
+- Founder must: push; test the three steps in prod-issues.md; fix the Google screen name in the Clerk and Google Cloud
+  dashboards (custom credentials, branding verification), same file.

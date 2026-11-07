@@ -1,6 +1,20 @@
-import { clerkMiddleware } from '@clerk/nextjs/server';
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
+import { AFTER_AUTH_URL } from '@/components/auth/redirects';
 
-export default clerkMiddleware();
+// A signed-in person who opens /sign-in or /sign-up (for example "Try it free" on the landing page) goes straight to
+// the app, like most SaaS products. Without this the form showed Clerk's "You're already signed in" error and there
+// was no way into /platform except typing the address. The Google callback pages are left alone: they run while the
+// session is being created and send the person on themselves.
+const isAuthPage = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)']);
+const isSsoCallback = createRouteMatcher(['/sign-in/sso-callback(.*)', '/sign-up/sso-callback(.*)']);
+
+export default clerkMiddleware(async (auth, req) => {
+  if (isAuthPage(req) && !isSsoCallback(req)) {
+    const { userId } = await auth();
+    if (userId) return NextResponse.redirect(new URL(AFTER_AUTH_URL, req.url));
+  }
+});
 
 // The tracker-facing API routes below are hit by anonymous visitors on
 // CUSTOMERS' websites — cross-origin, no Clerk session, ever, by design
