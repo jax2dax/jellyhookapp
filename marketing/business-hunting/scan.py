@@ -32,7 +32,6 @@ SITES = {
  "Corporate event production": ["raybloch.com","voloevents.com","eventsolutions.com"],
  "Fund / advisory platform": ["ppbcapitalpartners.com"],
 }
-/
 if len(sys.argv) > 3 and sys.argv[2] == "--file":
     SITES = json.load(open(sys.argv[3], encoding="utf-8"))
 elif len(sys.argv) > 2:
