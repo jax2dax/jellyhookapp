@@ -51,7 +51,7 @@ Keep this list current: add a line when you create a .md file, change it when a 
 **Root**
 - `CLAUDE.md`: this handbook (rules for agents, where things are, this index).
 - `PRODUCT.md`: product record for the impeccable design skill (users, purpose, brand commitments, no-invention rule).
-- `README.md`: the default Next.js readme (how to run the dev server).
+- `README.md`: the developer readme (how it works, stack, layout, setup, env var names, database, jobs, tests, bench, deploy, privacy).
 - `RESUME_INVENTORY.md`: inventory of the whole project (features, files, tech) for a resume/portfolio.
 - `SAAS_PRODUCT_AUDIT.md`: full product, feature and data-flow audit. A source of product facts.
 - `saas-overview.md`: product overview (what it does, pages, data). A source of product facts.
