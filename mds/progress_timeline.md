@@ -2089,3 +2089,9 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
   "You're already signed in". One destination: components/auth/redirects.ts. Details: mds/issues/prod-issues.md.
 - Founder must: push; test the three steps in prod-issues.md; fix the Google screen name in the Clerk and Google Cloud
   dashboards (custom credentials, branding verification), same file.
+
+## 2026-11-13: developer README
+- README.md replaced the default Next.js text: how the product works, stack, repo layout, setup, environment variable
+  names, database and migrations, scheduled jobs, tracker install, scripts, tests, bench, deploy, privacy, license.
+- Open: the tables from before migration 07 have no migration file, so a new developer cannot build the database from
+  scratch yet (README, Database section).
