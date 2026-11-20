@@ -53,13 +53,13 @@ Sidebar labels are from `components/app-sidebar.tsx`. Hidden in the sidebar (Vis
 | "Seen once / Seen 2x+ / Not seen" | Click a frame on any visit chart | Yes, 2026-11-20 (visit chart page) | `computeSeenBreakdown` in `framePlate/format.ts`. The visitor's scroll position is sampled over the visit. Seen once = from the top-most scroll position reached down to the first spot the scroll passed over at least twice (or to the lowest point seen, if no spot was passed twice). Seen 2x+ = from that first doubly-passed spot down to the lowest point seen. Not seen = the rest (100% minus the two). Note: bands are one continuous stretch, so a short revisit near the top still makes everything below it count as Seen 2x+; this is an approximation, and the docs must say so. Percentages are of page height, not of time. Low point seen = deepest scroll position plus one screen height. Needs a How it works section on the visit chart page. |
 | Heading "Seen" / "Not seen" | Same panel | Yes, 2026-11-20 (visit chart page; the 80-heading cap is not stated) | A heading is "Seen" if its position is between the top of the highest scroll position and the lowest point seen. A heading is checked by position only: a heading passed in a fast scroll counts as Seen. Only the first 80 h1 to h3 on a page are captured (`tracker-spec`). |
 | Time on page | Visit chart, Hook, Pages table | Only in Hook how-it-works ("left at minus entered at, stamped by our server"). Not on any dashboard page. | One page view lasts from when the page becomes the active one until: another page, the tab hidden, the visitor using another window of the same site, or 30 minutes idle. So reading in a background tab is not counted, and two windows are never counted twice. Needs a plain explanation on the visit chart page and the Pages table. |
-| Time engaged (lead profile) | Lead profile stats card | One clause only | Tooltip in `LeadStatsCard.tsx`: total time this person had one of your pages open, across every visit. |
+| Time engaged (lead profile) | Lead profile stats card | Yes, 2026-11-20 (lead profile page) | Tooltip in `LeadStatsCard.tsx`: total time this person had one of your pages open, across every visit. |
 | Session end | Lead profile, charts | Yes (visitors-sessions): 30 minutes idle; closed at the real last activity. Trap: closing a tab does NOT end a session. | Covered. Mention on dashboard Sessions tile. |
 | "Direct" referrer | Referrers donut, Visits over time | Yes (referrers-attribution, troubleshooting). | Covered. |
 | Phone vs laptop = two visitors | Leads, Conversions | Yes (visitors-sessions). | Covered. |
 | Conversions card cuts the session at the submission | Conversions list | Yes. | Covered. |
 | New Reach vs Conversions Growth "looks low" while interval is in progress | Conversions | Yes. | Covered. |
-| Time to convert | Lead profile | Clause only | From first visit to submission; can be days. Needs a line. |
+| Time to convert | Lead profile | Yes, 2026-11-20 (lead profile page) | From first visit to submission; can be days. Needs a line. |
 
 ## 4. Pages that mix kinds of content
 

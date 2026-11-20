@@ -34,6 +34,32 @@ export default function LeadProfileReferencePage() {
             first visit to the moment they submitted (shown in yellow once they have converted). The (i) next to
             each explains how it is counted.
           </p>
+          <ul className="mt-4 space-y-2.5 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            <li>
+              <span className="text-[var(--ink)]">Visits:</span> separate visits from this browser. A new visit starts
+              after 30 minutes away.
+            </li>
+            <li>
+              <span className="text-[var(--ink)]">Page views:</span> every page they opened, on every visit,
+              including pages opened after they submitted.
+            </li>
+            <li>
+              <span className="text-[var(--ink)]">Time engaged:</span> the time on page of every page view, added
+              together. A page only counts while it is the one they have open, so a tab left in the background does
+              not add time. Time between visits is not included.
+            </li>
+            <li>
+              <span className="text-[var(--ink)]">Avg scroll:</span> where they were on each page when they left it,
+              averaged over their page views. It is not the deepest point they reached: someone who reads to the
+              bottom and scrolls back up before leaving counts lower. The visit chart shows the deepest point.
+            </li>
+            <li>
+              <span className="text-[var(--ink)]">Time to convert:</span> from the first time this browser was seen
+              on your site to the moment they sent the form you opened. It is calendar time, so it includes the days
+              between visits: a lead who read your pricing on Monday and wrote on Thursday shows about 3 days. The
+              line under it says whether they sent it on their first visit or after earlier ones.
+            </li>
+          </ul>
         </div>
 
         <div>

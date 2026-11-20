@@ -360,3 +360,13 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
   fallback). "Headings on this page" (time per heading with bars and the three extra rows; without it, Seen by position).
 - Checked against `framePlate/format.ts` (computeSeenBreakdown), `framePlate/geometry/deriveVisitGeometry.ts`,
   `components/leads/SelectedFrameDetails.tsx`. No marketing claim added. tsc and docs:check pass.
+
+## 2026-11-20 docs: how the lead profile's activity numbers are counted
+- Page: `app/docs/reference/lead-profile/page.tsx`, section "Activity stats". Before: one sentence listing the six
+  numbers. After: the same sentence plus exact rules for Visits, Page views, Time engaged, Avg scroll and Time to convert
+  (calendar time, includes the days between visits, example Monday to Thursday = about 3 days).
+- Checked against `lib/algorithms/leadProfile.js` (totalEngagedMs, avgScrollPct, timeToConvertMs, visitsBeforeConversion)
+  and `components/leads/LeadStatsCard.tsx`. No marketing claim added. tsc and docs:check pass.
+- Found, not changed (app code): the Avg scroll (i) says "How far down each page they scrolled", but the number is the
+  exit position (scroll_depth), not the deepest point. Suggested tooltip: "Where they were on each page when they left
+  it, on average."

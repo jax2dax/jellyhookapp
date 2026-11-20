@@ -2100,3 +2100,8 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
 - /docs/concepts/session-replay: new sections on what opens when a frame is clicked (page summary, Page details), the
   exact Seen once / Seen 2x+ / Not seen rules with a worked example, and the headings list. Closes job 1 in
   marketing/docs-audit.md. Logged in marketing/changes.md.
+
+## 2026-11-20: lead profile docs explain the activity numbers
+- /docs/reference/lead-profile: exact rules for Visits, Page views, Time engaged, Avg scroll (exit position, not the
+  deepest point) and Time to convert (calendar time from first seen to the form opened). Open: the in-app Avg scroll
+  tooltip still says "how far down"; see marketing/changes.md.
