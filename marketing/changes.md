@@ -350,3 +350,13 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
   at least 3 minutes on /enterprise-services, before the form is sent) feeding a hook that messages #sales in Slack
   (ledger 23, 24). Same rule as the "set the rules" video.
 - Not used, on purpose: "top 5%" (invented number), "lead scoring", "watches", ad-creative previews (not built).
+
+## 2026-11-20 docs: the page summary and the Seen numbers (visit chart page)
+- Page: `app/docs/concepts/session-replay/page.tsx`. Before: the page ended at "Headings and the one-screen-height
+  lines"; nothing explained what opens when a frame is clicked, or how Seen once / Seen 2x+ / Not seen are worked out.
+- After: three new sections. "Click a page: the page summary" (one visit only, the badges, Page details: time on page,
+  page height in px and in screens, the three Seen shares of page height). "How Seen once, Seen 2x+ and Not seen are
+  worked out" (exact rules, the 831px/665px example, the one-stretch approximation, the device-typical screen height
+  fallback). "Headings on this page" (time per heading with bars and the three extra rows; without it, Seen by position).
+- Checked against `framePlate/format.ts` (computeSeenBreakdown), `framePlate/geometry/deriveVisitGeometry.ts`,
+  `components/leads/SelectedFrameDetails.tsx`. No marketing claim added. tsc and docs:check pass.

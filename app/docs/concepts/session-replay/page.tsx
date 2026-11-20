@@ -184,6 +184,82 @@ export default function SessionReplayPage() {
             page do not use the same spacing.
           </p>
         </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Click a page: the page summary</h2>
+          <p className="max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            Click a frame and a page summary opens under the chart. It covers that one page visit only, never the
+            whole session. A few sentences say what the visitor did on the page. A badge shows how the visit ended:
+            Converted, Live, or Session ended here. A plain visit gets no badge. Click the same frame again, or the
+            close button, to hide it. Page details opens the numbers below.
+          </p>
+          <ul className="mt-4 space-y-2.5 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            <li>
+              <span className="text-[var(--ink)]">Time on page:</span> how long this page was the one they had open.
+            </li>
+            <li>
+              <span className="text-[var(--ink)]">Page height:</span> the page&apos;s real height in pixels, and how
+              many screens tall that was on their device. A page 3x the window height takes three screens to read.
+            </li>
+            <li>
+              <span className="text-[var(--ink)]">Seen once, Seen 2x+, Not seen:</span> shares of the page&apos;s
+              height, not of their time. The three always add up to 100%.
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">How Seen once, Seen 2x+ and Not seen are worked out</h2>
+          <ul className="space-y-2.5 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            <li>
+              <span className="text-[var(--ink)]">Seen:</span> from the highest point the top of their screen
+              reached, down to the deepest point they scrolled to plus one screen height. What was on screen when they
+              stopped scrolling counts as seen, even if they never scrolled past it.
+            </li>
+            <li>
+              <span className="text-[var(--ink)]">Seen 2x+:</span> from the highest spot the top of their screen
+              passed over at least twice (going down, then coming back up, or the reverse) down to the bottom of the
+              seen part.
+            </li>
+            <li>
+              <span className="text-[var(--ink)]">Seen once:</span> the rest of the seen part, above that spot.
+            </li>
+            <li>
+              <span className="text-[var(--ink)]">Not seen:</span> everything else. 100% minus the other two.
+            </li>
+          </ul>
+          <p className="mt-4 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            Example: a page 831px tall, read on a screen 665px tall. One screen is 80% of the page. If they land and
+            never scroll, Seen once is 80% and Not seen is 20%, without them moving at all.
+          </p>
+          <p className="mt-4 max-w-2xl ff-body text-[13px] leading-relaxed text-[var(--ink-mute)]">
+            This is an approximation. Seen 2x+ is drawn as one unbroken stretch, so a short scroll back near the top
+            of the page makes everything below it count as Seen 2x+. When a visit has no measured screen height, a
+            typical height for that kind of device is used for these numbers.
+          </p>
+        </div>
+
+        <div>
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Headings on this page</h2>
+          <p className="max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            The right half of Page details lists the page&apos;s headings, top to bottom, as they sit on the page.
+            What it shows depends on whether time per heading was recorded for that visit.
+          </p>
+          <ul className="mt-4 space-y-2.5 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            <li>
+              <span className="text-[var(--ink)]">With time per heading:</span> each heading shows how long it was
+              on screen, with a bar for its share of the time on the page. Smaller headings are indented under the
+              heading they belong to, and a heading&apos;s own row does not include them. Three more rows can
+              appear: Above the first heading, Passing through (stays under 1s), and Headings not found on the page
+              now. Together the rows add up to the time on the page.
+            </li>
+            <li>
+              <span className="text-[var(--ink)]">Without time per heading:</span> each heading is marked Seen or Not
+              seen, from its position only. A heading counts as Seen if it sits inside the seen part of the page, so
+              one they scrolled past quickly still counts.
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   );

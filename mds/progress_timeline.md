@@ -2095,3 +2095,8 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
   names, database and migrations, scheduled jobs, tracker install, scripts, tests, bench, deploy, privacy, license.
 - Open: the tables from before migration 07 have no migration file, so a new developer cannot build the database from
   scratch yet (README, Database section).
+
+## 2026-11-20: visit chart docs explain the page summary
+- /docs/concepts/session-replay: new sections on what opens when a frame is clicked (page summary, Page details), the
+  exact Seen once / Seen 2x+ / Not seen rules with a worked example, and the headings list. Closes job 1 in
+  marketing/docs-audit.md. Logged in marketing/changes.md.
