@@ -186,6 +186,25 @@ export default function SessionReplayPage() {
         </div>
 
         <div>
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">What counts as time on a page</h2>
+          <p className="max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            A frame&apos;s width and the Time on page number both measure one page view. A page view runs only while
+            the page is in front of the visitor. It ends when they:
+          </p>
+          <ul className="mt-4 space-y-2.5 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            <li>open another page, or leave the site;</li>
+            <li>switch to another tab or app, or minimise the window;</li>
+            <li>start using another window or tab of the same site;</li>
+            <li>do nothing on the page for 30 minutes. The page view is then closed at their last action, so the idle time is not counted.</li>
+          </ul>
+          <p className="mt-4 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            So a page left open in a background tab adds no time, and a visitor with your site open in two tabs is
+            never counted twice. When they come back to a page, a new page view starts. A page read in two stretches
+            shows as two frames, with the time away between them.
+          </p>
+        </div>
+
+        <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Click a page: the page summary</h2>
           <p className="max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             Click a frame and a page summary opens under the chart. It covers that one page visit only, never the

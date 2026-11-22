@@ -370,3 +370,12 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
 - Found, not changed (app code): the Avg scroll (i) says "How far down each page they scrolled", but the number is the
   exit position (scroll_depth), not the deepest point. Suggested tooltip: "Where they were on each page when they left
   it, on average."
+
+## 2026-11-21 docs: what counts as time on a page (visit chart page)
+- Page: `app/docs/concepts/session-replay/page.tsx`. Before: frame width was described as "how long that visit lasted",
+  with no rule for when a page view starts and stops. After: new section "What counts as time on a page": the four things
+  that end a page view (another page or leaving, another tab or app, another window of the same site, 30 minutes idle,
+  closed at the last action), so background tabs add no time and two tabs never count twice; coming back starts a new
+  page view, so one page read in two stretches shows as two frames.
+- Checked against `public/tracker.js` (page view lifecycle, one active window, idle close, openPageView). No marketing
+  claim added. tsc and docs:check pass.

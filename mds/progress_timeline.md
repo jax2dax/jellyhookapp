@@ -2105,3 +2105,8 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
 - /docs/reference/lead-profile: exact rules for Visits, Page views, Time engaged, Avg scroll (exit position, not the
   deepest point) and Time to convert (calendar time from first seen to the form opened). Open: the in-app Avg scroll
   tooltip still says "how far down"; see marketing/changes.md.
+
+## 2026-11-21: visit chart docs explain time on a page
+- /docs/concepts/session-replay: new section on when a page view starts and ends (another page, another tab, another
+  window of the site, 30 minutes idle), and why one page can show as two frames. docs-audit: the Pages table item marked
+  stale (the table is no longer in the app).
