@@ -379,3 +379,13 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
   page view, so one page read in two stretches shows as two frames.
 - Checked against `public/tracker.js` (page view lifecycle, one active window, idle close, openPageView). No marketing
   claim added. tsc and docs:check pass.
+
+## 2026-11-22 docs: one worked example for the dashboard tiles
+- Page: `app/docs/reference/dashboard/page.tsx`, under "The key numbers". Before: each tile defined on its own row; the
+  Leads vs Conversion rate and Active now vs Sessions vs Sessions online differences never compared. After: "Numbers that
+  look alike: one worked example", two made-up visitors (Ana: 2 visits, 6 pages, 2 forms; Ben: 1 visit, 3 pages, still
+  reading) giving Leads 2, Conversion rate 50% (1 of 2), Sessions 3, Page views 9, Active now 1.
+- Checked against `app/platform/dashboard/page.jsx` (tile rules), `components/dashboard/ActiveNowTile.tsx` (same live
+  store as Sessions online), the 30-minute idle split in `public/tracker.js`. The two forms are minutes apart on
+  purpose: a repeat of the same email from the same visitor within 60 seconds is dropped. Example clearly marked as
+  made up; no marketing claim added. tsc and docs:check pass.

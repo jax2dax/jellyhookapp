@@ -49,6 +49,24 @@ export default function DashboardReferencePage() {
           before it. The (i) beside each title says how that number is counted.
         </P>
 
+        <H3>Numbers that look alike: one worked example</H3>
+        <P>
+          Two made-up visitors in the last 24 hours. Ana reads 4 pages in the morning and goes. She comes back after lunch, more than 30 minutes later, so that is a
+          second visit. She reads 2 more pages, sends your contact form, then a few minutes later sends your quote form too. Ben opens 3 pages, sends nothing, and is
+          still reading a page right now.
+        </P>
+        <DataTable
+          head={["Tile", "Shows", "Why"]}
+          rows={[
+            [<B key="a">Leads</B>, "2", "Every form sent counts. Ana sent two."],
+            [<B key="b">Conversion rate</B>, "50% (1 of 2 visitors)", "People, not forms. Ana counts once however many forms she sent."],
+            [<B key="c">Sessions</B>, "3", "Ana's morning visit, Ana's afternoon visit, Ben's visit."],
+            [<B key="d">Page views</B>, "9", "4 + 2 from Ana, 3 from Ben."],
+            [<B key="e">Active now</B>, "1", "Ben, on the site at this moment. The Sessions online chart ends at the same number."],
+          ]}
+        />
+        <P>So Leads can be higher than the number of people who converted, and Sessions can be higher than the number of people who visited.</P>
+
         <H3>Hooked leads</H3>
         <P>
           The six newest leads your hooks caught, with the hook that caught each one and how long ago. Click one to open the lead. <B>All hooked</B> opens Hooks →

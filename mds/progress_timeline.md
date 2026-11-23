@@ -2110,3 +2110,7 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
 - /docs/concepts/session-replay: new section on when a page view starts and ends (another page, another tab, another
   window of the site, 30 minutes idle), and why one page can show as two frames. docs-audit: the Pages table item marked
   stale (the table is no longer in the app).
+
+## 2026-11-22: dashboard docs get a worked example
+- /docs/reference/dashboard: one example with two made-up visitors shows why Leads, Conversion rate, Sessions, Page
+  views and Active now differ. Closes the two "numbers with traps" rows for the overview in marketing/docs-audit.md.
