@@ -389,3 +389,13 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
   store as Sessions online), the 30-minute idle split in `public/tracker.js`. The two forms are minutes apart on
   purpose: a repeat of the same email from the same visitor within 60 seconds is dropped. Example clearly marked as
   made up; no marketing claim added. tsc and docs:check pass.
+
+## 2026-11-23 docs: "When you would use it" on Leads, Lead profile and Conversions
+- Pages: `app/docs/reference/leads/page.tsx`, `lead-profile/page.tsx`, `conversions/page.tsx`. Before: none had the
+  scenario section that `mds/documentation/docs-standard.md` requires as section 2. After: one made-up scenario each,
+  first section on the page. Leads: working through unreviewed leads with the qualify filter, and search by email.
+  Lead profile: before a call, returning visits, pricing in Path to conversion, the budget field highlighted in Field Timing.
+  Conversions: comparing the yellow (leads) and dashed blue (all visitors) shapes on Leads Origin, then expanding
+  Converted leads cards.
+- Each scenario uses only elements already documented on that page. No numbers, results or marketing claims added.
+  tsc and docs:check pass.

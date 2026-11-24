@@ -2114,3 +2114,7 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
 ## 2026-11-22: dashboard docs get a worked example
 - /docs/reference/dashboard: one example with two made-up visitors shows why Leads, Conversion rate, Sessions, Page
   views and Active now differ. Closes the two "numbers with traps" rows for the overview in marketing/docs-audit.md.
+
+## 2026-11-23: scenarios on the Leads, Lead profile and Conversions docs
+- Each of the three reference pages now opens with "When you would use it" (docs standard, section 2). Still missing on
+  settings, team, billing and groups (marketing/docs-audit.md).

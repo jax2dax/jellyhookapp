@@ -19,6 +19,15 @@ export default function LeadProfileReferencePage() {
 
       <div className="mt-12 space-y-10">
         <div>
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">When you would use it</h2>
+          <p className="max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            A lead asks for a quote and you are about to call them. Their profile shows they came back three times
+            before writing, and Path to conversion shows the pricing page on each visit. Field Timing highlights
+            the budget field: they spent longest on it. You open the call with pricing and budget, not a general pitch.
+          </p>
+        </div>
+
+        <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Header</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             Name, email, phone, whether they converted, and whether they were a first-time or returning visitor

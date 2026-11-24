@@ -19,6 +19,16 @@ export default function ConversionsReferencePage() {
 
       <div className="mt-12 space-y-10">
         <div>
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">When you would use it</h2>
+          <p className="max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            You post in a few places and want to know which ones bring people who fill in the form, not just
+            visitors. On Leads Origin you leave &quot;Show where all unique visitors came from&quot; on and compare the two
+            shapes: a source where the yellow shape reaches further than the blue one turns its visitors into leads
+            more often. You expand a few cards in Converted leads to see what those people read before they wrote.
+          </p>
+        </div>
+
+        <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Converted leads</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             One card per converted lead, filterable by date range (last 3 days, last week, last month, all time, or

@@ -17,6 +17,15 @@ export default function LeadsReferencePage() {
 
       <div className="mt-12 space-y-10">
         <div>
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">When you would use it</h2>
+          <p className="max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            It is Monday and the weekend brought a pile of form submissions. You set the qualify filter to unreviewed
+            and work down the list: open each lead, mark it qualified or junk, and go back, until no unreviewed leads
+            are left. A client asks about one person by name, so you type their email in search.
+          </p>
+        </div>
+
+        <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Search</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">Matches against a lead&apos;s name or email, whichever one has text in it.</p>
         </div>
