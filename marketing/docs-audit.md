@@ -34,7 +34,7 @@ Sidebar labels are from `components/app-sidebar.tsx`. Hidden in the sidebar (Vis
 ## 2. Missing or generic
 
 1. No page says who Jellyhook is not for, or what it does not do (no company identification, no video, no CRM sync, no consent banner). Fixed in use-cases page.
-2. No end-to-end scenario links a situation to a screen. Fixed in use-cases page. Feature pages still lack their own one-scenario "When you would use it" section: the standard requires it on every feature reference page. Missing on: dashboard, leads, lead-profile, conversions, settings, team, billing. Done 2026-11-23 for leads, lead-profile and conversions (dashboard already had one). Still to do: settings, team, billing, groups.
+2. No end-to-end scenario links a situation to a screen. Fixed in use-cases page. Feature pages still lack their own one-scenario "When you would use it" section: the standard requires it on every feature reference page. Missing on: dashboard, leads, lead-profile, conversions, settings, team, billing. Done 2026-11-23 for leads, lead-profile and conversions (dashboard already had one). Done 2026-11-24 for team. Groups already opens with an example under "Using groups". Still to do: settings, billing.
 3. Feature reference pages do not follow the required section order (What it answers, When you would use it, What you see, What it needs, How it is calculated, When it is empty, Limits, Related). They use ad-hoc `h2`s. Largest rewrite job: dashboard, lead-profile, conversions.
 4. No "when it is empty" wording on dashboard, leads, lead-profile or conversions pages (except a flat-zero note on the minis).
 5. Several older pages use inline classes instead of `app/docs/ui.tsx`. Visual result is the same; only matters for maintenance.

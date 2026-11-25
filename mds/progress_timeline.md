@@ -2118,3 +2118,8 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
 ## 2026-11-23: scenarios on the Leads, Lead profile and Conversions docs
 - Each of the three reference pages now opens with "When you would use it" (docs standard, section 2). Still missing on
   settings, team, billing and groups (marketing/docs-audit.md).
+
+## 2026-11-24: Team docs get a scenario and two fixes
+- /docs/reference/team opens with "When you would use it". Fixed two wrong lines: an accepted invite keeps the role it
+  was sent with (not always member), and a declined invite is kept and shown dimmed under Declined (not removed).
+  Scenarios now missing only on settings and billing (marketing/docs-audit.md).

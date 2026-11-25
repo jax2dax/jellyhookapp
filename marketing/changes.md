@@ -399,3 +399,15 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
   Converted leads cards.
 - Each scenario uses only elements already documented on that page. No numbers, results or marketing claims added.
   tsc and docs:check pass.
+
+## 2026-11-24 docs: Team page scenario, and two accept/decline fixes
+- Page: `app/docs/reference/team/page.tsx`. Added "When you would use it" as the first section: invite the person who
+  answers leads as a member (sees every lead and visit history, cannot change the key, settings or team), later invite a
+  partner as an admin.
+- "Accepting or declining". Before: accepting "gives them a member role immediately"; declining "removes the invite".
+  After: accepting gives the role they were invited as (member or admin); a declined invite stays on the Team page,
+  dimmed under Declined, and inviting the same email again sends a new invite.
+- Checked against `lib/actions/site-management.actions.js` (acceptInvite keeps the row's role, declineInvite sets
+  status declined), `lib/actions/settings.actions.js` (inviteMember re-sends to a declined email),
+  `lib/tracking/permissions.js` (owner can invite admin or member, admin only member),
+  `app/platform/network/NetworkClient.jsx` (Declined list). No marketing claim added. tsc and docs:check pass.

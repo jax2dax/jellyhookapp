@@ -22,6 +22,15 @@ export default function TeamReferencePage() {
 
       <div className="mt-12 space-y-10">
         <div>
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">When you would use it</h2>
+          <p className="max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
+            You run the site and someone else answers the leads. You invite them by email as a member: they can open every lead and its
+            visit history before they call, but they cannot change the site&apos;s key, its settings or its team. Later a partner joins
+            who also needs to manage the site, so you invite them as an admin.
+          </p>
+        </div>
+
+        <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Roles</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             Three roles. Everyone can see and use every page a site tracks: the dashboard, leads, conversions and every lead&apos;s full history.
@@ -62,8 +71,9 @@ export default function TeamReferencePage() {
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Accepting or declining</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
             Signing in with an invited email shows an accept-or-decline screen before anything else. Accepting adds
-            the site to that person&apos;s account and gives them a member role immediately. Declining removes the
-            invite and sends them to add their own site instead.
+            the site to that person&apos;s account straight away, with the role they were invited as (member or admin). Declining
+            sends them to add their own site instead. The declined invite stays on the Team page, dimmed under Declined, and
+            inviting the same email again sends a new invite.
           </p>
         </div>
 
