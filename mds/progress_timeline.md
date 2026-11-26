@@ -2123,3 +2123,7 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
 - /docs/reference/team opens with "When you would use it". Fixed two wrong lines: an accepted invite keeps the role it
   was sent with (not always member), and a declined invite is kept and shown dimmed under Declined (not removed).
   Scenarios now missing only on settings and billing (marketing/docs-audit.md).
+
+## 2026-11-25: Settings docs get a scenario
+- /docs/reference/settings opens with "When you would use it": switching a newsletter form to Not a lead. Billing is
+  the last reference page without one (marketing/docs-audit.md).

@@ -26,6 +26,16 @@ export default function SettingsReferencePage() {
 
       <div className="mt-12 space-y-10">
         <div>
+          <h2 className={H2}>When you would use it</h2>
+          <p className={`max-w-2xl ${P}`}>
+            Your Leads page is filling up with newsletter sign-ups from the box in your footer, because every form with an email field counts.
+            You open Settings, then Forms, find that form under Lead forms and switch it to <strong className={B}>Not a lead</strong>. Within
+            about a minute, new sign-ups from it are only counted, shown as skipped on its row, and no longer reach your Leads page. The
+            sign-ups already recorded stay where they are.
+          </p>
+        </div>
+
+        <div>
           <h2 className={H2}>General</h2>
           <p className={P}>
             <strong className={B}>Name and domain.</strong> The tracker must report from the domain, so after a domain change the site is verified

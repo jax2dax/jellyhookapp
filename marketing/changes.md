@@ -411,3 +411,12 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
   status declined), `lib/actions/settings.actions.js` (inviteMember re-sends to a declined email),
   `lib/tracking/permissions.js` (owner can invite admin or member, admin only member),
   `app/platform/network/NetworkClient.jsx` (Declined list). No marketing claim added. tsc and docs:check pass.
+
+## 2026-11-25 docs: "When you would use it" on Site settings
+- Page: `app/docs/reference/settings/page.tsx`. Before: no scenario section (docs standard, section 2). After: first
+  section on the page. Newsletter sign-ups from a footer box fill the Leads page; you switch that form to Not a lead under
+  Settings, Forms, Lead forms; within about a minute new sign-ups are only counted (shown as skipped on its row) and
+  the ones already recorded stay.
+- Checked against `app/platform/settings/FormSwitchesCard.jsx` (Lead / Not a lead switch, skipped count on each row),
+  `mds/build/forms/lead-forms.md` (a switched-off form is only counted, answers never sent), and the "about a minute"
+  and "does not change leads already recorded" lines already on the page. No marketing claim added. tsc and docs:check pass.
