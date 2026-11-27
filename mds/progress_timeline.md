@@ -2127,3 +2127,9 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
 ## 2026-11-25: Settings docs get a scenario
 - /docs/reference/settings opens with "When you would use it": switching a newsletter form to Not a lead. Billing is
   the last reference page without one (marketing/docs-audit.md).
+
+## 2026-11-27: Billing docs match the app
+- /docs/reference/billing described a Billing page that is now behind a "Billing is coming soon" veil. Rewritten to
+  what is on screen, plus the 5-site early access limit and a scenario. Every feature reference page now has
+  "When you would use it". Note for the founder: the 5-site cap counts sites joined as a teammate, so an agency person
+  invited to 5 client sites cannot add their own.

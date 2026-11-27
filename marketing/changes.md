@@ -420,3 +420,15 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
 - Checked against `app/platform/settings/FormSwitchesCard.jsx` (Lead / Not a lead switch, skipped count on each row),
   `mds/build/forms/lead-forms.md` (a switched-off form is only counted, answers never sent), and the "about a minute"
   and "does not change leads already recorded" lines already on the page. No marketing claim added. tsc and docs:check pass.
+
+## 2026-11-27 docs: Billing page matches what the app shows
+- Page: `app/docs/reference/billing/page.tsx`. Before: the Billing page "shows your current plan, your billing email,
+  and a history of billing events"; the Subscription page was named but never described; no scenario. After: a
+  "When you would use it" section (will inviting teammates or adding a site cost anything? no); the one early access
+  limit (up to 5 sites per account, sites joined as a teammate included, "Site limit reached", ask through Support);
+  the Billing page is not in the sidebar and shows "Billing is coming soon" over a blurred, unclickable preview; the
+  Subscription page shows plan cards marked "Free now" with blurred details, and its switch only changes each card's note.
+- Checked against `app/platform/billing/page.tsx` and `components/billing/ComingSoonVeil.tsx`,
+  `components/billing/DashboardPricingCards.tsx`, `components/nav/sidebarItems.ts` (Subscription commented out, no
+  Billing entry), `lib/actions/site-management.actions.js` (EARLY_ACCESS_SITE_CAP = 5, counted over every active
+  membership), `app/platform/create-site/page.jsx` (the limit message). No price or plan details stated. tsc and docs:check pass.
