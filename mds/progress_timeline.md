@@ -2133,3 +2133,9 @@ The founder's control room: every site's traffic, leads, marks, hooks, form-to-S
   what is on screen, plus the 5-site early access limit and a scenario. Every feature reference page now has
   "When you would use it". Note for the founder: the 5-site cap counts sites joined as a teammate, so an agency person
   invited to 5 client sites cannot add their own.
+
+## 2026-11-27: Team docs match the screens
+- /docs/reference/team described controls the app does not have. Now says: only the owner invites and removes, on the
+  Team page; everyone joins as a member; no button yet for admin or ownership transfer. Gap for the founder: the server
+  already has setMemberRole and transferOwnership (lib/actions/settings.actions.js) and admins are allowed to invite,
+  but no screen offers them, so an owner can never leave a site.

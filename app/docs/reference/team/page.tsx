@@ -13,20 +13,21 @@ export default function TeamReferencePage() {
       <span className="ff-mono text-[10px] uppercase tracking-[0.3em] text-[var(--ink-mute)]">Feature reference</span>
       <h1 className="mt-3 ff-display text-3xl text-[var(--ink)]">Team and invites</h1>
       <p className="mt-5 max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-        A site can have more than one person with access to it. The Team page (invite on top, the team listed under it) and the Team members section on{" "}
+        A site can have more than one person with access to it. The Team page in the sidebar has the invite box on top, the invites waiting
+        for an answer under it, then the team. Leaving a site is in{" "}
         <Link href="/docs/reference/settings" className="text-[var(--lime)] hover:underline">
           Site settings
-        </Link>{" "}
-        both manage the same underlying team list, just laid out differently. Either one works.
+        </Link>
+        .
       </p>
 
       <div className="mt-12 space-y-10">
         <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">When you would use it</h2>
           <p className="max-w-2xl ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            You run the site and someone else answers the leads. You invite them by email as a member: they can open every lead and its
-            visit history before they call, but they cannot change the site&apos;s key, its settings or its team. Later a partner joins
-            who also needs to manage the site, so you invite them as an admin.
+            You run the site and someone else answers the leads. You invite them by email from the Team page and they join as a member:
+            they can open every lead and its visit history before they call, but they cannot change the site&apos;s key, its settings or
+            its team.
           </p>
         </div>
 
@@ -38,8 +39,8 @@ export default function TeamReferencePage() {
           </p>
           <div className="mt-4 divide-y divide-[var(--rule)] border-t border-b border-[var(--rule)]">
             {[
-              ["Owner", "Everything. Also the only role that can delete the site and transfer ownership. Whoever creates the site, or is named by a transfer."],
-              ["Admin", "Everything the owner can do except override the owner: rename the site, change its domain, regenerate the key, pause it, manage allowed hosts, invite and remove people, promote members. An admin cannot delete the site, transfer ownership, remove the owner or change another admin's role."],
+              ["Owner", "Everything: every setting, and inviting and removing people. Whoever created the site."],
+              ["Admin", "Every setting the owner can change: rename the site, change its domain, regenerate the key, pause it, manage allowed hosts, lead forms and privacy. An admin cannot delete the site."],
               ["Member", "View only. Cannot change the site, its key, its team or its settings."],
             ].map(([role, desc]) => (
               <div key={role} className="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:gap-6">
@@ -49,47 +50,46 @@ export default function TeamReferencePage() {
             ))}
           </div>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            Settings only shows the controls your role can use, and the server refuses anything your role does not allow either way. More roles, and
-            custom permissions per role, are planned.
+            Settings only shows the controls your role can use, and the server refuses anything your role does not allow either way.
+            Everyone you invite joins as a member. There is no button yet to make a member an admin.
           </p>
         </div>
 
         <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Inviting someone</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            The owner or an admin enters a teammate&apos;s email and sends the invite (the owner can invite an admin too). If that person already has an account,
-            access is granted the next time they sign in. If they do not have an account yet, they get access the
-            moment they sign up with that exact email address.
+            The owner types a teammate&apos;s email on the Team page and presses Send Invite. Other people on the site see the team but not the
+            invite box. If that person already has an account, access is granted the next time they sign in. If they do not have an account
+            yet, they get access the moment they sign up with that exact email address.
           </p>
           <p className="mt-3 ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            An invite sits as pending until the person it was sent to signs in or signs up with the matching email.
-            The owner can cancel a pending invite at any time before that happens.
+            The invite waits under &quot;Sent invites, awaiting response&quot; until the person signs in or signs up with the matching email.
+            The owner can press Cancel invite at any time before that happens.
           </p>
         </div>
 
         <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Accepting or declining</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            Signing in with an invited email shows an accept-or-decline screen before anything else. Accepting adds
-            the site to that person&apos;s account straight away, with the role they were invited as (member or admin). Declining
-            sends them to add their own site instead. The declined invite stays on the Team page, dimmed under Declined, and
-            inviting the same email again sends a new invite.
+            Signing in with an invited email shows an accept-or-decline screen before anything else. Accepting adds the site to that
+            person&apos;s account straight away, as a member. Declining sends them to add their own site instead. The declined invite stays
+            on the Team page, dimmed under Declined, and inviting the same email again sends a new invite.
           </p>
         </div>
 
         <div>
           <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Removing someone</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            The owner and admins can remove a member, never themselves, and never the owner. To step down as owner, transfer ownership first. Members and admins can
-            also leave on their own from Settings → Site → Your access. The owner cannot leave until ownership is transferred.
+            The owner can remove anyone else from the Team page. Members and admins can also leave on their own from Settings → General →
+            Your access.
           </p>
         </div>
 
         <div>
-          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Transferring ownership</h2>
+          <h2 className="ff-display text-xl text-[var(--ink)] mb-3">Handing the site to someone else</h2>
           <p className="ff-body text-[14px] leading-relaxed text-[var(--ink-soft)]">
-            The owner can make any active member the new owner from the team list. The previous owner becomes an admin: they keep working access but
-            lose the owner-only rights. The new owner must already have accepted their invite.
+            There is no button yet to transfer ownership, so the owner cannot leave the site either. When it comes, the rule is already set:
+            the new owner must have accepted their invite, and the previous owner becomes an admin.
           </p>
         </div>
 

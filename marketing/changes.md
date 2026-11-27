@@ -432,3 +432,14 @@ page (ledger 1-4, 16, 23). The lead route is labelled "Example data".
   `components/billing/DashboardPricingCards.tsx`, `components/nav/sidebarItems.ts` (Subscription commented out, no
   Billing entry), `lib/actions/site-management.actions.js` (EARLY_ACCESS_SITE_CAP = 5, counted over every active
   membership), `app/platform/create-site/page.jsx` (the limit message). No price or plan details stated. tsc and docs:check pass.
+
+## 2026-11-27 docs: Team page matches the screens
+- Page: `app/docs/reference/team/page.tsx`. Before: a "Team members section on Site settings" (there is none); the owner
+  or an admin invites, the owner can invite an admin, admins promote members, the owner transfers ownership from the
+  team list; the scenario (added 2026-11-24) invited a partner as an admin; "Settings → Site → Your access". After: the
+  Team page is the one place; only the owner sees the invite box and Remove; every invite joins as a member; there is
+  no button yet to make someone an admin or to transfer ownership (so the owner cannot leave), with the rule the server
+  already enforces; the admin scenario line removed; "Settings → General → Your access".
+- Checked against `app/platform/network/NetworkClient.jsx` (invite card and Remove only when isOwner, inviteMember with
+  no role), `lib/actions/settings.actions.js` (setMemberRole and transferOwnership exist but no screen calls them),
+  `lib/settings/sections.js` (no team section; General), `lib/tracking/permissions.js`. No marketing claim. tsc and docs:check pass.
